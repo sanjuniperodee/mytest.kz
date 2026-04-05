@@ -166,7 +166,9 @@ export function LandingPage() {
 
         <section className="ld-pullquote">
           <div className="ld-max">
-            <blockquote className="ld-quote-text">{t('landing.stripeQuote')}</blockquote>
+            <div className="ld-quote-card">
+              <blockquote className="ld-quote-text">{t('landing.stripeQuote')}</blockquote>
+            </div>
           </div>
         </section>
 

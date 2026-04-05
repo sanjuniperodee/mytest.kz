@@ -119,7 +119,7 @@ html:has(.landing-root) body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 32px rgba(46, 231, 216, 0.25);
+  box-shadow: 0 4px 20px rgba(46, 231, 216, 0.12);
 }
 
 .ld-logo-text {
@@ -200,12 +200,12 @@ html:has(.landing-root) body {
 .ld-btn-primary {
   background: linear-gradient(135deg, #1ee0d0 0%, #7c6cf0 100%);
   color: #05070d;
-  box-shadow: 0 4px 24px rgba(46, 231, 216, 0.28);
+  box-shadow: 0 2px 14px rgba(46, 231, 216, 0.18);
 }
 
 .ld-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 36px rgba(124, 108, 240, 0.35);
+  box-shadow: 0 6px 22px rgba(124, 108, 240, 0.22);
 }
 
 .ld-btn-glass {
@@ -542,32 +542,28 @@ html:has(.landing-root) body {
   line-height: 1.6;
 }
 
-/* Pull quote */
+/* Pull quote — real box wraps text only (no ::before height:100% glitch) */
 .ld-pullquote {
   position: relative;
   z-index: 1;
-  padding: clamp(48px, 10vw, 88px) 0;
+  padding: clamp(40px, 8vw, 72px) 0;
 }
 
-.ld-pullquote::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
-  width: min(92%, 900px);
-  height: 100%;
-  background: linear-gradient(135deg, rgba(46, 231, 216, 0.1), rgba(167, 139, 250, 0.08));
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  z-index: -1;
+.ld-quote-card {
+  max-width: min(100%, 900px);
+  margin: 0 auto;
+  padding: clamp(22px, 4vw, 34px) clamp(24px, 3vw, 40px);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(46, 231, 216, 0.07), rgba(167, 139, 250, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
 }
 
 .ld-quote-text {
   font-family: var(--ld-display);
-  font-size: clamp(1.25rem, 2.8vw, 1.75rem);
+  font-size: clamp(1.2rem, 2.6vw, 1.65rem);
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
   letter-spacing: -0.02em;
   margin: 0;
   max-width: 52ch;
