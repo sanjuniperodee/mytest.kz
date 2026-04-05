@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "BilimLand"
+    "name": "MyTest"
   },
   "nav": {
     "home": "Home",
@@ -99,7 +99,7 @@
   },
   "profile": {
     "title": "Profile",
-    "guestName": "BilimLand student",
+    "guestName": "MyTest student",
     "settings": "Settings",
     "toHome": "Exams",
     "quickNavAria": "Quick actions",
@@ -156,9 +156,9 @@
     "logout": "Logout"
   },
   "auth": {
-    "seoTitle": "Sign in — BilimLand (Telegram)",
+    "seoTitle": "Sign in — MyTest (Telegram)",
     "seoDescription": "Sign in with Telegram: one-time code from the bot, no separate password.",
-    "title": "Login to BilimLand",
+    "title": "Login to MyTest",
     "telegramLogin": "Login via Telegram",
     "webLogin": "Login with code",
     "enterUsername": "Enter your Telegram @username",
@@ -170,8 +170,8 @@
     "subscribeRequired": "Subscribe to our channel to get started"
   },
   "channel": {
-    "seoTitle": "Subscribe to channel — BilimLand",
-    "seoDescription": "Subscribe to the BilimLand Telegram channel to access practice tests.",
+    "seoTitle": "Subscribe to channel — MyTest",
+    "seoDescription": "Subscribe to the MyTest Telegram channel to access practice tests.",
     "title": "Subscribe to the channel",
     "description": "You need to subscribe to our Telegram channel to access the tests",
     "subscribe": "Subscribe",
@@ -211,18 +211,18 @@
     "sectionHow": "Three steps",
     "sectionAbout": "In short",
     "aboutLead": "Solid prep isn’t last-minute cramming — it’s rehearsing the format until your hands know the tempo.",
-    "aboutBody": "BilimLand is built around real exam scenarios: section structure, time limits, working through mistakes. We’re for people who prepare steadily — a little every day.",
-    "footerTagline": "for bilim, without the chaos.",
+    "aboutBody": "MyTest is built around real exam scenarios: section structure, time limits, working through mistakes. We’re for people who prepare steadily — a little every day.",
+    "footerTagline": "Focused prep — without the chaos.",
     "footerCta": "Go to tests",
-    "seoTitle": "BilimLand — UNT, NIS, NUET practice tests online | Kazakhstan",
+    "seoTitle": "MyTest — UNT, NIS, NUET practice tests online | Kazakhstan",
     "seoDescription": "Prepare for UNT, NIS, NUET and KTL-style exams: timed practice tests, mistake review and progress tracking. Sign in with Telegram. Languages: Kazakh, Russian, English.",
-    "seoKeywords": "UNT online, NIS test, NUET practice, Kazakhstan exams, college prep, bilimland, trial exam",
-    "seoOgImageAlt": "BilimLand — online exam practice platform for Kazakhstan",
-    "seoHowToName": "How to start using BilimLand",
+    "seoKeywords": "UNT online, NIS test, NUET practice, Kazakhstan exams, college prep, mytest, trial exam",
+    "seoOgImageAlt": "MyTest — online exam practice platform for Kazakhstan",
+    "seoHowToName": "How to start using MyTest",
     "seoHowToDescription": "Sign in with Telegram, pick an exam type and launch a timed practice session.",
     "seoFaq": [
       {
-        "question": "How is BilimLand different from a question bank?",
+        "question": "How is MyTest different from a question bank?",
         "answer": "We mimic exam rhythm: timer, sections and navigation — training the habit of finishing under pressure, not only reading questions."
       },
       {

@@ -39,7 +39,7 @@ export function LoginPage() {
           includeHreflang={false}
         />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px' }}>
-          <Logo />
+          <Logo title={t('app.name')} />
           <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>{t('home.subtitle')}</p>
           <button className="btn btn-primary" onClick={handleTelegramLogin} disabled={loading} style={{ maxWidth: 320 }}>
             {loading ? t('common.loading') : t('auth.telegramLogin')}
@@ -75,7 +75,7 @@ export function LoginPage() {
         includeHreflang={false}
       />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px' }}>
-        <Logo />
+        <Logo title={t('app.name')} />
 
         <div style={{ width: '100%', maxWidth: 380 }} className="animate-fadeIn">
           {step === 'username' ? (
@@ -151,7 +151,7 @@ export function LoginPage() {
   );
 }
 
-function Logo() {
+function Logo({ title }: { title: string }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 32 }}>
       <div style={{
@@ -163,7 +163,7 @@ function Logo() {
         <BookIcon />
       </div>
       <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1, color: 'var(--text-primary)' }}>
-        BilimLand
+        {title}
       </h1>
     </div>
   );

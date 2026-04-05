@@ -43,7 +43,7 @@ export class TelegramBotService implements OnModuleInit {
         });
 
         await ctx.reply(
-          '👋 Добро пожаловать в BilimLand!\n\n' +
+          '👋 Добро пожаловать в MyTest!\n\n' +
           'Теперь вы можете войти на сайт через свой Telegram username.\n\n' +
           '1️⃣ Зайдите на сайт\n' +
           '2️⃣ Введите ваш @username\n' +
@@ -109,7 +109,7 @@ export class TelegramBotService implements OnModuleInit {
     try {
       await this.bot.telegram.sendMessage(
         Number(user.telegramId),
-        `🔐 Ваш код для входа в BilimLand: *${code}*\n\nКод действителен 5 минут.`,
+        `🔐 Ваш код для входа в MyTest: *${code}*\n\nКод действителен 5 минут.`,
         { parse_mode: 'Markdown' },
       );
     } catch (error) {

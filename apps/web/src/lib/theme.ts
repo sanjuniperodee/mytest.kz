@@ -1,10 +1,18 @@
-export const THEME_STORAGE_KEY = 'bilimland-theme';
+export const THEME_STORAGE_KEY = 'mytest-theme';
+const LEGACY_THEME_KEY = 'bilimland-theme';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 export function getStoredThemePreference(): ThemePreference {
   try {
-    const v = localStorage.getItem(THEME_STORAGE_KEY);
+    let v = localStorage.getItem(THEME_STORAGE_KEY);
+    if (!v) {
+      const legacy = localStorage.getItem(LEGACY_THEME_KEY);
+      if (legacy === 'light' || legacy === 'dark' || legacy === 'system') {
+        localStorage.setItem(THEME_STORAGE_KEY, legacy);
+        v = legacy;
+      }
+    }
     if (v === 'light' || v === 'dark' || v === 'system') return v;
   } catch {
     /* ignore */

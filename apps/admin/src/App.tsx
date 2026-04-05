@@ -70,7 +70,7 @@ function AdminLayout() {
         style={{ boxShadow: '2px 0 12px rgba(15, 23, 42, 0.08)' }}
       >
         <div style={{ padding: '16px', textAlign: 'center', color: '#fff', fontWeight: 700, fontSize: collapsed ? 14 : 18 }}>
-          {collapsed ? 'BL' : 'BilimLand'}
+          {collapsed ? 'MT' : 'MyTest'}
         </div>
         <Menu
           theme="dark"

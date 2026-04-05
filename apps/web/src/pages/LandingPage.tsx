@@ -72,9 +72,9 @@ export function LandingPage() {
         <header className="ld-nav">
           <div className="ld-max ld-nav-inner">
             <div className="ld-logo" aria-label={t('app.name')}>
-              <span className="ld-logo-mark">B</span>
+              <span className="ld-logo-mark">M</span>
               <span className="ld-logo-text">
-                Bilim<span>Land</span>
+                My<span>Test</span>
               </span>
             </div>
             <div className="ld-nav-actions">

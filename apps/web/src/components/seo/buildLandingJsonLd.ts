@@ -16,7 +16,7 @@ export function buildLandingJsonLd(
   const organization = {
     '@type': 'Organization',
     '@id': orgId,
-    name: 'BilimLand',
+    name: 'MyTest',
     url: siteUrl,
     logo: `${siteUrl}/og-cover.svg`,
     description: t('landing.seoDescription'),
@@ -27,7 +27,7 @@ export function buildLandingJsonLd(
     '@type': 'WebSite',
     '@id': webId,
     url: siteUrl,
-    name: 'BilimLand',
+    name: 'MyTest',
     inLanguage: ['ru-KZ', 'kk-KZ', 'en'],
     publisher: { '@id': orgId },
     potentialAction: {
@@ -38,7 +38,7 @@ export function buildLandingJsonLd(
 
   const software = {
     '@type': 'SoftwareApplication',
-    name: 'BilimLand',
+    name: 'MyTest',
     url: siteUrl,
     applicationCategory: 'EducationalApplication',
     operatingSystem: 'Web',

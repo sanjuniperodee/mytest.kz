@@ -11,13 +11,13 @@ function seoEmitPlugin(siteUrl: string): Plugin {
   const today = new Date().toISOString().split('T')[0];
 
   return {
-    name: 'bilimland-seo-emit',
+    name: 'mytest-seo-emit',
     apply: 'build',
     writeBundle(opts) {
       const outDir = opts.dir;
       if (!outDir) return;
 
-      const robots = `# BilimLand — advanced crawl hints
+      const robots = `# MyTest — advanced crawl hints
 User-agent: *
 Allow: /
 Disallow: /app

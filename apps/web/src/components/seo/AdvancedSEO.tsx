@@ -37,7 +37,7 @@ export function AdvancedSEO({
   ogType = 'website',
   noindex = false,
   ogImage,
-  ogImageAlt = 'BilimLand',
+  ogImageAlt = 'MyTest',
   htmlLang = 'ru',
   jsonLd,
   includeHreflang = true,
@@ -68,7 +68,7 @@ export function AdvancedSEO({
 
       {/* Open Graph */}
       <meta property="og:type" content={ogType} />
-      <meta property="og:site_name" content="BilimLand" />
+      <meta property="og:site_name" content="MyTest" />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />
@@ -86,8 +86,8 @@ export function AdvancedSEO({
       <meta name="twitter:image:alt" content={ogImageAlt} />
 
       {/* Discovery */}
-      <meta name="author" content="BilimLand" />
-      <meta name="application-name" content="BilimLand" />
+      <meta name="author" content="MyTest" />
+      <meta name="application-name" content="MyTest" />
       <meta name="theme-color" content="#05070d" />
       <meta name="referrer" content="strict-origin-when-cross-origin" />
       <meta name="format-detection" content="telephone=no" />

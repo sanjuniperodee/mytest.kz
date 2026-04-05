@@ -49,7 +49,7 @@ export function LoginPage() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(180deg,#f5f7fb,#eef3fb)' }}>
       <Card style={{ width: 420, borderRadius: 12, boxShadow: '0 10px 30px rgba(15,23,42,0.08)' }}>
-        <Title level={3} style={{ textAlign: 'center' }}>BilimLand Admin</Title>
+        <Title level={3} style={{ textAlign: 'center' }}>MyTest Admin</Title>
         <p style={{ textAlign: 'center', color: '#64748b', marginTop: -8, marginBottom: 20 }}>
           Вход только для администраторов
         </p>

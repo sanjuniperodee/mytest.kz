@@ -76,7 +76,7 @@ export function HomePage() {
           fontSize: 11, color: 'var(--accent-light)', marginBottom: 8,
           textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700,
         }}>
-          BilimLand
+          {t('app.name')}
         </p>
         <h1 className="page-title">
           {greeting}{firstName ? `, ${firstName}` : ''}
