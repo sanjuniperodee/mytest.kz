@@ -766,7 +766,42 @@ html:has(.landing-root) body {
 }
 
 .ld-grant-row {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
+}
+
+.ld-grant-row-warn .ld-grant-label {
+  color: var(--ld-rose);
+}
+
+.ld-grant-row-warn .ld-grant-num {
+  color: var(--ld-rose);
+}
+
+.ld-grant-num-max {
+  font-weight: 600;
+  font-size: 0.85em;
+  color: var(--ld-dim);
+}
+
+.ld-grant-sum-max {
+  font-size: 0.55em;
+  font-weight: 700;
+  color: var(--ld-muted);
+  vertical-align: super;
+}
+
+.ld-grant-pass {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ld-grant-pass.is-ok {
+  color: var(--ld-cyan);
+}
+
+.ld-grant-pass.is-warn {
+  color: var(--ld-rose);
 }
 
 .ld-grant-row:last-of-type {
