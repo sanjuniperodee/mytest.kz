@@ -1,8 +1,19 @@
 /**
- * Production: https://api.{site-host}/api/v1 from VITE_SITE_URL (or fallback).
+ * Production: absolute API origin (VITE_API_URL or derived from VITE_SITE_URL).
+ * admin.example.com → api.example.com (not api.admin.example.com).
  * Development: /api/v1 (Vite proxy → localhost:3000).
- * Override: VITE_API_URL.
  */
+function siteHostnameToApiHostname(hostname: string): string {
+  let h = hostname.replace(/^www\./i, '');
+  if (/^admin\./i.test(h)) {
+    return `api.${h.slice('admin.'.length)}`;
+  }
+  if (/^api\./i.test(h)) {
+    return h;
+  }
+  return `api.${h}`;
+}
+
 export function resolveApiBaseUrl(input: {
   readonly viteApiUrl?: string;
   readonly viteSiteUrl?: string;
@@ -17,10 +28,7 @@ export function resolveApiBaseUrl(input: {
   if (input.viteProd && site && /^https?:\/\//i.test(site)) {
     try {
       const u = new URL(site);
-      let host = u.hostname.replace(/^www\./i, '');
-      if (!/^api\./i.test(host)) {
-        host = `api.${host}`;
-      }
+      const host = siteHostnameToApiHostname(u.hostname);
       return `${u.protocol}//${host}/api/v1`;
     } catch {
       /* fall through */
