@@ -3,14 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../api/hooks/useAuth';
 import { useTelegram } from '../lib/telegram';
+import { AdvancedSEO } from '../components/seo/AdvancedSEO';
 
 export function ChannelGatePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
   const { webApp, isTelegram } = useTelegram();
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
+
+  const htmlLang = i18n.language === 'kk' ? 'kk' : i18n.language === 'en' ? 'en' : 'ru';
 
   const channelLink = 'https://t.me/bilimilimland';
 
@@ -23,48 +26,58 @@ export function ChannelGatePage() {
     setChecking(true); setError('');
     try {
       const updatedUser = await refreshUser();
-      if (updatedUser?.isChannelMember) navigate('/', { replace: true });
+      if (updatedUser?.isChannelMember) navigate('/app', { replace: true });
       else setError(t('auth.subscribeRequired'));
     } catch { setError(t('common.error')); }
     finally { setChecking(false); }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 20, textAlign: 'center' }}>
-      <div className="surface animate-fadeIn" style={{ maxWidth: 340, padding: 24 }}>
-        <div style={{
-          width: 80, height: 80, borderRadius: 'var(--r-2xl)',
-          background: 'var(--accent-surface)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 24px', color: 'var(--accent-light)',
-        }}>
-          <ChannelIcon />
-        </div>
-
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>
-          {t('channel.title')}
-        </h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 32, lineHeight: 1.6, fontSize: 14 }}>
-          {t('channel.description')}
-        </p>
-
-        <button className="btn btn-primary" onClick={handleSubscribe} style={{ marginBottom: 10 }}>
-          {t('channel.subscribe')}
-        </button>
-        <button className="btn btn-secondary" onClick={handleCheck} disabled={checking}>
-          {checking ? t('common.loading') : t('channel.checkSubscription')}
-        </button>
-
-        {error && (
-          <p style={{
-            color: 'var(--error)', marginTop: 16, fontSize: 13,
-            padding: '8px 12px', background: 'var(--error-surface)', borderRadius: 'var(--r-sm)',
+    <>
+      <AdvancedSEO
+        title={t('channel.seoTitle')}
+        description={t('channel.seoDescription')}
+        canonicalPath="/channel-gate"
+        noindex
+        htmlLang={htmlLang}
+        includeHreflang={false}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 20, textAlign: 'center' }}>
+        <div className="surface animate-fadeIn" style={{ maxWidth: 340, padding: 24 }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: 'var(--r-2xl)',
+            background: 'var(--accent-surface)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 24px', color: 'var(--accent-light)',
           }}>
-            {error}
+            <ChannelIcon />
+          </div>
+
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>
+            {t('channel.title')}
+          </h1>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 32, lineHeight: 1.6, fontSize: 14 }}>
+            {t('channel.description')}
           </p>
-        )}
+
+          <button className="btn btn-primary" onClick={handleSubscribe} style={{ marginBottom: 10 }}>
+            {t('channel.subscribe')}
+          </button>
+          <button className="btn btn-secondary" onClick={handleCheck} disabled={checking}>
+            {checking ? t('common.loading') : t('channel.checkSubscription')}
+          </button>
+
+          {error && (
+            <p style={{
+              color: 'var(--error)', marginTop: 16, fontSize: 13,
+              padding: '8px 12px', background: 'var(--error-surface)', borderRadius: 'var(--r-sm)',
+            }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -207,7 +207,7 @@ export function ProfilePage() {
           </div>
         </div>
         <nav className="profile-quick-nav" aria-label={t('profile.quickNavAria')}>
-          <Link to="/" className="profile-quick-btn">
+          <Link to="/app" className="profile-quick-btn">
             <IconHome />
             <span>{t('profile.toHome')}</span>
           </Link>
@@ -381,7 +381,7 @@ export function ProfilePage() {
               </svg>
             </div>
             <p className="profile-empty-text">{t('profile.noTests')}</p>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/')}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/app')}>
               {t('profile.startPractice')}
             </button>
           </div>

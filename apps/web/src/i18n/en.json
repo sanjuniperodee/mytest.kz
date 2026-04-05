@@ -156,6 +156,8 @@
     "logout": "Logout"
   },
   "auth": {
+    "seoTitle": "Sign in — BilimLand (Telegram)",
+    "seoDescription": "Sign in with Telegram: one-time code from the bot, no separate password.",
     "title": "Login to BilimLand",
     "telegramLogin": "Login via Telegram",
     "webLogin": "Login with code",
@@ -168,6 +170,8 @@
     "subscribeRequired": "Subscribe to our channel to get started"
   },
   "channel": {
+    "seoTitle": "Subscribe to channel — BilimLand",
+    "seoDescription": "Subscribe to the BilimLand Telegram channel to access practice tests.",
     "title": "Subscribe to the channel",
     "description": "You need to subscribe to our Telegram channel to access the tests",
     "subscribe": "Subscribe",
@@ -182,5 +186,95 @@
     "save": "Save",
     "back": "Back",
     "of": "of"
+  },
+  "landing": {
+    "langLabel": "Language",
+    "ctaLogin": "Sign in",
+    "ctaScroll": "How it works",
+    "heroKicker": "Online platform · Kazakhstan",
+    "heroTitle": "Exam rhythm —",
+    "heroTitleEm": "before test day",
+    "heroLead": "Practice tests shaped like ENT, NIS, NUET and more: timer, sections, mistake review and progress. Telegram login — no separate password.",
+    "ticketAria": "Session snapshot",
+    "ticketLabel": "What a run feels like",
+    "ticketRow1L": "Timer & navigation",
+    "ticketRow1R": "exam-room close",
+    "ticketRow2L": "Mistakes & retries",
+    "ticketRow2R": "until you close them",
+    "ticketRow3L": "Languages",
+    "ticketRow3R": "kk · ru · en",
+    "ticketFoot": "Not “yet another question bank” — practice for staying calm under time pressure.",
+    "stripeQuote": "We don’t promise the exam will match verbatim. We give a familiar rhythm — so on the day you spend nerves on problems, not the UI.",
+    "sectionBenefits": "Why it matters",
+    "sectionHow": "Three steps",
+    "sectionAbout": "In short",
+    "aboutLead": "Solid prep isn’t last-minute cramming — it’s rehearsing the format until your hands know the tempo.",
+    "aboutBody": "BilimLand is built around real exam scenarios: section structure, time limits, working through mistakes. We’re for people who prepare steadily — a little every day.",
+    "footerTagline": "for bilim, without the chaos.",
+    "footerCta": "Go to tests",
+    "seoTitle": "BilimLand — UNT, NIS, NUET practice tests online | Kazakhstan",
+    "seoDescription": "Prepare for UNT, NIS, NUET and KTL-style exams: timed practice tests, mistake review and progress tracking. Sign in with Telegram. Languages: Kazakh, Russian, English.",
+    "seoKeywords": "UNT online, NIS test, NUET practice, Kazakhstan exams, college prep, bilimland, trial exam",
+    "seoOgImageAlt": "BilimLand — online exam practice platform for Kazakhstan",
+    "seoHowToName": "How to start using BilimLand",
+    "seoHowToDescription": "Sign in with Telegram, pick an exam type and launch a timed practice session.",
+    "seoFaq": [
+      {
+        "question": "How is BilimLand different from a question bank?",
+        "answer": "We mimic exam rhythm: timer, sections and navigation — training the habit of finishing under pressure, not only reading questions."
+      },
+      {
+        "question": "Do I need a separate password?",
+        "answer": "No. You sign in with Telegram: a one-time code is sent to the bot, you confirm your @username on the site."
+      },
+      {
+        "question": "Which exam formats are supported?",
+        "answer": "The catalog includes UNT-, NIS-, NUET-, KTL- and physmath-style formats. Section layout depends on the template you choose."
+      },
+      {
+        "question": "Is there mistake review?",
+        "answer": "Yes. After a test you can work on mistakes and track what you have already fixed."
+      },
+      {
+        "question": "Which UI languages are available?",
+        "answer": "Kazakh, Russian and English — switch from the landing page."
+      }
+    ],
+    "benefits": [
+      {
+        "tag": "Format",
+        "title": "Not “just questions”",
+        "body": "A session behaves like a test: sections, timer, deadline pressure — so nothing feels alien later."
+      },
+      {
+        "tag": "Mistakes",
+        "title": "Repeat until it sticks",
+        "body": "We mark where you slipped and bring you back to the same patterns until they feel automatic."
+      },
+      {
+        "tag": "Progress",
+        "title": "You see momentum",
+        "body": "Not a single score at the end — a trail of attempts: where you grew, where it’s still thin."
+      },
+      {
+        "tag": "Access",
+        "title": "Telegram instead of passwords",
+        "body": "A code lands in the bot; you sign in from any device. Less friction — more time on tasks."
+      }
+    ],
+    "steps": [
+      {
+        "title": "Sign in with Telegram",
+        "body": "Send /start to the bot, enter your @username on the site — get a one-time code."
+      },
+      {
+        "title": "Pick exam & template",
+        "body": "Add profile subjects if needed and launch a timed session."
+      },
+      {
+        "title": "Finish and review mistakes",
+        "body": "Read the breakdown and return to weak spots in a dedicated practice flow."
+      }
+    ]
   }
 }

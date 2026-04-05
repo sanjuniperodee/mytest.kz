@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="BilimLand">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0b0a09"/>
+      <stop offset="100%" style="stop-color:#1a1512"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#g)"/>
+  <rect x="0" y="280" width="1200" height="8" fill="#e0633a" opacity="0.9" transform="skewY(-1)"/>
+  <text x="80" y="320" fill="#e9e4dc" font-family="Georgia,serif" font-size="72" font-weight="600">BilimLand</text>
+  <text x="80" y="400" fill="#8a8680" font-family="system-ui,sans-serif" font-size="28">" · ( · #-"  ?@>1=K5 B5ABK</text>
+</svg>

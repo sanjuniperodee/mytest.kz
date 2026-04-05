@@ -95,7 +95,7 @@ export function ExamPage() {
   return (
     <div className="page">
       {/* Back */}
-      <button className="back-btn" onClick={() => navigate('/')}>
+      <button className="back-btn" onClick={() => navigate('/app')}>
         <BackArrow /> {t('common.back')}
       </button>
 

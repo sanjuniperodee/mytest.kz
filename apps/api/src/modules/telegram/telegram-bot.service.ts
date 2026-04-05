@@ -63,9 +63,15 @@ export class TelegramBotService implements OnModuleInit {
 
     this.logger.log('Telegram bot started');
 
-    // Graceful shutdown
-    process.once('SIGINT', () => this.bot.stop('SIGINT'));
-    process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
+    const safeStop = (signal: NodeJS.Signals) => {
+      try {
+        this.bot.stop(signal);
+      } catch {
+        /* telegraf throws if bot was not running */
+      }
+    };
+    process.once('SIGINT', () => safeStop('SIGINT'));
+    process.once('SIGTERM', () => safeStop('SIGTERM'));
   }
 
   async checkChannelMembership(telegramUserId: number): Promise<boolean> {

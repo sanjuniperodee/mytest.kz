@@ -96,7 +96,7 @@ export function TestPage() {
     if (session.status !== 'in_progress') {
       navigate(`/test/${sessionId}/review`, {
         replace: true,
-        state: { from: (location.state as { from?: string } | undefined)?.from || '/' },
+        state: { from: (location.state as { from?: string } | undefined)?.from || '/app' },
       });
       return;
     }
@@ -159,7 +159,7 @@ export function TestPage() {
       reset();
       navigate(`/test/${sessionId}/review`, {
         replace: true,
-        state: { from: (location.state as { from?: string } | undefined)?.from || '/' },
+        state: { from: (location.state as { from?: string } | undefined)?.from || '/app' },
       });
     }
     catch { if (webApp) webApp.showAlert(t('common.error')); }

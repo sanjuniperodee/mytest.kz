@@ -81,7 +81,7 @@ export function ReviewPage() {
   const scoreRaw = Number(session.score ?? 0);
   const scorePercent = Number.isFinite(scoreRaw) ? scoreRaw : 0;
   const displayedAnswers = showErrorsOnly ? answers.filter((a) => !a.isCorrect) : answers;
-  const backTo = (location.state as { from?: string } | undefined)?.from || '/';
+  const backTo = (location.state as { from?: string } | undefined)?.from || '/app';
   const getScoreColor = (s: number) => s >= 80 ? 'var(--success)' : s >= 50 ? 'var(--warning)' : 'var(--error)';
 
   // SVG circle math

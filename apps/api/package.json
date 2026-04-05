@@ -10,7 +10,7 @@
     "dev": "nest start --watch",
     "prestart": "prisma generate",
     "start": "nest start",
-    "start:prod": "prisma generate && node dist/main",
+    "start:prod": "prisma generate && node dist/src/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix"
   },
   "dependencies": {

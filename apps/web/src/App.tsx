@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './api/hooks/useAuth';
 import { TelegramProvider } from './lib/telegram';
+import { LandingPage } from './pages/LandingPage';
 import { HomePage } from './pages/HomePage';
 import { ExamPage } from './pages/ExamPage';
 import { TestPage } from './pages/TestPage';
@@ -45,6 +46,7 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/channel-gate" element={<ChannelGatePage />} />
       <Route
@@ -54,10 +56,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route
-          path="/"
-          element={<HomePage />}
-        />
+        <Route path="/app" element={<HomePage />} />
         <Route
           path="/profile"
           element={<ProfilePage />}
@@ -68,14 +67,6 @@ function AppRoutes() {
         />
         <Route path="/mistakes" element={<MistakesPage />} />
       </Route>
-      <Route
-        path="/exam/:examId"
-        element={
-          <ProtectedRoute>
-            <ExamPage />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/exam/:examId"
         element={

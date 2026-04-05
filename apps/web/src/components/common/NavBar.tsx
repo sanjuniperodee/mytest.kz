@@ -28,7 +28,7 @@ export function NavBar() {
   const { t } = useTranslation();
 
   const items = [
-    { path: '/', Icon: HomeIcon, label: t('nav.home') },
+    { path: '/app', Icon: HomeIcon, label: t('nav.home') },
     { path: '/profile', Icon: ProfileIcon, label: t('nav.profile') },
     { path: '/settings', Icon: SettingsIcon, label: t('nav.settings') },
   ];
@@ -36,8 +36,8 @@ export function NavBar() {
   return (
     <nav className="nav-bar">
       {items.map(({ path, Icon, label }) => {
-        const active = path === '/'
-          ? location.pathname === '/'
+        const active = path === '/app'
+          ? location.pathname === '/app'
           : location.pathname.startsWith(path);
         return (
           <button
