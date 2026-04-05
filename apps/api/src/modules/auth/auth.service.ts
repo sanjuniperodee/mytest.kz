@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, Inject, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Inject,
+  BadRequestException,
+  forwardRef,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
@@ -6,7 +12,11 @@ import { PrismaService } from '../../database/prisma.service';
 import { TelegramAuthService } from './telegram-auth.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
-import { AUTH_CODE_TTL_SECONDS, AUTH_CODE_LENGTH } from '@bilimland/shared';
+import {
+  AUTH_CODE_TTL_SECONDS,
+  AUTH_CODE_LENGTH,
+  normalizeKzPhone,
+} from '@bilimland/shared';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +25,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private telegramAuth: TelegramAuthService,
+    @Inject(forwardRef(() => TelegramBotService))
     private telegramBot: TelegramBotService,
     @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
@@ -60,57 +71,58 @@ export class AuthService {
   }
 
   /**
-   * Step 1: User enters their Telegram @username on the website.
-   * We look them up in DB (they must have /start'd the bot first),
-   * generate a 6-digit code, save to Redis, and send via bot.
+   * Step 1: User enters phone (same as shared in Telegram bot).
+   * Redis key + code sent to Telegram chat by telegramId.
    */
-  async requestWebCode(username: string) {
-    const cleanUsername = username.replace('@', '').trim();
-    if (!cleanUsername) {
-      throw new BadRequestException('Введите username');
+  async requestWebCode(rawPhone: string) {
+    const normalized = normalizeKzPhone(rawPhone || '');
+    if (!normalized) {
+      throw new BadRequestException('Введите корректный номер телефона');
     }
 
-    // Generate 6-digit code
+    const user = await this.prisma.user.findFirst({
+      where: { phone: normalized },
+    });
+    if (!user) {
+      throw new BadRequestException(
+        'Номер не найден. Откройте бота @bilimhan_bot по ссылке с сайта и укажите номер в Telegram.',
+      );
+    }
+
     const code = Array.from({ length: AUTH_CODE_LENGTH }, () =>
       Math.floor(Math.random() * 10),
     ).join('');
 
-    // Store in Redis with TTL
-    const redisKey = `auth:code:${cleanUsername.toLowerCase()}`;
+    const redisKey = `auth:code:${normalized}`;
     await this.redis.set(redisKey, code, 'EX', AUTH_CODE_TTL_SECONDS);
 
-    // Send code via Telegram bot (will throw BadRequestException if user not found)
-    await this.telegramBot.sendAuthCode(cleanUsername, code);
+    await this.telegramBot.sendAuthCodeToTelegram(user.telegramId, code);
 
     return { message: 'Code sent to your Telegram' };
   }
 
-  /**
-   * Step 2: User enters the 6-digit code from Telegram.
-   * We verify it, find (or confirm) the user, and issue JWT tokens.
-   */
-  async verifyWebCode(username: string, code: string) {
-    const cleanUsername = username.replace('@', '').trim().toLowerCase();
-    const redisKey = `auth:code:${cleanUsername}`;
+  async verifyWebCode(rawPhone: string, code: string) {
+    const normalized = normalizeKzPhone(rawPhone || '');
+    if (!normalized) {
+      throw new BadRequestException('Введите корректный номер телефона');
+    }
+
+    const redisKey = `auth:code:${normalized}`;
 
     const storedCode = await this.redis.get(redisKey);
     if (!storedCode || storedCode !== code) {
       throw new UnauthorizedException('Неверный или истёкший код');
     }
 
-    // Delete the code after successful verification
     await this.redis.del(redisKey);
 
-    // Find user by username — they exist because sendAuthCode checked this
     const user = await this.prisma.user.findFirst({
-      where: {
-        telegramUsername: { equals: cleanUsername, mode: 'insensitive' },
-      },
+      where: { phone: normalized },
     });
 
     if (!user) {
       throw new UnauthorizedException(
-        'Пользователь не найден. Напишите /start боту @bilimhan_bot.',
+        'Пользователь не найден. Откройте бота @bilimhan_bot по ссылке с сайта и укажите номер в Telegram.',
       );
     }
 

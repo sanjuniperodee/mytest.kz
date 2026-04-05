@@ -126,6 +126,8 @@ model User {
   id                String    @id @default(uuid()) @db.Uuid
   telegramId        BigInt    @unique @map("telegram_id")
   telegramUsername   String?   @map("telegram_username") @db.VarChar(100)
+  /// E.164 digits without +, e.g. 77001234567 — set when user shares contact in bot; used for web login
+  phone             String?   @unique @map("phone") @db.VarChar(20)
   firstName         String?   @map("first_name") @db.VarChar(100)
   lastName          String?   @map("last_name") @db.VarChar(100)
   preferredLanguage String    @default("ru") @map("preferred_language") @db.VarChar(2)

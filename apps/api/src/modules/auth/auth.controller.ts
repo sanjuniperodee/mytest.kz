@@ -11,16 +11,16 @@ export class AuthController {
   }
 
   @Post('web/request-code')
-  async requestWebCode(@Body('username') username: string) {
-    return this.authService.requestWebCode(username);
+  async requestWebCode(@Body('phone') phone: string) {
+    return this.authService.requestWebCode(phone);
   }
 
   @Post('web/verify-code')
   async verifyWebCode(
-    @Body('username') username: string,
+    @Body('phone') phone: string,
     @Body('code') code: string,
   ) {
-    return this.authService.verifyWebCode(username, code);
+    return this.authService.verifyWebCode(phone, code);
   }
 
   @Post('refresh')

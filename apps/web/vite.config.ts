@@ -74,6 +74,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        // Bundle from source so named exports (e.g. phone helpers) resolve in Vite/Rollup
+        '@bilimland/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
       },
     },
     server: {

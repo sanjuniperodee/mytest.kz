@@ -7,8 +7,8 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   login: (initData: string) => Promise<void>;
-  loginWithCode: (username: string, code: string) => Promise<void>;
-  requestCode: (username: string) => Promise<void>;
+  loginWithCode: (phone: string, code: string) => Promise<void>;
+  requestCode: (phone: string) => Promise<void>;
   refreshUser: () => Promise<User | null>;
   logout: () => void;
 }
@@ -74,13 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
-  const requestCode = useCallback(async (username: string) => {
-    await api.post('/auth/web/request-code', { username });
+  const requestCode = useCallback(async (phone: string) => {
+    await api.post('/auth/web/request-code', { phone });
   }, []);
 
-  const loginWithCode = useCallback(async (username: string, code: string) => {
+  const loginWithCode = useCallback(async (phone: string, code: string) => {
     const { data } = await api.post<AuthResponse>('/auth/web/verify-code', {
-      username,
+      phone,
       code,
     });
     setTokens(data.accessToken, data.refreshToken);

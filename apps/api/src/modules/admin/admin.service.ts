@@ -6,10 +6,12 @@ export class AdminService {
   constructor(private prisma: PrismaService) {}
 
   async getUsers(search?: string, page = 1, limit = 20) {
+    const digits = search?.replace(/\D/g, '') ?? '';
     const where = search
       ? {
           OR: [
             { telegramUsername: { contains: search, mode: 'insensitive' as const } },
+            ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : []),
             { firstName: { contains: search, mode: 'insensitive' as const } },
             { lastName: { contains: search, mode: 'insensitive' as const } },
           ],

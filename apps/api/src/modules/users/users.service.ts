@@ -46,6 +46,7 @@ export class UsersService {
       id: user.id,
       telegramId: Number(user.telegramId),
       telegramUsername: user.telegramUsername,
+      phone: user.phone,
       firstName: user.firstName,
       lastName: user.lastName,
       preferredLanguage: user.preferredLanguage,

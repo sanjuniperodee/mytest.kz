@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { normalizeKzPhone, maskPhoneDigits } from '@bilimland/shared';
 import { useAuth } from '../api/hooks/useAuth';
 import { useTelegram } from '../lib/telegram';
 import { AdvancedSEO } from '../components/seo/AdvancedSEO';
+
+/** Deep link: Telegram sends /start automatically — user does not type the command. */
+const BOT_DEEP_LINK = 'https://t.me/bilimhan_bot?start=web';
 
 export function LoginPage() {
   const { t, i18n } = useTranslation();
@@ -11,9 +15,10 @@ export function LoginPage() {
   const { login, requestCode, loginWithCode, user } = useAuth();
   const { isTelegram, webApp } = useTelegram();
 
-  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
+  const [phoneE164, setPhoneE164] = useState<string | null>(null);
   const [code, setCode] = useState('');
-  const [step, setStep] = useState<'username' | 'code'>('username');
+  const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -51,17 +56,55 @@ export function LoginPage() {
   }
 
   const handleRequestCode = async () => {
-    setError(''); setLoading(true);
-    try { await requestCode(username); setStep('code'); }
-    catch (err: any) { setError(err.response?.data?.message || t('common.error')); }
+    const n = normalizeKzPhone(phone);
+    if (!n) {
+      setError(t('auth.phoneInvalid'));
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await requestCode(phone);
+      setPhoneE164(n);
+      setStep('code');
+    }
+    catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        && err.response && typeof err.response === 'object' && 'data' in err.response
+        && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data
+        ? String((err.response.data as { message?: string }).message)
+        : t('common.error');
+      setError(msg);
+    }
     finally { setLoading(false); }
   };
 
   const handleVerifyCode = async () => {
-    setError(''); setLoading(true);
-    try { await loginWithCode(username, code); navigate('/app', { replace: true }); }
-    catch (err: any) { setError(err.response?.data?.message || t('auth.invalidCode')); }
+    const n = phoneE164 ?? normalizeKzPhone(phone);
+    if (!n) {
+      setError(t('auth.phoneInvalid'));
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try { await loginWithCode(phone, code); navigate('/app', { replace: true }); }
+    catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        && (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      setError(typeof msg === 'string' ? msg : t('auth.invalidCode'));
+    }
     finally { setLoading(false); }
+  };
+
+  const goToCodeStep = () => {
+    const n = normalizeKzPhone(phone);
+    if (!n) {
+      setError(t('auth.phoneInvalid'));
+      return;
+    }
+    setPhoneE164(n);
+    setStep('code');
+    setError('');
   };
 
   return (
@@ -78,7 +121,7 @@ export function LoginPage() {
         <Logo title={t('app.name')} />
 
         <div style={{ width: '100%', maxWidth: 380 }} className="animate-fadeIn">
-          {step === 'username' ? (
+          {step === 'phone' ? (
             <>
               <div className="surface" style={{ borderRadius: 'var(--r-xl)', padding: 24, marginBottom: 24 }}>
                 <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>
@@ -86,23 +129,37 @@ export function LoginPage() {
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <Step num={1} text={<>Напишите <a href="https://t.me/bilimhan_bot" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>/start</a> боту <a href="https://t.me/bilimhan_bot" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>@bilimhan_bot</a></>} />
-                  <Step num={2} text="Введите свой @username ниже" />
-                  <Step num={3} text="Получите код подтверждения" />
+                  <Step num={1} text={t('auth.authStep1')} />
+                  <a
+                    className="btn btn-primary"
+                    href={BOT_DEEP_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}
+                  >
+                    {t('auth.authOpenBot')}
+                  </a>
+                  <Step num={2} text={t('auth.authStep2')} />
+                  <Step num={3} text={t('auth.authStep3')} />
                 </div>
               </div>
 
               <input
                 className="input"
-                type="text"
-                placeholder="@username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && username.trim() && handleRequestCode()}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder={t('auth.phonePlaceholder')}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !!normalizeKzPhone(phone) && handleRequestCode()}
                 style={{ marginBottom: 12 }}
               />
-              <button className="btn btn-primary" onClick={handleRequestCode} disabled={loading || !username.trim()}>
+              <button className="btn btn-primary" onClick={handleRequestCode} disabled={loading || !normalizeKzPhone(phone)}>
                 {loading ? t('common.loading') : t('auth.sendCode')}
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={goToCodeStep} style={{ marginTop: 8, width: '100%' }}>
+                {t('auth.authAlreadyHaveCode')}
               </button>
             </>
           ) : (
@@ -118,8 +175,11 @@ export function LoginPage() {
                 <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
                   {t('auth.codeSent')}
                 </p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {t('auth.codeSentFor')}
+                </p>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  @{username.replace('@', '')}
+                  {phoneE164 ? maskPhoneDigits(phoneE164) : '—'}
                 </p>
               </div>
 
@@ -138,7 +198,7 @@ export function LoginPage() {
               <button className="btn btn-primary" onClick={handleVerifyCode} disabled={loading || code.length !== 6} style={{ marginBottom: 8 }}>
                 {loading ? t('common.loading') : t('auth.verify')}
               </button>
-              <button className="btn btn-ghost" onClick={() => { setStep('username'); setCode(''); setError(''); }}>
+              <button className="btn btn-ghost" onClick={() => { setStep('phone'); setCode(''); setPhoneE164(null); setError(''); }}>
                 {t('common.back')}
               </button>
             </>

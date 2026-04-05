@@ -157,15 +157,22 @@
   },
   "auth": {
     "seoTitle": "Sign in — MyTest (Telegram)",
-    "seoDescription": "Sign in with Telegram: one-time code from the bot, no separate password.",
+    "seoDescription": "Sign in with your phone number: a one-time code in Telegram, no password.",
     "title": "Login to MyTest",
     "telegramLogin": "Login via Telegram",
-    "webLogin": "Login with code",
-    "enterUsername": "Enter your Telegram @username",
+    "webLogin": "Login with phone number",
+    "phonePlaceholder": "+7 7XX XXX XX XX",
+    "phoneInvalid": "Enter a valid mobile number",
     "sendCode": "Send code",
     "enterCode": "Enter the code from Telegram",
     "verify": "Verify",
-    "codeSent": "Code sent to your Telegram",
+    "codeSent": "Code sent to Telegram",
+    "codeSentFor": "Number used for login",
+    "authStep1": "Tap the button below — the bot opens in Telegram, no command to type",
+    "authOpenBot": "Open bot",
+    "authStep2": "Send your number in the bot — the code arrives in that chat right away",
+    "authStep3": "Enter your phone and the code here on the site",
+    "authAlreadyHaveCode": "I already have the code in Telegram",
     "invalidCode": "Invalid or expired code",
     "subscribeRequired": "Subscribe to our channel to get started"
   },
@@ -219,7 +226,7 @@
     "seoKeywords": "UNT online, NIS test, NUET practice, Kazakhstan exams, college prep, mytest, trial exam",
     "seoOgImageAlt": "MyTest — online exam practice platform for Kazakhstan",
     "seoHowToName": "How to start using MyTest",
-    "seoHowToDescription": "Sign in with Telegram, pick an exam type and launch a timed practice session.",
+    "seoHowToDescription": "Use your phone in the bot and on the site, pick an exam type and launch a timed practice session.",
     "seoFaq": [
       {
         "question": "How is MyTest different from a question bank?",
@@ -227,7 +234,7 @@
       },
       {
         "question": "Do I need a separate password?",
-        "answer": "No. You sign in with Telegram: a one-time code is sent to the bot, you confirm your @username on the site."
+        "answer": "No. You enter the phone number you shared with the bot; the code arrives in Telegram."
       },
       {
         "question": "Which exam formats are supported?",
@@ -267,7 +274,7 @@
     "steps": [
       {
         "title": "Sign in with Telegram",
-        "body": "Send /start to the bot, enter your @username on the site — get a one-time code."
+        "body": "Open the bot from the site link, enter your phone in the bot — the code arrives in Telegram right away, then enter phone and code on the site."
       },
       {
         "title": "Pick exam & template",

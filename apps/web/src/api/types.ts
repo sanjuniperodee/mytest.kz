@@ -2,6 +2,7 @@ export interface User {
   id: string;
   telegramId: number;
   telegramUsername: string | null;
+  phone?: string | null;
   firstName: string | null;
   lastName: string | null;
   preferredLanguage: 'kk' | 'ru' | 'en';

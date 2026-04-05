@@ -8,6 +8,7 @@ interface User {
   id: string;
   telegramId: number;
   telegramUsername: string | null;
+  phone: string | null;
   firstName: string | null;
   lastName: string | null;
   preferredLanguage: string;
@@ -52,6 +53,12 @@ export function UsersPage() {
       title: 'Username',
       dataIndex: 'telegramUsername',
       render: (v: string | null) => v ? `@${v}` : '—',
+    },
+    {
+      title: 'Телефон',
+      dataIndex: 'phone',
+      width: 140,
+      render: (v: string | null) => (v ? `+${v}` : '—'),
     },
     {
       title: 'Имя',

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export { normalizeKzPhone, maskPhoneDigits } from './phone';
+
 export const languageSchema = z.enum(['kk', 'ru', 'en']);
 
 export const localizedStringSchema = z.object({
@@ -9,11 +11,11 @@ export const localizedStringSchema = z.object({
 });
 
 export const requestCodeSchema = z.object({
-  username: z.string().min(1).max(100),
+  phone: z.string().min(10).max(32),
 });
 
 export const verifyCodeSchema = z.object({
-  username: z.string().min(1).max(100),
+  phone: z.string().min(10).max(32),
   code: z.string().length(6),
 });
 
