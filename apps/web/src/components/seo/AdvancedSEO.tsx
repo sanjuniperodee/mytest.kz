@@ -88,7 +88,7 @@ export function AdvancedSEO({
       {/* Discovery */}
       <meta name="author" content="BilimLand" />
       <meta name="application-name" content="BilimLand" />
-      <meta name="theme-color" content="#080706" />
+      <meta name="theme-color" content="#05070d" />
       <meta name="referrer" content="strict-origin-when-cross-origin" />
       <meta name="format-detection" content="telephone=no" />
 

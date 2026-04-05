@@ -11,6 +11,12 @@ import './landing.css';
 type Benefit = { tag: string; title: string; body: string };
 type Step = { title: string; body: string };
 
+const STEP_ICONS = [
+  <IconLogin key="i0" />,
+  <IconLayers key="i1" />,
+  <IconTarget key="i2" />,
+];
+
 export function LandingPage() {
   const { t, i18n } = useTranslation();
   const { user, isLoading } = useAuth();
@@ -45,6 +51,7 @@ export function LandingPage() {
   }
 
   const langs = ['ru', 'kk', 'en'] as const;
+  const marquee = `${t('landing.marqueeLine')} · `;
 
   return (
     <>
@@ -58,138 +65,175 @@ export function LandingPage() {
         ogImageAlt={t('landing.seoOgImageAlt')}
       />
       <div className="landing-root">
-      <div className="landing-inner">
-        <header className="landing-top">
-          <div className="landing-mark" aria-label={t('app.name')}>
-            Bilim<span>Land</span>
-          </div>
-          <div className="landing-top-actions">
-            <div className="landing-lang" role="group" aria-label={t('landing.langLabel')}>
-              {langs.map((lng) => (
-                <button
-                  key={lng}
-                  type="button"
-                  className={i18n.language === lng ? 'is-on' : ''}
-                  onClick={() => {
-                    i18n.changeLanguage(lng);
-                    localStorage.setItem('language', lng);
-                  }}
-                >
-                  {lng.toUpperCase()}
-                </button>
-              ))}
+        <div className="ld-aurora" aria-hidden />
+        <div className="ld-grid" aria-hidden />
+        <div className="ld-noise" aria-hidden />
+
+        <header className="ld-nav">
+          <div className="ld-max ld-nav-inner">
+            <div className="ld-logo" aria-label={t('app.name')}>
+              <span className="ld-logo-mark">B</span>
+              <span className="ld-logo-text">
+                Bilim<span>Land</span>
+              </span>
             </div>
-            <Link to="/login" className="landing-btn-solid">
-              {t('landing.ctaLogin')}
-            </Link>
+            <div className="ld-nav-actions">
+              <div className="ld-lang" role="group" aria-label={t('landing.langLabel')}>
+                {langs.map((lng) => (
+                  <button
+                    key={lng}
+                    type="button"
+                    className={i18n.language === lng ? 'is-active' : ''}
+                    onClick={() => {
+                      i18n.changeLanguage(lng);
+                      localStorage.setItem('language', lng);
+                    }}
+                  >
+                    {lng.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <Link to="/login" className="ld-btn ld-btn-primary">
+                {t('landing.ctaLogin')}
+              </Link>
+            </div>
           </div>
         </header>
 
-        <section className="landing-hero" aria-labelledby="landing-hero-title">
-          <div>
-            <p className="landing-kicker">{t('landing.heroKicker')}</p>
-            <h1 id="landing-hero-title">
-              {t('landing.heroTitle')}{' '}
-              <em>{t('landing.heroTitleEm')}</em>
-            </h1>
-            <p className="landing-lead">{t('landing.heroLead')}</p>
-            <div className="landing-hero-cta">
-              <Link to="/login" className="landing-btn-solid" style={{ textDecoration: 'none', display: 'inline-flex' }}>
-                {t('landing.ctaLogin')}
-              </Link>
-              <a href="#how" className="landing-scroll-hint">
-                {t('landing.ctaScroll')} ↓
-              </a>
+        <section className="ld-hero" aria-labelledby="ld-hero-title">
+          <div className="ld-max ld-hero-grid">
+            <div className="ld-hero-copy">
+              <span className="ld-chip">{t('landing.heroBadge')}</span>
+              <p className="ld-kicker">{t('landing.heroKicker')}</p>
+              <h1 id="ld-hero-title" className="ld-headline">
+                <span className="ld-headline-a">{t('landing.heroTitle')}</span>{' '}
+                <span className="ld-headline-b">{t('landing.heroTitleEm')}</span>
+              </h1>
+              <p className="ld-lead">{t('landing.heroLead')}</p>
+              <div className="ld-hero-btns">
+                <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
+                  {t('landing.ctaLogin')}
+                </Link>
+                <a href="#how" className="ld-btn ld-btn-glass">
+                  {t('landing.ctaScroll')}
+                </a>
+              </div>
             </div>
+
+            <aside className="ld-glass" aria-label={t('landing.ticketAria')}>
+              <div className="ld-glass-glow" aria-hidden />
+              <p className="ld-glass-label">{t('landing.ticketLabel')}</p>
+              <ul className="ld-glass-rows">
+                <li>
+                  <span>{t('landing.ticketRow1L')}</span>
+                  <span className="ld-muted">{t('landing.ticketRow1R')}</span>
+                </li>
+                <li>
+                  <span>{t('landing.ticketRow2L')}</span>
+                  <span className="ld-muted">{t('landing.ticketRow2R')}</span>
+                </li>
+                <li>
+                  <span>{t('landing.ticketRow3L')}</span>
+                  <span className="ld-muted">{t('landing.ticketRow3R')}</span>
+                </li>
+              </ul>
+              <p className="ld-glass-foot">{t('landing.ticketFoot')}</p>
+            </aside>
           </div>
-
-          <aside className="landing-ticket" aria-label={t('landing.ticketAria')}>
-            <p className="landing-ticket-label">{t('landing.ticketLabel')}</p>
-            <div className="landing-ticket-lines">
-              <div>
-                <span>{t('landing.ticketRow1L')}</span>
-                <span>{t('landing.ticketRow1R')}</span>
-              </div>
-              <div>
-                <span>{t('landing.ticketRow2L')}</span>
-                <span>{t('landing.ticketRow2R')}</span>
-              </div>
-              <div>
-                <span>{t('landing.ticketRow3L')}</span>
-                <span>{t('landing.ticketRow3R')}</span>
-              </div>
-            </div>
-            <p className="landing-ticket-foot">{t('landing.ticketFoot')}</p>
-          </aside>
         </section>
-      </div>
 
-      <div className="landing-stripe">
-        <div className="landing-stripe-inner">
-          <p>{t('landing.stripeQuote')}</p>
+        <div className="ld-marquee-outer" aria-hidden>
+          <div className="ld-marquee-track">
+            <span>{marquee}</span>
+            <span>{marquee}</span>
+          </div>
         </div>
-      </div>
 
-      <div className="landing-inner">
-        <section id="benefits" aria-labelledby="benefits-title">
-          <h2 id="benefits-title" className="landing-section-title">
-            {t('landing.sectionBenefits')}
-          </h2>
-          <div className="landing-benefits">
-            {benefits.slice(0, 3).map((b) => (
-              <article key={b.title} className="landing-card">
-                <p className="landing-card-tag">{b.tag}</p>
-                <h3>{b.title}</h3>
-                <p>{b.body}</p>
-              </article>
-            ))}
-            {benefits[3] && (
-              <article className="landing-card landing-card-wide">
-                <div>
-                  <p className="landing-card-tag">{benefits[3].tag}</p>
-                  <h3>{benefits[3].title}</h3>
-                </div>
-                <p>{benefits[3].body}</p>
-              </article>
-            )}
+        <section id="benefits" className="ld-section">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionBenefits')}</p>
+            <div className="ld-bento">
+              {benefits.map((b, i) => (
+                <article key={b.title} className={`ld-tile ld-tile-${i}`}>
+                  <span className="ld-tile-tag">{b.tag}</span>
+                  <h3 className="ld-tile-title">{b.title}</h3>
+                  <p className="ld-tile-body">{b.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section id="how" className="landing-how" aria-labelledby="how-title">
-          <h2 id="how-title" className="landing-section-title">
-            {t('landing.sectionHow')}
-          </h2>
-          <div className="landing-steps">
-            {steps.map((step, i) => (
-              <div key={step.title} className="landing-step">
-                <span className="landing-step-num">{String(i + 1).padStart(2, '0')}</span>
-                <div>
-                  <h4>{step.title}</h4>
-                  <p>{step.body}</p>
-                </div>
-              </div>
-            ))}
+        <section className="ld-pullquote">
+          <div className="ld-max">
+            <blockquote className="ld-quote-text">{t('landing.stripeQuote')}</blockquote>
           </div>
         </section>
 
-        <section id="about" className="landing-about" aria-labelledby="about-title">
-          <h2 id="about-title" className="landing-section-title">
-            {t('landing.sectionAbout')}
-          </h2>
-          <p className="landing-about-lead">{t('landing.aboutLead')}</p>
-          <p className="landing-about-body">{t('landing.aboutBody')}</p>
+        <section id="how" className="ld-section ld-section-how">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionHow')}</p>
+            <div className="ld-steps">
+              {steps.map((step, i) => (
+                <div key={step.title} className="ld-step-card">
+                  <div className="ld-step-icon" aria-hidden>
+                    {STEP_ICONS[i] ?? <IconTarget />}
+                  </div>
+                  <span className="ld-step-num">{String(i + 1).padStart(2, '0')}</span>
+                  <h4 className="ld-step-title">{step.title}</h4>
+                  <p className="ld-step-body">{step.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <footer className="landing-footer">
-          <p className="landing-footer-copy">
-            <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
-          </p>
-          <Link to="/login" className="landing-btn-solid" style={{ textDecoration: 'none', display: 'inline-flex' }}>
-            {t('landing.footerCta')}
-          </Link>
+        <section id="about" className="ld-section ld-about">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionAbout')}</p>
+            <p className="ld-about-lead">{t('landing.aboutLead')}</p>
+            <p className="ld-about-body">{t('landing.aboutBody')}</p>
+          </div>
+        </section>
+
+        <footer className="ld-footer">
+          <div className="ld-max ld-footer-inner">
+            <p className="ld-footer-copy">
+              <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
+            </p>
+            <Link to="/login" className="ld-btn ld-btn-primary">
+              {t('landing.footerCta')}
+            </Link>
+          </div>
         </footer>
       </div>
-    </div>
     </>
+  );
+}
+
+function IconLogin() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+    </svg>
+  );
+}
+
+function IconLayers() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+      <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
+function IconTarget() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
   );
 }
