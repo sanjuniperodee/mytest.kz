@@ -1,0 +1,108 @@
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { api, setTokens, clearTokens, getAccessToken } from '../client';
+import { useTelegram } from '../../lib/telegram';
+import type { User, AuthResponse } from '../types';
+
+interface AuthContextValue {
+  user: User | null;
+  isLoading: boolean;
+  login: (initData: string) => Promise<void>;
+  loginWithCode: (username: string, code: string) => Promise<void>;
+  requestCode: (username: string) => Promise<void>;
+  refreshUser: () => Promise<User | null>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  isLoading: true,
+  login: async () => {},
+  loginWithCode: async () => {},
+  requestCode: async () => {},
+  refreshUser: async () => null,
+  logout: () => {},
+});
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { webApp, isTelegram } = useTelegram();
+
+  const fetchProfile = useCallback(async (): Promise<User | null> => {
+    try {
+      const { data } = await api.get('/users/me');
+      setUser(data);
+      return data;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Auto-login
+  useEffect(() => {
+    async function autoLogin() {
+      if (getAccessToken()) {
+        const profile = await fetchProfile();
+        if (profile) {
+          setIsLoading(false);
+          return;
+        }
+        clearTokens();
+      }
+
+      if (isTelegram && webApp?.initData) {
+        try {
+          const { data } = await api.post<AuthResponse>('/auth/telegram', {
+            initData: webApp.initData,
+          });
+          setTokens(data.accessToken, data.refreshToken);
+          setUser(data.user);
+        } catch {
+          // Telegram auth failed
+        }
+      }
+
+      setIsLoading(false);
+    }
+
+    autoLogin();
+  }, [isTelegram, webApp, fetchProfile]);
+
+  const login = useCallback(async (initData: string) => {
+    const { data } = await api.post<AuthResponse>('/auth/telegram', { initData });
+    setTokens(data.accessToken, data.refreshToken);
+    setUser(data.user);
+  }, []);
+
+  const requestCode = useCallback(async (username: string) => {
+    await api.post('/auth/web/request-code', { username });
+  }, []);
+
+  const loginWithCode = useCallback(async (username: string, code: string) => {
+    const { data } = await api.post<AuthResponse>('/auth/web/verify-code', {
+      username,
+      code,
+    });
+    setTokens(data.accessToken, data.refreshToken);
+    setUser(data.user);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    return fetchProfile();
+  }, [fetchProfile]);
+
+  const logout = useCallback(() => {
+    clearTokens();
+    setUser(null);
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithCode, requestCode, refreshUser, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}

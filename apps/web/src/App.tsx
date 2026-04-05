@@ -1,0 +1,119 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider, useAuth } from './api/hooks/useAuth';
+import { TelegramProvider } from './lib/telegram';
+import { HomePage } from './pages/HomePage';
+import { ExamPage } from './pages/ExamPage';
+import { TestPage } from './pages/TestPage';
+import { ReviewPage } from './pages/ReviewPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { MistakesPage } from './pages/MistakesPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { LoginPage } from './pages/LoginPage';
+import { ChannelGatePage } from './pages/ChannelGatePage';
+import { Spinner } from './components/common/Spinner';
+import { NavBar } from './components/common/NavBar';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <Spinner fullScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.isChannelMember) return <Navigate to="/channel-gate" replace />;
+
+  return <>{children}</>;
+}
+
+function AppRoutes() {
+  function TabsLayout() {
+    return (
+      <>
+        <Outlet />
+        <NavBar />
+      </>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/channel-gate" element={<ChannelGatePage />} />
+      <Route
+        element={
+          <ProtectedRoute>
+            <TabsLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route
+          path="/"
+          element={<HomePage />}
+        />
+        <Route
+          path="/profile"
+          element={<ProfilePage />}
+        />
+        <Route
+          path="/settings"
+          element={<SettingsPage />}
+        />
+        <Route path="/mistakes" element={<MistakesPage />} />
+      </Route>
+      <Route
+        path="/exam/:examId"
+        element={
+          <ProtectedRoute>
+            <ExamPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exam/:examId"
+        element={
+          <ProtectedRoute>
+            <ExamPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/test/:sessionId"
+        element={
+          <ProtectedRoute>
+            <TestPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/test/:sessionId/review"
+        element={
+          <ProtectedRoute>
+            <ReviewPage />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
+}
+
+export function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TelegramProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AuthProvider>
+      </TelegramProvider>
+    </QueryClientProvider>
+  );
+}

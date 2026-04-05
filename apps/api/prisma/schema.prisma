@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+  // Monorepo: always emit next to repo-root node_modules (path is relative to this schema file).
+  output   = "../../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ExamType {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique @db.VarChar(20)
+  name        Json     // {"kk": "...", "ru": "...", "en": "..."}
+  description Json?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  subjects      Subject[]
+  questions     Question[]
+  testTemplates TestTemplate[]
+  testSessions  TestSession[]
+  subscriptions Subscription[]
+
+  @@map("exam_types")
+}
+
+model Subject {
+  id          String   @id @default(uuid()) @db.Uuid
+  examTypeId  String   @map("exam_type_id") @db.Uuid
+  slug        String   @db.VarChar(50)
+  name        Json     // {"kk": "...", "ru": "...", "en": "..."}
+  isMandatory Boolean  @default(false) @map("is_mandatory")
+  sortOrder   Int      @default(0) @map("sort_order")
+
+  examType             ExamType               @relation(fields: [examTypeId], references: [id])
+  topics               Topic[]
+  questions            Question[]
+  testTemplateSections TestTemplateSection[]
+
+  @@unique([examTypeId, slug])
+  @@map("subjects")
+}
+
+model Topic {
+  id        String @id @default(uuid()) @db.Uuid
+  subjectId String @map("subject_id") @db.Uuid
+  name      Json   // {"kk": "...", "ru": "...", "en": "..."}
+  sortOrder Int    @default(0) @map("sort_order")
+
+  subject   Subject    @relation(fields: [subjectId], references: [id])
+  questions Question[]
+
+  @@map("topics")
+}
+
+model Question {
+  id          String   @id @default(uuid()) @db.Uuid
+  topicId     String   @map("topic_id") @db.Uuid
+  subjectId   String   @map("subject_id") @db.Uuid
+  examTypeId  String   @map("exam_type_id") @db.Uuid
+  difficulty  Int      @db.SmallInt
+  type        String   @default("single_choice") @db.VarChar(20)
+  content     Json     // {"kk": {"text": "...", "hint": "..."}, ...}
+  explanation Json?    // {"kk": "...", "ru": "...", "en": "..."} — premium
+  imageUrls   Json?    @map("image_urls")
+  metadata    Json?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  topic         Topic          @relation(fields: [topicId], references: [id])
+  subject       Subject        @relation(fields: [subjectId], references: [id])
+  examType      ExamType       @relation(fields: [examTypeId], references: [id])
+  answerOptions AnswerOption[]
+  testAnswers   TestAnswer[]
+
+  @@index([subjectId, isActive])
+  @@index([examTypeId, isActive])
+  @@index([topicId])
+  @@map("questions")
+}
+
+model AnswerOption {
+  id         String  @id @default(uuid()) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  content    Json    // {"kk": "...", "ru": "...", "en": "..."}
+  isCorrect  Boolean @default(false) @map("is_correct")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("answer_options")
+}
+
+model TestTemplate {
+  id           String  @id @default(uuid()) @db.Uuid
+  examTypeId   String  @map("exam_type_id") @db.Uuid
+  name         Json    // {"kk": "...", "ru": "...", "en": "..."}
+  durationMins Int     @map("duration_mins")
+  isActive     Boolean @default(true) @map("is_active")
+
+  examType     ExamType              @relation(fields: [examTypeId], references: [id])
+  sections     TestTemplateSection[]
+  testSessions TestSession[]
+
+  @@map("test_templates")
+}
+
+model TestTemplateSection {
+  id            String @id @default(uuid()) @db.Uuid
+  templateId    String @map("template_id") @db.Uuid
+  subjectId     String @map("subject_id") @db.Uuid
+  questionCount Int    @map("question_count")
+  selectionMode String @default("random") @db.VarChar(20)
+  sortOrder     Int    @default(0) @map("sort_order")
+
+  template TestTemplate @relation(fields: [templateId], references: [id])
+  subject  Subject      @relation(fields: [subjectId], references: [id])
+
+  @@map("test_template_sections")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  telegramId        BigInt    @unique @map("telegram_id")
+  telegramUsername   String?   @map("telegram_username") @db.VarChar(100)
+  firstName         String?   @map("first_name") @db.VarChar(100)
+  lastName          String?   @map("last_name") @db.VarChar(100)
+  preferredLanguage String    @default("ru") @map("preferred_language") @db.VarChar(2)
+  isChannelMember   Boolean   @default(false) @map("is_channel_member")
+  channelCheckedAt  DateTime? @map("channel_checked_at") @db.Timestamptz
+  isAdmin           Boolean   @default(false) @map("is_admin")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  subscriptions        Subscription[]  @relation("UserSubscriptions")
+  grantedSubscriptions Subscription[]  @relation("GrantedSubscriptions")
+  testSessions         TestSession[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  planType    String    @map("plan_type") @db.VarChar(20)
+  examTypeId  String?   @map("exam_type_id") @db.Uuid
+  grantedBy   String?   @map("granted_by") @db.Uuid
+  startsAt    DateTime  @map("starts_at") @db.Timestamptz
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz
+  isActive    Boolean   @default(true) @map("is_active")
+  paymentNote String?   @map("payment_note") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user     User      @relation("UserSubscriptions", fields: [userId], references: [id])
+  grantor  User?     @relation("GrantedSubscriptions", fields: [grantedBy], references: [id])
+  examType ExamType? @relation(fields: [examTypeId], references: [id])
+
+  @@index([userId, isActive, expiresAt])
+  @@map("subscriptions")
+}
+
+model TestSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  templateId     String?   @map("template_id") @db.Uuid
+  examTypeId     String    @map("exam_type_id") @db.Uuid
+  status         String    @default("in_progress") @db.VarChar(20)
+  language       String    @db.VarChar(2)
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz
+  durationSecs   Int?      @map("duration_secs")
+  timeRemaining  Int?      @map("time_remaining")
+  totalQuestions Int       @map("total_questions")
+  correctCount   Int?      @map("correct_count")
+  score          Decimal?  @db.Decimal(5, 2)
+  rawScore       Int?      @map("raw_score")
+  maxScore       Int?      @map("max_score")
+  metadata       Json?     // sections info, profile subject ids
+
+  user     User          @relation(fields: [userId], references: [id])
+  template TestTemplate? @relation(fields: [templateId], references: [id])
+  examType ExamType      @relation(fields: [examTypeId], references: [id])
+  answers  TestAnswer[]
+
+  @@index([userId, status])
+  @@map("test_sessions")
+}
+
+model TestAnswer {
+  id           String    @id @default(uuid()) @db.Uuid
+  sessionId    String    @map("session_id") @db.Uuid
+  questionId   String    @map("question_id") @db.Uuid
+  selectedIds  String[]  @map("selected_ids") @db.Uuid
+  isCorrect    Boolean?  @map("is_correct")
+  answeredAt   DateTime? @map("answered_at") @db.Timestamptz
+  timeSpentSecs Int?     @map("time_spent_secs")
+
+  session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id])
+
+  @@index([sessionId])
+  @@map("test_answers")
+}
