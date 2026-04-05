@@ -484,6 +484,9 @@ html:has(.landing-root) body {
   .ld-tile-3 {
     grid-column: span 4;
   }
+  .ld-tile-4 {
+    grid-column: span 6;
+  }
 }
 
 .ld-tile {
@@ -673,12 +676,176 @@ html:has(.landing-root) body {
   align-items: flex-start;
 }
 
+.ld-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 @media (min-width: 640px) {
   .ld-footer-inner {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
   }
+}
+
+/* Stats strip (EduTest-style highlights) */
+.ld-section-stats {
+  padding-top: clamp(40px, 8vw, 72px);
+  padding-bottom: clamp(32px, 6vw, 56px);
+}
+
+.ld-stats-grid {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .ld-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+}
+
+.ld-stat-card {
+  padding: 22px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--ld-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ld-stat-value {
+  font-family: var(--ld-display);
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: var(--ld-text);
+  line-height: 1.35;
+}
+
+.ld-stat-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ld-muted);
+  line-height: 1.45;
+}
+
+/* Grant estimator */
+.ld-section-grant {
+  padding-top: 0;
+}
+
+.ld-grant-title {
+  font-family: var(--ld-display);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+  max-width: 20ch;
+  line-height: 1.15;
+}
+
+.ld-grant-lead {
+  margin: 0 0 28px;
+  font-size: 15px;
+  color: var(--ld-muted);
+  max-width: 62ch;
+  line-height: 1.65;
+}
+
+.ld-grant-panel {
+  max-width: 520px;
+  padding: 26px 24px 28px;
+  border-radius: 22px;
+  border: 1px solid var(--ld-border);
+  background: linear-gradient(160deg, rgba(46, 231, 216, 0.06), rgba(167, 139, 250, 0.04));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+}
+
+.ld-grant-row {
+  margin-bottom: 22px;
+}
+
+.ld-grant-row:last-of-type {
+  margin-bottom: 0;
+}
+
+.ld-grant-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ld-muted);
+  margin-bottom: 10px;
+}
+
+.ld-grant-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ld-grant-range {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  accent-color: var(--ld-cyan);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ld-grant-num {
+  min-width: 36px;
+  text-align: right;
+  font-family: var(--ld-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--ld-cyan);
+}
+
+.ld-grant-result {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--ld-border);
+}
+
+.ld-grant-sum-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.ld-grant-sum-label {
+  font-size: 14px;
+  color: var(--ld-muted);
+}
+
+.ld-grant-sum-value {
+  font-family: var(--ld-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--ld-text);
+}
+
+.ld-grant-tier {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ld-text);
+}
+
+.ld-grant-disclaimer {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ld-dim);
+}
+
+.ld-grant-cta {
+  display: inline-flex;
 }
 
 .ld-footer-copy {

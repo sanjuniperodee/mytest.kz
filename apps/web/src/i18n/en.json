@@ -198,6 +198,7 @@
     "langLabel": "Language",
     "ctaLogin": "Sign in",
     "ctaScroll": "How it works",
+    "ctaGrant": "Estimate profile sum",
     "heroBadge": "Exam-style practice runs",
     "marqueeLine": "ENT · NIS · NUET · KTL · Telegram · timer · mistakes · progress · kk · ru · en",
     "heroKicker": "Online platform · Kazakhstan",
@@ -214,6 +215,24 @@
     "ticketRow3R": "kk · ru · en",
     "ticketFoot": "Not “yet another question bank” — practice for staying calm under time pressure.",
     "stripeQuote": "We don’t promise the exam will match verbatim. We give a familiar rhythm — so on the day you spend nerves on problems, not the UI.",
+    "sectionStats": "At a glance",
+    "stats": [
+      { "value": "UNT · NIS · NUET · KTL", "label": "Formats in the catalog" },
+      { "value": "kk · ru · en", "label": "Interface languages" },
+      { "value": "Timer · mistakes · progress", "label": "Inside a session" }
+    ],
+    "sectionGrant": "Score hint",
+    "grantTitle": "Sum of two profile subjects (illustrative)",
+    "grantLead": "Move the sliders for a rough level hint. Not an official grant calculator and not a substitute for admission rules.",
+    "grantSubject1": "1st profile subject (0–140)",
+    "grantSubject2": "2nd profile subject (0–140)",
+    "grantSum": "Sum",
+    "grantTierStrong": "High combined level in this toy model — keep the pace and lock in topics.",
+    "grantTierMid": "Mid level — room to grow; drill weak topics.",
+    "grantTierGrow": "Headroom to grow — regular trials and mistake review pay off fastest.",
+    "grantDisclaimer": "For orientation only. Real cut-offs and grants depend on the year, competition, and subjects.",
+    "grantCtaLogin": "Sign in and start tests",
+    "whatsappCta": "Message on WhatsApp",
     "sectionBenefits": "Why it matters",
     "sectionHow": "Three steps",
     "sectionAbout": "In short",
@@ -269,6 +288,11 @@
         "tag": "Access",
         "title": "Telegram instead of passwords",
         "body": "A code lands in the bot; you sign in from any device. Less friction — more time on tasks."
+      },
+      {
+        "tag": "Topics",
+        "title": "Where you slip",
+        "body": "After a session it’s easy to revisit the kinds of tasks and topics that cost you the most time."
       }
     ],
     "steps": [

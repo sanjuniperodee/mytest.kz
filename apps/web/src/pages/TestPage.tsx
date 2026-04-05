@@ -11,6 +11,7 @@ import { SubjectTabs } from '../components/test/SubjectTabs';
 import { TestSectionProgress } from '../components/test/TestSectionProgress';
 import { Spinner } from '../components/common/Spinner';
 import { useTelegram } from '../lib/telegram';
+import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 
 export function TestPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -18,6 +19,7 @@ export function TestPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { webApp } = useTelegram();
+  useNoTranslateWhileMounted();
 
   const { data: session, isLoading } = useTestSession(sessionId);
   const submitAnswer = useSubmitAnswer(sessionId!);

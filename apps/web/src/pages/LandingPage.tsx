@@ -6,6 +6,9 @@ import { Spinner } from '../components/common/Spinner';
 import { AdvancedSEO } from '../components/seo/AdvancedSEO';
 import { buildLandingJsonLd, type FaqItem } from '../components/seo/buildLandingJsonLd';
 import { getSiteUrl } from '../lib/siteUrl';
+import { getWhatsAppUrl } from '../lib/whatsapp';
+import { LandingStatsStrip } from '../components/landing/LandingStatsStrip';
+import { GrantEstimator } from '../components/landing/GrantEstimator';
 import './landing.css';
 
 type Benefit = { tag: string; title: string; body: string };
@@ -52,6 +55,7 @@ export function LandingPage() {
 
   const langs = ['ru', 'kk', 'en'] as const;
   const marquee = `${t('landing.marqueeLine')} · `;
+  const waUrl = getWhatsAppUrl();
 
   return (
     <>
@@ -114,6 +118,9 @@ export function LandingPage() {
                 <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
                   {t('landing.ctaLogin')}
                 </Link>
+                <a href="#grant" className="ld-btn ld-btn-glass">
+                  {t('landing.ctaGrant')}
+                </a>
                 <a href="#how" className="ld-btn ld-btn-glass">
                   {t('landing.ctaScroll')}
                 </a>
@@ -141,6 +148,9 @@ export function LandingPage() {
             </aside>
           </div>
         </section>
+
+        <LandingStatsStrip />
+        <GrantEstimator />
 
         <div className="ld-marquee-outer" aria-hidden>
           <div className="ld-marquee-track">
@@ -203,9 +213,21 @@ export function LandingPage() {
             <p className="ld-footer-copy">
               <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
             </p>
-            <Link to="/login" className="ld-btn ld-btn-primary">
-              {t('landing.footerCta')}
-            </Link>
+            <div className="ld-footer-actions">
+              {waUrl ? (
+                <a
+                  href={waUrl}
+                  className="ld-btn ld-btn-glass"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t('landing.whatsappCta')}
+                </a>
+              ) : null}
+              <Link to="/login" className="ld-btn ld-btn-primary">
+                {t('landing.footerCta')}
+              </Link>
+            </div>
           </div>
         </footer>
       </div>

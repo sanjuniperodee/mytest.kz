@@ -8,6 +8,7 @@ import { AnswerOptions } from '../components/test/AnswerOptions';
 import { Spinner } from '../components/common/Spinner';
 import { useTelegram } from '../lib/telegram';
 import { renderMathInText } from '../lib/katex';
+import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 
 function BackArrow() {
   return (
@@ -23,6 +24,7 @@ export function ReviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  useNoTranslateWhileMounted();
   const { data: session, isLoading } = useTestReview(sessionId);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);

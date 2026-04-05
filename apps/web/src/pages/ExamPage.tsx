@@ -6,6 +6,7 @@ import { useStartTest } from '../api/hooks/useTests';
 import { useAuth } from '../api/hooks/useAuth';
 import { Spinner } from '../components/common/Spinner';
 import { useTelegram } from '../lib/telegram';
+import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 
 function BackArrow() {
   return (
@@ -45,6 +46,7 @@ export function ExamPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { webApp } = useTelegram();
+  useNoTranslateWhileMounted();
 
   const { data: examTypes } = useExamTypes();
   const { data: subjects, isLoading: subjectsLoading } = useSubjects(examId);
