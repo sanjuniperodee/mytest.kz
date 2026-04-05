@@ -1,6 +1,13 @@
 import axios from 'axios';
+import { resolveApiBaseUrl } from '../lib/resolveApiBaseUrl';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+const API_BASE = resolveApiBaseUrl({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  viteSiteUrl:
+    import.meta.env.VITE_SITE_URL ||
+    (import.meta.env.PROD ? 'https://my-test.kz' : undefined),
+  viteProd: import.meta.env.PROD,
+});
 
 export const api = axios.create({
   baseURL: API_BASE,
