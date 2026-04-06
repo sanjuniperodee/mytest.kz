@@ -1,7 +1,6 @@
 /**
  * ҰБТ (ЕНТ) 2026 — баллдық шектемелер (НТО жариялаған шекті баллдарға сәйкес модель).
  * Максимум: матем. сауаттылық 10 + оқу сауаттылығы 10 + Қазақстан тарихы 20 + 2 бейіндік × 50 = 140.
- * @see https://informburo.kz/kaz/newskaz/ulttyq-testileu-ortalygy-2026-zylgy-ubt-nyn-sekti-baldaryn-zariia-etti
  */
 
 export const ENT_MAX = {
@@ -12,7 +11,6 @@ export const ENT_MAX = {
   profile2: 50,
 } as const;
 
-/** Шекті балл (минимум для участия) — 2026 ҰБТ */
 export const ENT_THRESHOLD_2026 = {
   mathLit: 3,
   readingLit: 3,
@@ -60,13 +58,7 @@ export function passesThresholds(s: EntScores): boolean {
   );
 }
 
-/** Ознакомительная шкала «шанс на грант» — ориентиры по публикациям о минимумах для конкурса (не гарантия). */
-export type GrantTier =
-  | 'Blocked'
-  | 'Grow'
-  | 'Base'
-  | 'National'
-  | 'Strong';
+export type GrantTier = 'Blocked' | 'Grow' | 'Base' | 'National' | 'Strong';
 
 export function grantTierHint(total: number, passes: boolean): GrantTier {
   if (!passes) return 'Blocked';

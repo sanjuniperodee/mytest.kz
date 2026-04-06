@@ -1,13 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ConfigProvider, Layout, Menu, theme, Spin, Avatar, Button, Typography } from 'antd';
-import { UserOutlined, QuestionCircleOutlined, CrownOutlined, BarChartOutlined } from '@ant-design/icons';
+import {
+  ConfigProvider,
+  Layout,
+  Menu,
+  theme,
+  Spin,
+  Avatar,
+  Button,
+  Typography,
+} from 'antd';
+import type { MenuProps } from 'antd';
+import {
+  UserOutlined,
+  QuestionCircleOutlined,
+  CrownOutlined,
+  BarChartOutlined,
+  DashboardOutlined,
+  LineChartOutlined,
+  BookOutlined,
+  RocketOutlined,
+  FundProjectionScreenOutlined,
+} from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
 import { UsersPage } from './pages/UsersPage';
 import { QuestionsPage } from './pages/QuestionsPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { EntTrialsAnalyticsPage } from './pages/EntTrialsAnalyticsPage';
+import { UniversityThresholdsPage } from './pages/UniversityThresholdsPage';
+import { AdmissionChancePage } from './pages/AdmissionChancePage';
+import { ExplanationsPage } from './pages/ExplanationsPage';
 import { LoginPage } from './pages/LoginPage';
 
 const { Sider, Content, Header } = Layout;
@@ -16,23 +41,74 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
+const MENU_NAV: Record<string, string> = {
+  dashboard: '/dashboard',
+  'analytics-platform': '/analytics',
+  'analytics-ent': '/analytics/ent',
+  'analytics-thresholds': '/analytics/thresholds',
+  admission: '/admission',
+  explanations: '/explanations',
+  users: '/users',
+  questions: '/questions',
+  subscriptions: '/subscriptions',
+};
+
+function menuKeyFromPath(pathname: string): string {
+  if (pathname.startsWith('/analytics/ent')) return 'analytics-ent';
+  if (pathname.startsWith('/analytics/thresholds')) return 'analytics-thresholds';
+  if (pathname.startsWith('/analytics')) return 'analytics-platform';
+  if (pathname.startsWith('/dashboard')) return 'dashboard';
+  if (pathname.startsWith('/admission')) return 'admission';
+  if (pathname.startsWith('/explanations')) return 'explanations';
+  if (pathname.startsWith('/users')) return 'users';
+  if (pathname.startsWith('/questions')) return 'questions';
+  if (pathname.startsWith('/subscriptions')) return 'subscriptions';
+  return 'dashboard';
+}
+
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [openKeys, setOpenKeys] = useState<string[]>([]);
 
-  const menuItems = [
-    { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
-    { key: 'questions', icon: <QuestionCircleOutlined />, label: 'Вопросы' },
-    { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
-    { key: 'analytics', icon: <BarChartOutlined />, label: 'Аналитика' },
-  ];
+  const selectedKey = useMemo(() => menuKeyFromPath(location.pathname), [location.pathname]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/analytics')) {
+      setOpenKeys((k) => (k.includes('analytics') ? k : [...k, 'analytics']));
+    }
+  }, [location.pathname]);
+
+  const menuItems: MenuProps['items'] = useMemo(
+    () => [
+      { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+      {
+        key: 'analytics',
+        icon: <BarChartOutlined />,
+        label: 'Аналитика',
+        children: [
+          { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Платформа' },
+          { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'Пробные ЕНТ' },
+          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги в вузы (5 лет)' },
+        ],
+      },
+      { key: 'admission', icon: <RocketOutlined />, label: 'Шанс поступления' },
+      { key: 'explanations', icon: <QuestionCircleOutlined />, label: 'Объяснения вопросов' },
+      { type: 'divider' },
+      { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
+      { key: 'questions', icon: <QuestionCircleOutlined />, label: 'Вопросы' },
+      { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+    ],
+    [],
+  );
 
   useEffect(() => {
     setLoadingUser(true);
-    api.get('/users/me')
+    api
+      .get('/users/me')
       .then(({ data }) => {
         if (!data.isAdmin) {
           clearTokens();
@@ -48,8 +124,6 @@ function AdminLayout() {
       .finally(() => setLoadingUser(false));
   }, [navigate]);
 
-  const selectedKey = menuItems.find((item) => location.pathname.startsWith(`/${item.key}`))?.key || 'users';
-
   if (loadingUser) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
@@ -61,50 +135,79 @@ function AdminLayout() {
   if (!user) return null;
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f4f6fb' }}>
+    <Layout className="admin-shell">
       <Sider
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        width={220}
-        style={{ boxShadow: '2px 0 12px rgba(15, 23, 42, 0.08)' }}
+        width={240}
+        style={{
+          background: 'linear-gradient(180deg, #0c1324 0%, #111827 100%)',
+          boxShadow: '4px 0 24px rgba(15, 23, 42, 0.12)',
+        }}
       >
-        <div style={{ padding: '16px', textAlign: 'center', color: '#fff', fontWeight: 700, fontSize: collapsed ? 14 : 18 }}>
-          {collapsed ? 'MT' : 'MyTest'}
+        <div className="admin-sider-brand">
+          <div className="admin-sider-brand-title">{collapsed ? 'MT' : 'MyTest Admin'}</div>
+          {!collapsed && <div className="admin-sider-brand-sub">Анализ · контент · доступ</div>}
         </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          onClick={({ key }) => navigate(`/${key}`)}
+          openKeys={collapsed ? [] : openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys as string[])}
+          onClick={({ key }) => {
+            const path = MENU_NAV[key];
+            if (path) navigate(path);
+          }}
+          style={{ background: 'transparent', border: 'none' }}
           items={menuItems}
         />
       </Sider>
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eef1f6' }}>
+        <Header
+          style={{
+            background: '#fff',
+            padding: '0 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
+          }}
+        >
           <Typography.Text strong style={{ fontSize: 15, color: '#0f172a' }}>
             Панель администратора
           </Typography.Text>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Avatar size="small">
+            <Avatar size="small" style={{ backgroundColor: '#3b5bdb' }}>
               {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
             </Avatar>
-            <span>{user.firstName} {user.lastName}</span>
+            <span>
+              {user.firstName} {user.lastName}
+            </span>
             <Button
               type="link"
-              onClick={() => { clearTokens(); navigate('/login', { replace: true }); }}
+              onClick={() => {
+                clearTokens();
+                navigate('/login', { replace: true });
+              }}
             >
               Выйти
             </Button>
           </div>
         </Header>
-        <Content style={{ margin: '20px', background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
+        <Content className="admin-content-wrap">
           <Routes>
-            <Route path="/" element={<Navigate to="/users" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/analytics/ent" element={<EntTrialsAnalyticsPage />} />
+            <Route path="/analytics/thresholds" element={<UniversityThresholdsPage />} />
+            <Route path="/admission" element={<AdmissionChancePage />} />
+            <Route path="/explanations" element={<ExplanationsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
           </Routes>
         </Content>
       </Layout>
@@ -119,7 +222,9 @@ export function App() {
         algorithm: theme.defaultAlgorithm,
         token: {
           borderRadius: 10,
-          colorPrimary: '#1677ff',
+          colorPrimary: '#3b5bdb',
+          fontFamily:
+            'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         },
       }}
     >

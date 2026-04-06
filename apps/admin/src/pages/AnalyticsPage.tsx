@@ -13,7 +13,10 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 24 }}>Аналитика</h2>
+      <h2 className="admin-page-title">Аналитика платформы</h2>
+      <p className="admin-page-lead" style={{ marginBottom: 20 }}>
+        Сводные метрики по пользователям, завершённым тестам, вопросам и активным подпискам.
+      </p>
       <Alert
         type="info"
         showIcon
@@ -23,7 +26,7 @@ export function AnalyticsPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={12} md={6}>
-          <Card>
+          <Card className="admin-stat-card">
             <Statistic
               title="Пользователей"
               value={data?.totalUsers || 0}
@@ -32,7 +35,7 @@ export function AnalyticsPage() {
           </Card>
         </Col>
         <Col xs={12} md={6}>
-          <Card>
+          <Card className="admin-stat-card">
             <Statistic
               title="Завершённых тестов"
               value={data?.totalTests || 0}
@@ -41,7 +44,7 @@ export function AnalyticsPage() {
           </Card>
         </Col>
         <Col xs={12} md={6}>
-          <Card>
+          <Card className="admin-stat-card">
             <Statistic
               title="Вопросов в базе"
               value={data?.totalQuestions || 0}
@@ -50,7 +53,7 @@ export function AnalyticsPage() {
           </Card>
         </Col>
         <Col xs={12} md={6}>
-          <Card>
+          <Card className="admin-stat-card">
             <Statistic
               title="Активных подписок"
               value={data?.activeSubscriptions || 0}

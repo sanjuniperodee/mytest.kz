@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { Table, Button, Modal, Form, Input, Select, InputNumber, Switch, Space, Tag, message, Empty } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -42,6 +43,8 @@ function getLocalizedText(value: any): string {
 
 export function QuestionsPage() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('id');
   const [page, setPage] = useState(1);
   const [examTypeId, setExamTypeId] = useState<string | undefined>();
   const [subjectId, setSubjectId] = useState<string | undefined>();
@@ -55,9 +58,23 @@ export function QuestionsPage() {
 
   useEffect(() => {
     if (!examTypes || examTypes.length === 0 || examTypeId) return;
+    if (searchParams.get('id')) return;
     const ent = examTypes.find((e: any) => e.slug === 'ent');
     setExamTypeId((ent || examTypes[0]).id);
-  }, [examTypes, examTypeId]);
+  }, [examTypes, examTypeId, searchParams]);
+
+  useEffect(() => {
+    const qid = searchParams.get('id');
+    if (!qid) return;
+    api.get('/admin/questions', { params: { id: qid, limit: 1 } }).then(({ data }) => {
+      const item = data.items?.[0];
+      if (item) {
+        setExamTypeId(item.examTypeId);
+        setSubjectId(item.subjectId);
+        setPage(1);
+      }
+    });
+  }, [searchParams]);
 
   const { data: subjects } = useQuery({
     queryKey: ['subjects', examTypeId],
@@ -303,6 +320,7 @@ export function QuestionsPage() {
         columns={columns}
         dataSource={examTypeId ? data?.items || [] : []}
         rowKey="id"
+        rowClassName={(record) => (highlightId && record.id === highlightId ? 'admin-row-highlight' : '')}
         loading={isLoading}
         pagination={{
           current: page,

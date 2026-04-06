@@ -40,20 +40,26 @@ export class QuestionsService {
   }
 
   async findMany(filters: {
+    id?: string;
     examTypeId?: string;
     subjectId?: string;
     topicId?: string;
     difficulty?: number;
+    hasExplanation?: boolean;
     page?: number;
     limit?: number;
   }) {
     const { page = 1, limit = 20, ...where } = filters;
     const whereClause: Prisma.QuestionWhereInput = { isActive: true };
 
+    if (where.id) whereClause.id = where.id;
     if (where.examTypeId) whereClause.examTypeId = where.examTypeId;
     if (where.subjectId) whereClause.subjectId = where.subjectId;
     if (where.topicId) whereClause.topicId = where.topicId;
     if (where.difficulty) whereClause.difficulty = where.difficulty;
+    if (where.hasExplanation === true) {
+      whereClause.explanation = { not: Prisma.DbNull };
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.question.findMany({

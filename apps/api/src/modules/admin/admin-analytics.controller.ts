@@ -12,4 +12,9 @@ export class AdminAnalyticsController {
   async getOverview() {
     return this.adminService.getAnalyticsOverview();
   }
+
+  @Get('ent-trials')
+  async getEntTrials() {
+    return this.adminService.getEntTrialAnalytics();
+  }
 }

@@ -9,7 +9,7 @@ import {
   passesThresholds,
   totalEntScore,
   type EntScores,
-} from '../../lib/entGrantModel';
+} from '@bilimland/shared';
 
 const initialScores: EntScores = {
   mathLit: 5,

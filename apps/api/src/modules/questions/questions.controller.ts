@@ -15,18 +15,23 @@ export class QuestionsController {
 
   @Get()
   async findMany(
+    @Query('id') id?: string,
     @Query('examTypeId') examTypeId?: string,
     @Query('subjectId') subjectId?: string,
     @Query('topicId') topicId?: string,
     @Query('difficulty') difficulty?: string,
+    @Query('hasExplanation') hasExplanation?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.questionsService.findMany({
+      id,
       examTypeId,
       subjectId,
       topicId,
       difficulty: difficulty ? parseInt(difficulty, 10) : undefined,
+      hasExplanation:
+        hasExplanation === 'true' ? true : hasExplanation === 'false' ? false : undefined,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 20,
     });
