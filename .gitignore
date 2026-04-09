@@ -8,3 +8,6 @@ dist/
 coverage/
 .next/
 *.tsbuildinfo
+
+# Временные выгрузки текста из PDF (JSON-сид уже в репо)
+apps/api/prisma/extracted-pdf/

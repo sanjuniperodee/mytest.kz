@@ -11,6 +11,7 @@ import { QuestionsModule } from './modules/questions/questions.module';
 import { TestsModule } from './modules/tests/tests.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
+import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -25,6 +26,7 @@ import { TelegramModule } from './modules/telegram/telegram.module';
     TestsModule,
     AdminModule,
     TelegramModule,
+    BulkImportModule,
   ],
 })
 export class AppModule {}

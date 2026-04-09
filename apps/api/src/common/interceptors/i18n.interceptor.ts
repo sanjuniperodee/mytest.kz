@@ -17,6 +17,10 @@ import { Observable, map } from 'rxjs';
 export class I18nInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
+    const path = String(request.path ?? request.url ?? '');
+    if (path.includes('/bulk')) {
+      return next.handle();
+    }
 
     // Get language from JWT payload, query param, or Accept-Language header
     const lang =
