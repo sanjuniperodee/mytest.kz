@@ -1,7 +1,7 @@
 /**
  * Импорт банка «Математическая грамотность» (ЕНТ) из math-literacy-seed-data.json.
  * Запуск: из каталога apps/api — `npx ts-node prisma/seed-math-sauat.ts`
- * Требует существующих exam type `ent` и subject `math_literacy` (основной seed или продакшен).
+ * При отсутствии в БД создаёт минимально exam `ent` и предмет `math_literacy`.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -32,13 +32,37 @@ async function main() {
   }
   const banks = JSON.parse(fs.readFileSync(jsonPath, 'utf-8')) as Bank[];
 
-  const ent = await prisma.examType.findUnique({ where: { slug: 'ent' } });
-  if (!ent) throw new Error('examType ent not found. Run main prisma/seed.ts first.');
+  let ent = await prisma.examType.findUnique({ where: { slug: 'ent' } });
+  if (!ent) {
+    ent = await prisma.examType.create({
+      data: {
+        slug: 'ent',
+        name: i('ҰБТ/ЕНТ', 'ЕНТ', 'UNT'),
+        description: i(
+          'Математикалық сауаттылық банкі',
+          'Банк вопросов математической грамотности',
+          'Math literacy question bank',
+        ),
+      },
+    });
+    console.log('Created exam type ent');
+  }
 
-  const subject = await prisma.subject.findUnique({
+  let subject = await prisma.subject.findUnique({
     where: { examTypeId_slug: { examTypeId: ent.id, slug: 'math_literacy' } },
   });
-  if (!subject) throw new Error('subject math_literacy not found.');
+  if (!subject) {
+    subject = await prisma.subject.create({
+      data: {
+        examTypeId: ent.id,
+        slug: 'math_literacy',
+        name: i('Математикалық сауаттылық', 'Математическая грамотность', 'Mathematical Literacy'),
+        isMandatory: true,
+        sortOrder: 1,
+      },
+    });
+    console.log('Created subject math_literacy');
+  }
 
   const existingTopics = await prisma.topic.findMany({ where: { subjectId: subject.id } });
 
