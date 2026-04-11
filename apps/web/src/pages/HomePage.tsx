@@ -4,6 +4,7 @@ import { useExamTypes } from '../api/hooks/useExams';
 import { useSessions, useMistakesSummary } from '../api/hooks/useTests';
 import { useAuth } from '../api/hooks/useAuth';
 import { Spinner } from '../components/common/Spinner';
+import { localizedText } from '../lib/localizedText';
 
 const EXAM_COLORS: Record<string, string> = {
   ent: '#6366f1',
@@ -48,7 +49,7 @@ function ChevronRight() {
 }
 
 export function HomePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: examTypes, isLoading } = useExamTypes();
@@ -125,7 +126,7 @@ export function HomePage() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, position: 'relative' }}>
                     <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
-                      {session.examType?.name || 'Test'}
+                      {localizedText(session.examType?.name, i18n.language) || 'Test'}
                     </span>
                     <span className="badge badge-warning" style={{ fontSize: 11 }}>
                       <span className="dot dot-warning" style={{ width: 6, height: 6 }} />
@@ -172,11 +173,11 @@ export function HomePage() {
                 </div>
                 <div className="exam-row-main">
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, color: 'var(--text-primary)' }}>
-                    {exam.name}
+                    {localizedText(exam.name, i18n.language)}
                   </div>
-                  {exam.description && (
+                  {exam.description != null && localizedText(exam.description, i18n.language) && (
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }} className="truncate">
-                      {exam.description}
+                      {localizedText(exam.description, i18n.language)}
                     </div>
                   )}
                 </div>

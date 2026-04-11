@@ -1110,6 +1110,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-size: 11px;
 }
 
+.question-stem-body .katex-display {
+  margin: 0.75em 0;
+}
+
 .test-answer-options-label {
   font-size: 10px;
   font-weight: 800;

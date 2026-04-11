@@ -6,9 +6,10 @@ import { useAuth } from '../api/hooks/useAuth';
 import { QuestionDisplay } from '../components/test/QuestionDisplay';
 import { AnswerOptions } from '../components/test/AnswerOptions';
 import { Spinner } from '../components/common/Spinner';
-import { useTelegram } from '../lib/telegram';
+import { openTelegramTmeLink, useTelegram } from '../lib/telegram';
 import { renderMathInText } from '../lib/katex';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
+import { localizedText } from '../lib/localizedText';
 
 function BackArrow() {
   return (
@@ -20,7 +21,7 @@ function BackArrow() {
 
 export function ReviewPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -47,13 +48,20 @@ export function ReviewPage() {
     for (const answer of orderedAnswers) {
       const subj = answer.question?.subject;
       const subjId = subj?.id || 'unknown';
-      if (!map.has(subjId)) map.set(subjId, { subjectId: subjId, subjectName: subj?.name || '', correct: 0, total: 0 });
+      if (!map.has(subjId)) {
+        map.set(subjId, {
+          subjectId: subjId,
+          subjectName: localizedText(subj?.name, i18n.language),
+          correct: 0,
+          total: 0,
+        });
+      }
       const s = map.get(subjId)!;
       s.total++;
       if (answer.isCorrect) s.correct++;
     }
     return Array.from(map.values());
-  }, [orderedAnswers]);
+  }, [orderedAnswers, i18n.language]);
 
   const sectionBoundaries = useMemo(() => {
     if (orderedAnswers.length === 0) return [];
@@ -63,11 +71,14 @@ export function ReviewPage() {
       const subjId = orderedAnswers[i].question?.subject?.id || '';
       if (subjId !== currentSubjectId) {
         currentSubjectId = subjId;
-        boundaries.push({ index: i, subjectName: orderedAnswers[i].question?.subject?.name || '' });
+        boundaries.push({
+          index: i,
+          subjectName: localizedText(orderedAnswers[i].question?.subject?.name, i18n.language),
+        });
       }
     }
     return boundaries;
-  }, [orderedAnswers]);
+  }, [orderedAnswers, i18n.language]);
 
   if (isLoading || !session) return <Spinner fullScreen />;
 
@@ -222,7 +233,7 @@ export function ReviewPage() {
                       <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>#{globalIdx + 1}</span>
                       {sectionBoundaries.length > 1 && (
                         <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
-                          {answer.question?.subject?.name}
+                          {localizedText(answer.question?.subject?.name, i18n.language)}
                         </span>
                       )}
                     </div>
@@ -286,8 +297,7 @@ function ExplanationSection({ sessionId, questionId, hasSubscription }: {
         </p>
         <button className="btn btn-primary btn-xs" style={{ width: 'auto', padding: '8px 20px' }}
           onClick={() => {
-            const link = 'https://t.me/bilimland_manager';
-            if (webApp) webApp.openTelegramLink(link); else window.open(link, '_blank');
+            openTelegramTmeLink(webApp, 'https://t.me/bilimland_manager');
           }}>
           {t('review.getPremium')}
         </button>

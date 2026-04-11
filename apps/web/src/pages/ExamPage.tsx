@@ -7,6 +7,7 @@ import { useAuth } from '../api/hooks/useAuth';
 import { Spinner } from '../components/common/Spinner';
 import { safeShowAlert, useTelegram } from '../lib/telegram';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
+import { localizedText } from '../lib/localizedText';
 import type { TestTemplate } from '../api/types';
 
 function BackArrow() {
@@ -62,7 +63,7 @@ function entModePreview(
 
 export function ExamPage() {
   const { examId } = useParams<{ examId: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { webApp } = useTelegram();
@@ -81,7 +82,10 @@ export function ExamPage() {
   const electiveSubjects = useMemo(() => subjects?.filter((s) => !s.isMandatory) || [], [subjects]);
 
   const examSlug = useMemo(() => examTypes?.find((et) => et.id === examId)?.slug, [examTypes, examId]);
-  const examName = useMemo(() => examTypes?.find((e) => e.id === examId)?.name || '', [examTypes, examId]);
+  const examName = useMemo(
+    () => localizedText(examTypes?.find((e) => e.id === examId)?.name, i18n.language),
+    [examTypes, examId, i18n.language],
+  );
   const isEnt = examSlug === 'ent';
   const profileQuestionCount = examSlug === 'ent' ? 20 : examSlug === 'nuet' ? 15 : 10;
   const requiredProfiles = examSlug === 'ent' && entPassMode !== 'mandatory' ? 2 : 0;
@@ -255,7 +259,7 @@ export function ExamPage() {
         <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {mandatorySubjects.map((subject) => (
             <div key={subject.id} className="list-item" style={{ cursor: 'default' }}>
-              <span style={{ fontSize: 14, fontWeight: 500 }}>{subject.name}</span>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{localizedText(subject.name, i18n.language)}</span>
               <span className="badge badge-accent" style={{ fontSize: 11 }}>{t('exam.mandatory')}</span>
             </div>
           ))}
@@ -289,7 +293,7 @@ export function ExamPage() {
                   <div className="chip-check">
                     {isSelected && <CheckCircle />}
                   </div>
-                  {subject.name}
+                  {localizedText(subject.name, i18n.language)}
                 </button>
               );
             })}
@@ -324,7 +328,9 @@ export function ExamPage() {
                   style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 0 }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{template.name}</span>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>
+                      {localizedText(template.name, i18n.language)}
+                    </span>
                     <div style={{
                       width: 22, height: 22, borderRadius: 'var(--r-full)',
                       background: isSelected ? 'var(--accent)' : 'transparent',
@@ -350,7 +356,7 @@ export function ExamPage() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {template.sections.map((sec) => (
                         <span key={sec.id} className="badge badge-info" style={{ fontSize: 10 }}>
-                          {sec.subject.name}: {sec.questionCount}
+                          {localizedText(sec.subject.name, i18n.language)}: {sec.questionCount}
                         </span>
                       ))}
                       {hasElectives &&
@@ -359,7 +365,7 @@ export function ExamPage() {
                           .filter((s) => selectedProfiles.includes(s.id))
                           .map((s) => (
                             <span key={s.id} className="badge badge-warning" style={{ fontSize: 10 }}>
-                              {s.name}: {profileQuestionCount}
+                              {localizedText(s.name, i18n.language)}: {profileQuestionCount}
                             </span>
                           ))}
                     </div>

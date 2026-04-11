@@ -2,25 +2,18 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../api/hooks/useAuth';
-import { useTelegram } from '../lib/telegram';
 import { AdvancedSEO } from '../components/seo/AdvancedSEO';
 
 export function ChannelGatePage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
-  const { webApp, isTelegram } = useTelegram();
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
 
   const htmlLang = i18n.language === 'kk' ? 'kk' : i18n.language === 'en' ? 'en' : 'ru';
 
   const channelLink = 'https://t.me/bilimilimland';
-
-  const handleSubscribe = () => {
-    if (isTelegram && webApp) webApp.openTelegramLink(channelLink);
-    else window.open(channelLink, '_blank');
-  };
 
   const handleCheck = async () => {
     setChecking(true); setError('');
@@ -60,9 +53,22 @@ export function ChannelGatePage() {
             {t('channel.description')}
           </p>
 
-          <button className="btn btn-primary" onClick={handleSubscribe} style={{ marginBottom: 10 }}>
+          <a
+            href={channelLink}
+            className="btn btn-primary"
+            target="_top"
+            rel="noopener noreferrer"
+            role="button"
+            style={{
+              marginBottom: 10,
+              textDecoration: 'none',
+              display: 'block',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          >
             {t('channel.subscribe')}
-          </button>
+          </a>
           <button className="btn btn-secondary" onClick={handleCheck} disabled={checking}>
             {checking ? t('common.loading') : t('channel.checkSubscription')}
           </button>

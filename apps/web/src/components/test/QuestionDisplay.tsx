@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { renderMathInText } from '../../lib/katex';
+import { renderMathInTextWithLineBreaks, splitQuestionStemLine } from '../../lib/questionStem';
 
 interface Props {
   content: string;
@@ -7,12 +7,17 @@ interface Props {
 }
 
 export function QuestionDisplay({ content, imageUrls }: Props) {
-  const renderedContent = useMemo(() => renderMathInText(content), [content]);
+  const text = typeof content === 'string' ? content : String(content ?? '');
+  const { topic, body } = useMemo(() => splitQuestionStemLine(text), [text]);
+  /** Первая строка в сид-данных — подпись темы; в интерфейсе показываем только условие. */
+  const toRender = topic ? body : text;
+  const renderedBody = useMemo(() => renderMathInTextWithLineBreaks(toRender), [toRender]);
 
   return (
     <div style={{ marginBottom: 20 }}>
       <div
-        dangerouslySetInnerHTML={{ __html: renderedContent }}
+        dangerouslySetInnerHTML={{ __html: renderedBody }}
+        className="question-stem-body"
         style={{
           fontSize: 16,
           lineHeight: 1.75,

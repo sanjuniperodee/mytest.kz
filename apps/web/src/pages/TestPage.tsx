@@ -11,11 +11,12 @@ import { SubjectTabs } from '../components/test/SubjectTabs';
 import { TestSectionProgress } from '../components/test/TestSectionProgress';
 import { Spinner } from '../components/common/Spinner';
 import { safeShowAlert, safeShowConfirm, useTelegram } from '../lib/telegram';
+import { localizedText } from '../lib/localizedText';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 
 export function TestPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { webApp } = useTelegram();
@@ -73,13 +74,18 @@ export function TestPage() {
       const subjId = subj?.id || '';
       if (subjId !== currentSubjectId) {
         currentSubjectId = subjId;
-        boundaries.push({ index: i, subjectName: subj?.name || '', subjectSlug: subj?.slug || '', count: 0 });
+        boundaries.push({
+          index: i,
+          subjectName: localizedText(subj?.name, i18n.language),
+          subjectSlug: subj?.slug || '',
+          count: 0,
+        });
       }
       const currentBoundary = boundaries[boundaries.length - 1];
       if (currentBoundary) currentBoundary.count++;
     }
     return boundaries;
-  }, [orderedAnswers]);
+  }, [orderedAnswers, i18n.language]);
 
   const currentSection = useMemo(() => {
     for (let i = sectionBoundaries.length - 1; i >= 0; i--) {
@@ -220,7 +226,7 @@ export function TestPage() {
         examName={
           session.metadata?.kind === 'remediation'
             ? t('mistakes.sessionTitle')
-            : session.examType?.name
+            : localizedText(session.examType?.name, i18n.language)
         }
         answeredCount={answeredCount}
         totalQuestions={answers.length}

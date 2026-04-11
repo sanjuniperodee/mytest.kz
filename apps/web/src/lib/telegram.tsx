@@ -98,6 +98,37 @@ export function useTelegram() {
 }
 
 /**
+ * Открыть ссылку вида https://t.me/... внутри клиента Telegram.
+ * В Mini App `openTelegramLink` часто не срабатывает; переход через <a target="_top">
+ * выходит из iframe — клиент обрабатывает t.me как внутреннюю навигацию.
+ */
+export function openTelegramTmeLink(_webApp: TelegramWebApp | null, url: string): void {
+  const u = url.trim();
+  if (!u) return;
+  try {
+    const a = document.createElement('a');
+    a.href = u;
+    a.target = '_top';
+    a.rel = 'noopener noreferrer';
+    a.setAttribute('aria-hidden', 'true');
+    Object.assign(a.style, {
+      position: 'fixed',
+      left: '0',
+      top: '0',
+      width: '1px',
+      height: '1px',
+      opacity: '0',
+      pointerEvents: 'auto',
+    });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch {
+    window.open(u, '_blank', 'noopener,noreferrer');
+  }
+}
+
+/**
  * В обычном браузере часто подгружается telegram-web-app.js, но initData пустой —
  * вызовы showConfirm/showAlert бросают WebAppMethodUnsupported.
  * В WebApp 6.0+ showPopup может быть отключён — тоже не вызываем SDK.

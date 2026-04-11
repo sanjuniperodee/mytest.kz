@@ -20,8 +20,9 @@ export interface AuthResponse {
 export interface ExamType {
   id: string;
   slug: string;
-  name: string;
-  description: string | null;
+  /** JSON { kk, ru, en } или строка */
+  name: unknown;
+  description: unknown;
   isActive: boolean;
 }
 
@@ -29,7 +30,7 @@ export interface Subject {
   id: string;
   examTypeId: string;
   slug: string;
-  name: string;
+  name: unknown;
   isMandatory: boolean;
   sortOrder: number;
 }
@@ -37,7 +38,7 @@ export interface Subject {
 export interface TestTemplate {
   id: string;
   examTypeId: string;
-  name: string;
+  name: unknown;
   durationMins: number;
   sections: TestTemplateSection[];
 }
@@ -63,7 +64,7 @@ export interface Question {
   content: string;
   imageUrls?: string[];
   answerOptions: AnswerOption[];
-  subject?: { id: string; name: string; slug: string };
+  subject?: { id: string; name: unknown; slug: string };
 }
 
 export interface TestAnswer {
@@ -77,7 +78,8 @@ export interface TestAnswer {
 
 export interface SessionSection {
   subjectId: string;
-  subjectName: string;
+  /** JSON или строка с бэка */
+  subjectName: unknown;
   subjectSlug: string;
   isMandatory?: boolean;
   questionCount: number;

@@ -5,7 +5,8 @@ import type { TFunction } from 'i18next';
 import { useProfile, useUserStats } from '../api/hooks/useProfile';
 import { useSessions, useMistakesSummary } from '../api/hooks/useTests';
 import { Spinner } from '../components/common/Spinner';
-import { useTelegram } from '../lib/telegram';
+import { openTelegramTmeLink, useTelegram } from '../lib/telegram';
+import { localizedText } from '../lib/localizedText';
 
 const EXAM_GRADIENTS: Record<string, string> = {
   ent: 'linear-gradient(135deg, #6366f1, #4f46e5)',
@@ -168,8 +169,7 @@ export function ProfilePage() {
 
   const openPremium = () => {
     const link = 'https://t.me/bilimland_manager';
-    if (webApp) webApp.openTelegramLink(link);
-    else window.open(link, '_blank');
+    openTelegramTmeLink(webApp, link);
   };
 
   return (
@@ -274,9 +274,7 @@ export function ProfilePage() {
           <div className="profile-exam-list stagger-list">
             {stats.byExamType.map((ex) => {
               const title =
-                typeof ex.examType?.name === 'string' && ex.examType.name.trim()
-                  ? ex.examType.name
-                  : getExamLabel(ex.examSlug);
+                localizedText(ex.examType?.name, i18n.language) || getExamLabel(ex.examSlug);
               const hasFinished = ex.testsCount > 0 && ex.averageScore != null;
               const pct = hasFinished ? Math.round(ex.averageScore!) : null;
               const grad = EXAM_GRADIENTS[ex.examSlug] || 'linear-gradient(135deg, var(--accent), var(--accent-hover))';
@@ -395,7 +393,10 @@ export function ProfilePage() {
                 const isInProgress = session.status === 'in_progress';
                 const scoreRaw = Number(session.score ?? 0);
                 const score = Math.round(Number.isFinite(scoreRaw) ? scoreRaw : 0);
-                const title = session.examType?.name || getExamLabel(slug) || t('profile.testFallback');
+                const title =
+                  localizedText(session.examType?.name, i18n.language) ||
+                  getExamLabel(slug) ||
+                  t('profile.testFallback');
 
                 return (
                   <button

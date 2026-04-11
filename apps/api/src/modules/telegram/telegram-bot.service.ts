@@ -17,6 +17,8 @@ import { AuthService } from '../auth/auth.service';
 export class TelegramBotService implements OnModuleInit {
   private bot: Telegraf;
   private channelId: string;
+  /** HTTPS origin of the Mini App (Bot API WebAppInfo.url), same as public site. */
+  private readonly webAppUrl: string;
   private readonly logger = new Logger(TelegramBotService.name);
 
   constructor(
@@ -28,6 +30,15 @@ export class TelegramBotService implements OnModuleInit {
     const token = config.get<string>('TELEGRAM_BOT_TOKEN', '');
     this.bot = new Telegraf(token);
     this.channelId = config.get<string>('TELEGRAM_CHANNEL_ID', '');
+    const raw =
+      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://my-test.kz';
+    this.webAppUrl = raw.replace(/\/+$/, '');
+  }
+
+  private openAppInlineKeyboard() {
+    return Markup.inlineKeyboard([
+      [Markup.button.webApp('🚀 Открыть MyTest', this.webAppUrl)],
+    ]);
   }
 
   async onModuleInit() {
@@ -60,7 +71,11 @@ export class TelegramBotService implements OnModuleInit {
 
         await ctx.reply(
           '👋 Добро пожаловать в MyTest!\n\n' +
-            'Укажите номер телефона в боте — сразу после сохранения мы отправим код сюда. Затем на сайте введите тот же номер и код.',
+            'Кнопка ниже открывает мини-приложение. Чтобы входить с сайта, поделитесь номером в следующем сообщении — код придёт в этот чат.',
+          this.openAppInlineKeyboard(),
+        );
+        await ctx.reply(
+          '📱 Нажмите кнопку и отправьте свой номер телефона.',
           contactKb,
         );
       } catch (error) {
@@ -164,7 +179,10 @@ export class TelegramBotService implements OnModuleInit {
       await this.bot.telegram.sendMessage(
         Number(telegramId),
         `🔐 Код для входа в MyTest: *${code}*\n\nКод действителен 5 минут.`,
-        { parse_mode: 'Markdown' },
+        {
+          parse_mode: 'Markdown',
+          ...this.openAppInlineKeyboard(),
+        },
       );
     } catch (error) {
       this.logger.error(`Failed to send auth code to telegramId ${telegramId}: ${error}`);
