@@ -94,3 +94,36 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
 export function useTelegram() {
   return useContext(TelegramContext);
 }
+
+/**
+ * showConfirm/showPopup не поддерживаются в некоторых версиях WebApp (например 6.0) —
+ * падают синхронно; тогда используем window.confirm.
+ */
+export function safeShowConfirm(
+  webApp: TelegramWebApp | null,
+  message: string,
+  onResult: (confirmed: boolean) => void,
+): void {
+  if (!webApp) {
+    onResult(typeof window !== 'undefined' && window.confirm(message));
+    return;
+  }
+  try {
+    webApp.showConfirm(message, onResult);
+  } catch {
+    onResult(typeof window !== 'undefined' && window.confirm(message));
+  }
+}
+
+/** Аналогично для showAlert, если в версии клиента метод сломан. */
+export function safeShowAlert(webApp: TelegramWebApp | null, message: string): void {
+  if (!webApp) {
+    if (typeof window !== 'undefined') window.alert(message);
+    return;
+  }
+  try {
+    webApp.showAlert(message);
+  } catch {
+    if (typeof window !== 'undefined') window.alert(message);
+  }
+}

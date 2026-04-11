@@ -5,7 +5,7 @@ import { useSubjects, useTemplates, useExamTypes } from '../api/hooks/useExams';
 import { useStartTest } from '../api/hooks/useTests';
 import { useAuth } from '../api/hooks/useAuth';
 import { Spinner } from '../components/common/Spinner';
-import { useTelegram } from '../lib/telegram';
+import { safeShowAlert, useTelegram } from '../lib/telegram';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 import type { TestTemplate } from '../api/types';
 
@@ -143,7 +143,7 @@ export function ExamPage() {
       navigate(`/test/${session.id}`);
     } catch (err: any) {
       const msg = err.response?.data?.message || t('common.error');
-      if (webApp) webApp.showAlert(msg); else alert(msg);
+      safeShowAlert(webApp, msg);
     }
   };
 

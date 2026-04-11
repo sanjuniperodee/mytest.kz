@@ -10,7 +10,7 @@ import { QuestionNavigator } from '../components/test/QuestionNavigator';
 import { SubjectTabs } from '../components/test/SubjectTabs';
 import { TestSectionProgress } from '../components/test/TestSectionProgress';
 import { Spinner } from '../components/common/Spinner';
-import { useTelegram } from '../lib/telegram';
+import { safeShowAlert, safeShowConfirm, useTelegram } from '../lib/telegram';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 
 export function TestPage() {
@@ -164,16 +164,19 @@ export function TestPage() {
         state: { from: (location.state as { from?: string } | undefined)?.from || '/app' },
       });
     }
-    catch { if (webApp) webApp.showAlert(t('common.error')); }
+    catch {
+      safeShowAlert(webApp, t('common.error'));
+    }
     finally { setIsSubmitting(false); }
   };
 
   const handleFinishClick = () => {
     if (unansweredCount > 0) {
       const msg = t('test.finishConfirm', { count: unansweredCount });
-      if (webApp) webApp.showConfirm(msg, (ok) => { if (ok) handleFinish(); });
-      else if (confirm(msg)) handleFinish();
-    } else handleFinish();
+      safeShowConfirm(webApp, msg, (ok) => {
+        if (ok) void handleFinish();
+      });
+    } else void handleFinish();
   };
 
   const sectionProgressSegments = useMemo(() => {
