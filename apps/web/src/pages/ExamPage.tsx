@@ -77,6 +77,8 @@ export function ExamPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
   const [entPassMode, setEntPassMode] = useState<'mandatory' | 'profile' | 'full'>('full');
+  /** Язык текста заданий ЕНТ (kk | ru); до явного выбора — из профиля. */
+  const [pickedEntQuestionLang, setPickedEntQuestionLang] = useState<'kk' | 'ru' | null>(null);
 
   const mandatorySubjects = useMemo(() => subjects?.filter((s) => s.isMandatory) || [], [subjects]);
   const electiveSubjects = useMemo(() => subjects?.filter((s) => !s.isMandatory) || [], [subjects]);
@@ -87,6 +89,11 @@ export function ExamPage() {
     [examTypes, examId, i18n.language],
   );
   const isEnt = examSlug === 'ent';
+  const defaultEntQuestionLang: 'kk' | 'ru' = useMemo(
+    () => (user?.preferredLanguage === 'kk' ? 'kk' : 'ru'),
+    [user?.preferredLanguage],
+  );
+  const entQuestionLanguage = pickedEntQuestionLang ?? defaultEntQuestionLang;
   const profileQuestionCount = examSlug === 'ent' ? 20 : examSlug === 'nuet' ? 15 : 10;
   const requiredProfiles = examSlug === 'ent' && entPassMode !== 'mandatory' ? 2 : 0;
   const maxProfiles = requiredProfiles > 0 ? requiredProfiles : electiveSubjects.length;
@@ -98,6 +105,10 @@ export function ExamPage() {
     if (!isEnt) return;
     if (entPassMode === 'mandatory') setSelectedProfiles([]);
   }, [isEnt, entPassMode]);
+
+  useEffect(() => {
+    if (!isEnt) setPickedEntQuestionLang(null);
+  }, [isEnt]);
 
   const entTemplatesSorted = useMemo(() => {
     if (!templates?.length) return [];
@@ -135,7 +146,7 @@ export function ExamPage() {
     try {
       const session = await startTest.mutateAsync({
         templateId: templateIdForStart,
-        language: user?.preferredLanguage || 'ru',
+        language: isEnt ? entQuestionLanguage : user?.preferredLanguage || 'ru',
         profileSubjectIds:
           isEnt && entPassMode === 'mandatory'
             ? undefined
@@ -248,6 +259,40 @@ export function ExamPage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {isEnt && (
+        <div className="section">
+          <div className="section-title">{t('exam.entQuestionLanguageTitle')}</div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
+            {t('exam.entQuestionLanguageLead')}
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(
+              [
+                { code: 'kk' as const, label: t('exam.entQuestionLanguageKk') },
+                { code: 'ru' as const, label: t('exam.entQuestionLanguageRu') },
+              ] as const
+            ).map(({ code, label }) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setPickedEntQuestionLang(code)}
+                className={`card ${entQuestionLanguage === code ? 'active' : ''}`}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  marginBottom: 0,
+                  padding: '12px 14px',
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{label}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}

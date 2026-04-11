@@ -34,7 +34,17 @@ export function NavBar() {
   ];
 
   return (
-    <nav className="nav-bar">
+    <nav className="nav-bar" aria-label={t('nav.ariaLabel', { defaultValue: 'Main navigation' })}>
+      <button
+        type="button"
+        className="nav-bar-brand"
+        onClick={() => navigate('/app')}
+      >
+        <span className="nav-bar-logo" aria-hidden>
+          M
+        </span>
+        <span className="nav-bar-title">{t('app.name')}</span>
+      </button>
       {items.map(({ path, Icon, label }) => {
         const active = path === '/app'
           ? location.pathname === '/app'
@@ -42,6 +52,7 @@ export function NavBar() {
         return (
           <button
             key={path}
+            type="button"
             className={`nav-bar-item ${active ? 'active' : ''}`}
             onClick={() => navigate(path)}
           >

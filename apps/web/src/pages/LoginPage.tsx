@@ -43,13 +43,19 @@ export function LoginPage() {
           htmlLang={htmlLang}
           includeHreflang={false}
         />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px' }}>
-          <Logo title={t('app.name')} />
-          <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>{t('home.subtitle')}</p>
-          <button className="btn btn-primary" onClick={handleTelegramLogin} disabled={loading} style={{ maxWidth: 320 }}>
-            {loading ? t('common.loading') : t('auth.telegramLogin')}
-          </button>
-          {error && <ErrorMsg text={error} />}
+        <div className="login-page">
+          <aside className="login-page-aside" aria-hidden>
+            <p className="login-page-aside-kicker">{t('app.name')}</p>
+            <h2 className="login-page-aside-title">{t('home.subtitle')}</h2>
+          </aside>
+          <div className="login-page-panel">
+            <Logo title={t('app.name')} />
+            <p className="login-page-panel-hint">{t('home.subtitle')}</p>
+            <button className="btn btn-primary login-page-submit" onClick={handleTelegramLogin} disabled={loading}>
+              {loading ? t('common.loading') : t('auth.telegramLogin')}
+            </button>
+            {error && <ErrorMsg text={error} />}
+          </div>
         </div>
       </>
     );
@@ -117,10 +123,15 @@ export function LoginPage() {
         htmlLang={htmlLang}
         includeHreflang={false}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px' }}>
-        <Logo title={t('app.name')} />
+      <div className="login-page">
+        <aside className="login-page-aside" aria-hidden>
+          <p className="login-page-aside-kicker">{t('app.name')}</p>
+          <h2 className="login-page-aside-title">{t('home.subtitle')}</h2>
+        </aside>
+        <div className="login-page-panel animate-fadeIn">
+          <Logo title={t('app.name')} />
 
-        <div style={{ width: '100%', maxWidth: 380 }} className="animate-fadeIn">
+          <div className="login-page-form">
           {step === 'phone' ? (
             <>
               <div className="surface" style={{ borderRadius: 'var(--r-xl)', padding: 24, marginBottom: 24 }}>
@@ -205,6 +216,7 @@ export function LoginPage() {
           )}
 
           {error && <ErrorMsg text={error} />}
+          </div>
         </div>
       </div>
     </>

@@ -37,10 +37,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   function TabsLayout() {
     return (
-      <>
-        <Outlet />
+      <div className="app-shell">
         <NavBar />
-      </>
+        <main className="app-main">
+          <Outlet />
+        </main>
+      </div>
     );
   }
 

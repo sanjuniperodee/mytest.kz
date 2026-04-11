@@ -318,28 +318,29 @@ export function TestPage() {
         </div>
       )}
 
-      {/* Question */}
-      <div className="animate-fadeIn" key={currentAnswer.questionId}>
-        <QuestionDisplay content={currentQuestion.content} imageUrls={currentQuestion.imageUrls} />
-
-        <div className="test-answer-options-label">{t('test.answerOptionsLabel')}</div>
-
-        <AnswerOptions
-          options={currentQuestion.answerOptions}
-          selectedIds={getSelectedForQuestion(currentAnswer.questionId)}
-          isMultiple={currentQuestion.type === 'multiple_choice'}
-          onSelect={handleSelectOption}
-        />
-
-        <div style={{ marginTop: 8, minHeight: 18 }}>
-          <span style={{
-            fontSize: 12,
-            color: submitAnswer.isPending ? 'var(--warning)' : 'var(--text-muted)',
-            fontWeight: submitAnswer.isPending ? 600 : 400,
-            transition: 'all 150ms var(--ease)',
-          }}>
-            {submitAnswer.isPending ? t('test.savingAnswer') : t('test.answerSaved')}
-          </span>
+      {/* Question + answers: two columns on wide desktop */}
+      <div className="animate-fadeIn test-question-layout" key={currentAnswer.questionId}>
+        <div className="test-question-stem">
+          <QuestionDisplay content={currentQuestion.content} imageUrls={currentQuestion.imageUrls} />
+        </div>
+        <div className="test-question-answers">
+          <div className="test-answer-options-label">{t('test.answerOptionsLabel')}</div>
+          <AnswerOptions
+            options={currentQuestion.answerOptions}
+            selectedIds={getSelectedForQuestion(currentAnswer.questionId)}
+            isMultiple={currentQuestion.type === 'multiple_choice'}
+            onSelect={handleSelectOption}
+          />
+          <div style={{ marginTop: 8, minHeight: 18 }}>
+            <span style={{
+              fontSize: 12,
+              color: submitAnswer.isPending ? 'var(--warning)' : 'var(--text-muted)',
+              fontWeight: submitAnswer.isPending ? 600 : 400,
+              transition: 'all 150ms var(--ease)',
+            }}>
+              {submitAnswer.isPending ? t('test.savingAnswer') : t('test.answerSaved')}
+            </span>
+          </div>
         </div>
       </div>
 

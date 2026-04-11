@@ -70,7 +70,7 @@ export function HomePage() {
   })();
 
   return (
-    <div className="page" style={{ paddingBottom: 90 }}>
+    <div className="page home-page">
       {/* Hero greeting */}
       <div className="page-hero" style={{ marginBottom: 20 }}>
         <p style={{
@@ -158,7 +158,7 @@ export function HomePage() {
       {/* Exam types */}
       <div className="section">
         <div className="section-title">{t('home.chooseExam')}</div>
-        <div className="exam-list stagger-list">
+        <div className="exam-list home-exam-grid stagger-list">
           {examTypes?.map((exam) => {
             const color = EXAM_COLORS[exam.slug] || '#6366f1';
             const gradient = EXAM_GRADIENTS[exam.slug] || `linear-gradient(135deg, ${color}, ${color})`;

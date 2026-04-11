@@ -72,7 +72,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="page" style={{ paddingBottom: 90 }}>
+    <div className="page">
       {/* Title */}
       <div className="page-hero" style={{ padding: '20px 22px', marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>

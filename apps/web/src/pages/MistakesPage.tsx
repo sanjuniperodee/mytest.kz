@@ -74,7 +74,7 @@ export function MistakesPage() {
   const { openTotal, openByExam, recentRecoveries } = data;
 
   return (
-    <div className="page mistakes-page" style={{ paddingBottom: 96 }}>
+    <div className="page mistakes-page">
       <header className="mistakes-page-head">
         <h1 className="page-title">{t('mistakes.title')}</h1>
         <p className="page-subtitle">{t('mistakes.subtitle')}</p>
