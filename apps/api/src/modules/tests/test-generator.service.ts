@@ -20,6 +20,8 @@ export class TestGeneratorService {
     templateId: string,
     profileSubjectIds?: string[],
     profileQuestionCount = 20,
+    /** если задан — случайный выбор сначала из вопросов, которые юзер ещё не видел в тестах */
+    userId?: string,
   ): Promise<GeneratedSection[]> {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
@@ -40,6 +42,7 @@ export class TestGeneratorService {
         section.subjectId,
         section.questionCount,
         section.selectionMode,
+        userId,
       );
       sections.push({
         subjectId: section.subjectId,
@@ -63,6 +66,7 @@ export class TestGeneratorService {
           subjectId,
           profileQuestionCount,
           'random',
+          userId,
         );
         sections.push({
           subjectId,
@@ -79,15 +83,34 @@ export class TestGeneratorService {
     subjectId: string,
     count: number,
     selectionMode: string,
+    userId?: string,
   ): Promise<string[]> {
     if (selectionMode === 'random') {
       const questions = await this.prisma.question.findMany({
         where: { subjectId, isActive: true },
         select: { id: true },
       });
+      if (questions.length === 0) return [];
 
-      const shuffled = this.shuffle(questions);
-      return shuffled.slice(0, count).map((q) => q.id);
+      const ids = questions.map((q) => q.id);
+      let ordered: string[];
+      if (userId) {
+        const seenRows = await this.prisma.testAnswer.findMany({
+          where: {
+            session: { userId },
+            questionId: { in: ids },
+          },
+          distinct: ['questionId'],
+          select: { questionId: true },
+        });
+        const seen = new Set(seenRows.map((r) => r.questionId));
+        const fresh = ids.filter((id) => !seen.has(id));
+        const repeat = ids.filter((id) => seen.has(id));
+        ordered = [...this.shuffle(fresh), ...this.shuffle(repeat)];
+      } else {
+        ordered = this.shuffle([...ids]);
+      }
+      return ordered.slice(0, count);
     } else {
       const questions = await this.prisma.question.findMany({
         where: { subjectId, isActive: true },
