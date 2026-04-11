@@ -1,12 +1,38 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
-import { Table, Button, Modal, Form, Input, Select, InputNumber, Switch, Space, Tag, message, Empty } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Select,
+  InputNumber,
+  Switch,
+  Space,
+  Tag,
+  message,
+  Empty,
+  Card,
+  Segmented,
+  Typography,
+  Tooltip,
+  Divider,
+} from 'antd';
+import { PlusOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
+import {
+  getLocalizedText,
+  getQuestionContentLocale,
+  getQuestionPreviewText,
+  localeFilterParam,
+} from '../lib/questionContent';
 
 const { TextArea } = Input;
+
+type LocaleFilter = '' | 'kk' | 'ru' | 'unset';
 
 interface Question {
   id: string;
@@ -15,30 +41,20 @@ interface Question {
   topicId: string;
   difficulty: number;
   type: string;
-  content: any;
-  explanation: any;
+  content: unknown;
+  explanation: unknown;
+  metadata?: Record<string, unknown> | null;
   isActive: boolean;
-  answerOptions: { id: string; content: any; isCorrect: boolean; sortOrder: number }[];
-  subject?: { id: string; name: string; slug: string };
-  examType?: { id: string; name: string; slug: string };
-  topic?: { id: string; name: string };
+  answerOptions: { id: string; content: unknown; isCorrect: boolean; sortOrder: number }[];
+  subject?: { id: string; name: unknown; slug: string };
+  examType?: { id: string; name: unknown; slug: string };
+  topic?: { id: string; name: unknown };
 }
 
-function getLocalizedText(value: any): string {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    // localized JSON: { ru: "..."} or { ru: { text: "..." } }
-    const candidates = ['ru', 'kk', 'en'];
-    for (const lang of candidates) {
-      const v = value?.[lang];
-      if (typeof v === 'string' && v.trim()) return v;
-      if (typeof v === 'object' && typeof v?.text === 'string' && v.text.trim()) return v.text;
-    }
-    // plain object with text
-    if (typeof value?.text === 'string' && value.text.trim()) return value.text;
-  }
-  return '';
+function localeTag(locale: ReturnType<typeof getQuestionContentLocale>) {
+  if (locale === 'kk') return <Tag color="gold">Қазақша</Tag>;
+  if (locale === 'ru') return <Tag color="cyan">Русский</Tag>;
+  return <Tag color="default">Нет метки</Tag>;
 }
 
 export function QuestionsPage() {
@@ -48,8 +64,12 @@ export function QuestionsPage() {
   const [page, setPage] = useState(1);
   const [examTypeId, setExamTypeId] = useState<string | undefined>();
   const [subjectId, setSubjectId] = useState<string | undefined>();
+  const [localeFilter, setLocaleFilter] = useState<LocaleFilter>('');
+  const [previewLang, setPreviewLang] = useState<'kk' | 'ru'>('ru');
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
+
+  const localeParams = useMemo(() => localeFilterParam(localeFilter), [localeFilter]);
 
   const { data: examTypes } = useQuery({
     queryKey: ['exam-types'],
@@ -59,7 +79,7 @@ export function QuestionsPage() {
   useEffect(() => {
     if (!examTypes || examTypes.length === 0 || examTypeId) return;
     if (searchParams.get('id')) return;
-    const ent = examTypes.find((e: any) => e.slug === 'ent');
+    const ent = examTypes.find((e: { slug: string }) => e.slug === 'ent');
     setExamTypeId((ent || examTypes[0]).id);
   }, [examTypes, examTypeId, searchParams]);
 
@@ -83,11 +103,11 @@ export function QuestionsPage() {
   });
 
   const subjectCountQueries = useQueries({
-    queries: (subjects || []).map((s: any) => ({
-      queryKey: ['admin-questions-count', examTypeId, s.id],
+    queries: (subjects || []).map((s: { id: string }) => ({
+      queryKey: ['admin-questions-count', examTypeId, s.id, localeFilter],
       queryFn: async () => {
         const { data } = await api.get('/admin/questions', {
-          params: { examTypeId, subjectId: s.id, page: 1, limit: 1 },
+          params: { examTypeId, subjectId: s.id, page: 1, limit: 1, ...localeParams },
         });
         return { subjectId: s.id, total: data.total as number };
       },
@@ -108,7 +128,7 @@ export function QuestionsPage() {
   const examTypeNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const exam of examTypes || []) {
-      map.set(exam.id, getLocalizedText(exam.name));
+      map.set(exam.id, getLocalizedText((exam as { name: unknown }).name));
     }
     return map;
   }, [examTypes]);
@@ -116,42 +136,63 @@ export function QuestionsPage() {
   const subjectNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const subj of subjects || []) {
-      map.set(subj.id, getLocalizedText(subj.name));
+      map.set(subj.id, getLocalizedText((subj as { name: unknown }).name));
     }
     return map;
   }, [subjects]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-questions', examTypeId, subjectId, page],
+    queryKey: ['admin-questions', examTypeId, subjectId, page, localeFilter],
     queryFn: async () => {
-      const { data } = await api.get('/admin/questions', {
-        params: { examTypeId, subjectId, page, limit: 20 },
+      const { data: res } = await api.get('/admin/questions', {
+        params: {
+          examTypeId,
+          subjectId,
+          page,
+          limit: 20,
+          ...localeParams,
+        },
       });
-      return data;
+      return res;
     },
     enabled: !!examTypeId,
   });
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    form.setFieldsValue({
+      examTypeId: examTypeId || undefined,
+      subjectId: subjectId || undefined,
+      contentLocale: 'ru',
+      difficulty: 3,
+      type: 'single_choice',
+    });
+  }, [modalOpen, examTypeId, subjectId, form]);
+
   const createQuestion = useMutation({
-    mutationFn: async (values: any) => {
+    mutationFn: async (values: Record<string, unknown>) => {
+      const answers = values.answers as Array<{ ru?: string; kk?: string; en?: string; isCorrect?: boolean }>;
       const payload = {
-        topicId: values.topicId || values.subjectId, // fallback if no topic
+        topicId: values.topicId || values.subjectId,
         subjectId: values.subjectId,
         examTypeId: values.examTypeId,
         difficulty: values.difficulty,
         type: values.type,
+        contentLocale: values.contentLocale === 'kk' ? 'kk' : 'ru',
         content: {
-          kk: { text: values.content_kk || '' },
-          ru: { text: values.content_ru },
-          en: { text: values.content_en || '' },
+          kk: { text: (values.content_kk as string) || '' },
+          ru: { text: values.content_ru as string },
+          en: { text: (values.content_en as string) || '' },
         },
-        explanation: values.explanation_ru ? {
-          kk: values.explanation_kk || '',
-          ru: values.explanation_ru,
-          en: values.explanation_en || '',
-        } : undefined,
-        answerOptions: values.answers.map((a: any, i: number) => ({
-          content: { kk: a.kk || '', ru: a.ru, en: a.en || '' },
+        explanation: values.explanation_ru
+          ? {
+              kk: (values.explanation_kk as string) || '',
+              ru: values.explanation_ru as string,
+              en: (values.explanation_en as string) || '',
+            }
+          : undefined,
+        answerOptions: answers.map((a, i) => ({
+          content: { kk: a.kk || '', ru: a.ru || '', en: a.en || '' },
           isCorrect: a.isCorrect || false,
           sortOrder: i,
         })),
@@ -160,6 +201,7 @@ export function QuestionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-questions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-questions-count'] });
       setModalOpen(false);
       form.resetFields();
       message.success('Вопрос создан');
@@ -173,63 +215,99 @@ export function QuestionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-questions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-questions-count'] });
       message.success('Вопрос удалён');
     },
   });
 
-  const columns: ColumnsType<Question> = [
-    {
-      title: 'Вопрос (RU)',
-      render: (_: unknown, record: Question) => {
-        const text = getLocalizedText(record.content) || '—';
-        return <span>{String(text).slice(0, 80)}{String(text).length > 80 ? '...' : ''}</span>;
-      },
-    },
-    {
-      title: 'Группа',
-      width: 220,
-      render: (_: unknown, record: Question) => {
-        const examLabel = getLocalizedText(record.examType?.name) || examTypeNameMap.get(record.examTypeId) || '';
-        const subjectLabel = getLocalizedText(record.subject?.name) || subjectNameMap.get(record.subjectId) || '';
-
-        if (!examLabel && !subjectLabel) return '—';
-
-        return (
-          <Space size={4} wrap>
-            {examLabel && <Tag color="blue">{examLabel}</Tag>}
-            {subjectLabel && <Tag color="purple">{subjectLabel}</Tag>}
+  const columns: ColumnsType<Question> = useMemo(
+    () => [
+      {
+        title: (
+          <Space size={8}>
+            <span>Текст вопроса</span>
+            <Tooltip title="Какой слот показывать в превью, если в записи оба языка">
+              <Segmented
+                size="small"
+                value={previewLang}
+                onChange={(v) => setPreviewLang(v as 'kk' | 'ru')}
+                options={[
+                  { label: 'KK', value: 'kk' },
+                  { label: 'RU', value: 'ru' },
+                ]}
+              />
+            </Tooltip>
           </Space>
-        );
+        ),
+        render: (_: unknown, record: Question) => {
+          const text = getQuestionPreviewText(record, previewLang) || '—';
+          const s = String(text);
+          const short = s.length > 88 ? `${s.slice(0, 88)}…` : s;
+          return (
+            <Tooltip title={s.length > 88 ? s : undefined}>
+              <span>{short}</span>
+            </Tooltip>
+          );
+        },
       },
-    },
-    {
-      title: 'Тип',
-      dataIndex: 'type',
-      width: 120,
-      render: (v: string) => <Tag>{v}</Tag>,
-    },
-    {
-      title: 'Сложность',
-      dataIndex: 'difficulty',
-      width: 100,
-      render: (v: number) => '⭐'.repeat(v),
-    },
-    {
-      title: 'Вариантов',
-      render: (_: unknown, record: Question) => record.answerOptions?.length || 0,
-      width: 100,
-    },
-    {
-      title: 'Активен',
-      dataIndex: 'isActive',
-      width: 80,
-      render: (v: boolean) => v ? <Tag color="green">Да</Tag> : <Tag color="red">Нет</Tag>,
-    },
-    {
-      title: 'Действия',
-      width: 100,
-      render: (_: unknown, record: Question) => (
-        <Space>
+      {
+        title: (
+          <Space size={4}>
+            <GlobalOutlined />
+            Язык контента
+          </Space>
+        ),
+        width: 130,
+        render: (_: unknown, record: Question) => localeTag(getQuestionContentLocale(record.metadata)),
+      },
+      {
+        title: 'Группа',
+        width: 220,
+        render: (_: unknown, record: Question) => {
+          const examLabel =
+            getLocalizedText(record.examType?.name) || examTypeNameMap.get(record.examTypeId) || '';
+          const subjectLabel =
+            getLocalizedText(record.subject?.name) || subjectNameMap.get(record.subjectId) || '';
+
+          if (!examLabel && !subjectLabel) return '—';
+
+          return (
+            <Space size={4} wrap>
+              {examLabel && <Tag color="blue">{examLabel}</Tag>}
+              {subjectLabel && <Tag color="purple">{subjectLabel}</Tag>}
+            </Space>
+          );
+        },
+      },
+      {
+        title: 'Тип',
+        dataIndex: 'type',
+        width: 120,
+        render: (v: string) => <Tag>{v}</Tag>,
+      },
+      {
+        title: 'Сложность',
+        dataIndex: 'difficulty',
+        width: 100,
+        render: (v: number) => '⭐'.repeat(v),
+      },
+      {
+        title: 'Вариантов',
+        render: (_: unknown, record: Question) => record.answerOptions?.length || 0,
+        width: 90,
+      },
+      {
+        title: 'Активен',
+        dataIndex: 'isActive',
+        width: 80,
+        render: (v: boolean) =>
+          v ? <Tag color="green">Да</Tag> : <Tag color="red">Нет</Tag>,
+      },
+      {
+        title: 'Действия',
+        width: 88,
+        fixed: 'right',
+        render: (_: unknown, record: Question) => (
           <Button
             type="text"
             icon={<DeleteOutlined />}
@@ -241,53 +319,86 @@ export function QuestionsPage() {
               });
             }}
           />
-        </Space>
-      ),
-    },
-  ];
+        ),
+      },
+    ],
+    [previewLang, examTypeNameMap, subjectNameMap],
+  );
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2>Вопросы</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div>
+          <h2 className="admin-page-title">Вопросы</h2>
+          <p className="admin-page-lead" style={{ marginBottom: 0 }}>
+            Фильтр по языку контента использует поле <Typography.Text code>metadata.contentLocale</Typography.Text> — как
+            в тестах (қазақша или русский). «Нет метки» — старые записи до миграции.
+          </p>
+        </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
           Добавить вопрос
         </Button>
       </div>
 
-      <Space style={{ marginBottom: 16 }}>
-        <Select
-          placeholder="Тип экзамена"
-          allowClear
-          style={{ width: 200 }}
-          value={examTypeId}
-          onChange={(value) => {
-            setExamTypeId(value);
-            setSubjectId(undefined);
-            setPage(1);
-          }}
-          options={examTypes?.map((e: any) => ({ value: e.id, label: e.name }))}
-        />
-        {examTypeId && (
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
+        <Space wrap size={[12, 12]} align="center">
           <Select
-            placeholder="Предмет"
+            placeholder="Тип экзамена"
             allowClear
-            style={{ width: 200 }}
-            value={subjectId}
+            style={{ width: 220 }}
+            value={examTypeId}
             onChange={(value) => {
-              setSubjectId(value);
+              setExamTypeId(value);
+              setSubjectId(undefined);
               setPage(1);
             }}
-            options={subjects?.map((s: any) => ({ value: s.id, label: s.name }))}
+            options={(examTypes || []).map((e: { id: string; name: unknown }) => ({
+              value: e.id,
+              label: getLocalizedText(e.name),
+            }))}
           />
-        )}
-      </Space>
+          {examTypeId && (
+            <Select
+              placeholder="Предмет"
+              allowClear
+              style={{ width: 220 }}
+              value={subjectId}
+              onChange={(value) => {
+                setSubjectId(value);
+                setPage(1);
+              }}
+              options={(subjects || []).map((s: { id: string; name: unknown }) => ({
+                value: s.id,
+                label: getLocalizedText(s.name),
+              }))}
+            />
+          )}
+          <Divider type="vertical" style={{ height: 28, margin: '0 4px' }} />
+          <Typography.Text type="secondary" style={{ marginRight: 4 }}>
+            Язык контента:
+          </Typography.Text>
+          <Segmented
+            value={localeFilter || 'all'}
+            onChange={(v) => {
+              const val = v === 'all' ? '' : (v as LocaleFilter);
+              setLocaleFilter(val);
+              setPage(1);
+            }}
+            options={[
+              { label: 'Все', value: 'all' },
+              { label: 'Қазақша', value: 'kk' },
+              { label: 'Русский', value: 'ru' },
+              { label: 'Без метки', value: 'unset' },
+            ]}
+          />
+        </Space>
+      </Card>
 
       {!!examTypeId && (subjects?.length || 0) > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
-            Подгруппы внутри выбранного экзамена
-          </div>
+          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+            Быстрый выбор предмета
+          </Typography.Text>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
             <Button
               type={!subjectId ? 'primary' : 'default'}
@@ -297,9 +408,9 @@ export function QuestionsPage() {
                 setPage(1);
               }}
             >
-              Все ({data?.total || 0})
+              Все ({data?.total ?? 0})
             </Button>
-            {(subjects || []).map((s: any) => (
+            {(subjects || []).map((s: { id: string; name: unknown }) => (
               <Button
                 key={s.id}
                 type={subjectId === s.id ? 'primary' : 'default'}
@@ -316,7 +427,7 @@ export function QuestionsPage() {
         </div>
       )}
 
-      <Table
+      <Table<Question>
         columns={columns}
         dataSource={examTypeId ? data?.items || [] : []}
         rowKey="id"
@@ -328,31 +439,62 @@ export function QuestionsPage() {
           pageSize: 20,
           onChange: setPage,
           showTotal: (total) => `Всего: ${total}`,
+          showSizeChanger: false,
         }}
         size="middle"
+        scroll={{ x: 1100 }}
         locale={{
-          emptyText: examTypeId
-            ? <Empty description="По выбранным фильтрам вопросов нет" />
-            : <Empty description="Сначала выберите тип экзамена" />,
+          emptyText: examTypeId ? (
+            <Empty description="По выбранным фильтрам вопросов нет" />
+          ) : (
+            <Empty description="Сначала выберите тип экзамена" />
+          ),
         }}
       />
 
-      {/* Create question modal */}
       <Modal
         title="Новый вопрос"
         open={modalOpen}
-        onCancel={() => { setModalOpen(false); form.resetFields(); }}
+        onCancel={() => {
+          setModalOpen(false);
+          form.resetFields();
+        }}
         onOk={() => form.submit()}
         confirmLoading={createQuestion.isPending}
-        width={800}
+        width={820}
+        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={(v) => createQuestion.mutate(v)}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             <Form.Item name="examTypeId" label="Тип экзамена" rules={[{ required: true }]}>
-              <Select options={examTypes?.map((e: any) => ({ value: e.id, label: e.name }))} />
+              <Select
+                options={(examTypes || []).map((e: { id: string; name: unknown }) => ({
+                  value: e.id,
+                  label: getLocalizedText(e.name),
+                }))}
+              />
             </Form.Item>
             <Form.Item name="subjectId" label="Предмет" rules={[{ required: true }]}>
-              <Select options={subjects?.map((s: any) => ({ value: s.id, label: s.name }))} />
+              <Select
+                options={(subjects || []).map((s: { id: string; name: unknown }) => ({
+                  value: s.id,
+                  label: getLocalizedText(s.name),
+                }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="contentLocale"
+              label="Язык контента в тестах"
+              rules={[{ required: true }]}
+              initialValue="ru"
+              tooltip="Определяет, в каком пуле вопрос окажется при сдаче на KK или RU"
+            >
+              <Select
+                options={[
+                  { value: 'ru', label: 'Русский (RU)' },
+                  { value: 'kk', label: 'Қазақша (KK)' },
+                ]}
+              />
             </Form.Item>
           </div>
 
@@ -361,12 +503,19 @@ export function QuestionsPage() {
               <InputNumber min={1} max={5} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="type" label="Тип вопроса" rules={[{ required: true }]} initialValue="single_choice">
-              <Select options={[
-                { value: 'single_choice', label: 'Один ответ' },
-                { value: 'multiple_choice', label: 'Несколько ответов' },
-              ]} />
+              <Select
+                options={[
+                  { value: 'single_choice', label: 'Один ответ' },
+                  { value: 'multiple_choice', label: 'Несколько ответов' },
+                ]}
+              />
             </Form.Item>
           </div>
+
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+            Поле topicId в API подставляется из предмета, если тема не задана. Для отдельной темы используйте bulk-import
+            или правку в БД.
+          </Typography.Paragraph>
 
           <Form.Item name="content_ru" label="Текст вопроса (RU)" rules={[{ required: true }]}>
             <TextArea rows={3} placeholder="Используйте $...$ для формул LaTeX" />
@@ -375,7 +524,7 @@ export function QuestionsPage() {
             <TextArea rows={3} />
           </Form.Item>
           <Form.Item name="content_en" label="Текст вопроса (EN)">
-            <TextArea rows={3} />
+            <TextArea rows={2} />
           </Form.Item>
 
           <Form.Item name="explanation_ru" label="Объяснение (RU) — Premium">
@@ -385,14 +534,25 @@ export function QuestionsPage() {
             <TextArea rows={2} />
           </Form.Item>
 
-          <h4>Варианты ответов</h4>
+          <Typography.Title level={5} style={{ marginTop: 8 }}>
+            Варианты ответов
+          </Typography.Title>
           <Form.List name="answers" initialValue={[{}, {}, {}, {}]}>
             {(fields, { add, remove }) => (
               <>
                 {fields.map((field, index) => (
-                  <div key={field.key} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
-                    <span style={{ marginTop: 8, fontWeight: 600 }}>{String.fromCharCode(65 + index)}.</span>
-                    <Form.Item name={[field.name, 'ru']} style={{ flex: 1, marginBottom: 0 }} rules={[{ required: true, message: 'Обязательно' }]}>
+                  <div
+                    key={field.key}
+                    style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}
+                  >
+                    <span style={{ marginTop: 8, fontWeight: 600, width: 22 }}>
+                      {String.fromCharCode(65 + index)}.
+                    </span>
+                    <Form.Item
+                      name={[field.name, 'ru']}
+                      style={{ flex: 1, marginBottom: 0 }}
+                      rules={[{ required: true, message: 'Обязательно' }]}
+                    >
                       <Input placeholder={`Вариант ${index + 1} (RU)`} />
                     </Form.Item>
                     <Form.Item name={[field.name, 'kk']} style={{ flex: 1, marginBottom: 0 }}>
@@ -402,11 +562,15 @@ export function QuestionsPage() {
                       <Switch checkedChildren="✓" unCheckedChildren="✗" />
                     </Form.Item>
                     {fields.length > 2 && (
-                      <Button type="text" danger onClick={() => remove(field.name)}>✕</Button>
+                      <Button type="text" danger onClick={() => remove(field.name)}>
+                        ✕
+                      </Button>
                     )}
                   </div>
                 ))}
-                <Button type="dashed" onClick={() => add()} block>+ Добавить вариант</Button>
+                <Button type="dashed" onClick={() => add()} block>
+                  + Добавить вариант
+                </Button>
               </>
             )}
           </Form.List>

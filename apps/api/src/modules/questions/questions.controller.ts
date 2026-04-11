@@ -21,9 +21,14 @@ export class QuestionsController {
     @Query('topicId') topicId?: string,
     @Query('difficulty') difficulty?: string,
     @Query('hasExplanation') hasExplanation?: string,
+    @Query('contentLocale') contentLocale?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const loc =
+      contentLocale === 'kk' || contentLocale === 'ru' || contentLocale === 'unset'
+        ? contentLocale
+        : undefined;
     return this.questionsService.findMany({
       id,
       examTypeId,
@@ -32,6 +37,7 @@ export class QuestionsController {
       difficulty: difficulty ? parseInt(difficulty, 10) : undefined,
       hasExplanation:
         hasExplanation === 'true' ? true : hasExplanation === 'false' ? false : undefined,
+      contentLocale: loc,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 20,
     });

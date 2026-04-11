@@ -56,10 +56,12 @@ export class QuestionsService {
     topicId?: string;
     difficulty?: number;
     hasExplanation?: boolean;
+    /** kk | ru — только с меткой; unset — без metadata (legacy) */
+    contentLocale?: 'kk' | 'ru' | 'unset';
     page?: number;
     limit?: number;
   }) {
-    const { page = 1, limit = 20, ...where } = filters;
+    const { page = 1, limit = 20, contentLocale, ...where } = filters;
     const whereClause: Prisma.QuestionWhereInput = { isActive: true };
 
     if (where.id) whereClause.id = where.id;
@@ -69,6 +71,20 @@ export class QuestionsService {
     if (where.difficulty) whereClause.difficulty = where.difficulty;
     if (where.hasExplanation === true) {
       whereClause.explanation = { not: Prisma.DbNull };
+    }
+
+    if (contentLocale === 'kk') {
+      whereClause.metadata = {
+        path: [QUESTION_METADATA_LOCALE_KEY],
+        equals: 'kk',
+      };
+    } else if (contentLocale === 'ru') {
+      whereClause.metadata = {
+        path: [QUESTION_METADATA_LOCALE_KEY],
+        equals: 'ru',
+      };
+    } else if (contentLocale === 'unset') {
+      whereClause.metadata = { equals: Prisma.DbNull };
     }
 
     const [items, total] = await Promise.all([
