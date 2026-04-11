@@ -6,7 +6,13 @@ export function useStartTest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { templateId: string; language: string; profileSubjectIds?: string[] }) => {
+    mutationFn: async (params: {
+      templateId: string;
+      language: string;
+      profileSubjectIds?: string[];
+      /** только ЕНТ: mandatory | profile | full */
+      entScope?: 'mandatory' | 'profile' | 'full';
+    }) => {
       const { data } = await api.post<TestSession>('/tests/start', params);
       return data;
     },

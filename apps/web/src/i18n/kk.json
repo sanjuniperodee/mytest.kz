@@ -52,7 +52,12 @@
     "selectProfileFirst": "{{count}} бейіндік пәнді таңдаңыз",
     "selectTemplate": "Нұсқаны таңдаңыз",
     "duration": "{{minutes}} мин",
-    "questions": "{{count}} сұрақ"
+    "questions": "{{count}} сұрақ",
+    "entPassFormat": "Тест форматы",
+    "entPassFormatLead": "Үш режим: тек міндетті пәндер, тек екі бейіндік пән немесе толық ҰБТ.",
+    "entPassMandatory": "Тек міндетті пәндер",
+    "entPassProfile": "Тек бейіндік пәндер",
+    "entPassFull": "Толық ҰБТ (міндетті + бейіндік)"
   },
   "test": {
     "question": "Сұрақ {{current}} / {{total}}",

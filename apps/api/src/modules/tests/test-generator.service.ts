@@ -8,6 +8,9 @@ export interface GeneratedSection {
   sortOrder: number;
 }
 
+/** Режим прохождения ЕНТ (только для exam slug `ent`). */
+export type EntPassScope = 'mandatory' | 'profile' | 'full';
+
 @Injectable()
 export class TestGeneratorService {
   constructor(private prisma: PrismaService) {}
@@ -16,6 +19,7 @@ export class TestGeneratorService {
    * Generate questions from a template.
    * If profileSubjectIds are provided, they are added as extra sections
    * (for exams like ENT where user picks 2 profile subjects).
+   * Для ЕНТ: entScope — только обязательные блоки, только профиль или полный вариант.
    */
   async generateFromTemplate(
     templateId: string,
@@ -25,6 +29,7 @@ export class TestGeneratorService {
     userId?: string,
     /** язык сессии: фильтр по metadata.contentLocale (kk | ru) */
     language?: string,
+    opts?: { entScope?: EntPassScope },
   ): Promise<GeneratedSection[]> {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
@@ -32,38 +37,46 @@ export class TestGeneratorService {
         sections: {
           orderBy: { sortOrder: 'asc' },
         },
+        examType: { select: { slug: true } },
       },
     });
 
     if (!template) throw new Error('Template not found');
 
+    const examSlug = template.examType?.slug ?? '';
+    const entScope = examSlug === 'ent' ? opts?.entScope : undefined;
+
     const sections: GeneratedSection[] = [];
 
-    // Generate from template sections (mandatory blocks)
-    for (const section of template.sections) {
-      const questionIds = await this.selectQuestions(
-        section.subjectId,
-        section.questionCount,
-        section.selectionMode,
-        userId,
-        language,
-      );
-      sections.push({
-        subjectId: section.subjectId,
-        questionIds,
-        sortOrder: section.sortOrder,
-      });
+    const includeTemplateSections = !entScope || entScope !== 'profile';
+    if (includeTemplateSections) {
+      for (const section of template.sections) {
+        const questionIds = await this.selectQuestions(
+          section.subjectId,
+          section.questionCount,
+          section.selectionMode,
+          userId,
+          language,
+        );
+        sections.push({
+          subjectId: section.subjectId,
+          questionIds,
+          sortOrder: section.sortOrder,
+        });
+      }
     }
 
-    // Add profile subject sections if provided
-    if (profileSubjectIds && profileSubjectIds.length > 0) {
-      const lastSortOrder = sections.length > 0
-        ? Math.max(...sections.map((s) => s.sortOrder))
-        : 0;
+    const includeProfiles =
+      profileSubjectIds &&
+      profileSubjectIds.length > 0 &&
+      (!entScope || entScope === 'full' || entScope === 'profile');
 
-      for (let i = 0; i < profileSubjectIds.length; i++) {
-        const subjectId = profileSubjectIds[i];
-        // Skip if already in template
+    if (includeProfiles) {
+      const lastSortOrder =
+        sections.length > 0 ? Math.max(...sections.map((s) => s.sortOrder)) : 0;
+
+      for (let i = 0; i < profileSubjectIds!.length; i++) {
+        const subjectId = profileSubjectIds![i];
         if (sections.some((s) => s.subjectId === subjectId)) continue;
 
         const questionIds = await this.selectQuestions(

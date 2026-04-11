@@ -52,7 +52,12 @@
     "selectProfileFirst": "Выберите {{count}} профильных предмета",
     "selectTemplate": "Выберите вариант",
     "duration": "{{minutes}} мин",
-    "questions": "{{count}} вопросов"
+    "questions": "{{count}} вопросов",
+    "entPassFormat": "Формат теста",
+    "entPassFormatLead": "Три режима: только блок обязательных предметов, только два профильных или полный ЕНТ.",
+    "entPassMandatory": "Только обязательные предметы",
+    "entPassProfile": "Только профильные предметы",
+    "entPassFull": "Полный ЕНТ (обязательные + профиль)"
   },
   "test": {
     "question": "Вопрос {{current}} из {{total}}",

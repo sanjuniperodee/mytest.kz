@@ -33,6 +33,7 @@ export class TestSessionService {
     templateId: string,
     language: string,
     profileSubjectIds?: string[],
+    entScope?: 'mandatory' | 'profile' | 'full',
   ) {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
@@ -40,6 +41,36 @@ export class TestSessionService {
     });
 
     if (!template) throw new NotFoundException('Template not found');
+
+    const examSlug = (template.examType as { slug?: string }).slug ?? '';
+
+    let resolvedEntScope = entScope;
+    if (examSlug === 'ent') {
+      if (!resolvedEntScope) {
+        const n = profileSubjectIds?.length ?? 0;
+        if (n === 0) resolvedEntScope = 'mandatory';
+        else if (n === 2) resolvedEntScope = 'full';
+        else {
+          throw new BadRequestException(
+            'ENT: укажите entScope (mandatory | profile | full) или 0 / 2 профильных предмета',
+          );
+        }
+      }
+      if (resolvedEntScope === 'mandatory') {
+        profileSubjectIds = undefined;
+      } else if (
+        resolvedEntScope === 'profile' ||
+        resolvedEntScope === 'full'
+      ) {
+        if (!profileSubjectIds || profileSubjectIds.length !== 2) {
+          throw new BadRequestException(
+            'Для этого режима ЕНТ нужно ровно 2 профильных предмета',
+          );
+        }
+      }
+    } else {
+      resolvedEntScope = undefined;
+    }
 
     // Validate profile subjects belong to this exam type
     if (profileSubjectIds && profileSubjectIds.length > 0) {
@@ -61,7 +92,6 @@ export class TestSessionService {
     }
 
     // Determine profile question count based on exam type
-    const examSlug = (template.examType as any).slug;
     const profileQuestionCount = this.getProfileQuestionCount(examSlug);
 
     // Generate questions with sections
@@ -71,6 +101,9 @@ export class TestSessionService {
       profileQuestionCount,
       userId,
       language,
+      examSlug === 'ent' && resolvedEntScope
+        ? { entScope: resolvedEntScope }
+        : undefined,
     );
 
     // Flatten question IDs maintaining section order
@@ -82,6 +115,19 @@ export class TestSessionService {
     }
 
     const totalQuestions = allAnswerData.length;
+
+    const mandatoryQ = template.sections.reduce(
+      (acc, s) => acc + s.questionCount,
+      0,
+    );
+    const fullEntQ = mandatoryQ + 2 * profileQuestionCount;
+    const sessionDurationMins =
+      examSlug === 'ent' && fullEntQ > 0
+        ? Math.max(
+            5,
+            Math.round(template.durationMins * (totalQuestions / fullEntQ)),
+          )
+        : template.durationMins;
 
     // Build metadata with section info
     const sectionsMeta = await Promise.all(
@@ -109,11 +155,19 @@ export class TestSessionService {
         examTypeId: template.examTypeId,
         language,
         totalQuestions,
-        timeRemaining: template.durationMins * 60,
+        timeRemaining: sessionDurationMins * 60,
         metadata: {
           sections: sectionsMeta,
           profileSubjectIds: profileSubjectIds || [],
           questionOrder: allAnswerData.map((a) => a.questionId),
+          ...(examSlug === 'ent' && resolvedEntScope
+            ? { entScope: resolvedEntScope }
+            : {}),
+          ...(examSlug === 'ent' &&
+          resolvedEntScope &&
+          resolvedEntScope !== 'full'
+            ? { entSessionDurationMins: sessionDurationMins }
+            : {}),
         },
         answers: {
           create: allAnswerData.map((a) => ({
@@ -461,6 +515,7 @@ export class TestSessionService {
     const meta = (session.metadata || {}) as {
       kind?: string;
       remediationDurationMins?: number;
+      entSessionDurationMins?: number;
     };
     if (
       meta.kind === 'remediation' &&
@@ -468,6 +523,12 @@ export class TestSessionService {
       Number.isFinite(meta.remediationDurationMins)
     ) {
       return meta.remediationDurationMins;
+    }
+    if (
+      typeof meta.entSessionDurationMins === 'number' &&
+      Number.isFinite(meta.entSessionDurationMins)
+    ) {
+      return meta.entSessionDurationMins;
     }
     if (session.templateId) {
       const template = await this.prisma.testTemplate.findUnique({

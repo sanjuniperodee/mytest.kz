@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSubjects, useTemplates, useExamTypes } from '../api/hooks/useExams';
@@ -55,17 +55,26 @@ export function ExamPage() {
 
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
+  const [entPassMode, setEntPassMode] = useState<'mandatory' | 'profile' | 'full'>('full');
 
   const mandatorySubjects = useMemo(() => subjects?.filter((s) => s.isMandatory) || [], [subjects]);
   const electiveSubjects = useMemo(() => subjects?.filter((s) => !s.isMandatory) || [], [subjects]);
 
   const examSlug = useMemo(() => examTypes?.find((et) => et.id === examId)?.slug, [examTypes, examId]);
   const examName = useMemo(() => examTypes?.find((e) => e.id === examId)?.name || '', [examTypes, examId]);
+  const isEnt = examSlug === 'ent';
   const profileQuestionCount = examSlug === 'ent' ? 20 : examSlug === 'nuet' ? 15 : 10;
-  const requiredProfiles = examSlug === 'ent' ? 2 : 0;
+  const requiredProfiles = examSlug === 'ent' && entPassMode !== 'mandatory' ? 2 : 0;
   const maxProfiles = requiredProfiles > 0 ? requiredProfiles : electiveSubjects.length;
   const hasElectives = electiveSubjects.length > 0;
-  const shouldRequireProfiles = hasElectives && requiredProfiles > 0;
+  const shouldRequireProfiles =
+    hasElectives && requiredProfiles > 0 && (!isEnt || entPassMode === 'full' || entPassMode === 'profile');
+
+  useEffect(() => {
+    if (!isEnt) return;
+    setSelectedTemplate(null);
+    if (entPassMode === 'mandatory') setSelectedProfiles([]);
+  }, [isEnt, entPassMode]);
 
   if (subjectsLoading || templatesLoading) return <Spinner fullScreen />;
 
@@ -77,7 +86,13 @@ export function ExamPage() {
     });
   };
 
-  const canStart = selectedTemplate && (!shouldRequireProfiles || selectedProfiles.length === requiredProfiles);
+  const canStart =
+    selectedTemplate &&
+    (isEnt
+      ? entPassMode === 'mandatory' ||
+        (entPassMode === 'profile' && selectedProfiles.length === 2) ||
+        (entPassMode === 'full' && selectedProfiles.length === 2)
+      : !shouldRequireProfiles || selectedProfiles.length === requiredProfiles);
 
   const handleStartTest = async () => {
     if (!selectedTemplate || !canStart) return;
@@ -85,7 +100,13 @@ export function ExamPage() {
       const session = await startTest.mutateAsync({
         templateId: selectedTemplate,
         language: user?.preferredLanguage || 'ru',
-        profileSubjectIds: selectedProfiles.length > 0 ? selectedProfiles : undefined,
+        profileSubjectIds:
+          isEnt && entPassMode === 'mandatory'
+            ? undefined
+            : selectedProfiles.length > 0
+              ? selectedProfiles
+              : undefined,
+        entScope: isEnt ? entPassMode : undefined,
       });
       navigate(`/test/${session.id}`);
     } catch (err: any) {
@@ -111,7 +132,42 @@ export function ExamPage() {
         </div>
       </div>
 
+      {isEnt && (
+        <div className="section" style={{ marginTop: -8 }}>
+          <div className="section-title">{t('exam.entPassFormat')}</div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
+            {t('exam.entPassFormatLead')}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(
+              [
+                { mode: 'mandatory' as const, label: t('exam.entPassMandatory') },
+                { mode: 'profile' as const, label: t('exam.entPassProfile') },
+                { mode: 'full' as const, label: t('exam.entPassFull') },
+              ] as const
+            ).map(({ mode, label }) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setEntPassMode(mode)}
+                className={`card ${entPassMode === mode ? 'active' : ''}`}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  marginBottom: 0,
+                  padding: '12px 14px',
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Step 1: Mandatory Subjects */}
+      {(!isEnt || entPassMode === 'mandatory' || entPassMode === 'full') && (
       <div className="section">
         <div className="section-title">{t('exam.mandatorySubjects')}</div>
         <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -123,9 +179,10 @@ export function ExamPage() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Step 2: Profile Subject Selection */}
-      {hasElectives && (
+      {hasElectives && (!isEnt || entPassMode === 'profile' || entPassMode === 'full') && (
         <div className="section">
           <div className="section-title">
             {t('exam.chooseProfile')}
@@ -164,8 +221,23 @@ export function ExamPage() {
         <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {templates?.map((template) => {
             const templateQ = template.sections.reduce((s, sec) => s + sec.questionCount, 0);
-            const profileQ = hasElectives ? selectedProfiles.length * profileQuestionCount : 0;
-            const totalQ = templateQ + profileQ;
+            const profileQ =
+              hasElectives &&
+              (!isEnt || entPassMode === 'profile' || entPassMode === 'full')
+                ? selectedProfiles.length * profileQuestionCount
+                : 0;
+            const totalQ = isEnt
+              ? entPassMode === 'mandatory'
+                ? templateQ
+                : entPassMode === 'profile'
+                  ? profileQ
+                  : templateQ + profileQ
+              : templateQ + profileQ;
+            const fullEntQ = templateQ + 2 * profileQuestionCount;
+            const displayDurationMins =
+              isEnt && entPassMode !== 'full' && fullEntQ > 0 && totalQ > 0
+                ? Math.max(5, Math.round(template.durationMins * (totalQ / fullEntQ)))
+                : template.durationMins;
             const isSelected = selectedTemplate === template.id;
 
             return (
@@ -190,27 +262,34 @@ export function ExamPage() {
 
                 <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
                   <span className="info-row">
-                    <ClockIcon /> {t('exam.duration', { minutes: template.durationMins })}
+                    <ClockIcon /> {t('exam.duration', { minutes: displayDurationMins })}
                   </span>
                   <span className="info-row">
                     <DocIcon /> {t('exam.questions', { count: totalQ })}
                   </span>
                 </div>
 
-                {template.sections.length > 0 && (
+                {(template.sections.length > 0 ||
+                  (hasElectives &&
+                    selectedProfiles.length > 0 &&
+                    (!isEnt || entPassMode === 'profile' || entPassMode === 'full'))) && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {template.sections.map((sec) => (
-                      <span key={sec.id} className="badge badge-info" style={{ fontSize: 10 }}>
-                        {sec.subject.name}: {sec.questionCount}
-                      </span>
-                    ))}
-                    {hasElectives && selectedProfiles.length > 0 && electiveSubjects
-                      .filter((s) => selectedProfiles.includes(s.id))
-                      .map((s) => (
-                        <span key={s.id} className="badge badge-warning" style={{ fontSize: 10 }}>
-                          {s.name}: {profileQuestionCount}
+                    {(!isEnt || entPassMode === 'mandatory' || entPassMode === 'full') &&
+                      template.sections.map((sec) => (
+                        <span key={sec.id} className="badge badge-info" style={{ fontSize: 10 }}>
+                          {sec.subject.name}: {sec.questionCount}
                         </span>
                       ))}
+                    {hasElectives &&
+                      selectedProfiles.length > 0 &&
+                      (!isEnt || entPassMode === 'profile' || entPassMode === 'full') &&
+                      electiveSubjects
+                        .filter((s) => selectedProfiles.includes(s.id))
+                        .map((s) => (
+                          <span key={s.id} className="badge badge-warning" style={{ fontSize: 10 }}>
+                            {s.name}: {profileQuestionCount}
+                          </span>
+                        ))}
                   </div>
                 )}
               </button>
@@ -228,9 +307,14 @@ export function ExamPage() {
         >
           {startTest.isPending
             ? t('common.loading')
-            : !shouldRequireProfiles || selectedProfiles.length === requiredProfiles
+            : canStart
               ? t('exam.startTest')
-              : t('exam.selectProfileFirst', { count: requiredProfiles })}
+              : isEnt && (entPassMode === 'profile' || entPassMode === 'full') &&
+                  selectedProfiles.length < 2
+                ? t('exam.selectProfileFirst', { count: 2 })
+                : !shouldRequireProfiles || selectedProfiles.length === requiredProfiles
+                  ? t('exam.startTest')
+                  : t('exam.selectProfileFirst', { count: requiredProfiles })}
         </button>
       </div>
     </div>

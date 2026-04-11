@@ -52,7 +52,12 @@
     "selectProfileFirst": "Select {{count}} profile subjects",
     "selectTemplate": "Select a variant",
     "duration": "{{minutes}} min",
-    "questions": "{{count}} questions"
+    "questions": "{{count}} questions",
+    "entPassFormat": "Test format",
+    "entPassFormatLead": "Three modes: mandatory block only, two profile subjects only, or full UNT.",
+    "entPassMandatory": "Mandatory subjects only",
+    "entPassProfile": "Profile subjects only",
+    "entPassFull": "Full UNT (mandatory + profile)"
   },
   "test": {
     "question": "Question {{current}} of {{total}}",

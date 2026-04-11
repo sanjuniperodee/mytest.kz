@@ -52,12 +52,14 @@ export class TestsController {
     @Body('templateId') templateId: string,
     @Body('language') language: string,
     @Body('profileSubjectIds') profileSubjectIds?: string[],
+    @Body('entScope') entScope?: 'mandatory' | 'profile' | 'full',
   ) {
     return this.testSessionService.startTest(
       userId,
       templateId,
       language,
       profileSubjectIds,
+      entScope,
     );
   }
 
