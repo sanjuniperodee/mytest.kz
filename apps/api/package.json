@@ -12,7 +12,8 @@
     "start": "nest start",
     "start:prod": "prisma generate && node dist/src/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
-    "seed:math-sauat": "ts-node prisma/seed-math-sauat.ts"
+    "seed:math-sauat": "ts-node prisma/seed-math-sauat.ts",
+    "seed:reading-sauat": "ts-node prisma/seed-reading-sauat.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",

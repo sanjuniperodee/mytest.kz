@@ -158,10 +158,7 @@ async function main() {
   const mlFin = await topic(sML.id, 'Қаржылық сауаттылық', 'Финансовая грамотность', 'Financial Literacy', 4);
   const mlGraph = await topic(sML.id, 'Диаграммалар', 'Диаграммы', 'Charts', 5);
 
-  // ENT Reading Literacy
-  const rlText = await topic(sRL.id, 'Мәтінді түсіну', 'Понимание текста', 'Text Comprehension', 1);
-  const rlAnal = await topic(sRL.id, 'Мәтінді талдау', 'Анализ текста', 'Text Analysis', 2);
-  const rlLang = await topic(sRL.id, 'Тіл құралдары', 'Средства языка', 'Language Tools', 3);
+  // ENT Reading Literacy — вопросы из PDF: prisma/seed-reading-sauat.ts
 
   // ENT History KZ
   const hAnc = await topic(sHK.id, 'Ежелгі дәуір', 'Древний период', 'Ancient Period', 1);
@@ -351,32 +348,6 @@ async function main() {
   ];
   for (const [tid, q] of hQs) await seedQ(q, tid, sHK.id, ent.id);
   console.log(`  History KZ: ${hQs.length}`);
-
-  // ── Reading Literacy (10Q) ──
-  const rlQs: [string, QDef][] = [
-    [rlLang.id, triQ('Синоним дегеніміз не?','Что такое синонимы?','What are synonyms?','Мағынасы ұқсас сөздер','Слова, близкие по значению','Words with similar meanings',1,
-      [ta('Мағынасы ұқсас сөздер','Близкие по значению','Similar meanings',true),ta('Қарама-қарсы мағыналы','С противоположным значением','Opposite meanings'),ta('Бірдей айтылатын','Одинаково звучащие','Same sounding'),ta('Көп мағыналы','Многозначные','Polysemous')])],
-    [rlLang.id, triQ('Антоним дегеніміз не?','Что такое антонимы?','What are antonyms?','Қарама-қарсы мағыналы сөздер','Слова с противоположным значением','Words with opposite meanings',1,
-      [ta('Қарама-қарсы','Противоположное значение','Opposite meanings',true),ta('Ұқсас мағыналы','Близкие по значению','Similar meanings'),ta('Бірдей жазылатын','Одинаково пишущиеся','Same spelling'),ta('Бір түбірлі','Однокоренные','Same root')])],
-    [rlLang.id, triQ('Метафора дегеніміз не?','Что такое метафора?','What is a metaphor?','Жасырын салыстыру','Скрытое сравнение','Implicit comparison',2,
-      [ta('Жасырын салыстыру','Скрытое сравнение','Implicit comparison',true),ta('Дыбыс қайталануы','Повтор звуков','Sound repetition'),ta('Тура салыстыру','Прямое сравнение','Direct comparison'),ta('Әсірелеу','Преувеличение','Exaggeration')])],
-    [rlText.id, triQ('Мәтіннің негізгі ойын қалай табуға болады?','Как найти основную мысль текста?','How to find the main idea?','Абзацтардың ортақ тақырыбы','Общая тема абзацев','Common theme of paragraphs',2,
-      [ta('Абзацтар тақырыбын табу','Найти общую тему','Find common theme',true),ta('Бірінші сөйлем','Первое предложение','First sentence'),ta('Соңғы абзац','Последний абзац','Last paragraph'),ta('Тақырып','Заголовок','Title')])],
-    [rlLang.id, triQ('Эпитет дегеніміз не?','Что такое эпитет?','What is an epithet?','Затты сипаттайтын көркем анықтама','Художественное определение','Artistic attribute',2,
-      [ta('Көркем анықтама','Художественное определение','Artistic attribute',true),ta('Жасырын салыстыру','Скрытое сравнение','Hidden comparison'),ta('Теңеу','Сравнение','Simile'),ta('Кейіптеу','Олицетворение','Personification')])],
-    [rlText.id, triQ('Баяндау стилі мәтінде не қызмет атқарады?','Какова функция повествования в тексте?','What is the function of narration?','Оқиғалар тізбегін айту','Передача цепи событий','Conveying a chain of events',2,
-      [ta('Оқиғалар тізбегі','Цепь событий','Chain of events',true),ta('Пікір білдіру','Выражение мнения','Expressing opinion'),ta('Сипаттау','Описание','Description'),ta('Талдау','Анализ','Analysis')])],
-    [rlAnal.id, triQ('Публицистикалық стильдің негізгі қызметі','Основная функция публицистического стиля','Main function of journalistic style','Қоғамдық пікірге әсер ету','Воздействие на общественное мнение','Influencing public opinion',3,
-      [ta('Пікірге әсер ету','Воздействие на мнение','Influencing opinion',true),ta('Ғылыми мәлімет','Научная информация','Scientific info'),ta('Көркем бейнелеу','Художественное изображение','Artistic depiction'),ta('Іс жүргізу','Делопроизводство','Paperwork')])],
-    [rlLang.id, triQ('Омонимдер дегеніміз не?','Что такое омонимы?','What are homonyms?','Бірдей жазылып, әр мағынаны білдіретін сөздер','Одинаково пишутся, разные значения','Same spelling, different meanings',2,
-      [ta('Бірдей жазылады, мағынасы әр','Одинаково пишутся, разное значение','Same spelling, different meaning',true),ta('Ұқсас мағыналы','Близкие по значению','Similar meaning'),ta('Қарама-қарсы мағыналы','Противоположные','Opposite'),ta('Бір түбірлі','Однокоренные','Same root')])],
-    [rlText.id, triQ('Мәтін құрылымының негізгі бөліктері','Основные части структуры текста','Main parts of text structure','Кіріспе, негізгі бөлім, қорытынды','Введение, основная часть, заключение','Introduction, body, conclusion',1,
-      [ta('Кіріспе, негізгі, қорытынды','Введение, основная, заключение','Intro, body, conclusion',true),ta('Тақырып пен мазмұн','Заголовок и содержание','Title and content'),ta('Абзац және сөйлем','Абзац и предложение','Paragraph and sentence'),ta('Тірек сөздер','Ключевые слова','Keywords')])],
-    [rlAnal.id, triQ('Ресми-іскери стильге не тән?','Что характерно для официально-делового стиля?','What is typical of official style?','Құжаттар, заңдар','Документы, законы','Documents, laws',2,
-      [ta('Құжаттар, заңдар','Документы, законы','Documents, laws',true),ta('Көркем суреттеу','Художественное описание','Artistic description'),ta('Сөйлеу тілі','Разговорная речь','Colloquial speech'),ta('Газет мақалалары','Газетные статьи','Newspaper articles')])],
-  ];
-  for (const [tid, q] of rlQs) await seedQ(q, tid, sRL.id, ent.id);
-  console.log(`  Reading Literacy: ${rlQs.length}`);
 
   // ── Math profile (15Q) ──
   const mathQs: [string, QDef][] = [
