@@ -10,7 +10,7 @@ export const DEFAULT_LANGUAGE = 'ru';
 // Mandatory subjects get 1 point per question, profile subjects get different weights
 export const ENT_CONFIG = {
   durationMins: 240,
-  mandatorySubjects: ['math_literacy', 'reading_literacy', 'history_of_kazakhstan'],
+  mandatorySubjects: ['math_literacy', 'reading_literacy', 'history_kz'],
   questionsPerSubject: 40,
   totalQuestions: 120, // 3 mandatory + 2 profile = but 40 each
 };
