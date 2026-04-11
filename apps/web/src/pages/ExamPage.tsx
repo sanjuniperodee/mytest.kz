@@ -210,7 +210,7 @@ export function ExamPage() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
             {t('exam.entVariantLead')}
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="exam-ent-modes">
             {(
               [
                 { mode: 'mandatory' as const, label: t('exam.entPassMandatory') },

@@ -5,7 +5,8 @@
   "nav": {
     "home": "Басты",
     "profile": "Профиль",
-    "settings": "Баптаулар"
+    "settings": "Баптаулар",
+    "ariaLabel": "Негізгі навигация"
   },
   "home": {
     "title": "Емтиханды таңдаңыз",
@@ -96,7 +97,10 @@
     "singleChoiceHint": "Бір дұрыс жауап",
     "multipleChoiceHint": "Бірнеше жауапты таңдауға болады",
     "savingAnswer": "Жауап сақталуда...",
-    "answerSaved": "Жауап сақталды"
+    "answerSaved": "Жауап сақталды",
+    "navigatorTitle": "Барлық сұрақтар",
+    "navigatorAria": "Сұрақ нөмірлері бойынша шарлау",
+    "keyboardOptionsHint": "1–9 немесе A–H пернелері — жауапты таңдау"
   },
   "review": {
     "title": "Нәтиже",
@@ -126,6 +130,8 @@
     "totalTests": "Барлық тесттер",
     "avgScore": "Орташа балл",
     "bestScore": "Ең жоғарғы балл",
+    "bestScorePoints": "{{raw}}/{{max}}",
+    "bestLabelPoints": "Ең жоғары {{raw}}/{{max}}",
     "completed": "Аяқталған",
     "inProgressCount": "Орындалуда",
     "byExam": "Емтихан бойынша",

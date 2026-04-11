@@ -52,19 +52,22 @@ export function QuestionNavigator({ questions, sections, currentIndex, onSelect 
   };
 
   return (
-    <div style={{
-      padding: 14, background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: 'var(--r-lg)',
-    }}>
+    <div
+      className="question-navigator"
+      style={{
+        padding: 14, background: 'var(--bg-card)', border: '1px solid var(--border)',
+        borderRadius: 'var(--r-lg)',
+      }}
+    >
       {!sections || sections.length === 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+        <div className="question-navigator-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
           {questions.map((q, index) => renderQuestionButton(q, index))}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {sections.map((section, idx) => (
             <div key={section.subjectId}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div className="question-navigator-section-head" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{
                   fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                   color: 'var(--accent-light)', letterSpacing: '0.05em',
@@ -81,7 +84,7 @@ export function QuestionNavigator({ questions, sections, currentIndex, onSelect 
                   {section.isMandatory === false ? t('exam.elective') : t('exam.mandatory')}
                 </span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+              <div className="question-navigator-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
                 {questions
                   .slice(section.startIndex, section.startIndex + section.count)
                   .map((q, localIdx) => renderQuestionButton(q, section.startIndex + localIdx))}

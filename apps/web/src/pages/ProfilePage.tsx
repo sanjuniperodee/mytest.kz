@@ -162,7 +162,21 @@ export function ProfilePage() {
   const bestScores = (stats?.byExamType ?? [])
     .map((e) => e.bestScore)
     .filter((x): x is number => x != null);
-  const bestScore = bestScores.length ? Math.round(Math.max(...bestScores)) : 0;
+  const bestScorePct = bestScores.length ? Math.round(Math.max(...bestScores)) : 0;
+  const examsWithPoints = (stats?.byExamType ?? []).filter(
+    (e) =>
+      e.bestScore != null &&
+      Math.round(e.bestScore) === bestScorePct &&
+      e.bestRawScore != null &&
+      e.bestMaxScore != null &&
+      e.bestMaxScore > 0,
+  );
+  const globalBestPoints =
+    examsWithPoints.length > 0
+      ? examsWithPoints.reduce((a, b) =>
+          (b.bestRawScore ?? 0) > (a.bestRawScore ?? 0) ? b : a,
+        )
+      : null;
   const displayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim()
     || (profile?.telegramUsername ? `@${profile.telegramUsername}` : null)
     || t('profile.guestName');
@@ -259,8 +273,18 @@ export function ProfilePage() {
               <span className="profile-metric-label">{t('profile.inProgressCount')}</span>
             </div>
             <div className="profile-metric">
-              <span className="profile-metric-value" style={{ color: bestScore ? scoreTone(bestScore) : 'var(--text-muted)' }}>
-                {bestScore ? `${bestScore}%` : '—'}
+              <span
+                className="profile-metric-value"
+                style={{ color: bestScorePct ? scoreTone(bestScorePct) : 'var(--text-muted)' }}
+              >
+                {globalBestPoints
+                  ? t('profile.bestScorePoints', {
+                      raw: globalBestPoints.bestRawScore,
+                      max: globalBestPoints.bestMaxScore,
+                    })
+                  : bestScorePct
+                    ? `${bestScorePct}%`
+                    : '—'}
               </span>
               <span className="profile-metric-label">{t('profile.bestScore')}</span>
             </div>
@@ -303,8 +327,17 @@ export function ProfilePage() {
                     )}
                     <div className="profile-exam-meta">
                       <span>{t('profile.testsCount', { count: ex.testsCount })}</span>
-                      {ex.bestScore != null && (
-                        <span>{t('profile.bestLabel', { value: Math.round(ex.bestScore) })}</span>
+                      {ex.bestRawScore != null && ex.bestMaxScore != null && ex.bestMaxScore > 0 ? (
+                        <span>
+                          {t('profile.bestLabelPoints', {
+                            raw: ex.bestRawScore,
+                            max: ex.bestMaxScore,
+                          })}
+                        </span>
+                      ) : (
+                        ex.bestScore != null && (
+                          <span>{t('profile.bestLabel', { value: Math.round(ex.bestScore) })}</span>
+                        )
                       )}
                       {ex.worstScore != null && ex.testsCount > 1 && (
                         <span>{t('profile.worstLabel', { value: Math.round(ex.worstScore) })}</span>

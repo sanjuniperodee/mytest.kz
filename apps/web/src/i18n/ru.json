@@ -5,7 +5,8 @@
   "nav": {
     "home": "Главная",
     "profile": "Профиль",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "ariaLabel": "Основная навигация"
   },
   "home": {
     "title": "Выберите экзамен",
@@ -96,7 +97,10 @@
     "singleChoiceHint": "Один правильный ответ",
     "multipleChoiceHint": "Можно выбрать несколько ответов",
     "savingAnswer": "Сохраняем ответ...",
-    "answerSaved": "Ответ сохранен"
+    "answerSaved": "Ответ сохранен",
+    "navigatorTitle": "Все вопросы",
+    "navigatorAria": "Навигация по номерам вопросов",
+    "keyboardOptionsHint": "Клавиши 1–9 или A–H — выбрать вариант ответа"
   },
   "review": {
     "title": "Результат",
@@ -126,6 +130,8 @@
     "totalTests": "Всего тестов",
     "avgScore": "Средний балл",
     "bestScore": "Лучший балл",
+    "bestScorePoints": "{{raw}}/{{max}}",
+    "bestLabelPoints": "Рекорд {{raw}}/{{max}}",
     "completed": "Завершено",
     "inProgressCount": "В процессе",
     "byExam": "По экзаменам",

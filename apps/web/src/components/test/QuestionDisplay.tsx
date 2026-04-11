@@ -14,7 +14,7 @@ export function QuestionDisplay({ content, imageUrls }: Props) {
   const renderedBody = useMemo(() => renderMathInTextWithLineBreaks(toRender), [toRender]);
 
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div className="question-display" style={{ marginBottom: 20 }}>
       <div
         dangerouslySetInnerHTML={{ __html: renderedBody }}
         className="question-stem-body"

@@ -13,6 +13,7 @@ import { Spinner } from '../components/common/Spinner';
 import { safeShowAlert, safeShowConfirm, useTelegram } from '../lib/telegram';
 import { localizedText } from '../lib/localizedText';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
+import { useMediaQuery } from '../lib/useMediaQuery';
 
 export function TestPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -35,6 +36,7 @@ export function TestPage() {
   const [showNavigator, setShowNavigator] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const testRailLayout = useMediaQuery('(min-width: 1280px)');
   const questionOrderRef = useRef<string[]>([]);
 
   const orderedAnswers = useMemo(() => {
@@ -202,18 +204,51 @@ export function TestPage() {
     [sectionBoundaries],
   );
 
+  const navigatorSections = useMemo(
+    () => sectionBoundaries.map((b) => ({
+      subjectId: answers[b.index]?.question?.subject?.id || `section-${b.index}`,
+      subjectName: b.subjectName,
+      startIndex: b.index,
+      count: b.count,
+      isMandatory: session?.metadata?.sections?.find((s) => s.subjectSlug === b.subjectSlug)?.isMandatory,
+    })),
+    [sectionBoundaries, answers, session?.metadata?.sections],
+  );
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
-      if (e.key === 'ArrowRight') { e.preventDefault(); handleNext(); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); handlePrev(); }
-      else if (e.key.toLowerCase() === 'f' && currentAnswer) { e.preventDefault(); toggleFlag(currentAnswer.questionId); }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'ArrowRight') { e.preventDefault(); handleNext(); return; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); handlePrev(); return; }
+      if (e.key.toLowerCase() === 'f' && currentAnswer) {
+        e.preventDefault();
+        toggleFlag(currentAnswer.questionId);
+        return;
+      }
+
+      if (!currentQuestion || !currentAnswer) return;
+      const opts = currentQuestion.answerOptions;
+      if (opts.length === 0) return;
+
+      let idx = -1;
+      if (/^[1-9]$/.test(e.key)) {
+        idx = parseInt(e.key, 10) - 1;
+      } else {
+        const k = e.key.toLowerCase();
+        if (k >= 'a' && k <= 'h') idx = k.charCodeAt(0) - 'a'.charCodeAt(0);
+      }
+      if (idx >= 0 && idx < opts.length) {
+        e.preventDefault();
+        handleSelectOption(opts[idx].id);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleNext, handlePrev, currentAnswer, toggleFlag]);
+  }, [handleNext, handlePrev, currentAnswer, currentQuestion, toggleFlag, handleSelectOption]);
 
   if (isLoading || !session || !currentQuestion) return <Spinner fullScreen />;
 
@@ -240,142 +275,165 @@ export function TestPage() {
         onSelect={(start) => { setCurrentQuestion(start); setShowNavigator(false); }}
       />
 
-      <div className="test-context-bar">
-        <div className="test-context-bar-row">
-          <span className="test-context-item">
-            {t('test.contextQuestion', { current: currentQuestionIndex + 1, total: answers.length })}
-          </span>
-          <span className="test-context-sep" aria-hidden>·</span>
-          <span className="test-context-item test-context-subject">
-            {t('test.contextSubject', { name: currentSection?.subjectName || '—' })}
-          </span>
-          {sectionBoundaries.length > 1 && (
-            <>
-              <span className="test-context-sep" aria-hidden>·</span>
-              <span className="test-context-item">
-                {t('test.contextInSection', { current: inSectionIndex, total: inSectionTotal })}
-              </span>
-            </>
-          )}
-          {sectionBoundaries.length > 1 && currentSectionMeta?.isMandatory === false && (
-            <>
-              <span className="test-context-sep" aria-hidden>·</span>
-              <span className="badge badge-warning test-context-elective">{t('exam.elective')}</span>
-            </>
-          )}
+      <div className="test-meta-desktop">
+        <div className="test-context-bar">
+          <div className="test-context-bar-row">
+            <span className="test-context-item">
+              {t('test.contextQuestion', { current: currentQuestionIndex + 1, total: answers.length })}
+            </span>
+            <span className="test-context-sep" aria-hidden>·</span>
+            <span className="test-context-item test-context-subject">
+              {t('test.contextSubject', { name: currentSection?.subjectName || '—' })}
+            </span>
+            {sectionBoundaries.length > 1 && (
+              <>
+                <span className="test-context-sep" aria-hidden>·</span>
+                <span className="test-context-item">
+                  {t('test.contextInSection', { current: inSectionIndex, total: inSectionTotal })}
+                </span>
+              </>
+            )}
+            {sectionBoundaries.length > 1 && currentSectionMeta?.isMandatory === false && (
+              <>
+                <span className="test-context-sep" aria-hidden>·</span>
+                <span className="badge badge-warning test-context-elective">{t('exam.elective')}</span>
+              </>
+            )}
+          </div>
+          <p className="test-context-hint">
+            {currentQuestion.type === 'multiple_choice' ? t('test.multipleChoiceHint') : t('test.singleChoiceHint')}
+          </p>
         </div>
-        <p className="test-context-hint">
-          {currentQuestion.type === 'multiple_choice' ? t('test.multipleChoiceHint') : t('test.singleChoiceHint')}
+
+        <p className="test-stats-inline test-stats-inline--desktop">
+          <span style={{ color: 'var(--success)' }}>{answeredCount}</span>
+          {' · '}
+          <span style={{ color: unansweredCount > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>{unansweredCount}</span>
+          {' · '}
+          <span style={{ color: flaggedCount > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>{flaggedCount}</span>
+          <span className="test-stats-inline-label">
+            {' '}
+            ({t('test.answered').toLowerCase()} / {t('test.unanswered').toLowerCase()} / {t('test.flagged').toLowerCase()})
+          </span>
         </p>
       </div>
 
-      <p className="test-stats-inline">
-        <span style={{ color: 'var(--success)' }}>{answeredCount}</span>
-        {' · '}
-        <span style={{ color: unansweredCount > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>{unansweredCount}</span>
-        {' · '}
-        <span style={{ color: flaggedCount > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>{flaggedCount}</span>
-        <span className="test-stats-inline-label">
-          {' '}
-          ({t('test.answered').toLowerCase()} / {t('test.unanswered').toLowerCase()} / {t('test.flagged').toLowerCase()})
-        </span>
-      </p>
+      <div className={`test-workspace ${testRailLayout ? 'test-workspace--rail' : ''}`}>
+        {testRailLayout && (
+          <aside className="test-nav-rail surface" aria-label={t('test.navigatorAria')}>
+            <p className="test-nav-rail-title">{t('test.navigatorTitle')}</p>
+            <QuestionNavigator
+              questions={answers.map((a) => ({ id: a.questionId }))}
+              sections={navigatorSections}
+              currentIndex={currentQuestionIndex}
+              onSelect={(i) => { setCurrentQuestion(i); }}
+            />
+          </aside>
+        )}
 
-      {/* Controls row */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button
-          onClick={() => setShowNavigator(!showNavigator)}
-          className="chip"
-          style={{ gap: 6 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-          </svg>
-          {currentQuestionIndex + 1}/{answers.length}
-          {!isCoarsePointer && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>← →</span>}
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"
-            style={{ transform: showNavigator ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-      </div>
+        <div className="test-workspace-main">
+          {!testRailLayout && (
+            <>
+              <div className="test-controls-row">
+                <button
+                  type="button"
+                  onClick={() => setShowNavigator(!showNavigator)}
+                  className="chip"
+                  style={{ gap: 6 }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                  {currentQuestionIndex + 1}/{answers.length}
+                  {!isCoarsePointer && <span className="test-keyboard-hint">← →</span>}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"
+                    style={{ transform: showNavigator ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              </div>
 
-      {showNavigator && (
-        <div style={{ marginBottom: 16 }} className="animate-fadeIn">
-          <QuestionNavigator
-            questions={answers.map((a) => ({ id: a.questionId }))}
-            sections={sectionBoundaries.map((b) => ({
-              subjectId: answers[b.index]?.question?.subject?.id || `section-${b.index}`,
-              subjectName: b.subjectName,
-              startIndex: b.index,
-              count: b.count,
-              isMandatory: session?.metadata?.sections?.find((s) => s.subjectSlug === b.subjectSlug)?.isMandatory,
-            }))}
-            currentIndex={currentQuestionIndex}
-            onSelect={(i) => { setCurrentQuestion(i); setShowNavigator(false); }}
-          />
-        </div>
-      )}
+              {showNavigator && (
+                <div className="test-navigator-mobile animate-fadeIn">
+                  <QuestionNavigator
+                    questions={answers.map((a) => ({ id: a.questionId }))}
+                    sections={navigatorSections}
+                    currentIndex={currentQuestionIndex}
+                    onSelect={(i) => { setCurrentQuestion(i); setShowNavigator(false); }}
+                  />
+                </div>
+              )}
+            </>
+          )}
 
-      {/* Question + answers: two columns on wide desktop */}
-      <div className="animate-fadeIn test-question-layout" key={currentAnswer.questionId}>
-        <div className="test-question-stem">
-          <QuestionDisplay content={currentQuestion.content} imageUrls={currentQuestion.imageUrls} />
-        </div>
-        <div className="test-question-answers">
-          <div className="test-answer-options-label">{t('test.answerOptionsLabel')}</div>
-          <AnswerOptions
-            options={currentQuestion.answerOptions}
-            selectedIds={getSelectedForQuestion(currentAnswer.questionId)}
-            isMultiple={currentQuestion.type === 'multiple_choice'}
-            onSelect={handleSelectOption}
-          />
-          <div style={{ marginTop: 8, minHeight: 18 }}>
-            <span style={{
-              fontSize: 12,
-              color: submitAnswer.isPending ? 'var(--warning)' : 'var(--text-muted)',
-              fontWeight: submitAnswer.isPending ? 600 : 400,
-              transition: 'all 150ms var(--ease)',
-            }}>
-              {submitAnswer.isPending ? t('test.savingAnswer') : t('test.answerSaved')}
-            </span>
+          {testRailLayout && !isCoarsePointer && currentQuestion.answerOptions.length > 0 && (
+            <p className="test-keyboard-options-hint">
+              {t('test.keyboardOptionsHint')}
+            </p>
+          )}
+
+          <div className="animate-fadeIn test-question-layout" key={currentAnswer.questionId}>
+            <div className="test-question-stem">
+              <QuestionDisplay content={currentQuestion.content} imageUrls={currentQuestion.imageUrls} />
+            </div>
+            <div className="test-question-answers">
+              <div className="test-answer-options-label">{t('test.answerOptionsLabel')}</div>
+              <AnswerOptions
+                options={currentQuestion.answerOptions}
+                selectedIds={getSelectedForQuestion(currentAnswer.questionId)}
+                isMultiple={currentQuestion.type === 'multiple_choice'}
+                onSelect={handleSelectOption}
+              />
+              <div style={{ marginTop: 8, minHeight: 18 }}>
+                <span style={{
+                  fontSize: 12,
+                  color: submitAnswer.isPending ? 'var(--warning)' : 'var(--text-muted)',
+                  fontWeight: submitAnswer.isPending ? 600 : 400,
+                  transition: 'all 150ms var(--ease)',
+                }}>
+                  {submitAnswer.isPending ? t('test.savingAnswer') : t('test.answerSaved')}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="test-footer-dock">
-        <TestSectionProgress segments={sectionProgressSegments} ariaLabel={t('test.sectionProgressAria')} />
-        <div className="test-bottom-bar">
-          <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={handlePrev} disabled={currentQuestionIndex === 0} aria-label={t('test.prev')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 6-6 6 6 6" /></svg>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm btn-icon"
-            onClick={() => { toggleFlag(currentAnswer.questionId); if (webApp) webApp.HapticFeedback.impactOccurred('light'); }}
-            style={{ color: isQuestionFlagged(currentAnswer.questionId) ? 'var(--warning)' : undefined }}
-            aria-label={isQuestionFlagged(currentAnswer.questionId) ? t('test.unflag') : t('test.flag')}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill={isQuestionFlagged(currentAnswer.questionId) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-              <path d="M5 3v18" /><path d="M5 4h11l-2.5 4L16 12H5" />
-            </svg>
-          </button>
-          <div className="test-bottom-counter" aria-live="polite">
-            <span className="test-bottom-counter-current">{currentQuestionIndex + 1}</span>
-            <span className="test-bottom-counter-sep">/</span>
-            <span>{answers.length}</span>
+        <div className="test-footer-inner">
+          <TestSectionProgress segments={sectionProgressSegments} ariaLabel={t('test.sectionProgressAria')} />
+          <div className="test-bottom-bar">
+            <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={handlePrev} disabled={currentQuestionIndex === 0} aria-label={t('test.prev')}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 6-6 6 6 6" /></svg>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm btn-icon"
+              onClick={() => { toggleFlag(currentAnswer.questionId); if (webApp) webApp.HapticFeedback.impactOccurred('light'); }}
+              style={{ color: isQuestionFlagged(currentAnswer.questionId) ? 'var(--warning)' : undefined }}
+              aria-label={isQuestionFlagged(currentAnswer.questionId) ? t('test.unflag') : t('test.flag')}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill={isQuestionFlagged(currentAnswer.questionId) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                <path d="M5 3v18" /><path d="M5 4h11l-2.5 4L16 12H5" />
+              </svg>
+            </button>
+            <div className="test-bottom-counter" aria-live="polite">
+              <span className="test-bottom-counter-current">{currentQuestionIndex + 1}</span>
+              <span className="test-bottom-counter-sep">/</span>
+              <span>{answers.length}</span>
+            </div>
+            {currentQuestionIndex === answers.length - 1 ? (
+              <button type="button" className="btn btn-primary btn-sm test-bottom-primary" onClick={handleFinishClick} disabled={isSubmitting}>
+                {unansweredCount > 0 ? t('test.finishWithUnanswered', { count: unansweredCount }) : t('test.finish')}
+              </button>
+            ) : (
+              <button type="button" className="btn btn-primary btn-sm test-bottom-primary" onClick={handleNext}>
+                <span>{t('test.next')}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
+              </button>
+            )}
           </div>
-          {currentQuestionIndex === answers.length - 1 ? (
-            <button type="button" className="btn btn-primary btn-sm test-bottom-primary" onClick={handleFinishClick} disabled={isSubmitting}>
-              {unansweredCount > 0 ? t('test.finishWithUnanswered', { count: unansweredCount }) : t('test.finish')}
-            </button>
-          ) : (
-            <button type="button" className="btn btn-primary btn-sm test-bottom-primary" onClick={handleNext}>
-              <span>{t('test.next')}</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="m9 6 6 6-6 6" /></svg>
-            </button>
-          )}
         </div>
       </div>
     </div>

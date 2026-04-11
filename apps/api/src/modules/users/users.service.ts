@@ -82,6 +82,8 @@ export class UsersService {
       }),
     ]);
 
+    type BestSessionPoints = { score: number; raw: number; max: number };
+
     type ExamAgg = {
       examTypeId: string;
       examSlug: string;
@@ -90,6 +92,8 @@ export class UsersService {
       durations: number[];
       correctPct: number[];
       finishedAts: Date[];
+      /** Лучшая попытка по проценту (при равенстве % — больший сырой балл). */
+      bestByPoints: BestSessionPoints | null;
     };
 
     const byExam = new Map<string, ExamAgg>();
@@ -109,6 +113,7 @@ export class UsersService {
           durations: [],
           correctPct: [],
           finishedAts: [],
+          bestByPoints: null,
         });
       }
       return byExam.get(id)!;
@@ -123,6 +128,30 @@ export class UsersService {
       const sc = Number(s.score);
       if (Number.isFinite(sc)) {
         agg.scores.push(sc);
+        const maxRaw =
+          s.maxScore != null && Number(s.maxScore) > 0
+            ? Math.round(Number(s.maxScore))
+            : s.totalQuestions > 0
+              ? s.totalQuestions
+              : null;
+        const rawVal =
+          s.rawScore != null
+            ? Number(s.rawScore)
+            : s.correctCount != null
+              ? s.correctCount
+              : null;
+        if (maxRaw != null && maxRaw > 0 && rawVal != null && Number.isFinite(rawVal)) {
+          const raw = Math.round(rawVal);
+          const candidate = { score: sc, raw, max: maxRaw };
+          const prev = agg.bestByPoints;
+          if (
+            !prev ||
+            candidate.score > prev.score ||
+            (candidate.score === prev.score && candidate.raw > prev.raw)
+          ) {
+            agg.bestByPoints = candidate;
+          }
+        }
       }
       if (s.durationSecs != null && s.durationSecs > 0) {
         agg.durations.push(s.durationSecs);
@@ -176,6 +205,8 @@ export class UsersService {
           testsCount: n,
           averageScore: n > 0 ? Math.round(avg * 100) / 100 : null,
           bestScore: n > 0 ? Math.round(Math.max(...agg.scores) * 100) / 100 : null,
+          bestRawScore: agg.bestByPoints?.raw ?? null,
+          bestMaxScore: agg.bestByPoints?.max ?? null,
           worstScore: n > 0 ? Math.round(Math.min(...agg.scores) * 100) / 100 : null,
           averageCorrectPercent:
             agg.correctPct.length > 0

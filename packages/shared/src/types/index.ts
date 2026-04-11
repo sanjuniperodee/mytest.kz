@@ -119,6 +119,8 @@ export interface UserExamStatsDto {
   testsCount: number;
   averageScore: number | null;
   bestScore: number | null;
+  bestRawScore: number | null;
+  bestMaxScore: number | null;
   worstScore: number | null;
   averageCorrectPercent: number | null;
   averageDurationSecs: number | null;

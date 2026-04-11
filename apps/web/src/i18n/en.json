@@ -5,7 +5,8 @@
   "nav": {
     "home": "Home",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "ariaLabel": "Main navigation"
   },
   "home": {
     "title": "Choose an exam",
@@ -96,7 +97,10 @@
     "singleChoiceHint": "Select one correct answer",
     "multipleChoiceHint": "You can select multiple answers",
     "savingAnswer": "Saving answer...",
-    "answerSaved": "Answer saved"
+    "answerSaved": "Answer saved",
+    "navigatorTitle": "All questions",
+    "navigatorAria": "Question number navigation",
+    "keyboardOptionsHint": "Keys 1–9 or A–H to select an answer"
   },
   "review": {
     "title": "Result",
@@ -126,6 +130,8 @@
     "totalTests": "Total tests",
     "avgScore": "Average score",
     "bestScore": "Best score",
+    "bestScorePoints": "{{raw}}/{{max}}",
+    "bestLabelPoints": "Best {{raw}}/{{max}}",
     "completed": "Completed",
     "inProgressCount": "In progress",
     "byExam": "By exam",

@@ -102,7 +102,7 @@ export function ReviewPage() {
   const scoreDash = (scorePercent / 100) * circumference;
 
   return (
-    <div className="page" style={{ paddingBottom: 20 }}>
+    <div className="page review-page">
       <button className="back-btn" onClick={() => navigate(backTo)}>
         <BackArrow /> {t('common.back')}
       </button>
@@ -112,7 +112,7 @@ export function ReviewPage() {
       )}
 
       {/* Score card */}
-      <div className="surface" style={{ padding: '32px 24px', textAlign: 'center', marginBottom: 20 }}>
+      <div className="surface review-score-card" style={{ padding: '32px 24px', textAlign: 'center', marginBottom: 20 }}>
         <div className="score-circle" style={{ '--score-color': getScoreColor(scorePercent) } as React.CSSProperties}>
           <svg viewBox="0 0 148 148">
             <circle className="score-track" cx="74" cy="74" r="70" />

@@ -34,7 +34,7 @@ export function NavBar() {
   ];
 
   return (
-    <nav className="nav-bar" aria-label={t('nav.ariaLabel', { defaultValue: 'Main navigation' })}>
+    <nav className="nav-bar" aria-label={t('nav.ariaLabel')}>
       <button
         type="button"
         className="nav-bar-brand"

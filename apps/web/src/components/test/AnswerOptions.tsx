@@ -13,7 +13,7 @@ interface Props {
 
 export function AnswerOptions({ options, selectedIds, isMultiple, disabled = false, showCorrect = false, onSelect }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="answer-options" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {options.map((option, index) => (
         <OptionItem
           key={option.id}

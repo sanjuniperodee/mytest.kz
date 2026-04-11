@@ -143,6 +143,10 @@ export interface UserExamStats {
   testsCount: number;
   averageScore: number | null;
   bestScore: number | null;
+  /** Сырой балл лучшей попытки (напр. верные ответы для ЕНТ). */
+  bestRawScore: number | null;
+  /** Максимум баллов при лучшей попытке. */
+  bestMaxScore: number | null;
   worstScore: number | null;
   averageCorrectPercent: number | null;
   averageDurationSecs: number | null;
