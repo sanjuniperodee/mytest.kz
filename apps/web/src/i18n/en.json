@@ -55,9 +55,17 @@
     "questions": "{{count}} questions",
     "entPassFormat": "Test format",
     "entPassFormatLead": "Three modes: mandatory block only, two profile subjects only, or full UNT.",
+    "entVariantTitle": "UNT variant",
+    "entVariantLead": "Pick one of three formats. Block size matches the full practice template.",
     "entPassMandatory": "Mandatory subjects only",
     "entPassProfile": "Profile subjects only",
-    "entPassFull": "Full UNT (mandatory + profile)"
+    "entPassFull": "Full UNT (mandatory + profile)",
+    "preparingHeader": "Test setup",
+    "templatePickTitle": "Test variant",
+    "templatePickHint": "Tap a card below — e.g. full practice or express. You must pick one before starting.",
+    "pickTemplateFirst": "Choose a test variant first",
+    "noTemplates": "No test templates for this exam. Run seeds or configure templates in admin.",
+    "noTemplatesButton": "No variants available"
   },
   "test": {
     "question": "Question {{current}} of {{total}}",

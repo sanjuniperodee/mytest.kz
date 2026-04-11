@@ -7,6 +7,7 @@ import { useAuth } from '../api/hooks/useAuth';
 import { Spinner } from '../components/common/Spinner';
 import { useTelegram } from '../lib/telegram';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
+import type { TestTemplate } from '../api/types';
 
 function BackArrow() {
   return (
@@ -38,6 +39,25 @@ function CheckCircle() {
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
+}
+
+/** Для карточек режима ЕНТ: вопросы и время по полному шаблону (пробник). */
+function entModePreview(
+  mode: 'mandatory' | 'profile' | 'full',
+  template: TestTemplate | undefined,
+  profileQuestionCount: number,
+) {
+  if (!template) return { totalQ: 0, displayMins: 0 };
+  const templateQ = template.sections.reduce((s, sec) => s + sec.questionCount, 0);
+  const profileQ = 2 * profileQuestionCount;
+  const fullEntQ = templateQ + profileQ;
+  const totalQ =
+    mode === 'mandatory' ? templateQ : mode === 'profile' ? profileQ : templateQ + profileQ;
+  const displayMins =
+    mode !== 'full' && fullEntQ > 0 && totalQ > 0
+      ? Math.max(5, Math.round(template.durationMins * (totalQ / fullEntQ)))
+      : template.durationMins;
+  return { totalQ, displayMins };
 }
 
 export function ExamPage() {
@@ -72,9 +92,19 @@ export function ExamPage() {
 
   useEffect(() => {
     if (!isEnt) return;
-    setSelectedTemplate(null);
     if (entPassMode === 'mandatory') setSelectedProfiles([]);
   }, [isEnt, entPassMode]);
+
+  const entTemplatesSorted = useMemo(() => {
+    if (!templates?.length) return [];
+    return [...templates].sort((a, b) => b.durationMins - a.durationMins);
+  }, [templates]);
+
+  /** Всегда полный пробник: шаблон с максимальной длительностью. */
+  const activeEntTemplate =
+    entTemplatesSorted.length === 0 ? undefined : entTemplatesSorted[0];
+
+  const entTemplateId = activeEntTemplate?.id ?? null;
 
   if (subjectsLoading || templatesLoading) return <Spinner fullScreen />;
 
@@ -86,8 +116,10 @@ export function ExamPage() {
     });
   };
 
+  const templateIdForStart = isEnt ? entTemplateId : selectedTemplate;
+
   const canStart =
-    selectedTemplate &&
+    !!templateIdForStart &&
     (isEnt
       ? entPassMode === 'mandatory' ||
         (entPassMode === 'profile' && selectedProfiles.length === 2) ||
@@ -95,10 +127,10 @@ export function ExamPage() {
       : !shouldRequireProfiles || selectedProfiles.length === requiredProfiles);
 
   const handleStartTest = async () => {
-    if (!selectedTemplate || !canStart) return;
+    if (!templateIdForStart || !canStart) return;
     try {
       const session = await startTest.mutateAsync({
-        templateId: selectedTemplate,
+        templateId: templateIdForStart,
         language: user?.preferredLanguage || 'ru',
         profileSubjectIds:
           isEnt && entPassMode === 'mandatory'
@@ -115,8 +147,33 @@ export function ExamPage() {
     }
   };
 
+  const hasTemplates = (templates?.length ?? 0) > 0;
+
+  const startButtonLabel = (() => {
+    if (startTest.isPending) return t('common.loading');
+    if (canStart) return t('exam.startTest');
+    if (!hasTemplates) return t('exam.noTemplatesButton');
+    if (isEnt) {
+      if (
+        (entPassMode === 'profile' || entPassMode === 'full') &&
+        selectedProfiles.length < 2
+      ) {
+        return t('exam.selectProfileFirst', { count: 2 });
+      }
+      return t('exam.startTest');
+    }
+    if (!selectedTemplate) return t('exam.pickTemplateFirst');
+    if (
+      !shouldRequireProfiles ||
+      selectedProfiles.length === requiredProfiles
+    ) {
+      return t('exam.startTest');
+    }
+    return t('exam.selectProfileFirst', { count: requiredProfiles });
+  })();
+
   return (
-    <div className="page">
+    <div className="page exam-setup-page">
       {/* Back */}
       <button className="back-btn" onClick={() => navigate('/app')}>
         <BackArrow /> {t('common.back')}
@@ -125,7 +182,7 @@ export function ExamPage() {
       {/* Header */}
       <div className="page-hero" style={{ padding: '20px 22px', marginBottom: 20 }}>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 4 }}>
-          {t('exam.selectTemplate')}
+          {t('exam.preparingHeader')}
         </div>
         <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
           {examName}
@@ -134,9 +191,9 @@ export function ExamPage() {
 
       {isEnt && (
         <div className="section" style={{ marginTop: -8 }}>
-          <div className="section-title">{t('exam.entPassFormat')}</div>
+          <div className="section-title">{t('exam.entVariantTitle')}</div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
-            {t('exam.entPassFormatLead')}
+            {t('exam.entVariantLead')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(
@@ -145,23 +202,48 @@ export function ExamPage() {
                 { mode: 'profile' as const, label: t('exam.entPassProfile') },
                 { mode: 'full' as const, label: t('exam.entPassFull') },
               ] as const
-            ).map(({ mode, label }) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setEntPassMode(mode)}
-                className={`card ${entPassMode === mode ? 'active' : ''}`}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  marginBottom: 0,
-                  padding: '12px 14px',
-                }}
-              >
-                <span style={{ fontWeight: 700, fontSize: 14 }}>{label}</span>
-              </button>
-            ))}
+            ).map(({ mode, label }) => {
+              const prev = entModePreview(mode, activeEntTemplate, profileQuestionCount);
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setEntPassMode(mode)}
+                  className={`card ${entPassMode === mode ? 'active' : ''}`}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    marginBottom: 0,
+                    padding: '12px 14px',
+                  }}
+                >
+                  <span style={{ fontWeight: 700, fontSize: 14, display: 'block', marginBottom: 6 }}>
+                    {label}
+                  </span>
+                  {activeEntTemplate && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '12px 16px',
+                        fontSize: 12,
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      <span className="info-row">
+                        <ClockIcon />
+                        {t('exam.duration', { minutes: prev.displayMins })}
+                      </span>
+                      <span className="info-row">
+                        <DocIcon />
+                        {t('exam.questions', { count: prev.totalQ })}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -215,88 +297,85 @@ export function ExamPage() {
         </div>
       )}
 
-      {/* Step 3: Templates */}
-      <div className="section">
-        <div className="section-title">{t('exam.selectTemplate')}</div>
-        <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {templates?.map((template) => {
-            const templateQ = template.sections.reduce((s, sec) => s + sec.questionCount, 0);
-            const profileQ =
-              hasElectives &&
-              (!isEnt || entPassMode === 'profile' || entPassMode === 'full')
-                ? selectedProfiles.length * profileQuestionCount
-                : 0;
-            const totalQ = isEnt
-              ? entPassMode === 'mandatory'
-                ? templateQ
-                : entPassMode === 'profile'
-                  ? profileQ
-                  : templateQ + profileQ
-              : templateQ + profileQ;
-            const fullEntQ = templateQ + 2 * profileQuestionCount;
-            const displayDurationMins =
-              isEnt && entPassMode !== 'full' && fullEntQ > 0 && totalQ > 0
-                ? Math.max(5, Math.round(template.durationMins * (totalQ / fullEntQ)))
-                : template.durationMins;
-            const isSelected = selectedTemplate === template.id;
+      {/* Другие экзамены: выбор шаблона как раньше */}
+      {!isEnt && (
+        <div className="section">
+          <div className="section-title">{t('exam.templatePickTitle')}</div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+            {t('exam.templatePickHint')}
+          </p>
+          {!hasTemplates && (
+            <p style={{ fontSize: 14, color: 'var(--warning)', marginBottom: 12, lineHeight: 1.5 }}>
+              {t('exam.noTemplates')}
+            </p>
+          )}
+          <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {templates?.map((template) => {
+              const templateQ = template.sections.reduce((s, sec) => s + sec.questionCount, 0);
+              const profileQ = hasElectives ? selectedProfiles.length * profileQuestionCount : 0;
+              const totalQ = templateQ + profileQ;
+              const isSelected = selectedTemplate === template.id;
 
-            return (
-              <button
-                key={template.id}
-                onClick={() => setSelectedTemplate(template.id)}
-                className={`card ${isSelected ? 'active' : ''}`}
-                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 0 }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>{template.name}</span>
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 'var(--r-full)',
-                    background: isSelected ? 'var(--accent)' : 'transparent',
-                    border: isSelected ? 'none' : '2px solid var(--border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 200ms var(--ease)',
-                  }}>
-                    {isSelected && <CheckCircle />}
+              return (
+                <button
+                  key={template.id}
+                  onClick={() => setSelectedTemplate(template.id)}
+                  className={`card ${isSelected ? 'active' : ''}`}
+                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 0 }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{template.name}</span>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: 'var(--r-full)',
+                      background: isSelected ? 'var(--accent)' : 'transparent',
+                      border: isSelected ? 'none' : '2px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 200ms var(--ease)',
+                    }}>
+                      {isSelected && <CheckCircle />}
+                    </div>
                   </div>
-                </div>
 
-                <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
-                  <span className="info-row">
-                    <ClockIcon /> {t('exam.duration', { minutes: displayDurationMins })}
-                  </span>
-                  <span className="info-row">
-                    <DocIcon /> {t('exam.questions', { count: totalQ })}
-                  </span>
-                </div>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+                    <span className="info-row">
+                      <ClockIcon /> {t('exam.duration', { minutes: template.durationMins })}
+                    </span>
+                    <span className="info-row">
+                      <DocIcon /> {t('exam.questions', { count: totalQ })}
+                    </span>
+                  </div>
 
-                {(template.sections.length > 0 ||
-                  (hasElectives &&
-                    selectedProfiles.length > 0 &&
-                    (!isEnt || entPassMode === 'profile' || entPassMode === 'full'))) && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {(!isEnt || entPassMode === 'mandatory' || entPassMode === 'full') &&
-                      template.sections.map((sec) => (
+                  {(template.sections.length > 0 ||
+                    (hasElectives && selectedProfiles.length > 0)) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {template.sections.map((sec) => (
                         <span key={sec.id} className="badge badge-info" style={{ fontSize: 10 }}>
                           {sec.subject.name}: {sec.questionCount}
                         </span>
                       ))}
-                    {hasElectives &&
-                      selectedProfiles.length > 0 &&
-                      (!isEnt || entPassMode === 'profile' || entPassMode === 'full') &&
-                      electiveSubjects
-                        .filter((s) => selectedProfiles.includes(s.id))
-                        .map((s) => (
-                          <span key={s.id} className="badge badge-warning" style={{ fontSize: 10 }}>
-                            {s.name}: {profileQuestionCount}
-                          </span>
-                        ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+                      {hasElectives &&
+                        selectedProfiles.length > 0 &&
+                        electiveSubjects
+                          .filter((s) => selectedProfiles.includes(s.id))
+                          .map((s) => (
+                            <span key={s.id} className="badge badge-warning" style={{ fontSize: 10 }}>
+                              {s.name}: {profileQuestionCount}
+                            </span>
+                          ))}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {isEnt && !hasTemplates && (
+        <p style={{ fontSize: 14, color: 'var(--warning)', marginBottom: 12, lineHeight: 1.5 }}>
+          {t('exam.noTemplates')}
+        </p>
+      )}
 
       {/* Start */}
       <div className="bottom-fixed">
@@ -305,16 +384,7 @@ export function ExamPage() {
           onClick={handleStartTest}
           disabled={!canStart || startTest.isPending}
         >
-          {startTest.isPending
-            ? t('common.loading')
-            : canStart
-              ? t('exam.startTest')
-              : isEnt && (entPassMode === 'profile' || entPassMode === 'full') &&
-                  selectedProfiles.length < 2
-                ? t('exam.selectProfileFirst', { count: 2 })
-                : !shouldRequireProfiles || selectedProfiles.length === requiredProfiles
-                  ? t('exam.startTest')
-                  : t('exam.selectProfileFirst', { count: requiredProfiles })}
+          {startButtonLabel}
         </button>
       </div>
     </div>

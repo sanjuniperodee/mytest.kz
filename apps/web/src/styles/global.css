@@ -224,6 +224,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   animation: pageEnter 0.4s var(--ease-out);
 }
 
+/* Exam setup: template cards + sticky «Начать» — запас снизу, чтобы карточки не прятались под кнопкой */
+.exam-setup-page {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
