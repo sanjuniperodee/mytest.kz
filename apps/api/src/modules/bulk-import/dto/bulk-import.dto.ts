@@ -148,6 +148,11 @@ export class QuestionBatchItemDto {
   @IsString()
   contentEn?: string;
 
+  /** Язык текста вопроса для выборки в тестах (по умолчанию ru) */
+  @IsOptional()
+  @IsIn(['kk', 'ru'])
+  contentLocale?: 'kk' | 'ru';
+
   @IsOptional()
   @IsString()
   explanationRu?: string;

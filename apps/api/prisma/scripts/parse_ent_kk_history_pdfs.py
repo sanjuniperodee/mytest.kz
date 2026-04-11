@@ -123,6 +123,7 @@ def parse_file_lines(path: Path, default_topic: str) -> list[tuple[str, dict[str
                     "stemKk": stem,
                     "optionsKk": opts,
                     "correct": letter,
+                    "contentLocale": "kk",
                 },
             )
         )

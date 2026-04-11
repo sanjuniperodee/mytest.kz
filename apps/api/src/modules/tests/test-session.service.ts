@@ -70,6 +70,7 @@ export class TestSessionService {
       profileSubjectIds,
       profileQuestionCount,
       userId,
+      language,
     );
 
     // Flatten question IDs maintaining section order

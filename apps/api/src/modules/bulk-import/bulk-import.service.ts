@@ -220,6 +220,7 @@ export class BulkImportService {
           type: q.type,
           content,
           explanation,
+          contentLocale: q.contentLocale ?? 'ru',
           answerOptions,
         });
         created.push({ id: row.id, index: i });

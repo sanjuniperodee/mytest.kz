@@ -1,11 +1,14 @@
 /**
- * Импорт банка «Оқу сауаттылығы / грамотность чтения» (ЕНТ) из reading-literacy-seed-data.json.
- * Запуск: из каталога apps/api — `npx ts-node prisma/seed-reading-sauat.ts`
- * При отсутствии в БД создаёт минимально exam `ent` и предмет `reading_literacy`.
+ * Импорт «Оқу сауаттылығы» из reading-literacy-seed-data.json.
+ * bank-19 (RU+KK): две записи на вопрос (kk и ru). Остальные банки — один язык.
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
+import {
+  parseQuestionContentLocale,
+  QUESTION_METADATA_LOCALE_KEY,
+} from '../src/common/question-locale';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +25,19 @@ interface Bank {
     optionsRu: Record<string, string>;
     optionsKk: Record<string, string>;
     correct: string;
+    contentLocale?: string;
   }[];
+}
+
+const letters = ['A', 'B', 'C', 'D'] as const;
+
+function isDualLanguageBank(bankId: string): boolean {
+  return bankId === 'bank-19';
+}
+
+function fallbackLocaleForBank(bankId: string): 'kk' | 'ru' {
+  if (bankId.includes('82-ru') || bankId.endsWith('-ru')) return 'ru';
+  return 'kk';
 }
 
 async function main() {
@@ -87,32 +102,94 @@ async function main() {
     const deleted = await prisma.question.deleteMany({ where: { topicId: topic.id } });
     console.log(`Topic ${bank.id}: removed ${deleted.count} old questions`);
 
-    const letters = ['A', 'B', 'C', 'D'] as const;
-    for (const q of bank.questions) {
-      const answerOptions = letters.map((L, idx) => ({
-        content: i(
-          q.optionsKk[L] ?? '',
-          q.optionsRu[L] ?? '',
-          q.optionsRu[L] ?? '',
-        ) as Prisma.InputJsonValue,
-        isCorrect: L === q.correct,
-        sortOrder: idx,
-      }));
+    let inserted = 0;
+    const dual = isDualLanguageBank(bank.id);
+    const fb = fallbackLocaleForBank(bank.id);
 
-      await prisma.question.create({
-        data: {
-          topicId: topic.id,
-          subjectId: subject.id,
-          examTypeId: ent.id,
-          difficulty: 3,
-          type: 'single_choice',
-          content: i(q.stemKk, q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
-          explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
-          answerOptions: { create: answerOptions },
-        },
-      });
+    for (const q of bank.questions) {
+      const loc = dual ? null : parseQuestionContentLocale(q.contentLocale, fb);
+
+      if (dual) {
+        const optsKk = letters.map((L, idx) => ({
+          content: i(q.optionsKk[L] ?? '', '', '') as Prisma.InputJsonValue,
+          isCorrect: L === q.correct,
+          sortOrder: idx,
+        }));
+        const optsRu = letters.map((L, idx) => ({
+          content: i('', q.optionsRu[L] ?? '', q.optionsRu[L] ?? '') as Prisma.InputJsonValue,
+          isCorrect: L === q.correct,
+          sortOrder: idx,
+        }));
+        await prisma.question.create({
+          data: {
+            topicId: topic.id,
+            subjectId: subject.id,
+            examTypeId: ent.id,
+            difficulty: 3,
+            type: 'single_choice',
+            content: i(q.stemKk, '', '') as unknown as Prisma.InputJsonValue,
+            explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
+            metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
+            answerOptions: { create: optsKk },
+          },
+        });
+        await prisma.question.create({
+          data: {
+            topicId: topic.id,
+            subjectId: subject.id,
+            examTypeId: ent.id,
+            difficulty: 3,
+            type: 'single_choice',
+            content: i('', q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
+            explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
+            metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
+            answerOptions: { create: optsRu },
+          },
+        });
+        inserted += 2;
+      } else if (loc === 'ru') {
+        const optsRu = letters.map((L, idx) => ({
+          content: i('', q.optionsRu[L] ?? '', q.optionsRu[L] ?? '') as Prisma.InputJsonValue,
+          isCorrect: L === q.correct,
+          sortOrder: idx,
+        }));
+        await prisma.question.create({
+          data: {
+            topicId: topic.id,
+            subjectId: subject.id,
+            examTypeId: ent.id,
+            difficulty: 3,
+            type: 'single_choice',
+            content: i('', q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
+            explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
+            metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
+            answerOptions: { create: optsRu },
+          },
+        });
+        inserted += 1;
+      } else {
+        const optsKk = letters.map((L, idx) => ({
+          content: i(q.optionsKk[L] ?? '', '', '') as Prisma.InputJsonValue,
+          isCorrect: L === q.correct,
+          sortOrder: idx,
+        }));
+        await prisma.question.create({
+          data: {
+            topicId: topic.id,
+            subjectId: subject.id,
+            examTypeId: ent.id,
+            difficulty: 3,
+            type: 'single_choice',
+            content: i(q.stemKk, '', '') as unknown as Prisma.InputJsonValue,
+            explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
+            metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
+            answerOptions: { create: optsKk },
+          },
+        });
+        inserted += 1;
+      }
     }
-    console.log(`Topic ${bank.id}: inserted ${bank.questions.length} questions`);
+    console.log(`Topic ${bank.id}: inserted ${inserted} questions`);
   }
 
   console.log('seed-reading-sauat done.');

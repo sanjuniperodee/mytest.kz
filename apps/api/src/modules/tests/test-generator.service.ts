@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { questionWhereForTestLanguage } from '../../common/question-locale';
 
 export interface GeneratedSection {
   subjectId: string;
@@ -22,6 +23,8 @@ export class TestGeneratorService {
     profileQuestionCount = 20,
     /** если задан — случайный выбор сначала из вопросов, которые юзер ещё не видел в тестах */
     userId?: string,
+    /** язык сессии: фильтр по metadata.contentLocale (kk | ru) */
+    language?: string,
   ): Promise<GeneratedSection[]> {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
@@ -43,6 +46,7 @@ export class TestGeneratorService {
         section.questionCount,
         section.selectionMode,
         userId,
+        language,
       );
       sections.push({
         subjectId: section.subjectId,
@@ -67,6 +71,7 @@ export class TestGeneratorService {
           profileQuestionCount,
           'random',
           userId,
+          language,
         );
         sections.push({
           subjectId,
@@ -84,10 +89,15 @@ export class TestGeneratorService {
     count: number,
     selectionMode: string,
     userId?: string,
+    language?: string,
   ): Promise<string[]> {
+    const localeWhere = questionWhereForTestLanguage(language);
+    const baseWhere = {
+      AND: [{ subjectId }, { isActive: true }, localeWhere],
+    };
     if (selectionMode === 'random') {
       const questions = await this.prisma.question.findMany({
-        where: { subjectId, isActive: true },
+        where: baseWhere,
         select: { id: true },
       });
       if (questions.length === 0) return [];
@@ -113,7 +123,7 @@ export class TestGeneratorService {
       return ordered.slice(0, count);
     } else {
       const questions = await this.prisma.question.findMany({
-        where: { subjectId, isActive: true },
+        where: baseWhere,
         select: { id: true },
         take: count,
         orderBy: { createdAt: 'asc' },

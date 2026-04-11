@@ -1,11 +1,11 @@
 /**
  * Импорт банка «Математическая грамотность» (ЕНТ) из math-literacy-seed-data.json.
- * Запуск: из каталога apps/api — `npx ts-node prisma/seed-math-sauat.ts`
- * При отсутствии в БД создаёт минимально exam `ent` и предмет `math_literacy`.
+ * Каждая строка JSON → два вопроса в БД: только kk и только ru (без both).
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
+import { QUESTION_METADATA_LOCALE_KEY } from '../src/common/question-locale';
 
 const prisma = new PrismaClient();
 
@@ -24,6 +24,8 @@ interface Bank {
     correct: string;
   }[];
 }
+
+const letters = ['A', 'B', 'C', 'D'] as const;
 
 async function main() {
   const jsonPath = path.join(__dirname, 'math-literacy-seed-data.json');
@@ -87,14 +89,15 @@ async function main() {
     const deleted = await prisma.question.deleteMany({ where: { topicId: topic.id } });
     console.log(`Topic ${bank.id}: removed ${deleted.count} old questions`);
 
-    const letters = ['A', 'B', 'C', 'D'] as const;
+    let inserted = 0;
     for (const q of bank.questions) {
-      const answerOptions = letters.map((L, idx) => ({
-        content: i(
-          q.optionsKk[L] ?? '',
-          q.optionsRu[L] ?? '',
-          q.optionsRu[L] ?? '',
-        ) as Prisma.InputJsonValue,
+      const optsKk = letters.map((L, idx) => ({
+        content: i(q.optionsKk[L] ?? '', '', '') as Prisma.InputJsonValue,
+        isCorrect: L === q.correct,
+        sortOrder: idx,
+      }));
+      const optsRu = letters.map((L, idx) => ({
+        content: i('', q.optionsRu[L] ?? '', q.optionsRu[L] ?? '') as Prisma.InputJsonValue,
         isCorrect: L === q.correct,
         sortOrder: idx,
       }));
@@ -106,13 +109,28 @@ async function main() {
           examTypeId: ent.id,
           difficulty: 3,
           type: 'single_choice',
-          content: i(q.stemKk, q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
+          content: i(q.stemKk, '', '') as unknown as Prisma.InputJsonValue,
           explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
-          answerOptions: { create: answerOptions },
+          metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
+          answerOptions: { create: optsKk },
         },
       });
+      await prisma.question.create({
+        data: {
+          topicId: topic.id,
+          subjectId: subject.id,
+          examTypeId: ent.id,
+          difficulty: 3,
+          type: 'single_choice',
+          content: i('', q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
+          explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
+          metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
+          answerOptions: { create: optsRu },
+        },
+      });
+      inserted += 2;
     }
-    console.log(`Topic ${bank.id}: inserted ${bank.questions.length} questions`);
+    console.log(`Topic ${bank.id}: inserted ${inserted} questions (kk+ru)`);
   }
 
   console.log('seed-math-sauat done.');

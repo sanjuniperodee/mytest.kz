@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  QUESTION_METADATA_LOCALE_KEY,
+  type QuestionContentLocale,
+} from '../../common/question-locale';
 
 @Injectable()
 export class QuestionsService {
@@ -15,8 +19,11 @@ export class QuestionsService {
     content: Prisma.InputJsonValue;
     explanation?: Prisma.InputJsonValue;
     imageUrls?: string[];
+    /** kk | ru — для выборки вопросов по языку теста */
+    contentLocale?: QuestionContentLocale;
     answerOptions: { content: Prisma.InputJsonValue; isCorrect: boolean; sortOrder: number }[];
   }) {
+    const loc = data.contentLocale ?? 'ru';
     return this.prisma.question.create({
       data: {
         topicId: data.topicId,
@@ -27,6 +34,9 @@ export class QuestionsService {
         content: data.content,
         explanation: data.explanation ?? Prisma.DbNull,
         imageUrls: data.imageUrls ?? Prisma.DbNull,
+        metadata: {
+          [QUESTION_METADATA_LOCALE_KEY]: loc,
+        } as Prisma.InputJsonValue,
         answerOptions: {
           create: data.answerOptions.map((opt) => ({
             content: opt.content,

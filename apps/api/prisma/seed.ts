@@ -1,9 +1,13 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { QUESTION_METADATA_LOCALE_KEY } from '../src/common/question-locale';
 
 const prisma = new PrismaClient();
 
 type I18n = { kk: string; ru: string; en: string };
 const i = (kk: string, ru: string, en: string): Prisma.InputJsonValue => ({ kk, ru, en });
+
+const META_KK = { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue;
+const META_RU = { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue;
 
 interface QDef {
   kk: string; ru: string; en: string;
@@ -20,11 +24,29 @@ async function seedQ(
       topicId, subjectId, examTypeId,
       difficulty: q.difficulty,
       type: 'single_choice',
-      content: i(q.kk, q.ru, q.en) as any,
-      explanation: i(q.explKk, q.explRu, q.explEn) as any,
+      content: i(q.kk, '', '') as any,
+      explanation: i(q.explKk, '', '') as any,
+      metadata: META_KK,
       answerOptions: {
         create: q.answers.map((a, idx) => ({
-          content: i(a.kk, a.ru, a.en) as any,
+          content: i(a.kk, '', '') as any,
+          isCorrect: a.correct,
+          sortOrder: idx,
+        })),
+      },
+    },
+  });
+  await prisma.question.create({
+    data: {
+      topicId, subjectId, examTypeId,
+      difficulty: q.difficulty,
+      type: 'single_choice',
+      content: i('', q.ru, q.ru) as any,
+      explanation: i('', q.explRu, q.explRu) as any,
+      metadata: META_RU,
+      answerOptions: {
+        create: q.answers.map((a, idx) => ({
+          content: i('', a.ru, a.ru) as any,
           isCorrect: a.correct,
           sortOrder: idx,
         })),
@@ -426,11 +448,28 @@ async function main() {
         data: {
           topicId: tId, subjectId, examTypeId,
           difficulty: d, type: 'single_choice',
-          content: i(`${prefix}: ${n+1}-сұрақ`, `${prefix}: Вопрос ${n+1}`, `${prefix}: Question ${n+1}`) as any,
-          explanation: i(`${prefix}: ${n+1}-түсіндірме`, `${prefix}: Объяснение ${n+1}`, `${prefix}: Explanation ${n+1}`) as any,
+          content: i(`${prefix}: ${n + 1}-сұрақ`, '', '') as any,
+          explanation: i(`${prefix}: ${n + 1}-түсіндірме`, '', '') as any,
+          metadata: META_KK,
           answerOptions: {
-            create: [0,1,2,3].map(idx => ({
-              content: i(`${String.fromCharCode(65+idx)} нұсқасы`, `Вариант ${String.fromCharCode(65+idx)}`, `Option ${String.fromCharCode(65+idx)}`) as any,
+            create: [0, 1, 2, 3].map((idx) => ({
+              content: i(`${String.fromCharCode(65 + idx)} нұсқасы`, '', '') as any,
+              isCorrect: idx === correct,
+              sortOrder: idx,
+            })),
+          },
+        },
+      });
+      await prisma.question.create({
+        data: {
+          topicId: tId, subjectId, examTypeId,
+          difficulty: d, type: 'single_choice',
+          content: i('', `${prefix}: Вопрос ${n + 1}`, `${prefix}: Вопрос ${n + 1}`) as any,
+          explanation: i('', `${prefix}: Объяснение ${n + 1}`, `${prefix}: Объяснение ${n + 1}`) as any,
+          metadata: META_RU,
+          answerOptions: {
+            create: [0, 1, 2, 3].map((idx) => ({
+              content: i('', `Вариант ${String.fromCharCode(65 + idx)}`, `Вариант ${String.fromCharCode(65 + idx)}`) as any,
               isCorrect: idx === correct,
               sortOrder: idx,
             })),
@@ -447,11 +486,13 @@ async function main() {
     minCount: number,
     prefix: string,
   ) {
+    const targetRows = minCount * 2;
     const existing = await prisma.question.count({
       where: { subjectId, examTypeId },
     });
-    if (existing >= minCount) return;
-    await bulkSeed(subjectId, examTypeId, topicIds, minCount - existing, `${prefix} (top-up)`);
+    if (existing >= targetRows) return;
+    const pairsNeeded = Math.ceil((targetRows - existing) / 2);
+    await bulkSeed(subjectId, examTypeId, topicIds, pairsNeeded, `${prefix} (top-up)`);
   }
 
   // Geography, World History, English, Kazakh, Russian, Informatics + NIS, KTL, NUET extras, PM

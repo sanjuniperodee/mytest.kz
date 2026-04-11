@@ -6,6 +6,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
+import {
+  parseQuestionContentLocale,
+  QUESTION_METADATA_LOCALE_KEY,
+} from '../src/common/question-locale';
 
 const prisma = new PrismaClient();
 
@@ -18,6 +22,7 @@ interface TopicGroup {
     stemRu: string;
     optionsRu: Record<string, string>;
     correct: string;
+    contentLocale?: string;
   }[];
 }
 
@@ -107,16 +112,14 @@ async function main() {
 
       for (const q of tg.questions) {
         const stemRu = cleanStem(q.stemRu);
+        const opt = (L: string) => q.optionsRu[L] ?? '';
         const answerOptions = letters.map((L, idx) => ({
-          content: i(
-            q.optionsRu[L] ?? '',
-            q.optionsRu[L] ?? '',
-            q.optionsRu[L] ?? '',
-          ) as Prisma.InputJsonValue,
+          content: i('', opt(L), opt(L)) as Prisma.InputJsonValue,
           isCorrect: L === q.correct,
           sortOrder: idx,
         }));
 
+        const contentLocale = parseQuestionContentLocale(q.contentLocale, 'ru');
         await prisma.question.create({
           data: {
             topicId: topic.id,
@@ -124,8 +127,11 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: i(stemRu, stemRu, stemRu) as unknown as Prisma.InputJsonValue,
+            content: i('', stemRu, stemRu) as unknown as Prisma.InputJsonValue,
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
+            metadata: {
+              [QUESTION_METADATA_LOCALE_KEY]: contentLocale,
+            } as Prisma.InputJsonValue,
             answerOptions: { create: answerOptions },
           },
         });

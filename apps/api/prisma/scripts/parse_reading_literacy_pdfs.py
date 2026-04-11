@@ -216,6 +216,7 @@ def merge_banks(
 
 
 def single_lang_to_questions(items: dict[int, dict], *, kk_primary: bool) -> list[dict[str, Any]]:
+    loc = "kk" if kk_primary else "ru"
     merged: list[dict[str, Any]] = []
     for n in sorted(items.keys()):
         q = items[n]
@@ -229,6 +230,7 @@ def single_lang_to_questions(items: dict[int, dict], *, kk_primary: bool) -> lis
                 "optionsRu": opts,
                 "optionsKk": opts,
                 "correct": q["correct"],
+                "contentLocale": loc,
             }
         )
     return merged
