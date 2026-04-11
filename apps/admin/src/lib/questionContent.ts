@@ -63,9 +63,33 @@ export function getQuestionPreviewText(
   return ru || kk || getLocalizedText(record.content);
 }
 
+/** Фильтр языка контента в админке (совпадает с query API). */
+export type AdminLocaleFilter = '' | 'kk' | 'ru' | 'unset';
+
 export function localeFilterParam(
-  v: '' | 'kk' | 'ru' | 'unset',
+  v: AdminLocaleFilter,
 ): Record<string, string> | undefined {
   if (!v) return undefined;
   return { contentLocale: v };
+}
+
+export const LOCALE_TAB_KEYS = {
+  all: 'all',
+  kk: 'kk',
+  ru: 'ru',
+  unset: 'unset',
+} as const;
+
+export function localeFilterToTabKey(f: AdminLocaleFilter): string {
+  if (f === 'kk') return LOCALE_TAB_KEYS.kk;
+  if (f === 'ru') return LOCALE_TAB_KEYS.ru;
+  if (f === 'unset') return LOCALE_TAB_KEYS.unset;
+  return LOCALE_TAB_KEYS.all;
+}
+
+export function tabKeyToLocaleFilter(key: string): AdminLocaleFilter {
+  if (key === LOCALE_TAB_KEYS.kk) return 'kk';
+  if (key === LOCALE_TAB_KEYS.ru) return 'ru';
+  if (key === LOCALE_TAB_KEYS.unset) return 'unset';
+  return '';
 }

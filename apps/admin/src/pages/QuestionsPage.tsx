@@ -16,9 +16,9 @@ import {
   Empty,
   Card,
   Segmented,
+  Tabs,
   Typography,
   Tooltip,
-  Divider,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -28,11 +28,13 @@ import {
   getQuestionContentLocale,
   getQuestionPreviewText,
   localeFilterParam,
+  localeFilterToTabKey,
+  tabKeyToLocaleFilter,
+  LOCALE_TAB_KEYS,
+  type AdminLocaleFilter,
 } from '../lib/questionContent';
 
 const { TextArea } = Input;
-
-type LocaleFilter = '' | 'kk' | 'ru' | 'unset';
 
 interface Question {
   id: string;
@@ -64,7 +66,7 @@ export function QuestionsPage() {
   const [page, setPage] = useState(1);
   const [examTypeId, setExamTypeId] = useState<string | undefined>();
   const [subjectId, setSubjectId] = useState<string | undefined>();
-  const [localeFilter, setLocaleFilter] = useState<LocaleFilter>('');
+  const [localeFilter, setLocaleFilter] = useState<AdminLocaleFilter>('');
   const [previewLang, setPreviewLang] = useState<'kk' | 'ru'>('ru');
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
@@ -331,14 +333,66 @@ export function QuestionsPage() {
         <div>
           <h2 className="admin-page-title">Вопросы</h2>
           <p className="admin-page-lead" style={{ marginBottom: 0 }}>
-            Фильтр по языку контента использует поле <Typography.Text code>metadata.contentLocale</Typography.Text> — как
-            в тестах (қазақша или русский). «Нет метки» — старые записи до миграции.
+            Вкладки делят список по <Typography.Text code>metadata.contentLocale</Typography.Text> (как пулы в тестах KK /
+            RU). «Без метки» — записи до миграции.
           </p>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
           Добавить вопрос
         </Button>
       </div>
+
+      <Tabs
+        activeKey={localeFilterToTabKey(localeFilter)}
+        onChange={(key) => {
+          setLocaleFilter(tabKeyToLocaleFilter(key));
+          setPage(1);
+          if (key === LOCALE_TAB_KEYS.kk) setPreviewLang('kk');
+          if (key === LOCALE_TAB_KEYS.ru) setPreviewLang('ru');
+        }}
+        type="line"
+        size="large"
+        style={{ marginBottom: 16 }}
+        items={[
+          {
+            key: LOCALE_TAB_KEYS.all,
+            label: (
+              <span>
+                <strong>Барлығы</strong>
+                <Typography.Text type="secondary" style={{ marginLeft: 8, fontWeight: 400 }}>
+                  / Все
+                </Typography.Text>
+              </span>
+            ),
+          },
+          {
+            key: LOCALE_TAB_KEYS.kk,
+            label: (
+              <span>
+                <Tag color="gold" style={{ marginRight: 8 }}>
+                  KK
+                </Tag>
+                Қазақша
+              </span>
+            ),
+          },
+          {
+            key: LOCALE_TAB_KEYS.ru,
+            label: (
+              <span>
+                <Tag color="cyan" style={{ marginRight: 8 }}>
+                  RU
+                </Tag>
+                Русский
+              </span>
+            ),
+          },
+          {
+            key: LOCALE_TAB_KEYS.unset,
+            label: 'Без метки',
+          },
+        ]}
+      />
 
       <Card size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
         <Space wrap size={[12, 12]} align="center">
@@ -373,24 +427,6 @@ export function QuestionsPage() {
               }))}
             />
           )}
-          <Divider type="vertical" style={{ height: 28, margin: '0 4px' }} />
-          <Typography.Text type="secondary" style={{ marginRight: 4 }}>
-            Язык контента:
-          </Typography.Text>
-          <Segmented
-            value={localeFilter || 'all'}
-            onChange={(v) => {
-              const val = v === 'all' ? '' : (v as LocaleFilter);
-              setLocaleFilter(val);
-              setPage(1);
-            }}
-            options={[
-              { label: 'Все', value: 'all' },
-              { label: 'Қазақша', value: 'kk' },
-              { label: 'Русский', value: 'ru' },
-              { label: 'Без метки', value: 'unset' },
-            ]}
-          />
         </Space>
       </Card>
 

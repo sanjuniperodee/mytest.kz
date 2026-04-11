@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Table, Tag, Typography, Button, Space, Spin, Empty, Card, Segmented } from 'antd';
+import { Table, Tag, Typography, Button, Space, Spin, Empty, Card, Segmented, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -9,9 +9,11 @@ import {
   getQuestionContentLocale,
   getQuestionPreviewText,
   localeFilterParam,
+  localeFilterToTabKey,
+  tabKeyToLocaleFilter,
+  LOCALE_TAB_KEYS,
+  type AdminLocaleFilter,
 } from '../lib/questionContent';
-
-type LocaleFilter = '' | 'kk' | 'ru' | 'unset';
 
 interface Row {
   id: string;
@@ -34,7 +36,7 @@ function localeTag(locale: ReturnType<typeof getQuestionContentLocale>) {
 
 export function ExplanationsPage() {
   const [page, setPage] = useState(1);
-  const [localeFilter, setLocaleFilter] = useState<LocaleFilter>('');
+  const [localeFilter, setLocaleFilter] = useState<AdminLocaleFilter>('');
   const [previewLang, setPreviewLang] = useState<'kk' | 'ru'>('ru');
 
   const localeParams = useMemo(() => localeFilterParam(localeFilter), [localeFilter]);
@@ -117,27 +119,65 @@ export function ExplanationsPage() {
     <div>
       <h2 className="admin-page-title">Объяснения вопросов</h2>
       <p className="admin-page-lead">
-        Записи с заполненным полем объяснения. Фильтр по языку контента — как в разделе «Вопросы». Превью текста
-        вопроса можно переключать KK/RU.
+        Записи с заполненным полем объяснения. Вкладки — тот же раздел по языку контента, что и в «Вопросах». Превью
+        текста вопроса переключается KK/RU.
       </p>
+
+      <Tabs
+        activeKey={localeFilterToTabKey(localeFilter)}
+        onChange={(key) => {
+          setLocaleFilter(tabKeyToLocaleFilter(key));
+          setPage(1);
+          if (key === LOCALE_TAB_KEYS.kk) setPreviewLang('kk');
+          if (key === LOCALE_TAB_KEYS.ru) setPreviewLang('ru');
+        }}
+        type="line"
+        size="large"
+        style={{ marginBottom: 16 }}
+        items={[
+          {
+            key: LOCALE_TAB_KEYS.all,
+            label: (
+              <span>
+                <strong>Барлығы</strong>
+                <Typography.Text type="secondary" style={{ marginLeft: 8, fontWeight: 400 }}>
+                  / Все
+                </Typography.Text>
+              </span>
+            ),
+          },
+          {
+            key: LOCALE_TAB_KEYS.kk,
+            label: (
+              <span>
+                <Tag color="gold" style={{ marginRight: 8 }}>
+                  KK
+                </Tag>
+                Қазақша
+              </span>
+            ),
+          },
+          {
+            key: LOCALE_TAB_KEYS.ru,
+            label: (
+              <span>
+                <Tag color="cyan" style={{ marginRight: 8 }}>
+                  RU
+                </Tag>
+                Русский
+              </span>
+            ),
+          },
+          {
+            key: LOCALE_TAB_KEYS.unset,
+            label: 'Без метки',
+          },
+        ]}
+      />
 
       <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
         <Space wrap align="center">
-          <Typography.Text type="secondary">Язык контента:</Typography.Text>
-          <Segmented
-            value={localeFilter || 'all'}
-            onChange={(v) => {
-              setLocaleFilter(v === 'all' ? '' : (v as LocaleFilter));
-              setPage(1);
-            }}
-            options={[
-              { label: 'Все', value: 'all' },
-              { label: 'Қазақша', value: 'kk' },
-              { label: 'Русский', value: 'ru' },
-              { label: 'Без метки', value: 'unset' },
-            ]}
-          />
-          <Typography.Text type="secondary">Превью:</Typography.Text>
+          <Typography.Text type="secondary">Превью текста вопроса:</Typography.Text>
           <Segmented
             value={previewLang}
             onChange={(v) => setPreviewLang(v as 'kk' | 'ru')}
