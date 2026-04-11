@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 interface TelegramWebApp {
+  /** Версия клиента Telegram, напр. "6.0" — в 6+ showPopup/showConfirm могут быть недоступны */
+  version?: string;
   initData: string;
   initDataUnsafe: {
     user?: {
@@ -96,15 +98,29 @@ export function useTelegram() {
 }
 
 /**
+ * В обычном браузере часто подгружается telegram-web-app.js, но initData пустой —
+ * вызовы showConfirm/showAlert бросают WebAppMethodUnsupported.
+ * В WebApp 6.0+ showPopup может быть отключён — тоже не вызываем SDK.
+ */
+function useNativeDialogInsteadOfTelegramPopup(webApp: TelegramWebApp | null): boolean {
+  if (!webApp) return true;
+  if (typeof webApp.initData !== 'string' || webApp.initData.length === 0) return true;
+  const v = webApp.version;
+  if (!v) return false;
+  const major = parseInt(v.split('.')[0], 10);
+  return Number.isFinite(major) && major >= 6;
+}
+
+/**
  * showConfirm/showPopup не поддерживаются в некоторых версиях WebApp (например 6.0) —
- * падают синхронно; тогда используем window.confirm.
+ * падают синхронно; в браузере без initData — то же самое. Используем window.confirm.
  */
 export function safeShowConfirm(
   webApp: TelegramWebApp | null,
   message: string,
   onResult: (confirmed: boolean) => void,
 ): void {
-  if (!webApp) {
+  if (!webApp || useNativeDialogInsteadOfTelegramPopup(webApp)) {
     onResult(typeof window !== 'undefined' && window.confirm(message));
     return;
   }
@@ -115,9 +131,9 @@ export function safeShowConfirm(
   }
 }
 
-/** Аналогично для showAlert, если в версии клиента метод сломан. */
+/** Аналогично для showAlert. */
 export function safeShowAlert(webApp: TelegramWebApp | null, message: string): void {
-  if (!webApp) {
+  if (!webApp || useNativeDialogInsteadOfTelegramPopup(webApp)) {
     if (typeof window !== 'undefined') window.alert(message);
     return;
   }
