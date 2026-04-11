@@ -1,7 +1,7 @@
 /**
  * Импорт банков «Қазақстан тарихы / История Казахстана» (ЕНТ, KK PDF) из history-kz-ent-kk-seed-data.json.
  * Запуск из apps/api: npx ts-node prisma/seed-history-kz-ent-kk.ts
- * Предмет: history_kz (тот же, что в основном seed).
+ * При отсутствии создаёт exam `ent` и предмет `history_kz` (как seed-math-sauat / seed-reading-sauat).
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -38,16 +38,36 @@ async function main() {
   }
   const banks = JSON.parse(fs.readFileSync(jsonPath, 'utf-8')) as Bank[];
 
-  const ent = await prisma.examType.findUnique({ where: { slug: 'ent' } });
+  let ent = await prisma.examType.findUnique({ where: { slug: 'ent' } });
   if (!ent) {
-    throw new Error('Exam type ent not found — run prisma seed first');
+    ent = await prisma.examType.create({
+      data: {
+        slug: 'ent',
+        name: i('ҰБТ/ЕНТ', 'ЕНТ', 'UNT'),
+        description: i(
+          'ЕНТ сынақтары',
+          'Варианты ЕНТ',
+          'UNT practice',
+        ),
+      },
+    });
+    console.log('Created exam type ent');
   }
 
-  const subject = await prisma.subject.findUnique({
+  let subject = await prisma.subject.findUnique({
     where: { examTypeId_slug: { examTypeId: ent.id, slug: 'history_kz' } },
   });
   if (!subject) {
-    throw new Error('Subject history_kz not found — run prisma seed first');
+    subject = await prisma.subject.create({
+      data: {
+        examTypeId: ent.id,
+        slug: 'history_kz',
+        name: i('Қазақстан тарихы', 'История Казахстана', 'History of Kazakhstan'),
+        isMandatory: true,
+        sortOrder: 3,
+      },
+    });
+    console.log('Created subject history_kz');
   }
 
   const existingTopics = await prisma.topic.findMany({ where: { subjectId: subject.id } });
