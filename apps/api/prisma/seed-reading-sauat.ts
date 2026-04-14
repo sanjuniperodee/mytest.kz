@@ -16,25 +16,33 @@ const prisma = new PrismaClient();
 type I18n = { kk: string; ru: string; en: string };
 const i = (kk: string, ru: string, en: string): Prisma.InputJsonValue => ({ kk, ru, en });
 
-/** Мәтін → `passage`, сұрақ → `text` (те же эвристики, что на клиенте). Иначе весь текст в `text`. */
+/** Мәтін → `passage`, сұрақ → `text` (как `splitReadingStem` на клиенте). Иначе весь stem в `text`. */
 function readingLocaleSlot(fullStem: string): { passage?: string; text: string } {
-  const sp = splitReadingStem(fullStem);
+  const s = fullStem.replace(/\r\n/g, '\n').trim();
+  const sp = splitReadingStem(s);
   if (sp && sp.passage.trim().length > 0 && sp.prompt.trim().length > 0) {
-    return { passage: sp.passage, text: sp.prompt };
+    return { passage: sp.passage.trim(), text: sp.prompt.trim() };
   }
-  return { text: fullStem };
+  return { text: s };
 }
 
-function contentKkOnly(stemKk: string): Prisma.InputJsonValue {
-  const slot = readingLocaleSlot(stemKk);
-  return { kk: slot, ru: '', en: '' } as unknown as Prisma.InputJsonValue;
-}
-
-function contentRuOnly(stemRu: string): Prisma.InputJsonValue {
-  const slot = readingLocaleSlot(stemRu);
-  const ru = { ...slot };
-  const en = { ...slot };
-  return { kk: '', ru, en } as unknown as Prisma.InputJsonValue;
+/**
+ * Канонический JSON для админки/веба: только ключи `kk`, `ru`, `en`.
+ * Слот — объект `{ passage?, text }`, никогда не кладём `passage`/`text` на корень `content`.
+ */
+function buildReadingContentJson(primary: 'kk' | 'ru', stem: string): Prisma.InputJsonValue {
+  const slot = readingLocaleSlot(stem);
+  const nested: Record<string, string> = { text: slot.text };
+  if (slot.passage && slot.passage.length > 0) {
+    nested.passage = slot.passage;
+  }
+  const slotJson = nested as unknown as Prisma.InputJsonValue;
+  if (primary === 'kk') {
+    return { kk: slotJson, ru: '', en: '' } as Prisma.InputJsonValue;
+  }
+  const ruCopy = { ...nested } as unknown as Prisma.InputJsonValue;
+  const enCopy = { ...nested } as unknown as Prisma.InputJsonValue;
+  return { kk: '', ru: ruCopy, en: enCopy } as Prisma.InputJsonValue;
 }
 
 interface Bank {
@@ -152,7 +160,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: contentKkOnly(q.stemKk),
+            content: buildReadingContentJson('kk', q.stemKk),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
             answerOptions: { create: optsKk },
@@ -165,7 +173,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: contentRuOnly(q.stemRu),
+            content: buildReadingContentJson('ru', q.stemRu),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
             answerOptions: { create: optsRu },
@@ -185,7 +193,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: contentRuOnly(q.stemRu),
+            content: buildReadingContentJson('ru', q.stemRu),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
             answerOptions: { create: optsRu },
@@ -205,7 +213,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: contentKkOnly(q.stemKk),
+            content: buildReadingContentJson('kk', q.stemKk),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
             answerOptions: { create: optsKk },
