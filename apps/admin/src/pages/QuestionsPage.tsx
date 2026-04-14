@@ -840,8 +840,8 @@ export function QuestionsPage() {
               suffix={catalogSearchFetching ? <Spin size="small" /> : null}
             />
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Язык совпадений совпадает с переключателем KK/RU в колонке «Текст вопроса». Без выбора предмета
-              ищется по всему типу экзамена.
+              Ищется по тексту условия в обеих локалях (RU и KK). Переключатель KK/RU в колонке «Текст вопроса»
+              влияет только на превью в таблице. Без выбора предмета поиск идёт по всему типу экзамена.
             </Typography.Text>
             {catalogSearchData && catalogSearchData.items.length > 0 && (
               <ul style={{ margin: 0, paddingLeft: 18, maxHeight: 220, overflow: 'auto' }}>

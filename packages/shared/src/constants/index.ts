@@ -6,13 +6,19 @@ export const LANGUAGES = ['kk', 'ru', 'en'] as const;
 
 export const DEFAULT_LANGUAGE = 'ru';
 
-// ENT scoring: 5 subjects, 40 questions each = 200 questions, 140 points max
-// Mandatory subjects get 1 point per question, profile subjects get different weights
+// ENT: 20+10+10 обязательных + 40+40 профиль = 120 вопросов; макс. балл 140 (профиль: 1–30 по 1 б., 31–40 по 2 б.)
 export const ENT_CONFIG = {
   durationMins: 240,
-  mandatorySubjects: ['math_literacy', 'reading_literacy', 'history_kz'],
-  questionsPerSubject: 40,
-  totalQuestions: 120, // 3 mandatory + 2 profile = but 40 each
+  mandatorySubjects: ['history_kz', 'reading_literacy', 'math_literacy'],
+  mandatoryQuestionCounts: { history_kz: 20, reading_literacy: 10, math_literacy: 10 },
+  profileQuestionsPerSubject: 40,
+  profileTier1Count: 30,
+  profileTier1Points: 1,
+  profileTier2Points: 2,
+  maxMandatoryPoints: 40,
+  maxProfilePointsPerSubject: 50,
+  totalQuestions: 120,
+  maxTotalPoints: 140,
 };
 
 // NUET config

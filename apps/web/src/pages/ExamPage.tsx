@@ -94,7 +94,7 @@ export function ExamPage() {
     [user?.preferredLanguage],
   );
   const entQuestionLanguage = pickedEntQuestionLang ?? defaultEntQuestionLang;
-  const profileQuestionCount = examSlug === 'ent' ? 20 : examSlug === 'nuet' ? 15 : 10;
+  const profileQuestionCount = examSlug === 'ent' ? 40 : examSlug === 'nuet' ? 15 : 10;
   const requiredProfiles = examSlug === 'ent' && entPassMode !== 'mandatory' ? 2 : 0;
   const maxProfiles = requiredProfiles > 0 ? requiredProfiles : electiveSubjects.length;
   const hasElectives = electiveSubjects.length > 0;

@@ -180,7 +180,8 @@ async function main() {
   const mlFin = await topic(sML.id, 'Қаржылық сауаттылық', 'Финансовая грамотность', 'Financial Literacy', 4);
   const mlGraph = await topic(sML.id, 'Диаграммалар', 'Диаграммы', 'Charts', 5);
 
-  // ENT Reading Literacy — вопросы из PDF: prisma/seed-reading-sauat.ts
+  // ENT Reading Literacy — полный банк: prisma/seed-reading-sauat.ts; здесь тема для top-up
+  const rlPassage = await topic(sRL.id, 'Мәтін', 'Текст для чтения', 'Reading passage', 1);
 
   // ENT History KZ
   const hAnc = await topic(sHK.id, 'Ежелгі дәуір', 'Древний период', 'Ancient Period', 1);
@@ -531,24 +532,26 @@ async function main() {
     console.log(`  ${pfx}: ${cnt}`);
   }
 
-  // ENT profile subjects are generated dynamically with 20 questions per subject
-  // so each elective subject must have at least 20 active questions.
-  await ensureMinQuestions(sMath.id, ent.id, [mAlg.id, mGeom.id, mEq.id, mFunc.id, mProb.id], 20, 'ENT Математика');
-  await ensureMinQuestions(sPhys.id, ent.id, [pMech.id, pTherm.id, pElec.id, pOpt.id], 20, 'ENT Физика');
-  await ensureMinQuestions(sChem.id, ent.id, [cGen.id, cOrg.id], 20, 'ENT Химия');
-  await ensureMinQuestions(sBio.id, ent.id, [bCell.id, bGen.id], 20, 'ENT Биология');
+  await ensureMinQuestions(sHK.id, ent.id, [hAnc.id, hMed.id, hMod.id, hInd.id], 20, 'ENT Тарих');
+  await ensureMinQuestions(sRL.id, ent.id, [rlPassage.id], 10, 'ENT Оқу сауаттылығы');
+  await ensureMinQuestions(sML.id, ent.id, [mlArith.id, mlPct.id, mlRatio.id, mlFin.id, mlGraph.id], 10, 'ENT Матсауат');
+  // Профиль: по 40 вопросов на предмет в полном ЕНТ
+  await ensureMinQuestions(sMath.id, ent.id, [mAlg.id, mGeom.id, mEq.id, mFunc.id, mProb.id], 40, 'ENT Математика');
+  await ensureMinQuestions(sPhys.id, ent.id, [pMech.id, pTherm.id, pElec.id, pOpt.id], 40, 'ENT Физика');
+  await ensureMinQuestions(sChem.id, ent.id, [cGen.id, cOrg.id], 40, 'ENT Химия');
+  await ensureMinQuestions(sBio.id, ent.id, [bCell.id, bGen.id], 40, 'ENT Биология');
 
   /* ── TEMPLATES ── */
-  // ENT — base template (mandatory subjects only, profile added dynamically)
+  // ENT — обязательный блок: История 20 + Грамотность чтения 10 + Мат. грамотность 10; профиль +40+40 к сессии
   await prisma.testTemplate.create({
     data: {
       examTypeId: ent.id,
       name: i('ЕНТ пробник', 'ЕНТ пробник', 'UNT Practice'),
       durationMins: 240,
       sections: { create: [
-        { subjectId: sML.id, questionCount: 10, selectionMode: 'random', sortOrder: 1 },
+        { subjectId: sHK.id, questionCount: 20, selectionMode: 'random', sortOrder: 1 },
         { subjectId: sRL.id, questionCount: 10, selectionMode: 'random', sortOrder: 2 },
-        { subjectId: sHK.id, questionCount: 10, selectionMode: 'random', sortOrder: 3 },
+        { subjectId: sML.id, questionCount: 10, selectionMode: 'random', sortOrder: 3 },
       ]},
     },
   });
@@ -559,9 +562,9 @@ async function main() {
       name: i('ЕНТ экспресс', 'ЕНТ экспресс', 'UNT Express'),
       durationMins: 45,
       sections: { create: [
-        { subjectId: sML.id, questionCount: 5, selectionMode: 'random', sortOrder: 1 },
+        { subjectId: sHK.id, questionCount: 10, selectionMode: 'random', sortOrder: 1 },
         { subjectId: sRL.id, questionCount: 5, selectionMode: 'random', sortOrder: 2 },
-        { subjectId: sHK.id, questionCount: 5, selectionMode: 'random', sortOrder: 3 },
+        { subjectId: sML.id, questionCount: 5, selectionMode: 'random', sortOrder: 3 },
       ]},
     },
   });

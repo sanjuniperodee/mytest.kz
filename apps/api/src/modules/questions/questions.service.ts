@@ -212,7 +212,7 @@ export class QuestionsService {
     limit?: number;
   }) {
     const threshold = params.threshold ?? 0.45;
-    const limit = Math.min(params.limit ?? 12, 20);
+    const limit = Math.min(Math.max(1, params.limit ?? 12), 60);
     const needle = params.text.trim();
 
     if (!needle || needle.length < 4) {
@@ -233,13 +233,22 @@ export class QuestionsService {
 
     const scored = rows
       .map((row) => {
-        const slot = extractSlot(row.content, params.locale);
-        const hay = combineTopicAndStem(slot);
-        const score = questionTextSimilarity(needle, hay);
+        const slotRu = extractSlot(row.content, 'ru');
+        const slotKk = extractSlot(row.content, 'kk');
+        const hayRu = combineTopicAndStem(slotRu);
+        const hayKk = combineTopicAndStem(slotKk);
+        const scoreRu = questionTextSimilarity(needle, hayRu);
+        const scoreKk = questionTextSimilarity(needle, hayKk);
+        let score = Math.max(scoreRu, scoreKk);
+        let previewSlot = slotKk;
+        if (scoreRu > scoreKk) previewSlot = slotRu;
+        else if (scoreRu === scoreKk && scoreRu > 0) {
+          previewSlot = params.locale === 'kk' ? slotKk : slotRu;
+        }
         return {
           id: row.id,
           score,
-          preview: previewFromSlot(slot, 160),
+          preview: previewFromSlot(previewSlot, 160),
         };
       })
       .filter((x) => x.score >= threshold)

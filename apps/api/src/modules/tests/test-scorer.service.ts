@@ -7,7 +7,11 @@ interface SectionScore {
   subjectSlug: string;
   correctCount: number;
   totalCount: number;
+  /** Доля верных в секции по весам ЕНТ (0–100), если maxPoints > 0 */
   score: number;
+  /** Сумма набранных / максимальных весовых баллов по секции (ЕНТ) */
+  rawPoints?: number;
+  maxPoints?: number;
 }
 
 interface ScoreResult {
@@ -16,6 +20,59 @@ interface ScoreResult {
   maxScore: number;
   score: number; // percentage
   sections: SectionScore[];
+}
+
+type QuestionPlacement = {
+  subjectId: string;
+  isMandatory: boolean;
+  /** 1-based индекс вопроса внутри секции предмета */
+  indexInSubject: number;
+};
+
+/** ЕНТ: в профильном предмете 1–30 по 1 баллу, 31–40 по 2 балла (внутри каждой секции счёт с 1). */
+function entProfileQuestionWeight(indexInSubject: number): number {
+  return indexInSubject <= 30 ? 1 : 2;
+}
+
+function buildQuestionPlacementFromMetadata(metadata: unknown): Map<string, QuestionPlacement> | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const m = metadata as {
+    questionOrder?: string[];
+    sections?: Array<{
+      subjectId: string;
+      questionCount?: number;
+      isMandatory?: boolean;
+      sortOrder?: number;
+    }>;
+  };
+  const order = Array.isArray(m.questionOrder) ? m.questionOrder : [];
+  const rawSections = Array.isArray(m.sections) ? m.sections : [];
+  if (order.length === 0 || rawSections.length === 0) return null;
+
+  const sections = [...rawSections].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+  );
+  const map = new Map<string, QuestionPlacement>();
+  let ptr = 0;
+  for (const sec of sections) {
+    const n = Math.max(0, Math.floor(Number(sec.questionCount) || 0));
+    const isMandatory = sec.isMandatory !== false;
+    for (let i = 0; i < n; i++) {
+      const qid = order[ptr++];
+      if (!qid) return map.size > 0 ? map : null;
+      map.set(qid, {
+        subjectId: sec.subjectId,
+        isMandatory,
+        indexInSubject: i + 1,
+      });
+    }
+  }
+  return map;
+}
+
+function entMaxPointsForPlacement(p: QuestionPlacement): number {
+  if (p.isMandatory) return 1;
+  return entProfileQuestionWeight(p.indexInSubject);
 }
 
 @Injectable()
@@ -32,7 +89,7 @@ export class TestScorerService {
             question: {
               include: {
                 answerOptions: true,
-                subject: { select: { id: true, name: true, slug: true } },
+                subject: { select: { id: true, name: true, slug: true, isMandatory: true } },
               },
             },
           },
@@ -42,19 +99,34 @@ export class TestScorerService {
 
     if (!session) throw new Error('Session not found');
 
+    const examSlug = (session.examType as { slug?: string }).slug ?? '';
+    const placement = buildQuestionPlacementFromMetadata(session.metadata);
+
     let correctCount = 0;
     const totalQuestions = session.answers.length;
 
-    // Track per-section stats
-    const sectionMap = new Map<string, {
-      subjectId: string;
-      subjectName: unknown;
-      subjectSlug: string;
-      correctCount: number;
-      totalCount: number;
-    }>();
+    const sectionAgg = new Map<
+      string,
+      {
+        subjectId: string;
+        subjectName: unknown;
+        subjectSlug: string;
+        correctCount: number;
+        totalCount: number;
+        rawPoints: number;
+        maxPoints: number;
+      }
+    >();
 
-    // Grade each answer
+    let weightedRaw = 0;
+    let weightedMax = 0;
+    const entWeightedActive =
+      examSlug === 'ent' &&
+      placement !== null &&
+      placement.size > 0 &&
+      placement.size === session.answers.length &&
+      session.answers.every((a) => placement.has(a.questionId));
+
     for (const answer of session.answers) {
       const correctOptionIds = answer.question.answerOptions
         .filter((o) => o.isCorrect)
@@ -74,70 +146,79 @@ export class TestScorerService {
         data: { isCorrect },
       });
 
-      // Track section score
-      const subject = (answer.question as any).subject;
+      const subject = (answer.question as { subject?: { id: string; name: unknown; slug: string; isMandatory: boolean } }).subject;
       const subjectId = subject?.id || answer.question.subjectId;
-      if (!sectionMap.has(subjectId)) {
-        sectionMap.set(subjectId, {
+      const pos = entWeightedActive ? placement!.get(answer.questionId) : undefined;
+      const wMax =
+        entWeightedActive && pos ? entMaxPointsForPlacement(pos) : 1;
+      const wEarned = isCorrect ? wMax : 0;
+      weightedRaw += wEarned;
+      weightedMax += wMax;
+
+      if (!sectionAgg.has(subjectId)) {
+        sectionAgg.set(subjectId, {
           subjectId,
           subjectName: subject?.name,
           subjectSlug: subject?.slug || '',
           correctCount: 0,
           totalCount: 0,
+          rawPoints: 0,
+          maxPoints: 0,
         });
       }
-      const sec = sectionMap.get(subjectId)!;
+      const sec = sectionAgg.get(subjectId)!;
       sec.totalCount++;
       if (isCorrect) sec.correctCount++;
+      sec.rawPoints += wEarned;
+      sec.maxPoints += wMax;
     }
 
-    // Scoring depends on exam type
-    const examSlug = (session.examType as any).slug;
-    const { rawScore, maxScore } = this.calculateRawScore(
-      examSlug,
-      correctCount,
-      totalQuestions,
-    );
+    if (entWeightedActive && weightedMax > 0) {
+      const score = Math.round((weightedRaw / weightedMax) * 100 * 100) / 100;
+      const sections: SectionScore[] = Array.from(sectionAgg.values()).map((s) => ({
+        subjectId: s.subjectId,
+        subjectName: s.subjectName,
+        subjectSlug: s.subjectSlug,
+        correctCount: s.correctCount,
+        totalCount: s.totalCount,
+        rawPoints: s.rawPoints,
+        maxPoints: s.maxPoints,
+        score:
+          s.maxPoints > 0
+            ? Math.round((s.rawPoints / s.maxPoints) * 100 * 100) / 100
+            : 0,
+      }));
+      return {
+        correctCount,
+        rawScore: weightedRaw,
+        maxScore: weightedMax,
+        score,
+        sections,
+      };
+    }
 
-    const score = maxScore > 0 ? (rawScore / maxScore) * 100 : 0;
-
-    // Build section scores
-    const sections: SectionScore[] = Array.from(sectionMap.values()).map((sec) => ({
-      subjectId: sec.subjectId,
-      subjectName: sec.subjectName,
-      subjectSlug: sec.subjectSlug,
-      correctCount: sec.correctCount,
-      totalCount: sec.totalCount,
-      score: sec.totalCount > 0
-        ? Math.round((sec.correctCount / sec.totalCount) * 100 * 100) / 100
-        : 0,
+    // Fallback: по одному баллу за вопрос (NUET, старые сессии ЕНТ без metadata)
+    const rawScore = correctCount;
+    const maxScore = totalQuestions;
+    const score = maxScore > 0 ? Math.round((rawScore / maxScore) * 100 * 100) / 100 : 0;
+    const sections: SectionScore[] = Array.from(sectionAgg.values()).map((s) => ({
+      subjectId: s.subjectId,
+      subjectName: s.subjectName,
+      subjectSlug: s.subjectSlug,
+      correctCount: s.correctCount,
+      totalCount: s.totalCount,
+      score:
+        s.totalCount > 0
+          ? Math.round((s.correctCount / s.totalCount) * 100 * 100) / 100
+          : 0,
     }));
 
     return {
       correctCount,
       rawScore,
       maxScore,
-      score: Math.round(score * 100) / 100,
+      score,
       sections,
     };
-  }
-
-  private calculateRawScore(
-    examSlug: string,
-    correctCount: number,
-    totalQuestions: number,
-  ): { rawScore: number; maxScore: number } {
-    switch (examSlug) {
-      case 'ent':
-        // ENT: 1 балл за правильный ответ, макс = общее кол-во
-        return { rawScore: correctCount, maxScore: totalQuestions };
-
-      case 'nuet':
-        // NUET: аналогичная система
-        return { rawScore: correctCount, maxScore: totalQuestions };
-
-      default:
-        return { rawScore: correctCount, maxScore: totalQuestions };
-    }
   }
 }

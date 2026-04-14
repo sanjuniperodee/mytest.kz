@@ -91,8 +91,14 @@ export class TestSessionService {
       }
     }
 
-    // Determine profile question count based on exam type
-    const profileQuestionCount = this.getProfileQuestionCount(examSlug);
+    const mandatoryQuestionSum = template.sections.reduce(
+      (s, sec) => s + sec.questionCount,
+      0,
+    );
+    const profileQuestionCount = this.getProfileQuestionCount(
+      examSlug,
+      mandatoryQuestionSum,
+    );
 
     // Generate questions with sections
     const sections = await this.generator.generateFromTemplate(
@@ -539,11 +545,20 @@ export class TestSessionService {
     return null;
   }
 
-  private getProfileQuestionCount(examSlug: string): number {
-    switch (examSlug) {
-      case 'ent': return 20;
-      case 'nuet': return 15;
-      default: return 10;
+  /**
+   * ЕНТ: полный пробник (≥35 обязательных вопросов в шаблоне) — 40 профильных на предмет;
+   * укороченные шаблоны — 20 или 10, чтобы сессия не раздувалась.
+   */
+  private getProfileQuestionCount(
+    examSlug: string,
+    mandatoryQuestionSum: number,
+  ): number {
+    if (examSlug === 'ent') {
+      if (mandatoryQuestionSum >= 35) return 40;
+      if (mandatoryQuestionSum >= 20) return 20;
+      return 10;
     }
+    if (examSlug === 'nuet') return 15;
+    return 10;
   }
 }
