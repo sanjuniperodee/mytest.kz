@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "prebuild": "prisma generate",
+    "prebuild": "prisma generate && npm -w @bilimland/shared run build",
     "build": "nest build",
     "predev": "prisma generate",
     "dev": "nest start --watch",
