@@ -81,6 +81,33 @@ QUESTION_STARTERS = [
     r"В\s+каком\s+предложении",
     r"Определите\s+",
     r"Укажите\s+",
+    # RU банк 82 и др.: формулировка часто без «. » перед заданием или с опечаткой «.В»
+    r"Откуда\s+же",
+    r"И\s+почему\s+он\s+",
+    r"Поющий\s+бархан\s+расположен",
+    r"Венецианский\s+фестиваль\s+проходит",
+    r"Укажите\s+неверное",
+    r"Лучший\s+режисс",
+    r"Лучший\s+режиссёр",
+    r"Абзац,\s+в\s+котором",
+    r"Информацию\s+о",
+    r"Но\s+особое\s+место",
+    # Не «Термин\s+«» — встречается в «…обозначал термин «личность»?» позже «Что изначально».
+    r"Из\s+какого\s+",
+    r"Укажите\s+страну",
+    r"В\s+соответствии\s+с\s+текстом",
+    r"Согласно\s+тексту,\s+Толстой",
+    r"Согласно\s+тексту,\s+понятия",
+    r"Согласно\s+тексту,\s+не\s+",
+    r"Согласно\s+тексту,\s+как",
+    r"Закончите\s+",
+    r"Подберите\s+",
+    r"Найдите\s+",
+    r"Какой\s+из\s+перечисленных",
+    r"Какая\s+из\s+перечисленных",
+    r"Какое\s+из\s+перечисленных",
+    r"Каким\s+образом",
+    # Не добавлять короткие «Почему/Когда/Где» и «Что такое» — ложные срабатывания внутри мәтін.
 ]
 _STARTER_RES = [re.compile(p, re.IGNORECASE) for p in QUESTION_STARTERS]
 
@@ -146,6 +173,7 @@ def parse_file(path: Path) -> dict[int, dict[str, Any]]:
 
 
 def _find_question_split(rest: str) -> Optional[int]:
+    """Самое раннее совпадение — для enrich_carry_passages (подстановка длинного мәтін)."""
     best: Optional[int] = None
     for rx in _STARTER_RES:
         m = rx.search(rest)
@@ -153,6 +181,67 @@ def _find_question_split(rest: str) -> Optional[int]:
             if best is None or m.start() < best:
                 best = m.start()
     return best
+
+
+def _find_last_question_split(rest: str, *, min_passage: int) -> Optional[int]:
+    """Самое позднее совпадение — для passageRu/questionRu: задание обычно в конце, не внутри (3) Термин «…»."""
+    best: Optional[int] = None
+    for rx in _STARTER_RES:
+        for m in rx.finditer(rest):
+            st = m.start()
+            if st >= min_passage and (best is None or st > best):
+                best = st
+    return best
+
+
+def _fix_missing_space_after_period(s: str) -> str:
+    """«утверждение.В конкурсной» → «утверждение. В конкурсной» — иначе стартеры не матчятся."""
+    return re.sub(r"([.!?])([А-ЯЁA-ZӘҢҒҚҮҰІӨҺ])", r"\1 \2", s)
+
+
+def extract_passage_question_from_stem(
+    stem: str,
+    *,
+    min_passage: int = 20,
+) -> Optional[tuple[str, str]]:
+    """
+    То же разбиение, что enrich_carry_passages, но результат для JSON:
+    passage = «Текст N …мәтін», question = только формулировка задания.
+    """
+    s = _fix_missing_space_after_period(stem.strip())
+    m = TEXT_HEAD.match(s)
+    if not m:
+        return None
+    label = m.group(1)
+    tid = int(m.group(2))
+    rest = (m.group(3) or "").strip()
+    if not rest:
+        return None
+    pos = _find_last_question_split(rest, min_passage=min_passage)
+    if pos is None:
+        return None
+    passage_body = rest[:pos].rstrip()
+    question = rest[pos:].strip()
+    if not question:
+        return None
+    full_passage = f"{label} {tid} {passage_body}".strip()
+    return (full_passage, question)
+
+
+def attach_passage_question_hints(row: dict[str, Any]) -> None:
+    """Добавляет passageRu/questionRu (и Kk при merge) — сидер использует без splitReadingStem."""
+    ru = row.get("stemRu")
+    if isinstance(ru, str):
+        ex = extract_passage_question_from_stem(ru)
+        if ex:
+            row["passageRu"], row["questionRu"] = ex
+    kk = row.get("stemKk")
+    if isinstance(kk, str) and kk != ru:
+        exk = extract_passage_question_from_stem(kk)
+        if exk:
+            row["passageKk"], row["questionKk"] = exk
+    elif isinstance(kk, str) and kk == ru and "passageRu" in row:
+        row["passageKk"], row["questionKk"] = row["passageRu"], row["questionRu"]
 
 
 def enrich_carry_passages(items: dict[int, dict[str, Any]], min_passage_len: int = 50) -> None:
@@ -349,6 +438,10 @@ def main() -> None:
     for bank in all_banks:
         renum.apply_bank(bank)
     print("Global text markers: assigned", renum.next_id - 1, "distinct text numbers")
+
+    for bank in all_banks:
+        for q in bank["questions"]:
+            attach_passage_question_hints(q)
 
     OUT.write_text(json.dumps(all_banks, ensure_ascii=False, indent=2), encoding="utf-8")
     print("Wrote", OUT)

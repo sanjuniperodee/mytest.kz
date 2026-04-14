@@ -16,8 +16,18 @@ const prisma = new PrismaClient();
 type I18n = { kk: string; ru: string; en: string };
 const i = (kk: string, ru: string, en: string): Prisma.InputJsonValue => ({ kk, ru, en });
 
-/** Мәтін → `passage`, сұрақ → `text` (как `splitReadingStem` на клиенте). Иначе весь stem в `text`. */
-function readingLocaleSlot(fullStem: string): { passage?: string; text: string } {
+type PassageQuestionHint = { passage: string; question: string };
+
+/** Явный split из JSON парсера; иначе эвристика `splitReadingStem` (как на клиенте). */
+function readingLocaleSlot(
+  fullStem: string,
+  explicit?: PassageQuestionHint | null,
+): { passage?: string; text: string } {
+  const ep = explicit?.passage?.trim();
+  const eq = explicit?.question?.trim();
+  if (ep && eq) {
+    return { passage: ep, text: eq };
+  }
   const s = fullStem.replace(/\r\n/g, '\n').trim();
   const sp = splitReadingStem(s);
   if (sp && sp.passage.trim().length > 0 && sp.prompt.trim().length > 0) {
@@ -30,8 +40,12 @@ function readingLocaleSlot(fullStem: string): { passage?: string; text: string }
  * Канонический JSON для админки/веба: только ключи `kk`, `ru`, `en`.
  * Слот — объект `{ passage?, text }`, никогда не кладём `passage`/`text` на корень `content`.
  */
-function buildReadingContentJson(primary: 'kk' | 'ru', stem: string): Prisma.InputJsonValue {
-  const slot = readingLocaleSlot(stem);
+function buildReadingContentJson(
+  primary: 'kk' | 'ru',
+  stem: string,
+  explicit?: PassageQuestionHint | null,
+): Prisma.InputJsonValue {
+  const slot = readingLocaleSlot(stem, explicit);
   const nested: Record<string, string> = { text: slot.text };
   if (slot.passage && slot.passage.length > 0) {
     nested.passage = slot.passage;
@@ -52,6 +66,11 @@ interface Bank {
     n: number;
     stemRu: string;
     stemKk: string;
+    /** Из parse_reading_literacy_pdfs.py — предпочтительнее splitReadingStem */
+    passageRu?: string;
+    questionRu?: string;
+    passageKk?: string;
+    questionKk?: string;
     optionsRu: Record<string, string>;
     optionsKk: Record<string, string>;
     correct: string;
@@ -68,6 +87,20 @@ function isDualLanguageBank(bankId: string): boolean {
 function fallbackLocaleForBank(bankId: string): 'kk' | 'ru' {
   if (bankId.includes('82-ru') || bankId.endsWith('-ru')) return 'ru';
   return 'kk';
+}
+
+function hintFromQuestion(
+  q: Bank['questions'][number],
+  lang: 'kk' | 'ru',
+): PassageQuestionHint | null {
+  if (lang === 'ru') {
+    const passage = q.passageRu?.trim();
+    const question = q.questionRu?.trim();
+    return passage && question ? { passage, question } : null;
+  }
+  const passage = q.passageKk?.trim();
+  const question = q.questionKk?.trim();
+  return passage && question ? { passage, question } : null;
 }
 
 async function main() {
@@ -160,7 +193,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: buildReadingContentJson('kk', q.stemKk),
+            content: buildReadingContentJson('kk', q.stemKk, hintFromQuestion(q, 'kk')),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
             answerOptions: { create: optsKk },
@@ -173,7 +206,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: buildReadingContentJson('ru', q.stemRu),
+            content: buildReadingContentJson('ru', q.stemRu, hintFromQuestion(q, 'ru')),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
             answerOptions: { create: optsRu },
@@ -193,7 +226,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: buildReadingContentJson('ru', q.stemRu),
+            content: buildReadingContentJson('ru', q.stemRu, hintFromQuestion(q, 'ru')),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
             answerOptions: { create: optsRu },
@@ -213,7 +246,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: buildReadingContentJson('kk', q.stemKk),
+            content: buildReadingContentJson('kk', q.stemKk, hintFromQuestion(q, 'kk')),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
             answerOptions: { create: optsKk },
