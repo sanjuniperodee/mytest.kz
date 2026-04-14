@@ -2147,6 +2147,12 @@ html[data-theme="light"] .profile-hero-glow {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.4px;
+  white-space: nowrap;
+}
+
+.profile-session-score-muted {
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .profile-session-badge {

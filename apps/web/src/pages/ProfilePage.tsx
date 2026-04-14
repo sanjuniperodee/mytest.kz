@@ -102,6 +102,12 @@ function scoreTone(pct: number): string {
   return 'var(--error-light)';
 }
 
+function coerceNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function formatDurationSecs(secs: number, t: TFunction) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -424,8 +430,21 @@ export function ProfilePage() {
                 const grad = EXAM_GRADIENTS[slug] || 'linear-gradient(135deg, var(--accent), var(--accent-hover))';
                 const date = dateFmt.format(new Date(session.startedAt));
                 const isInProgress = session.status === 'in_progress';
-                const scoreRaw = Number(session.score ?? 0);
-                const score = Math.round(Number.isFinite(scoreRaw) ? scoreRaw : 0);
+                const pctFallback = Math.round(coerceNumber(session.score) ?? 0);
+                const rawPts = coerceNumber(session.rawScore);
+                const maxPts = coerceNumber(session.maxScore);
+                const hasPoints = rawPts != null && maxPts != null && maxPts > 0;
+                const correctN = session.correctCount;
+                const hasCorrectRatio =
+                  !hasPoints &&
+                  correctN != null &&
+                  session.totalQuestions > 0 &&
+                  (session.status === 'completed' || session.status === 'timed_out');
+                const tonePct = hasPoints
+                  ? (rawPts! / maxPts!) * 100
+                  : hasCorrectRatio
+                    ? (correctN! / session.totalQuestions) * 100
+                    : pctFallback;
                 const title =
                   localizedText(session.examType?.name, i18n.language) ||
                   getExamLabel(slug) ||
@@ -464,8 +483,26 @@ export function ProfilePage() {
                           <span className="dot dot-warning" style={{ width: 6, height: 6 }} />
                           {t('home.inProgress')}
                         </span>
+                      ) : hasPoints ? (
+                        <span className="profile-session-score" style={{ color: scoreTone(tonePct) }}>
+                          {t('profile.bestScorePoints', {
+                            raw: Math.round(rawPts!),
+                            max: Math.round(maxPts!),
+                          })}
+                        </span>
+                      ) : hasCorrectRatio ? (
+                        <span className="profile-session-score" style={{ color: scoreTone(tonePct) }}>
+                          {t('profile.bestScorePoints', {
+                            raw: correctN!,
+                            max: session.totalQuestions,
+                          })}
+                        </span>
+                      ) : pctFallback > 0 || session.status === 'completed' || session.status === 'timed_out' ? (
+                        <span className="profile-session-score" style={{ color: scoreTone(pctFallback) }}>
+                          {pctFallback}%
+                        </span>
                       ) : (
-                        <span className="profile-session-score" style={{ color: scoreTone(score) }}>{score}%</span>
+                        <span className="profile-session-score profile-session-score-muted">—</span>
                       )}
                       <IconChevron />
                     </div>
