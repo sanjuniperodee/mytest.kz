@@ -76,13 +76,19 @@ export class I18nInterceptor implements NestInterceptor {
   }
 
   /**
-   * Detect i18n objects: must have 'ru' key (our fallback language),
-   * at most 3 keys, all of which are language codes.
+   * Detect flat i18n string maps { kk?, ru?, en? } — values must be strings.
+   * Question `content` uses the same keys but values are slot objects; those must not collapse.
    */
   private isI18nObject(obj: any): boolean {
     const keys = Object.keys(obj);
     if (keys.length === 0 || keys.length > 4) return false;
     const langKeys = new Set(['kk', 'ru', 'en']);
-    return keys.every((k) => langKeys.has(k)) && keys.includes('ru');
+    if (!keys.every((k) => langKeys.has(k)) || !keys.includes('ru')) return false;
+    for (const k of keys) {
+      const v = obj[k];
+      if (v === undefined || v === null) continue;
+      if (typeof v !== 'string') return false;
+    }
+    return true;
   }
 }

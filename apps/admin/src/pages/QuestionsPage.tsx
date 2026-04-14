@@ -25,6 +25,7 @@ import {
   Spin,
   Upload,
   Image,
+  Collapse,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -560,13 +561,13 @@ export function QuestionsPage() {
       type: values.type as string,
       contentLocale: values.contentLocale === 'kk' ? 'kk' : 'ru',
       content,
-      explanation: values.explanation_ru
-        ? {
-            kk: (values.explanation_kk as string) || '',
-            ru: values.explanation_ru as string,
-            en: (values.explanation_en as string) || '',
-          }
-        : undefined,
+      explanation: (() => {
+        const ru = String(values.explanation_ru || '').trim();
+        const kk = String(values.explanation_kk || '').trim();
+        const en = String(values.explanation_en || '').trim();
+        if (!ru && !kk && !en) return undefined;
+        return { ru, kk, en };
+      })(),
       answerOptions: answers.map((a, i) => ({
         content: { kk: a.kk || '', ru: a.ru || '', en: a.en || '' },
         isCorrect: a.isCorrect || false,
@@ -1032,88 +1033,209 @@ export function QuestionsPage() {
             <QuestionImageUrlsField />
           </Form.Item>
 
-          <Divider orientation="left">Русский</Divider>
-          <Form.Item
-            name="passage_ru"
-            label="Текст вопроса (RU) — что читают"
-            tooltip="Мәтін для оқу сауаттылығы, длинный контекст в тарихе и т.д. Не путать с подписью раздела ЕНТ."
-          >
-            <TextArea
-              placeholder="Вводный текст, мәтін, исторический отрывок…"
-              autoSize={{ minRows: 12, maxRows: 40 }}
-            />
-          </Form.Item>
-          <Form.Item
-            name="topic_ru"
-            label="Подпись блока / раздел (RU), опционально"
-            tooltip="Короткая строка ЕНТ («Раздел …»). Не заменяет текст вопроса выше."
-          >
-            <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
-          </Form.Item>
-          <Form.Item
-            name="stem_ru"
-            label="Формулировка вопроса (RU)"
-            dependencies={['contentLocale', 'stem_kk']}
-            rules={[
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  const loc = getFieldValue('contentLocale');
-                  if (loc === 'kk') return Promise.resolve();
-                  if (!(String(value || '').trim())) {
-                    return Promise.reject(new Error('Заполните формулировку на русском'));
-                  }
-                  return Promise.resolve();
-                },
-              }),
-            ]}
-          >
-            <TextArea
-              placeholder="Что именно спрашивают. LaTeX: $...$"
-              autoSize={{ minRows: 6, maxRows: 22 }}
-            />
-          </Form.Item>
-
-          <Divider orientation="left">Қазақша</Divider>
-          <Form.Item
-            name="passage_kk"
-            label="Сұрақ мәтіні (KK) — оқылатын бөлім"
-            tooltip="Оқу сауаттылығы мәтіні, тарих контексті."
-          >
-            <TextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 12, maxRows: 40 }} />
-          </Form.Item>
-          <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
-            <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
-          </Form.Item>
-          <Form.Item
-            name="stem_kk"
-            label="Сұрақ формулировкасы (KK)"
-            dependencies={['contentLocale', 'stem_ru']}
-            rules={[
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  const loc = getFieldValue('contentLocale');
-                  if (loc === 'ru') return Promise.resolve();
-                  if (!(String(value || '').trim())) {
-                    return Promise.reject(new Error('Қазақша сұрақ мәтінін толтырыңыз'));
-                  }
-                  return Promise.resolve();
-                },
-              }),
-            ]}
-          >
-            <TextArea autoSize={{ minRows: 6, maxRows: 22 }} />
-          </Form.Item>
-
-          <Divider orientation="left">English (опционально)</Divider>
-          <Form.Item name="passage_en" label="Question text / passage (EN)">
-            <TextArea autoSize={{ minRows: 8, maxRows: 32 }} />
-          </Form.Item>
-          <Form.Item name="topic_en" label="Section label (EN), optional">
-            <TextArea autoSize={{ minRows: 2, maxRows: 10 }} />
-          </Form.Item>
-          <Form.Item name="stem_en" label="Question stem (EN)">
-            <TextArea autoSize={{ minRows: 5, maxRows: 18 }} />
-          </Form.Item>
+          {contentLocaleWatch === 'kk' ? (
+            <>
+              <Divider orientation="left">Қазақша (негізгі тіл)</Divider>
+              <Form.Item
+                name="passage_kk"
+                label="Сұрақ мәтіні (KK) — оқылатын бөлім"
+                tooltip="Оқу сауаттылығы мәтіні, тарих контексті."
+              >
+                <TextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 12, maxRows: 40 }} />
+              </Form.Item>
+              <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
+                <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
+              </Form.Item>
+              <Form.Item
+                name="stem_kk"
+                label="Сұрақ формулировкасы (KK)"
+                dependencies={['contentLocale', 'stem_ru']}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const loc = getFieldValue('contentLocale');
+                      if (loc === 'ru') return Promise.resolve();
+                      if (!(String(value || '').trim())) {
+                        return Promise.reject(new Error('Қазақша сұрақ мәтінін толтырыңыз'));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <TextArea autoSize={{ minRows: 6, maxRows: 22 }} />
+              </Form.Item>
+              <Collapse
+                bordered={false}
+                style={{ marginBottom: 8 }}
+                items={[
+                  {
+                    key: 'extra-ru',
+                    label: 'Русский (қосымша, міндетті емес)',
+                    children: (
+                      <>
+                        <Form.Item
+                          name="passage_ru"
+                          label="Текст вопроса (RU) — что читают"
+                          tooltip="Мәтін для оқу сауаттылығы, длинный контекст в тарихе и т.д."
+                        >
+                          <TextArea
+                            placeholder="Вводный текст, мәтін, исторический отрывок…"
+                            autoSize={{ minRows: 8, maxRows: 32 }}
+                          />
+                        </Form.Item>
+                        <Form.Item name="topic_ru" label="Подпись блока / раздел (RU), опционально">
+                          <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
+                        </Form.Item>
+                        <Form.Item
+                          name="stem_ru"
+                          label="Формулировка вопроса (RU)"
+                          dependencies={['contentLocale', 'stem_kk']}
+                          rules={[
+                            ({ getFieldValue }) => ({
+                              validator(_, value) {
+                                const loc = getFieldValue('contentLocale');
+                                if (loc === 'kk') return Promise.resolve();
+                                if (!(String(value || '').trim())) {
+                                  return Promise.reject(new Error('Заполните формулировку на русском'));
+                                }
+                                return Promise.resolve();
+                              },
+                            }),
+                          ]}
+                        >
+                          <TextArea
+                            placeholder="Что именно спрашивают. LaTeX: $...$"
+                            autoSize={{ minRows: 5, maxRows: 18 }}
+                          />
+                        </Form.Item>
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'extra-en',
+                    label: 'English (optional)',
+                    children: (
+                      <>
+                        <Form.Item name="passage_en" label="Question text / passage (EN)">
+                          <TextArea autoSize={{ minRows: 6, maxRows: 28 }} />
+                        </Form.Item>
+                        <Form.Item name="topic_en" label="Section label (EN), optional">
+                          <TextArea autoSize={{ minRows: 2, maxRows: 10 }} />
+                        </Form.Item>
+                        <Form.Item name="stem_en" label="Question stem (EN)">
+                          <TextArea autoSize={{ minRows: 4, maxRows: 16 }} />
+                        </Form.Item>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </>
+          ) : (
+            <>
+              <Divider orientation="left">Русский (негізгі тіл)</Divider>
+              <Form.Item
+                name="passage_ru"
+                label="Текст вопроса (RU) — что читают"
+                tooltip="Мәтін для оқу сауаттылығы, длинный контекст в тарихе и т.д. Не путать с подписью раздела ЕНТ."
+              >
+                <TextArea
+                  placeholder="Вводный текст, мәтін, исторический отрывок…"
+                  autoSize={{ minRows: 12, maxRows: 40 }}
+                />
+              </Form.Item>
+              <Form.Item
+                name="topic_ru"
+                label="Подпись блока / раздел (RU), опционально"
+                tooltip="Короткая строка ЕНТ («Раздел …»). Не заменяет текст вопроса выше."
+              >
+                <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
+              </Form.Item>
+              <Form.Item
+                name="stem_ru"
+                label="Формулировка вопроса (RU)"
+                dependencies={['contentLocale', 'stem_kk']}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const loc = getFieldValue('contentLocale');
+                      if (loc === 'kk') return Promise.resolve();
+                      if (!(String(value || '').trim())) {
+                        return Promise.reject(new Error('Заполните формулировку на русском'));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <TextArea
+                  placeholder="Что именно спрашивают. LaTeX: $...$"
+                  autoSize={{ minRows: 6, maxRows: 22 }}
+                />
+              </Form.Item>
+              <Collapse
+                bordered={false}
+                style={{ marginBottom: 8 }}
+                items={[
+                  {
+                    key: 'extra-kk',
+                    label: 'Қазақша (қосымша, міндетті емес)',
+                    children: (
+                      <>
+                        <Form.Item
+                          name="passage_kk"
+                          label="Сұрақ мәтіні (KK) — оқылатын бөлім"
+                          tooltip="Оқу сауаттылығы мәтіні, тарих контексті."
+                        >
+                          <TextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 8, maxRows: 32 }} />
+                        </Form.Item>
+                        <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
+                          <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
+                        </Form.Item>
+                        <Form.Item
+                          name="stem_kk"
+                          label="Сұрақ формулировкасы (KK)"
+                          dependencies={['contentLocale', 'stem_ru']}
+                          rules={[
+                            ({ getFieldValue }) => ({
+                              validator(_, value) {
+                                const loc = getFieldValue('contentLocale');
+                                if (loc === 'ru') return Promise.resolve();
+                                if (!(String(value || '').trim())) {
+                                  return Promise.reject(new Error('Қазақша сұрақ мәтінін толтырыңыз'));
+                                }
+                                return Promise.resolve();
+                              },
+                            }),
+                          ]}
+                        >
+                          <TextArea autoSize={{ minRows: 5, maxRows: 18 }} />
+                        </Form.Item>
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'extra-en',
+                    label: 'English (optional)',
+                    children: (
+                      <>
+                        <Form.Item name="passage_en" label="Question text / passage (EN)">
+                          <TextArea autoSize={{ minRows: 8, maxRows: 32 }} />
+                        </Form.Item>
+                        <Form.Item name="topic_en" label="Section label (EN), optional">
+                          <TextArea autoSize={{ minRows: 2, maxRows: 10 }} />
+                        </Form.Item>
+                        <Form.Item name="stem_en" label="Question stem (EN)">
+                          <TextArea autoSize={{ minRows: 5, maxRows: 18 }} />
+                        </Form.Item>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </>
+          )}
 
           {drawerOpen && !!formSubjectId && (
             <>
@@ -1177,21 +1299,106 @@ export function QuestionsPage() {
           )}
 
           <Divider orientation="left">Объяснение (Premium)</Divider>
-          <Form.Item name="explanation_ru" label="Объяснение (RU)">
-            <TextArea rows={2} />
-          </Form.Item>
-          <Form.Item name="explanation_kk" label="Объяснение (KK)">
-            <TextArea rows={2} />
-          </Form.Item>
-          <Form.Item name="explanation_en" label="Объяснение (EN)">
-            <TextArea rows={2} />
-          </Form.Item>
+          {contentLocaleWatch === 'kk' ? (
+            <>
+              <Form.Item name="explanation_kk" label="Объяснение (KK)">
+                <TextArea rows={2} />
+              </Form.Item>
+              <Collapse
+                bordered={false}
+                items={[
+                  {
+                    key: 'exp-ru-en',
+                    label: 'Объяснение RU / EN (қосымша)',
+                    children: (
+                      <>
+                        <Form.Item name="explanation_ru" label="Объяснение (RU)">
+                          <TextArea rows={2} />
+                        </Form.Item>
+                        <Form.Item name="explanation_en" label="Объяснение (EN)">
+                          <TextArea rows={2} />
+                        </Form.Item>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </>
+          ) : (
+            <>
+              <Form.Item name="explanation_ru" label="Объяснение (RU)">
+                <TextArea rows={2} />
+              </Form.Item>
+              <Collapse
+                bordered={false}
+                items={[
+                  {
+                    key: 'exp-kk-en',
+                    label: 'Объяснение KK / EN (дополнительно)',
+                    children: (
+                      <>
+                        <Form.Item name="explanation_kk" label="Объяснение (KK)">
+                          <TextArea rows={2} />
+                        </Form.Item>
+                        <Form.Item name="explanation_en" label="Объяснение (EN)">
+                          <TextArea rows={2} />
+                        </Form.Item>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </>
+          )}
 
           <Typography.Title level={5}>Варианты ответов</Typography.Title>
           <Form.List name="answers" initialValue={[{}, {}, {}, {}]}>
             {(fields, { add, remove }) => (
               <>
-                {fields.map((field, index) => (
+                {fields.map((field, index) => {
+                  const ruField = (
+                    <Form.Item
+                      key={`${String(field.key)}-ru`}
+                      name={[field.name, 'ru']}
+                      style={{ flex: 1, marginBottom: 0 }}
+                      dependencies={['contentLocale']}
+                      rules={[
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (getFieldValue('contentLocale') === 'kk') return Promise.resolve();
+                            if (!String(value || '').trim()) {
+                              return Promise.reject(new Error('Заполните вариант (RU)'));
+                            }
+                            return Promise.resolve();
+                          },
+                        }),
+                      ]}
+                    >
+                      <Input placeholder={`Вариант ${index + 1} (RU)`} />
+                    </Form.Item>
+                  );
+                  const kkField = (
+                    <Form.Item
+                      key={`${String(field.key)}-kk`}
+                      name={[field.name, 'kk']}
+                      style={{ flex: 1, marginBottom: 0 }}
+                      dependencies={['contentLocale']}
+                      rules={[
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (getFieldValue('contentLocale') === 'ru') return Promise.resolve();
+                            if (!String(value || '').trim()) {
+                              return Promise.reject(new Error('Нұсқауды KK толтырыңыз'));
+                            }
+                            return Promise.resolve();
+                          },
+                        }),
+                      ]}
+                    >
+                      <Input placeholder={`Нұсқа ${index + 1} (KK)`} />
+                    </Form.Item>
+                  );
+                  return (
                   <div
                     key={field.key}
                     style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}
@@ -1199,16 +1406,17 @@ export function QuestionsPage() {
                     <span style={{ marginTop: 8, fontWeight: 600, width: 22 }}>
                       {String.fromCharCode(65 + index)}.
                     </span>
-                    <Form.Item
-                      name={[field.name, 'ru']}
-                      style={{ flex: 1, marginBottom: 0 }}
-                      rules={[{ required: true, message: 'Обязательно' }]}
-                    >
-                      <Input placeholder={`Вариант ${index + 1} (RU)`} />
-                    </Form.Item>
-                    <Form.Item name={[field.name, 'kk']} style={{ flex: 1, marginBottom: 0 }}>
-                      <Input placeholder="KK" />
-                    </Form.Item>
+                    {contentLocaleWatch === 'kk' ? (
+                      <>
+                        {kkField}
+                        {ruField}
+                      </>
+                    ) : (
+                      <>
+                        {ruField}
+                        {kkField}
+                      </>
+                    )}
                     <Form.Item name={[field.name, 'isCorrect']} valuePropName="checked" style={{ marginBottom: 0 }}>
                       <Switch checkedChildren="✓" unCheckedChildren="✗" />
                     </Form.Item>
@@ -1218,7 +1426,8 @@ export function QuestionsPage() {
                       </Button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 <Button type="dashed" onClick={() => add()} block>
                   + Добавить вариант
                 </Button>
