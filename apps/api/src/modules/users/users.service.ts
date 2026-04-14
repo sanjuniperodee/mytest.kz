@@ -58,10 +58,11 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, data: { preferredLanguage?: string }) {
-    return this.prisma.user.update({
+    await this.prisma.user.update({
       where: { id: userId },
       data,
     });
+    return this.getProfile(userId);
   }
 
   async getStats(userId: string) {

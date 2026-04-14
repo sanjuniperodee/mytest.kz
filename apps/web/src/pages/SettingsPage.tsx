@@ -56,7 +56,7 @@ const THEME_OPTIONS: { value: ThemePreference; labelKey: string; Icon: typeof Ic
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { logout } = useAuth();
+  const { logout, refreshUser } = useAuth();
   const updateProfile = useUpdateProfile();
   const [themePref, setThemePref] = useState<ThemePreference>(getStoredThemePreference);
 
@@ -68,7 +68,12 @@ export function SettingsPage() {
   const handleLanguageChange = async (lang: string) => {
     i18n.changeLanguage(lang);
     localStorage.setItem('language', lang);
-    try { await updateProfile.mutateAsync({ preferredLanguage: lang }); } catch { /* noop */ }
+    try {
+      await updateProfile.mutateAsync({ preferredLanguage: lang });
+      await refreshUser();
+    } catch {
+      /* noop */
+    }
   };
 
   return (

@@ -11,6 +11,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -23,7 +24,13 @@ import {
 import { PlusOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
-import { getLocalizedText } from '../lib/questionContent';
+import { getLocalizedText, pickContentLang, splitLocalizedSlot } from '../lib/questionContent';
+
+type CatalogListLang = 'ru' | 'kk' | 'en';
+
+function listLabel(value: unknown, lang: CatalogListLang): string {
+  return pickContentLang(value, lang) || getLocalizedText(value);
+}
 
 type TopicRow = { id: string; name: unknown; sortOrder: number };
 type SubjectRow = {
@@ -62,6 +69,7 @@ type TemplateRow = {
 export function ExamCatalogPage() {
   const queryClient = useQueryClient();
   const [includeInactive, setIncludeInactive] = useState(true);
+  const [catalogListLang, setCatalogListLang] = useState<CatalogListLang>('ru');
   const [examDrawer, setExamDrawer] = useState<{ open: boolean; mode: 'create' | 'edit'; exam?: ExamRow }>({
     open: false,
     mode: 'create',
@@ -137,7 +145,10 @@ export function ExamCatalogPage() {
       setExamDrawer({ open: false, mode: 'create' });
       examForm.resetFields();
     },
-    onError: (e: unknown) => message.error((e as Error)?.message || 'Ошибка'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      message.error(msg || 'Ошибка');
+    },
   });
 
   const updateExam = useMutation({
@@ -156,7 +167,10 @@ export function ExamCatalogPage() {
       message.success('Сохранено');
       setExamDrawer({ open: false, mode: 'create' });
     },
-    onError: () => message.error('Ошибка'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      message.error(msg || 'Ошибка');
+    },
   });
 
   const deactivateExam = useMutation({
@@ -165,7 +179,10 @@ export function ExamCatalogPage() {
       invalidate();
       message.success('Экзамен скрыт');
     },
-    onError: () => message.error('Ошибка'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      message.error(msg || 'Ошибка');
+    },
   });
 
   const createSubject = useMutation({
@@ -203,7 +220,10 @@ export function ExamCatalogPage() {
       message.success('Предмет сохранён');
       setSubjectDrawer({ open: false, mode: 'create' });
     },
-    onError: () => message.error('Ошибка'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      message.error(msg || 'Ошибка');
+    },
   });
 
   const deleteSubject = useMutation({
@@ -333,7 +353,7 @@ export function ExamCatalogPage() {
   const collapseItems = (catalog || []).map((exam) => {
     const subjectColumns: ColumnsType<SubjectRow> = [
       { title: 'Slug', dataIndex: 'slug', width: 140 },
-      { title: 'Название', render: (_, r) => getLocalizedText(r.name) },
+      { title: 'Название', render: (_, r) => listLabel(r.name, catalogListLang) },
       {
         title: 'Обяз.',
         dataIndex: 'isMandatory',
@@ -351,11 +371,12 @@ export function ExamCatalogPage() {
               size="small"
               onClick={() => {
                 setSubjectDrawer({ open: true, mode: 'edit', examId: exam.id, subject: r });
+                const subName = splitLocalizedSlot(r.name);
                 subjectForm.setFieldsValue({
                   slug: r.slug,
-                  name_ru: (r.name as { ru?: string })?.ru ?? '',
-                  name_kk: (r.name as { kk?: string })?.kk ?? '',
-                  name_en: (r.name as { en?: string })?.en ?? '',
+                  name_ru: subName.ru,
+                  name_kk: subName.kk,
+                  name_en: subName.en,
                   isMandatory: r.isMandatory,
                   sortOrder: r.sortOrder,
                 });
@@ -388,7 +409,7 @@ export function ExamCatalogPage() {
       key: exam.id,
       label: (
         <Space wrap>
-          <Typography.Text strong>{getLocalizedText(exam.name)}</Typography.Text>
+          <Typography.Text strong>{listLabel(exam.name, catalogListLang)}</Typography.Text>
           <Typography.Text type="secondary">({exam.slug})</Typography.Text>
           {!exam.isActive && <Tag>скрыт</Tag>}
           {exam._count && (
@@ -408,14 +429,16 @@ export function ExamCatalogPage() {
               icon={<EditOutlined />}
               onClick={() => {
                 setExamDrawer({ open: true, mode: 'edit', exam });
+                const exName = splitLocalizedSlot(exam.name);
+                const exDesc = splitLocalizedSlot(exam.description);
                 examForm.setFieldsValue({
                   slug: exam.slug,
-                  name_ru: (exam.name as { ru?: string })?.ru ?? '',
-                  name_kk: (exam.name as { kk?: string })?.kk ?? '',
-                  name_en: (exam.name as { en?: string })?.en ?? '',
-                  desc_ru: (exam.description as { ru?: string } | null)?.ru ?? '',
-                  desc_kk: (exam.description as { kk?: string } | null)?.kk ?? '',
-                  desc_en: (exam.description as { en?: string } | null)?.en ?? '',
+                  name_ru: exName.ru,
+                  name_kk: exName.kk,
+                  name_en: exName.en,
+                  desc_ru: exDesc.ru,
+                  desc_kk: exDesc.kk,
+                  desc_en: exDesc.en,
                   isActive: exam.isActive,
                 });
               }}
@@ -477,6 +500,19 @@ export function ExamCatalogPage() {
           <Space>
             <span>Показать скрытые экзамены</span>
             <Switch checked={includeInactive} onChange={setIncludeInactive} />
+          </Space>
+          <Space direction="vertical" size={4}>
+            <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>Превью названий в списках</span>
+            <Segmented<CatalogListLang>
+              size="small"
+              value={catalogListLang}
+              onChange={setCatalogListLang}
+              options={[
+                { label: 'RU', value: 'ru' },
+                { label: 'KK', value: 'kk' },
+                { label: 'EN', value: 'en' },
+              ]}
+            />
           </Space>
           <Button
             type="primary"
@@ -596,7 +632,7 @@ export function ExamCatalogPage() {
       </Drawer>
 
       <Modal
-        title={`Темы: ${topicModal.subject ? getLocalizedText(topicModal.subject.name) : ''}`}
+        title={`Темы: ${topicModal.subject ? listLabel(topicModal.subject.name, catalogListLang) : ''}`}
         open={topicModal.open}
         onCancel={() => setTopicModal({ open: false })}
         footer={null}
@@ -620,7 +656,7 @@ export function ExamCatalogPage() {
           dataSource={topicModal.subject?.topics || []}
           pagination={false}
           columns={[
-            { title: 'Название', render: (_, t) => getLocalizedText(t.name) },
+            { title: 'Название', render: (_, t) => listLabel(t.name, catalogListLang) },
             { title: 'Порядок', dataIndex: 'sortOrder', width: 90 },
             {
               title: '',
@@ -632,10 +668,11 @@ export function ExamCatalogPage() {
                     size="small"
                     onClick={() => {
                       setTopicFormOpen({ mode: 'edit', topic: t });
+                      const tpName = splitLocalizedSlot(t.name);
                       topicForm.setFieldsValue({
-                        name_ru: (t.name as { ru?: string })?.ru ?? '',
-                        name_kk: (t.name as { kk?: string })?.kk ?? '',
-                        name_en: (t.name as { en?: string })?.en ?? '',
+                        name_ru: tpName.ru,
+                        name_kk: tpName.kk,
+                        name_en: tpName.en,
                         sortOrder: t.sortOrder,
                       });
                     }}
@@ -699,7 +736,7 @@ export function ExamCatalogPage() {
       </Modal>
 
       <Drawer
-        title={`Шаблоны: ${templateDrawer.exam ? getLocalizedText(templateDrawer.exam.name) : ''}`}
+        title={`Шаблоны: ${templateDrawer.exam ? listLabel(templateDrawer.exam.name, catalogListLang) : ''}`}
         width={720}
         open={templateDrawer.open}
         onClose={() => setTemplateDrawer({ open: false })}
@@ -728,7 +765,7 @@ export function ExamCatalogPage() {
           dataSource={templates || []}
           pagination={false}
           columns={[
-            { title: 'Название', render: (_, r) => getLocalizedText(r.name) },
+            { title: 'Название', render: (_, r) => listLabel(r.name, catalogListLang) },
             { title: 'Мин', dataIndex: 'durationMins', width: 70 },
             {
               title: 'Акт.',
@@ -751,10 +788,11 @@ export function ExamCatalogPage() {
                         examId: templateDrawer.exam?.id,
                         template: r,
                       });
+                      const tplName = splitLocalizedSlot(r.name);
                       templateForm.setFieldsValue({
-                        name_ru: (r.name as { ru?: string })?.ru ?? '',
-                        name_kk: (r.name as { kk?: string })?.kk ?? '',
-                        name_en: (r.name as { en?: string })?.en ?? '',
+                        name_ru: tplName.ru,
+                        name_kk: tplName.kk,
+                        name_en: tplName.en,
                         durationMins: r.durationMins,
                         isActive: r.isActive,
                         sections: r.sections.map((s) => ({
@@ -851,7 +889,7 @@ export function ExamCatalogPage() {
                             .find((e) => e.id === (tplEditor.examId || templateDrawer.exam?.id))
                             ?.subjects.map((s) => ({
                               value: s.id,
-                              label: `${s.slug} — ${getLocalizedText(s.name)}`,
+                              label: `${s.slug} — ${listLabel(s.name, catalogListLang)}`,
                             }))}
                         />
                       </Form.Item>

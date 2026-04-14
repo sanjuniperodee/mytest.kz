@@ -38,6 +38,23 @@ export function getLocalizedText(value: unknown): string {
   return '';
 }
 
+/** Разбор поля { ru, kk, en } или legacy-строки для форм админки (не терять текст). */
+export function splitLocalizedSlot(value: unknown): { ru: string; kk: string; en: string } {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const o = value as Record<string, unknown>;
+    const ru = typeof o.ru === 'string' ? o.ru : '';
+    const kk = typeof o.kk === 'string' ? o.kk : '';
+    const en = typeof o.en === 'string' ? o.en : '';
+    if (ru.trim() || kk.trim() || en.trim()) {
+      return { ru, kk, en };
+    }
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return { ru: value, kk: '', en: '' };
+  }
+  return { ru: '', kk: '', en: '' };
+}
+
 /** Превью текста вопроса с учётом метки языка и предпочтения колонки. */
 export function getQuestionPreviewText(
   record: { content: unknown; metadata?: unknown },

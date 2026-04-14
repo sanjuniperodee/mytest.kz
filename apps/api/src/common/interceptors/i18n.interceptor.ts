@@ -21,6 +21,11 @@ export class I18nInterceptor implements NestInterceptor {
     if (path.includes('/bulk')) {
       return next.handle();
     }
+    // Catalog responses must stay { kk, ru, en } so web can pick by UI / ENT question lang
+    // and admin forms can edit all locales without losing fields to a single resolved string.
+    if (path.includes('/exams/')) {
+      return next.handle();
+    }
 
     // Get language from JWT payload, query param, or Accept-Language header
     const lang =
