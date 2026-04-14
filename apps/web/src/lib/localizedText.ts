@@ -103,6 +103,29 @@ export function getQuestionContentDisplayParts(
     };
   }
 
+  /** Нет слотов kk/ru/en: плоский объект { passage?, topicLine?, text? } (старый/ошибочный JSON). */
+  if (typeof value === 'object' && value !== null) {
+    const o = value as Record<string, unknown>;
+    const hasLocaleSlot = (['kk', 'ru', 'en'] as const).some((k) => {
+      const v = o[k];
+      if (v == null || v === '') return false;
+      if (typeof v === 'string') return v.trim().length > 0;
+      return typeof v === 'object';
+    });
+    if (!hasLocaleSlot) {
+      const passage = typeof o.passage === 'string' ? o.passage.trim() : '';
+      const topicLine = typeof o.topicLine === 'string' ? o.topicLine.trim() : '';
+      const text = typeof o.text === 'string' ? o.text.trim() : '';
+      if (passage || topicLine || text) {
+        return {
+          passage: passage || null,
+          topicLine: topicLine || null,
+          stem: text,
+        };
+      }
+    }
+  }
+
   const flat = localizedText(value, language).trim();
   if (!flat) return empty();
   /** Одна строка в сиде без слотов — целиком в условие (сплит «первая строка» не topicLine). */

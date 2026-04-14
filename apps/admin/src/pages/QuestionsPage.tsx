@@ -45,6 +45,13 @@ import {
 
 const { TextArea } = Input;
 
+type CatalogTopic = { id: string; name: unknown; sortOrder: number };
+type CatalogSubject = {
+  id: string;
+  topics: CatalogTopic[];
+};
+type CatalogExam = { id: string; subjects: CatalogSubject[] };
+
 interface Question {
   id: string;
   examTypeId: string;
@@ -234,6 +241,48 @@ export function QuestionsPage() {
     enabled: drawerOpen && editorMode === 'edit' && !!editingId,
   });
 
+  const { data: examCatalog } = useQuery({
+    queryKey: ['admin-exams-catalog'],
+    queryFn: async () => (await api.get<CatalogExam[]>('/admin/exams/catalog')).data,
+    staleTime: 60_000,
+    enabled: drawerOpen,
+  });
+
+  const topicsForSubject = useMemo(() => {
+    if (!examCatalog?.length || !formExamTypeId || !formSubjectId) return [];
+    const exam = examCatalog.find((e) => e.id === formExamTypeId);
+    const subj = exam?.subjects?.find((s) => s.id === formSubjectId);
+    return subj?.topics ?? [];
+  }, [examCatalog, formExamTypeId, formSubjectId]);
+
+  const topicSelectOptions = useMemo(() => {
+    const opts = topicsForSubject.map((t) => ({
+      value: t.id,
+      label: getLocalizedText(t.name),
+    }));
+    if (editorMode === 'edit' && editingQuestion?.topicId) {
+      const tid = editingQuestion.topicId;
+      if (!opts.some((o) => o.value === tid)) {
+        opts.unshift({
+          value: tid,
+          label: editingQuestion.topic
+            ? getLocalizedText(editingQuestion.topic.name)
+            : `Тема (${tid.slice(0, 8)}…)`,
+        });
+      }
+    }
+    return opts;
+  }, [topicsForSubject, editorMode, editingQuestion]);
+
+  useEffect(() => {
+    if (!drawerOpen || editorMode !== 'create' || topicsForSubject.length === 0) return;
+    const cur = form.getFieldValue('topicId') as string | undefined;
+    const valid = cur && topicsForSubject.some((t) => t.id === cur);
+    if (!valid) {
+      form.setFieldsValue({ topicId: topicsForSubject[0].id });
+    }
+  }, [drawerOpen, editorMode, topicsForSubject, form]);
+
   useEffect(() => {
     if (!drawerOpen || editorMode !== 'edit' || !editingQuestion) return;
     const exp = explanationFromRecord(editingQuestion.explanation);
@@ -241,6 +290,7 @@ export function QuestionsPage() {
     form.setFieldsValue({
       examTypeId: editingQuestion.examTypeId,
       subjectId: editingQuestion.subjectId,
+      topicId: editingQuestion.topicId,
       contentLocale: meta?.contentLocale === 'kk' ? 'kk' : 'ru',
       difficulty: editingQuestion.difficulty,
       type: editingQuestion.type,
@@ -395,7 +445,7 @@ export function QuestionsPage() {
       stem_en: (values.stem_en as string) || '',
     });
     return {
-      topicId: (values.topicId as string) || (values.subjectId as string),
+      topicId: String(values.topicId || '').trim(),
       subjectId: values.subjectId as string,
       examTypeId: values.examTypeId as string,
       difficulty: values.difficulty as number,
@@ -419,6 +469,11 @@ export function QuestionsPage() {
 
   const saveQuestion = useMutation({
     mutationFn: async (values: Record<string, unknown>) => {
+      const topicId = String(values.topicId || '').trim();
+      if (!topicId) {
+        message.error('Выберите тему (раздел банка) — UUID из каталога topics, не предмет.');
+        throw new Error('Missing topicId');
+      }
       const payload = buildPayload(values);
       if (editorMode === 'edit' && editingId) {
         await api.patch(`/admin/questions/${editingId}`, payload);
@@ -809,6 +864,24 @@ export function QuestionsPage() {
               />
             </Form.Item>
             <Form.Item
+              name="topicId"
+              label="Тема (банк / раздел)"
+              rules={[{ required: true, message: 'Выберите тему' }]}
+              tooltip="Связь с таблицей topics. Раньше подставлялся subjectId — из‑за этого PATCH давал 500 (FK)."
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                disabled={topicSelectOptions.length === 0}
+                options={topicSelectOptions}
+                placeholder={
+                  topicSelectOptions.length === 0
+                    ? 'Сначала предмет или добавьте темы в каталоге экзаменов'
+                    : 'Тема'
+                }
+              />
+            </Form.Item>
+            <Form.Item
               name="contentLocale"
               label="Язык контента в тестах"
               rules={[{ required: true }]}
@@ -839,7 +912,7 @@ export function QuestionsPage() {
           </div>
 
           <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
-            Поле <Typography.Text code>topicId</Typography.Text> в API = предмет, если тема не задана отдельно.
+            <Typography.Text code>topicId</Typography.Text> — UUID темы (topics), обязателен; это не предмет.
             В JSON: <Typography.Text code>passage</Typography.Text> — текст для чтения (Оқу сауаттылығы, тарих),{' '}
             <Typography.Text code>topicLine</Typography.Text> — короткая подпись блока ЕНТ,{' '}
             <Typography.Text code>text</Typography.Text> — формулировка вопроса.

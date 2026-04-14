@@ -186,6 +186,38 @@ export function parseQuestionFormSlots(
     }
   }
 
+  /** Плоский { passage?, topicLine?, text? } без kk/ru/en — как на клиенте в getQuestionContentDisplayParts. */
+  if (typeof content === 'object' && content !== null) {
+    const o = content as Record<string, unknown>;
+    const hasLocaleSlot = (['kk', 'ru', 'en'] as const).some((k) => {
+      const v = o[k];
+      if (v == null || v === '') return false;
+      if (typeof v === 'string') return v.trim().length > 0;
+      return typeof v === 'object';
+    });
+    if (!hasLocaleSlot) {
+      const passage = typeof o.passage === 'string' ? o.passage.trim() : '';
+      const topicLine = typeof o.topicLine === 'string' ? o.topicLine.trim() : '';
+      const text = typeof o.text === 'string' ? o.text.trim() : '';
+      if (passage || topicLine || text) {
+        const kk = contentLocale === 'kk';
+        if (kk) {
+          out.passage_kk = passage;
+          out.topic_kk = topicLine;
+          out.stem_kk = text;
+        } else {
+          out.passage_ru = passage;
+          out.topic_ru = topicLine;
+          out.stem_ru = text;
+          out.passage_en = passage;
+          out.topic_en = topicLine;
+          out.stem_en = text;
+        }
+        return out;
+      }
+    }
+  }
+
   const legacy = getLocalizedText(content).trim();
   if (!legacy) return out;
   const isKk = contentLocale === 'kk';
