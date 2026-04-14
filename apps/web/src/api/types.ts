@@ -61,7 +61,7 @@ export interface Question {
   id: string;
   difficulty: number;
   type: string;
-  /** JSON локалей: строка или { ru: { topicLine?, text }, ... } */
+  /** JSON: строка или { ru: { passage?, topicLine?, text }, ... } — passage = текст для чтения, topicLine = подпись ЕНТ, text = вопрос */
   content: unknown;
   imageUrls?: string[];
   answerOptions: AnswerOption[];

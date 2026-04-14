@@ -126,6 +126,9 @@ export class QuestionsService {
   async updateFull(
     id: string,
     data: {
+      topicId?: string;
+      subjectId?: string;
+      examTypeId?: string;
       difficulty?: number;
       type?: string;
       content?: Prisma.InputJsonValue;
@@ -157,6 +160,9 @@ export class QuestionsService {
       return tx.question.update({
         where: { id },
         data: {
+          ...(data.topicId !== undefined ? { topicId: data.topicId } : {}),
+          ...(data.subjectId !== undefined ? { subjectId: data.subjectId } : {}),
+          ...(data.examTypeId !== undefined ? { examTypeId: data.examTypeId } : {}),
           ...(data.difficulty !== undefined ? { difficulty: data.difficulty } : {}),
           ...(data.type !== undefined ? { type: data.type } : {}),
           ...(data.content !== undefined ? { content: data.content } : {}),

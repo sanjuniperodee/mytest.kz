@@ -15,13 +15,10 @@ function pickLang(value: unknown, lang: AppLang): string {
     const o = value as Record<string, unknown>;
     const direct = o[lang];
     if (typeof direct === 'string' && direct.trim()) return direct;
-    if (
-      typeof direct === 'object' &&
-      direct !== null &&
-      typeof (direct as { text?: string }).text === 'string'
-    ) {
-      const t = (direct as { text: string }).text;
-      if (t.trim()) return t;
+    if (typeof direct === 'object' && direct !== null) {
+      const slot = direct as { text?: string; passage?: string };
+      if (typeof slot.text === 'string' && slot.text.trim()) return slot.text;
+      if (typeof slot.passage === 'string' && slot.passage.trim()) return slot.passage;
     }
   }
   return '';
@@ -49,7 +46,7 @@ export function localizedText(value: unknown, language: string | undefined): str
   return '';
 }
 
-type ContentSlot = { text?: string; topicLine?: string };
+type ContentSlot = { text?: string; topicLine?: string; passage?: string };
 
 function pickContentSlot(value: unknown, lang: AppLang): ContentSlot | null {
   if (!value || typeof value !== 'object') return null;
@@ -61,37 +58,33 @@ function pickContentSlot(value: unknown, lang: AppLang): ContentSlot | null {
     const s = raw as Record<string, unknown>;
     const text = typeof s.text === 'string' ? s.text : '';
     const topicLine = typeof s.topicLine === 'string' ? s.topicLine : '';
-    return { text, topicLine };
+    const passage = typeof s.passage === 'string' ? s.passage : '';
+    return { text, topicLine, passage };
   }
   return null;
 }
 
-/** Legacy: первая строка в одном поле — подпись, остальное — условие (как в старых сидах). */
-function splitFirstLineBody(full: string): { topicLine: string; text: string } {
-  const s = String(full || '').replace(/\r\n/g, '\n').trim();
-  const i = s.indexOf('\n');
-  if (i === -1) return { topicLine: '', text: s };
-  const first = s.slice(0, i).trim();
-  const rest = s.slice(i + 1).trim();
-  if (!rest) return { topicLine: '', text: s };
-  return { topicLine: first, text: rest };
-}
-
 export type QuestionContentDisplayParts = {
-  /** Подпись блока / «текст вопроса» из API (`topicLine`), без условия. */
+  /** Материал для чтения (Оқу сауаттылығы, тарих) — поле `passage` в JSON. */
+  passage: string | null;
+  /** Короткая подпись блока / раздел ЕНТ — `topicLine`. */
   topicLine: string | null;
-  /** Условие (`text`), уже без дублирования с topicLine. */
+  /** Формулировка вопроса — `text`. */
   stem: string;
 };
 
 /**
- * Разбор контента вопроса для UI: явные `topicLine` + `text` в JSON,
- * иначе fallback по локали и при необходимости — первая строка внутри одного поля.
+ * Разбор контента: `passage` + `topicLine` + `text`; legacy — одно поле `text` или строка.
  */
 export function getQuestionContentDisplayParts(
   value: unknown,
   language: string | undefined,
 ): QuestionContentDisplayParts {
+  const empty = (): QuestionContentDisplayParts => ({
+    passage: null,
+    topicLine: null,
+    stem: '',
+  });
   const lang = normalizeLang(language);
   const order: AppLang[] =
     lang === 'kk' ? ['kk', 'ru', 'en'] : lang === 'en' ? ['en', 'ru', 'kk'] : ['ru', 'kk', 'en'];
@@ -99,24 +92,21 @@ export function getQuestionContentDisplayParts(
   for (const l of order) {
     const slot = pickContentSlot(value, l);
     if (!slot) continue;
+    const passage = (slot.passage || '').trim();
     const topic = (slot.topicLine || '').trim();
     const text = (slot.text || '').trim();
-    if (!topic && !text) continue;
-
-    if (topic && text) return { topicLine: topic, stem: text };
-    if (text && !topic) {
-      const split = splitFirstLineBody(text);
-      if (split.topicLine && split.text) return { topicLine: split.topicLine, stem: split.text };
-      return { topicLine: null, stem: text };
-    }
-    if (topic && !text) return { topicLine: null, stem: topic };
+    if (!passage && !topic && !text) continue;
+    return {
+      passage: passage || null,
+      topicLine: topic || null,
+      stem: text,
+    };
   }
 
   const flat = localizedText(value, language).trim();
-  if (!flat) return { topicLine: null, stem: '' };
-  const split = splitFirstLineBody(flat);
-  if (split.topicLine && split.text) return { topicLine: split.topicLine, stem: split.text };
-  return { topicLine: null, stem: flat };
+  if (!flat) return empty();
+  /** Одна строка в сиде без слотов — целиком в условие (сплит «первая строка» не topicLine). */
+  return { passage: null, topicLine: null, stem: flat };
 }
 
 /**
@@ -124,7 +114,7 @@ export function getQuestionContentDisplayParts(
  * {@link getQuestionContentDisplayParts}.
  */
 export function flattenQuestionContentForDisplay(value: unknown, language: string | undefined): string {
-  const { topicLine, stem } = getQuestionContentDisplayParts(value, language);
-  if (topicLine && stem) return `${topicLine}\n${stem}`;
-  return stem || topicLine || '';
+  const { passage, topicLine, stem } = getQuestionContentDisplayParts(value, language);
+  const parts = [passage, topicLine, stem].filter((x): x is string => !!x && x.trim().length > 0);
+  return parts.join('\n\n');
 }

@@ -62,7 +62,7 @@ model Question {
   examTypeId  String   @map("exam_type_id") @db.Uuid
   difficulty  Int      @db.SmallInt
   type        String   @default("single_choice") @db.VarChar(20)
-  content     Json     // {"kk": {"text": "...", "hint": "..."}, ...}
+  content     Json     // {"kk": {"passage?","topicLine?","text","hint?"}, ...}
   explanation Json?    // {"kk": "...", "ru": "...", "en": "..."} — premium
   imageUrls   Json?    @map("image_urls")
   metadata    Json?

@@ -15,9 +15,10 @@ export function pickContentLang(value: unknown, lang: 'kk' | 'ru' | 'en'): strin
     const o = value as Record<string, unknown>;
     const v = o[lang];
     if (typeof v === 'string' && v.trim()) return v;
-    if (typeof v === 'object' && v !== null && typeof (v as { text?: string }).text === 'string') {
-      const t = (v as { text: string }).text;
-      if (t.trim()) return t;
+    if (typeof v === 'object' && v !== null) {
+      const slot = v as { text?: string; passage?: string };
+      if (typeof slot.text === 'string' && slot.text.trim()) return slot.text;
+      if (typeof slot.passage === 'string' && slot.passage.trim()) return slot.passage;
     }
   }
   return '';
@@ -45,10 +46,12 @@ export function getQuestionPreviewText(
   const previewSlot = (lang: 'kk' | 'ru'): string => {
     const slot = pickSlot(record.content, lang);
     if (!slot) return pickContentLang(record.content, lang);
+    const p = (slot.passage || '').trim();
     const t = (slot.topicLine || '').trim();
     const b = (slot.text || '').trim();
-    if (t && b) return `${t} — ${b}`;
-    return b || t || pickContentLang(record.content, lang);
+    const head = p || t;
+    if (head && b) return `${head.slice(0, 80)}${head.length > 80 ? '…' : ''} — ${b.slice(0, 100)}${b.length > 100 ? '…' : ''}`;
+    return b || head || pickContentLang(record.content, lang);
   };
 
   const tag = getQuestionContentLocale(record.metadata);
@@ -97,6 +100,9 @@ export function tabKeyToLocaleFilter(key: string): AdminLocaleFilter {
 
 /** Одна локаль в content JSON вопроса. */
 export type AdminContentSlot = {
+  /** Материал для чтения (Оқу сауаттылығы, контекст в тарихе). */
+  passage?: string;
+  /** Короткая подпись блока / раздел ЕНТ. */
   topicLine?: string;
   text?: string;
   hint?: string;
@@ -111,6 +117,7 @@ function pickSlot(content: unknown, lang: 'kk' | 'ru' | 'en'): AdminContentSlot 
   if (typeof raw === 'object' && raw !== null) {
     const s = raw as Record<string, unknown>;
     return {
+      passage: typeof s.passage === 'string' ? s.passage : '',
       topicLine: typeof s.topicLine === 'string' ? s.topicLine : '',
       text: typeof s.text === 'string' ? s.text : '',
       hint: typeof s.hint === 'string' ? s.hint : '',
@@ -135,6 +142,9 @@ export function parseQuestionFormSlots(
   content: unknown,
   contentLocale?: ContentLocaleTag | null,
 ): {
+  passage_ru: string;
+  passage_kk: string;
+  passage_en: string;
   topic_ru: string;
   stem_ru: string;
   topic_kk: string;
@@ -142,55 +152,50 @@ export function parseQuestionFormSlots(
   topic_en: string;
   stem_en: string;
 } {
-  const out = { topic_ru: '', stem_ru: '', topic_kk: '', stem_kk: '', topic_en: '', stem_en: '' };
+  const out = {
+    passage_ru: '',
+    passage_kk: '',
+    passage_en: '',
+    topic_ru: '',
+    stem_ru: '',
+    topic_kk: '',
+    stem_kk: '',
+    topic_en: '',
+    stem_en: '',
+  };
   if (!content) return out;
   for (const lang of ['ru', 'kk', 'en'] as const) {
     const slot = pickSlot(content, lang);
     if (!slot) continue;
+    const passagePart = (slot.passage || '').trim();
     const topicPart = (slot.topicLine || '').trim();
     const textPart = (slot.text || '').trim();
-    if (!topicPart && !textPart) continue;
-    const hasExplicitTopic = !!topicPart;
-    if (hasExplicitTopic) {
-      if (lang === 'ru') {
-        out.topic_ru = topicPart;
-        out.stem_ru = textPart;
-      } else if (lang === 'kk') {
-        out.topic_kk = topicPart;
-        out.stem_kk = textPart;
-      } else {
-        out.topic_en = topicPart;
-        out.stem_en = textPart;
-      }
+    if (!passagePart && !topicPart && !textPart) continue;
+    if (lang === 'ru') {
+      out.passage_ru = passagePart;
+      out.topic_ru = topicPart;
+      out.stem_ru = textPart;
+    } else if (lang === 'kk') {
+      out.passage_kk = passagePart;
+      out.topic_kk = topicPart;
+      out.stem_kk = textPart;
     } else {
-      const combined = textPart;
-      const { topicLine, text } = splitFirstLineBody(combined);
-      if (lang === 'ru') {
-        out.topic_ru = topicLine;
-        out.stem_ru = text;
-      } else if (lang === 'kk') {
-        out.topic_kk = topicLine;
-        out.stem_kk = text;
-      } else {
-        out.topic_en = topicLine;
-        out.stem_en = text;
-      }
+      out.passage_en = passagePart;
+      out.topic_en = topicPart;
+      out.stem_en = textPart;
     }
   }
 
   const legacy = getLocalizedText(content).trim();
   if (!legacy) return out;
-  const { topicLine, text } = splitFirstLineBody(legacy);
   const isKk = contentLocale === 'kk';
   if (isKk) {
-    if (!out.stem_kk && !out.topic_kk) {
-      out.topic_kk = topicLine;
-      out.stem_kk = text;
+    if (!out.stem_kk && !out.topic_kk && !out.passage_kk) {
+      out.stem_kk = legacy;
     }
   } else {
-    if (!out.stem_ru && !out.topic_ru) {
-      out.topic_ru = topicLine;
-      out.stem_ru = text;
+    if (!out.stem_ru && !out.topic_ru && !out.passage_ru) {
+      out.stem_ru = legacy;
     }
   }
   return out;
@@ -198,6 +203,9 @@ export function parseQuestionFormSlots(
 
 /** Сборка JSON content для POST/PATCH. */
 export function buildQuestionContentJson(values: {
+  passage_ru: string;
+  passage_kk: string;
+  passage_en: string;
   topic_ru: string;
   stem_ru: string;
   topic_kk: string;
@@ -205,32 +213,39 @@ export function buildQuestionContentJson(values: {
   topic_en: string;
   stem_en: string;
 }): Record<string, AdminContentSlot> {
-  const slot = (topic: string, stem: string): AdminContentSlot => {
+  const slot = (passage: string, topic: string, stem: string): AdminContentSlot => {
+    const p = (passage || '').trim();
     const t = (topic || '').trim();
     const s = (stem || '').trim();
-    if (t && s) return { topicLine: t, text: s };
-    if (s) return { text: s };
-    if (t) return { text: t };
-    return { text: '' };
+    const o: AdminContentSlot = {};
+    if (p) o.passage = p;
+    if (t) o.topicLine = t;
+    if (s) o.text = s;
+    if (!p && !t && !s) return { text: '' };
+    return o;
   };
   return {
-    ru: slot(values.topic_ru, values.stem_ru),
-    kk: slot(values.topic_kk, values.stem_kk),
-    en: slot(values.topic_en, values.stem_en),
+    ru: slot(values.passage_ru, values.topic_ru, values.stem_ru),
+    kk: slot(values.passage_kk, values.topic_kk, values.stem_kk),
+    en: slot(values.passage_en, values.topic_en, values.stem_en),
   };
 }
 
-/** Текст для запроса похожих (заголовок + условие, приоритет RU). */
-export function buildSimilarityNeedle(values: {
-  topic_ru: string;
-  stem_ru: string;
-  topic_kk: string;
-  stem_kk: string;
-}, prefer: 'ru' | 'kk'): string {
+/** Текст для запроса похожих: материал + подпись + условие. */
+export function buildSimilarityNeedle(
+  values: {
+    passage_ru: string;
+    passage_kk: string;
+    topic_ru: string;
+    stem_ru: string;
+    topic_kk: string;
+    stem_kk: string;
+  },
+  prefer: 'ru' | 'kk',
+): string {
+  const passage = prefer === 'kk' ? values.passage_kk : values.passage_ru;
   const topic = prefer === 'kk' ? values.topic_kk : values.topic_ru;
   const stem = prefer === 'kk' ? values.stem_kk : values.stem_ru;
-  const t = (topic || '').trim();
-  const s = (stem || '').trim();
-  if (t && s) return `${t}\n${s}`;
-  return s || t;
+  const parts = [passage, topic, stem].map((x) => (x || '').trim()).filter(Boolean);
+  return parts.join('\n');
 }

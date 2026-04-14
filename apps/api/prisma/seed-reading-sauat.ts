@@ -9,11 +9,33 @@ import {
   parseQuestionContentLocale,
   QUESTION_METADATA_LOCALE_KEY,
 } from '../src/common/question-locale';
+import { splitReadingStem } from '@bilimland/shared';
 
 const prisma = new PrismaClient();
 
 type I18n = { kk: string; ru: string; en: string };
 const i = (kk: string, ru: string, en: string): Prisma.InputJsonValue => ({ kk, ru, en });
+
+/** Мәтін → `passage`, сұрақ → `text` (те же эвристики, что на клиенте). Иначе весь текст в `text`. */
+function readingLocaleSlot(fullStem: string): { passage?: string; text: string } {
+  const sp = splitReadingStem(fullStem);
+  if (sp && sp.passage.trim().length > 0 && sp.prompt.trim().length > 0) {
+    return { passage: sp.passage, text: sp.prompt };
+  }
+  return { text: fullStem };
+}
+
+function contentKkOnly(stemKk: string): Prisma.InputJsonValue {
+  const slot = readingLocaleSlot(stemKk);
+  return { kk: slot, ru: '', en: '' } as unknown as Prisma.InputJsonValue;
+}
+
+function contentRuOnly(stemRu: string): Prisma.InputJsonValue {
+  const slot = readingLocaleSlot(stemRu);
+  const ru = { ...slot };
+  const en = { ...slot };
+  return { kk: '', ru, en } as unknown as Prisma.InputJsonValue;
+}
 
 interface Bank {
   id: string;
@@ -127,7 +149,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: i(q.stemKk, '', '') as unknown as Prisma.InputJsonValue,
+            content: contentKkOnly(q.stemKk),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
             answerOptions: { create: optsKk },
@@ -140,7 +162,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: i('', q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
+            content: contentRuOnly(q.stemRu),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
             answerOptions: { create: optsRu },
@@ -160,7 +182,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: i('', q.stemRu, q.stemRu) as unknown as Prisma.InputJsonValue,
+            content: contentRuOnly(q.stemRu),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'ru' } as Prisma.InputJsonValue,
             answerOptions: { create: optsRu },
@@ -180,7 +202,7 @@ async function main() {
             examTypeId: ent.id,
             difficulty: 3,
             type: 'single_choice',
-            content: i(q.stemKk, '', '') as unknown as Prisma.InputJsonValue,
+            content: contentKkOnly(q.stemKk),
             explanation: i('', '', '') as unknown as Prisma.InputJsonValue,
             metadata: { [QUESTION_METADATA_LOCALE_KEY]: 'kk' } as Prisma.InputJsonValue,
             answerOptions: { create: optsKk },

@@ -113,8 +113,10 @@ export function QuestionsPage() {
 
   const stemRu = Form.useWatch('stem_ru', form);
   const topicRu = Form.useWatch('topic_ru', form);
+  const passageRu = Form.useWatch('passage_ru', form);
   const stemKk = Form.useWatch('stem_kk', form);
   const topicKk = Form.useWatch('topic_kk', form);
+  const passageKk = Form.useWatch('passage_kk', form);
   const contentLocaleWatch = Form.useWatch('contentLocale', form);
   const formSubjectId = Form.useWatch('subjectId', form);
   const formExamTypeId = Form.useWatch('examTypeId', form);
@@ -123,6 +125,8 @@ export function QuestionsPage() {
     const loc = contentLocaleWatch === 'kk' ? 'kk' : 'ru';
     return buildSimilarityNeedle(
       {
+        passage_ru: passageRu || '',
+        passage_kk: passageKk || '',
         topic_ru: topicRu || '',
         stem_ru: stemRu || '',
         topic_kk: topicKk || '',
@@ -130,7 +134,7 @@ export function QuestionsPage() {
       },
       loc,
     );
-  }, [contentLocaleWatch, topicRu, stemRu, topicKk, stemKk]);
+  }, [contentLocaleWatch, passageRu, passageKk, topicRu, stemRu, topicKk, stemKk]);
 
   const debouncedSimilaritySource = useDebouncedValue(similaritySource, 480);
 
@@ -325,6 +329,9 @@ export function QuestionsPage() {
       contentLocale: 'ru',
       difficulty: 3,
       type: 'single_choice',
+      passage_ru: '',
+      passage_kk: '',
+      passage_en: '',
       topic_ru: '',
       stem_ru: '',
       topic_kk: '',
@@ -354,6 +361,9 @@ export function QuestionsPage() {
       contentLocale: previewLang === 'kk' ? 'kk' : 'ru',
       difficulty: 3,
       type: 'single_choice',
+      passage_ru: '',
+      passage_kk: '',
+      passage_en: '',
       topic_ru: '',
       stem_ru: previewLang === 'ru' ? t : '',
       topic_kk: '',
@@ -374,6 +384,9 @@ export function QuestionsPage() {
   const buildPayload = (values: Record<string, unknown>) => {
     const answers = values.answers as Array<{ ru?: string; kk?: string; en?: string; isCorrect?: boolean }>;
     const content = buildQuestionContentJson({
+      passage_ru: (values.passage_ru as string) || '',
+      passage_kk: (values.passage_kk as string) || '',
+      passage_en: (values.passage_en as string) || '',
       topic_ru: (values.topic_ru as string) || '',
       stem_ru: (values.stem_ru as string) || '',
       topic_kk: (values.topic_kk as string) || '',
@@ -827,40 +840,60 @@ export function QuestionsPage() {
 
           <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
             Поле <Typography.Text code>topicId</Typography.Text> в API = предмет, если тема не задана отдельно.
+            В JSON: <Typography.Text code>passage</Typography.Text> — текст для чтения (Оқу сауаттылығы, тарих),{' '}
+            <Typography.Text code>topicLine</Typography.Text> — короткая подпись блока ЕНТ,{' '}
+            <Typography.Text code>text</Typography.Text> — формулировка вопроса.
           </Typography.Paragraph>
 
           <Divider orientation="left">Русский</Divider>
           <Form.Item
-            name="topic_ru"
-            label="Текст вопроса / подпись блока (RU)"
-            tooltip="Раздел, контекст ЕНТ, длинный ввод к заданию. Отдельно от условия ниже."
+            name="passage_ru"
+            label="Текст вопроса (RU) — что читают"
+            tooltip="Мәтін для оқу сауаттылығы, длинный контекст в тарихе и т.д. Не путать с подписью раздела ЕНТ."
           >
             <TextArea
-              placeholder="Например: раздел, вводный абзац…"
-              autoSize={{ minRows: 4, maxRows: 18 }}
+              placeholder="Вводный текст, мәтін, исторический отрывок…"
+              autoSize={{ minRows: 12, maxRows: 40 }}
             />
           </Form.Item>
-          <Form.Item name="stem_ru" label="Условие / формулировка (RU)" rules={[{ required: true }]}>
+          <Form.Item
+            name="topic_ru"
+            label="Подпись блока / раздел (RU), опционально"
+            tooltip="Короткая строка ЕНТ («Раздел …»). Не заменяет текст вопроса выше."
+          >
+            <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
+          </Form.Item>
+          <Form.Item name="stem_ru" label="Формулировка вопроса (RU)" rules={[{ required: true }]}>
             <TextArea
-              placeholder="Основной текст задания. LaTeX: $...$"
-              autoSize={{ minRows: 14, maxRows: 36 }}
+              placeholder="Что именно спрашивают. LaTeX: $...$"
+              autoSize={{ minRows: 6, maxRows: 22 }}
             />
           </Form.Item>
 
           <Divider orientation="left">Қазақша</Divider>
-          <Form.Item name="topic_kk" label="Текст вопроса / подпись (KK)">
-            <TextArea placeholder="Бөлім, контекст…" autoSize={{ minRows: 4, maxRows: 18 }} />
+          <Form.Item
+            name="passage_kk"
+            label="Сұрақ мәтіні (KK) — оқылатын бөлім"
+            tooltip="Оқу сауаттылығы мәтіні, тарих контексті."
+          >
+            <TextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 12, maxRows: 40 }} />
           </Form.Item>
-          <Form.Item name="stem_kk" label="Условие (KK)">
-            <TextArea autoSize={{ minRows: 14, maxRows: 36 }} />
+          <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
+            <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
+          </Form.Item>
+          <Form.Item name="stem_kk" label="Сұрақ формулировкасы (KK)">
+            <TextArea autoSize={{ minRows: 6, maxRows: 22 }} />
           </Form.Item>
 
           <Divider orientation="left">English (опционально)</Divider>
-          <Form.Item name="topic_en" label="Topic line (EN)">
-            <TextArea autoSize={{ minRows: 3, maxRows: 14 }} />
+          <Form.Item name="passage_en" label="Question text / passage (EN)">
+            <TextArea autoSize={{ minRows: 8, maxRows: 32 }} />
           </Form.Item>
-          <Form.Item name="stem_en" label="Stem (EN)">
-            <TextArea autoSize={{ minRows: 8, maxRows: 28 }} />
+          <Form.Item name="topic_en" label="Section label (EN), optional">
+            <TextArea autoSize={{ minRows: 2, maxRows: 10 }} />
+          </Form.Item>
+          <Form.Item name="stem_en" label="Question stem (EN)">
+            <TextArea autoSize={{ minRows: 5, maxRows: 18 }} />
           </Form.Item>
 
           {drawerOpen && !!formSubjectId && (

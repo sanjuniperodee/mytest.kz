@@ -61,6 +61,8 @@ export function questionTextSimilarity(a: string, b: string): number {
 
 export type QuestionContentSlot = {
   text?: string;
+  /** Материал для чтения (Оқу сауаттылығы, длинный контекст в тарихе и т.п.). */
+  passage?: string;
   topicLine?: string;
   hint?: string;
 };
@@ -74,20 +76,22 @@ export function extractSlot(content: unknown, locale: 'ru' | 'kk' | 'en'): Quest
   if (typeof raw === 'object' && raw !== null) {
     const o = raw as Record<string, unknown>;
     const text = typeof o.text === 'string' ? o.text : '';
+    const passage = typeof o.passage === 'string' ? o.passage : '';
     const topicLine = typeof o.topicLine === 'string' ? o.topicLine : '';
     const hint = typeof o.hint === 'string' ? o.hint : '';
-    return { text, topicLine, hint };
+    return { text, passage, topicLine, hint };
   }
   return null;
 }
 
-/** Текст для поиска дубликатов: заголовок + условие. */
+/** Текст для поиска дубликатов: материал + подпись блока + условие. */
 export function combineTopicAndStem(slot: QuestionContentSlot | null): string {
   if (!slot) return '';
+  const p = (slot.passage || '').trim();
   const t = (slot.topicLine || '').trim();
   const b = (slot.text || '').trim();
-  if (t && b) return `${t}\n${b}`;
-  return b || t;
+  const parts = [p, t, b].filter((x) => x.length > 0);
+  return parts.join('\n');
 }
 
 export function previewFromSlot(slot: QuestionContentSlot | null, maxLen = 140): string {
