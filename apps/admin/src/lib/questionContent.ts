@@ -131,7 +131,10 @@ export function splitFirstLineBody(full: string): { topicLine: string; text: str
 }
 
 /** Заполнение формы из записи API. */
-export function parseQuestionFormSlots(content: unknown): {
+export function parseQuestionFormSlots(
+  content: unknown,
+  contentLocale?: ContentLocaleTag | null,
+): {
   topic_ru: string;
   stem_ru: string;
   topic_kk: string;
@@ -144,20 +147,23 @@ export function parseQuestionFormSlots(content: unknown): {
   for (const lang of ['ru', 'kk', 'en'] as const) {
     const slot = pickSlot(content, lang);
     if (!slot) continue;
-    const hasExplicitTopic = !!(slot.topicLine && String(slot.topicLine).trim());
+    const topicPart = (slot.topicLine || '').trim();
+    const textPart = (slot.text || '').trim();
+    if (!topicPart && !textPart) continue;
+    const hasExplicitTopic = !!topicPart;
     if (hasExplicitTopic) {
       if (lang === 'ru') {
-        out.topic_ru = (slot.topicLine || '').trim();
-        out.stem_ru = (slot.text || '').trim();
+        out.topic_ru = topicPart;
+        out.stem_ru = textPart;
       } else if (lang === 'kk') {
-        out.topic_kk = (slot.topicLine || '').trim();
-        out.stem_kk = (slot.text || '').trim();
+        out.topic_kk = topicPart;
+        out.stem_kk = textPart;
       } else {
-        out.topic_en = (slot.topicLine || '').trim();
-        out.stem_en = (slot.text || '').trim();
+        out.topic_en = topicPart;
+        out.stem_en = textPart;
       }
     } else {
-      const combined = (slot.text || '').trim();
+      const combined = textPart;
       const { topicLine, text } = splitFirstLineBody(combined);
       if (lang === 'ru') {
         out.topic_ru = topicLine;
@@ -169,6 +175,22 @@ export function parseQuestionFormSlots(content: unknown): {
         out.topic_en = topicLine;
         out.stem_en = text;
       }
+    }
+  }
+
+  const legacy = getLocalizedText(content).trim();
+  if (!legacy) return out;
+  const { topicLine, text } = splitFirstLineBody(legacy);
+  const isKk = contentLocale === 'kk';
+  if (isKk) {
+    if (!out.stem_kk && !out.topic_kk) {
+      out.topic_kk = topicLine;
+      out.stem_kk = text;
+    }
+  } else {
+    if (!out.stem_ru && !out.topic_ru) {
+      out.topic_ru = topicLine;
+      out.stem_ru = text;
     }
   }
   return out;

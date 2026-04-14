@@ -22,6 +22,7 @@ import {
   BookOutlined,
   RocketOutlined,
   FundProjectionScreenOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
 import { UsersPage } from './pages/UsersPage';
@@ -33,6 +34,7 @@ import { EntTrialsAnalyticsPage } from './pages/EntTrialsAnalyticsPage';
 import { UniversityThresholdsPage } from './pages/UniversityThresholdsPage';
 import { AdmissionChancePage } from './pages/AdmissionChancePage';
 import { ExplanationsPage } from './pages/ExplanationsPage';
+import { ExamCatalogPage } from './pages/ExamCatalogPage';
 import { LoginPage } from './pages/LoginPage';
 
 const { Sider, Content, Header } = Layout;
@@ -50,6 +52,7 @@ const MENU_NAV: Record<string, string> = {
   explanations: '/explanations',
   users: '/users',
   questions: '/questions',
+  exams: '/exams',
   subscriptions: '/subscriptions',
 };
 
@@ -62,6 +65,7 @@ function menuKeyFromPath(pathname: string): string {
   if (pathname.startsWith('/explanations')) return 'explanations';
   if (pathname.startsWith('/users')) return 'users';
   if (pathname.startsWith('/questions')) return 'questions';
+  if (pathname.startsWith('/exams')) return 'exams';
   if (pathname.startsWith('/subscriptions')) return 'subscriptions';
   return 'dashboard';
 }
@@ -100,6 +104,7 @@ function AdminLayout() {
       { type: 'divider' },
       { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
       { key: 'questions', icon: <QuestionCircleOutlined />, label: 'Вопросы' },
+      { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены и шаблоны' },
       { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
     ],
     [],
@@ -207,6 +212,7 @@ function AdminLayout() {
             <Route path="/explanations" element={<ExplanationsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
+            <Route path="/exams" element={<ExamCatalogPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
           </Routes>
         </Content>

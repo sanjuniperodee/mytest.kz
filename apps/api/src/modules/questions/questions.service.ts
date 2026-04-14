@@ -197,7 +197,8 @@ export class QuestionsService {
    */
   async findSimilar(params: {
     examTypeId: string;
-    subjectId: string;
+    /** Если не задан — поиск по всем предметам этого типа экзамена (до take строк). */
+    subjectId?: string;
     locale: 'ru' | 'kk';
     text: string;
     excludeId?: string;
@@ -208,14 +209,14 @@ export class QuestionsService {
     const limit = Math.min(params.limit ?? 12, 20);
     const needle = params.text.trim();
 
-    if (!needle || needle.length < 8) {
+    if (!needle || needle.length < 4) {
       return { items: [] as { id: string; score: number; preview: string }[] };
     }
 
     const rows = await this.prisma.question.findMany({
       where: {
         examTypeId: params.examTypeId,
-        subjectId: params.subjectId,
+        ...(params.subjectId ? { subjectId: params.subjectId } : {}),
         isActive: true,
         ...(params.excludeId ? { id: { not: params.excludeId } } : {}),
       },

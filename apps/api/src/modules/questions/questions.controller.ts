@@ -24,13 +24,13 @@ export class QuestionsController {
     @Query('threshold') threshold?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!examTypeId || !subjectId || !text?.trim()) {
+    if (!examTypeId || !text?.trim()) {
       return { items: [] };
     }
     const loc = locale === 'kk' ? 'kk' : 'ru';
     return this.questionsService.findSimilar({
       examTypeId,
-      subjectId,
+      subjectId: subjectId || undefined,
       locale: loc,
       text,
       excludeId: excludeId || undefined,

@@ -22,6 +22,7 @@ import {
   Alert,
   Divider,
   Modal,
+  Spin,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -101,6 +102,8 @@ export function QuestionsPage() {
   const [subjectId, setSubjectId] = useState<string | undefined>();
   const [localeFilter, setLocaleFilter] = useState<AdminLocaleFilter>('');
   const [previewLang, setPreviewLang] = useState<'kk' | 'ru'>('ru');
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const debouncedCatalogSearch = useDebouncedValue(catalogSearch, 420);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -237,7 +240,7 @@ export function QuestionsPage() {
       contentLocale: meta?.contentLocale === 'kk' ? 'kk' : 'ru',
       difficulty: editingQuestion.difficulty,
       type: editingQuestion.type,
-      ...parseQuestionFormSlots(editingQuestion.content),
+      ...parseQuestionFormSlots(editingQuestion.content, getQuestionContentLocale(editingQuestion.metadata)),
       ...exp,
       answers: answersToFormList(editingQuestion),
     });
@@ -274,8 +277,43 @@ export function QuestionsPage() {
       drawerOpen &&
       !!formExamTypeId &&
       !!formSubjectId &&
-      debouncedSimilaritySource.trim().length >= 10,
+      debouncedSimilaritySource.trim().length >= 6,
   });
+
+  const catalogSearchEnabled = !!examTypeId && debouncedCatalogSearch.trim().length >= 4;
+  const { data: catalogSearchData, isFetching: catalogSearchFetching } = useQuery({
+    queryKey: [
+      'admin-questions-catalog-search',
+      examTypeId,
+      subjectId,
+      debouncedCatalogSearch,
+      previewLang,
+    ],
+    queryFn: async () => {
+      const loc = previewLang === 'kk' ? 'kk' : 'ru';
+      const { data } = await api.get<{ items: { id: string; score: number; preview: string }[] }>(
+        '/admin/questions/similar',
+        {
+          params: {
+            examTypeId,
+            ...(subjectId ? { subjectId } : {}),
+            locale: loc,
+            text: debouncedCatalogSearch.trim(),
+            threshold: 0.4,
+            limit: 40,
+          },
+        },
+      );
+      return data;
+    },
+    enabled: catalogSearchEnabled,
+  });
+
+  const showCatalogCreateHint =
+    catalogSearchEnabled &&
+    !catalogSearchFetching &&
+    !!catalogSearchData &&
+    catalogSearchData.items.length === 0;
 
   const openCreate = () => {
     setEditorMode('create');
@@ -298,10 +336,32 @@ export function QuestionsPage() {
     setDrawerOpen(true);
   };
 
-  const openEdit = (record: Question) => {
+  const openEdit = (record: Pick<Question, 'id'>) => {
     setEditorMode('edit');
     setEditingId(record.id);
     form.resetFields();
+    setDrawerOpen(true);
+  };
+
+  const openCreateWithStem = (stem: string) => {
+    const t = stem.trim();
+    setEditorMode('create');
+    setEditingId(null);
+    form.resetFields();
+    form.setFieldsValue({
+      examTypeId: examTypeId || undefined,
+      subjectId: subjectId || undefined,
+      contentLocale: previewLang === 'kk' ? 'kk' : 'ru',
+      difficulty: 3,
+      type: 'single_choice',
+      topic_ru: '',
+      stem_ru: previewLang === 'ru' ? t : '',
+      topic_kk: '',
+      stem_kk: previewLang === 'kk' ? t : '',
+      topic_en: '',
+      stem_en: '',
+      answers: [{}, {}, {}, {}],
+    });
     setDrawerOpen(true);
   };
 
@@ -590,6 +650,51 @@ export function QuestionsPage() {
           )}
         </Space>
       </Card>
+
+      {!!examTypeId && (
+        <Card size="small" title="Поиск по тексту условия" style={{ marginBottom: 16 }}>
+          <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <Input
+              allowClear
+              placeholder="Введите фрагмент вопроса (от 4 символов)…"
+              value={catalogSearch}
+              onChange={(e) => setCatalogSearch(e.target.value)}
+              suffix={catalogSearchFetching ? <Spin size="small" /> : null}
+            />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Язык совпадений совпадает с переключателем KK/RU в колонке «Текст вопроса». Без выбора предмета
+              ищется по всему типу экзамена.
+            </Typography.Text>
+            {catalogSearchData && catalogSearchData.items.length > 0 && (
+              <ul style={{ margin: 0, paddingLeft: 18, maxHeight: 220, overflow: 'auto' }}>
+                {catalogSearchData.items.map((row) => (
+                  <li key={row.id}>
+                    <Button type="link" size="small" onClick={() => openEdit({ id: row.id })} style={{ height: 'auto', whiteSpace: 'normal', textAlign: 'left' }}>
+                      <Typography.Text strong>{Math.round(row.score * 100)}%</Typography.Text>{' '}
+                      {row.preview}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {showCatalogCreateHint && (
+              <Alert
+                type="info"
+                showIcon
+                message="Похожих вопросов не найдено"
+                description={
+                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <span>Можно сразу создать новый вопрос и вставить введённый текст в условие.</span>
+                    <Button type="primary" onClick={() => openCreateWithStem(debouncedCatalogSearch)}>
+                      Создать вопрос с этим текстом
+                    </Button>
+                  </Space>
+                }
+              />
+            )}
+          </Space>
+        </Card>
+      )}
 
       {!!examTypeId && (subjects?.length || 0) > 0 && (
         <div style={{ marginBottom: 16 }}>
