@@ -304,7 +304,9 @@ export function ExamPage() {
         <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {mandatorySubjects.map((subject) => (
             <div key={subject.id} className="list-item" style={{ cursor: 'default' }}>
-              <span style={{ fontSize: 14, fontWeight: 500 }}>{localizedText(subject.name, i18n.language)}</span>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>
+                {localizedText(subject.name, isEnt ? entQuestionLanguage : i18n.language)}
+              </span>
               <span className="badge badge-accent" style={{ fontSize: 11 }}>{t('exam.mandatory')}</span>
             </div>
           ))}
@@ -338,7 +340,7 @@ export function ExamPage() {
                   <div className="chip-check">
                     {isSelected && <CheckCircle />}
                   </div>
-                  {localizedText(subject.name, i18n.language)}
+                  {localizedText(subject.name, isEnt ? entQuestionLanguage : i18n.language)}
                 </button>
               );
             })}

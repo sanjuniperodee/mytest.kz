@@ -29,6 +29,7 @@ export function ReviewPage() {
   const { data: session, isLoading } = useTestReview(sessionId);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
+  const subjectContentLang = session?.language ?? i18n.language;
 
   const orderedAnswers = useMemo(() => {
     const list = [...(session?.answers || [])];
@@ -51,7 +52,7 @@ export function ReviewPage() {
       if (!map.has(subjId)) {
         map.set(subjId, {
           subjectId: subjId,
-          subjectName: localizedText(subj?.name, i18n.language),
+          subjectName: localizedText(subj?.name, subjectContentLang),
           correct: 0,
           total: 0,
         });
@@ -61,7 +62,7 @@ export function ReviewPage() {
       if (answer.isCorrect) s.correct++;
     }
     return Array.from(map.values());
-  }, [orderedAnswers, i18n.language]);
+  }, [orderedAnswers, subjectContentLang]);
 
   const sectionBoundaries = useMemo(() => {
     if (orderedAnswers.length === 0) return [];
@@ -73,12 +74,12 @@ export function ReviewPage() {
         currentSubjectId = subjId;
         boundaries.push({
           index: i,
-          subjectName: localizedText(orderedAnswers[i].question?.subject?.name, i18n.language),
+          subjectName: localizedText(orderedAnswers[i].question?.subject?.name, subjectContentLang),
         });
       }
     }
     return boundaries;
-  }, [orderedAnswers, i18n.language]);
+  }, [orderedAnswers, subjectContentLang]);
 
   if (isLoading || !session) return <Spinner fullScreen />;
 
@@ -96,6 +97,11 @@ export function ReviewPage() {
   const displayedAnswers = showErrorsOnly ? answers.filter((a) => !a.isCorrect) : answers;
   const backTo = (location.state as { from?: string } | undefined)?.from || '/app';
   const getScoreColor = (s: number) => s >= 80 ? 'var(--success)' : s >= 50 ? 'var(--warning)' : 'var(--error)';
+
+  const hasRawPoints = session.rawScore !== null && session.maxScore !== null;
+  const primaryPointsLabel = hasRawPoints
+    ? `${session.rawScore} / ${session.maxScore}`
+    : `${correctCount} / ${answers.length}`;
 
   // SVG circle math
   const circumference = 2 * Math.PI * 70; // r=70
@@ -125,17 +131,12 @@ export function ReviewPage() {
               }}
             />
           </svg>
-          <span className="score-value" style={{ color: getScoreColor(scorePercent) }}>
-            {Math.round(scorePercent)}%
+          <span className="score-value" style={{ color: 'var(--text-primary)' }}>
+            {primaryPointsLabel}
           </span>
+          <span className="score-value-sub">{Math.round(scorePercent)}%</span>
           <span className="score-label">{t('review.score')}</span>
         </div>
-
-        {session.rawScore !== null && session.maxScore !== null && (
-          <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 24, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-            {session.rawScore} / {session.maxScore}
-          </p>
-        )}
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
           {[
@@ -162,10 +163,13 @@ export function ReviewPage() {
               const pct = sec.total > 0 ? Math.round((sec.correct / sec.total) * 100) : 0;
               return (
                 <div key={sec.subjectId}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{sec.subjectName}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: getScoreColor(pct) }}>
-                      {sec.correct}/{sec.total} ({pct}%)
+                  <div className="review-section-stat-row">
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, minWidth: 0 }}>{sec.subjectName}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: getScoreColor(pct), whiteSpace: 'nowrap' }}>
+                      {sec.correct}/{sec.total}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      ({pct}%)
                     </span>
                   </div>
                   <div className="progress-bar progress-bar-lg">
@@ -233,7 +237,7 @@ export function ReviewPage() {
                       <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>#{globalIdx + 1}</span>
                       {sectionBoundaries.length > 1 && (
                         <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
-                          {localizedText(answer.question?.subject?.name, i18n.language)}
+                          {localizedText(answer.question?.subject?.name, subjectContentLang)}
                         </span>
                       )}
                     </div>

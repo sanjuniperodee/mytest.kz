@@ -229,6 +229,39 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   padding-bottom: calc(120px + env(safe-area-inset-bottom));
 }
 
+/* Кнопки с классом .card: у <button> сброшен фон и в части UA/Telegram цвет текста «как у кнопки» — на светлой теме нечитаемо */
+.exam-setup-page button.card {
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.exam-setup-page button.card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+.exam-setup-page button.card.active {
+  background: var(--accent-surface);
+  border-color: var(--border-active);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--border-active), var(--shadow-glow);
+}
+
+.exam-setup-page button.card .info-row {
+  color: var(--text-muted);
+}
+
+.review-section-stat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -615,6 +648,24 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-weight: 500;
   position: relative;
   z-index: 1;
+}
+
+.review-score-card .score-circle .score-value {
+  font-size: clamp(22px, 5.5vw, 30px);
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+  max-width: 6.5em;
+  text-align: center;
+}
+
+.review-score-card .score-value-sub {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: -0.2px;
+  position: relative;
+  z-index: 1;
+  margin-top: 2px;
 }
 
 /* ── Section ── */

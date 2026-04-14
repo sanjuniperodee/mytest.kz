@@ -67,6 +67,8 @@ export function TestPage() {
     questionOrderRef.current = [...baseOrder, ...missing];
   }, [session?.answers, session?.metadata?.questionOrder]);
 
+  const subjectContentLang = session?.language ?? i18n.language;
+
   const sectionBoundaries = useMemo(() => {
     if (orderedAnswers.length === 0) return [];
     const boundaries: { index: number; subjectName: string; subjectSlug: string; count: number }[] = [];
@@ -78,7 +80,7 @@ export function TestPage() {
         currentSubjectId = subjId;
         boundaries.push({
           index: i,
-          subjectName: localizedText(subj?.name, i18n.language),
+          subjectName: localizedText(subj?.name, subjectContentLang),
           subjectSlug: subj?.slug || '',
           count: 0,
         });
@@ -87,7 +89,7 @@ export function TestPage() {
       if (currentBoundary) currentBoundary.count++;
     }
     return boundaries;
-  }, [orderedAnswers, i18n.language]);
+  }, [orderedAnswers, subjectContentLang]);
 
   const currentSection = useMemo(() => {
     for (let i = sectionBoundaries.length - 1; i >= 0; i--) {
