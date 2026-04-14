@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getQuestionContentDisplayParts } from '../../lib/localizedText';
+import { resolveMediaUrl } from '../../lib/resolveMediaUrl';
 import { renderMathInTextWithLineBreaks } from '../../lib/questionStem';
 
 interface Props {
@@ -142,7 +143,7 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
           {imageUrls.map((url, i) => (
             <img
               key={i}
-              src={url}
+              src={resolveMediaUrl(url)}
               alt={`Q image ${i + 1}`}
               style={{
                 maxWidth: '100%',

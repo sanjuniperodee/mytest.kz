@@ -23,8 +23,10 @@ import {
   Divider,
   Modal,
   Spin,
+  Upload,
+  Image,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
@@ -42,8 +44,110 @@ import {
   buildSimilarityNeedle,
   type AdminLocaleFilter,
 } from '../lib/questionContent';
+import { resolveApiBaseUrl } from '../lib/resolveApiBaseUrl';
+import { resolveMediaUrl } from '../lib/resolveMediaUrl';
 
 const { TextArea } = Input;
+
+function normalizeImageUrls(raw: unknown): string[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+  }
+  return [];
+}
+
+function questionImageUploadUrl(): string {
+  const base = resolveApiBaseUrl({
+    viteApiUrl: import.meta.env.VITE_API_URL,
+    viteSiteUrl:
+      import.meta.env.VITE_SITE_URL || (import.meta.env.PROD ? 'https://my-test.kz' : undefined),
+    viteProd: import.meta.env.PROD,
+  });
+  const path = `${base.replace(/\/+$/, '')}/admin/questions/images`;
+  if (base.startsWith('http')) return path;
+  return `${window.location.origin.replace(/\/$/, '')}${path}`;
+}
+
+function QuestionImageUrlsField({
+  value = [],
+  onChange,
+}: {
+  value?: string[];
+  onChange?: (urls: string[]) => void;
+}) {
+  const urls = value || [];
+  const remove = (idx: number) => {
+    onChange?.(urls.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div>
+      <Space wrap align="start" style={{ marginBottom: 12 }}>
+        {urls.map((u, i) => (
+          <div
+            key={`${u}-${i}`}
+            style={{
+              border: '1px solid var(--ant-color-border)',
+              borderRadius: 8,
+              padding: 8,
+              background: 'var(--ant-color-fill-quaternary)',
+            }}
+          >
+            <Image
+              src={resolveMediaUrl(u)}
+              alt=""
+              style={{ maxHeight: 160, maxWidth: 280, objectFit: 'contain', display: 'block' }}
+            />
+            <Button type="link" size="small" danger onClick={() => remove(i)} style={{ padding: 0 }}>
+              Удалить
+            </Button>
+          </div>
+        ))}
+      </Space>
+      <Upload
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        showUploadList={false}
+        maxCount={8}
+        disabled={urls.length >= 8}
+        customRequest={async (opt) => {
+          const { file, onError, onSuccess } = opt;
+          try {
+            const fd = new FormData();
+            fd.append('file', file as File);
+            const token = localStorage.getItem('admin_accessToken');
+            const res = await fetch(questionImageUploadUrl(), {
+              method: 'POST',
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              body: fd,
+            });
+            if (!res.ok) {
+              const txt = await res.text();
+              throw new Error(txt || res.statusText);
+            }
+            const data = (await res.json()) as { url: string };
+            if (data?.url) {
+              onChange?.([...urls, data.url]);
+              message.success('Изображение загружено');
+            }
+            onSuccess?.(data);
+          } catch (e) {
+            message.error('Не удалось загрузить изображение');
+            onError?.(e as Error);
+          }
+        }}
+      >
+        <Button icon={<PictureOutlined />} disabled={urls.length >= 8}>
+          Загрузить изображение (jpeg, png, gif, webp, до 5 МБ)
+        </Button>
+      </Upload>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
+        Файлы сохраняются на сервере в <Typography.Text code>/uploads/question-images/</Typography.Text>. В БД
+        хранится путь — в тесте картинки подставляются автоматически.
+      </Typography.Paragraph>
+    </div>
+  );
+}
 
 type CatalogTopic = { id: string; name: unknown; sortOrder: number };
 type CatalogSubject = {
@@ -61,6 +165,7 @@ interface Question {
   type: string;
   content: unknown;
   explanation: unknown;
+  imageUrls?: unknown;
   metadata?: Record<string, unknown> | null;
   isActive: boolean;
   answerOptions: { id: string; content: unknown; isCorrect: boolean; sortOrder: number }[];
@@ -297,6 +402,7 @@ export function QuestionsPage() {
       ...parseQuestionFormSlots(editingQuestion.content, getQuestionContentLocale(editingQuestion.metadata)),
       ...exp,
       answers: answersToFormList(editingQuestion),
+      imageUrls: normalizeImageUrls(editingQuestion.imageUrls),
     });
   }, [drawerOpen, editorMode, editingQuestion, form]);
 
@@ -389,6 +495,7 @@ export function QuestionsPage() {
       topic_en: '',
       stem_en: '',
       answers: [{}, {}, {}, {}],
+      imageUrls: [],
     });
     setDrawerOpen(true);
   };
@@ -421,6 +528,7 @@ export function QuestionsPage() {
       topic_en: '',
       stem_en: '',
       answers: [{}, {}, {}, {}],
+      imageUrls: [],
     });
     setDrawerOpen(true);
   };
@@ -464,6 +572,7 @@ export function QuestionsPage() {
         isCorrect: a.isCorrect || false,
         sortOrder: i,
       })),
+      imageUrls: normalizeImageUrls(values.imageUrls),
     };
   };
 
@@ -917,6 +1026,11 @@ export function QuestionsPage() {
             <Typography.Text code>topicLine</Typography.Text> — короткая подпись блока ЕНТ,{' '}
             <Typography.Text code>text</Typography.Text> — формулировка вопроса.
           </Typography.Paragraph>
+
+          <Divider orientation="left">Иллюстрации к условию</Divider>
+          <Form.Item name="imageUrls" label="Изображения" initialValue={[]}>
+            <QuestionImageUrlsField />
+          </Form.Item>
 
           <Divider orientation="left">Русский</Divider>
           <Form.Item

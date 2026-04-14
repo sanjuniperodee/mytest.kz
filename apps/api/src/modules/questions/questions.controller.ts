@@ -1,12 +1,68 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { QuestionsService } from './questions.service';
+
+const QUESTION_IMAGE_SUBDIR = 'question-images';
+const IMAGE_MIME = /^image\/(jpeg|jpg|png|gif|webp)$/i;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 @Controller('admin/questions')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class QuestionsController {
   constructor(private questionsService: QuestionsService) {}
+
+  /** Загрузка одного файла; в БД сохраняется путь `/uploads/question-images/...` */
+  @Post('images')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_IMAGE_BYTES },
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype || !IMAGE_MIME.test(file.mimetype)) {
+          cb(new BadRequestException('Допустимы только изображения: jpeg, png, gif, webp'), false);
+          return;
+        }
+        cb(null, true);
+      },
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const dir = join(process.cwd(), 'uploads', QUESTION_IMAGE_SUBDIR);
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname || '').toLowerCase();
+          const safe = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.png';
+          cb(null, `${randomUUID()}${safe}`);
+        },
+      }),
+    }),
+  )
+  async uploadQuestionImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file?.filename) {
+      throw new BadRequestException('Файл не получен');
+    }
+    const url = `/uploads/${QUESTION_IMAGE_SUBDIR}/${file.filename}`;
+    return { url };
+  }
 
   @Post()
   async create(@Body() data: any) {
@@ -71,7 +127,12 @@ export class QuestionsController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() data: any) {
-    if (data && (data.content !== undefined || Array.isArray(data.answerOptions))) {
+    if (
+      data &&
+      (data.content !== undefined ||
+        Array.isArray(data.answerOptions) ||
+        data.imageUrls !== undefined)
+    ) {
       return this.questionsService.updateFull(id, data);
     }
     return this.questionsService.update(id, data);
