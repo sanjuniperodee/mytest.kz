@@ -86,6 +86,9 @@ async function main() {
       existingTopics.push(topic);
     }
 
+    await prisma.testAnswer.deleteMany({
+      where: { question: { topicId: topic.id } },
+    });
     const deleted = await prisma.question.deleteMany({ where: { topicId: topic.id } });
     console.log(`Topic ${bank.id}: removed ${deleted.count} old questions`);
 

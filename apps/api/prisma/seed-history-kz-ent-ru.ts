@@ -106,6 +106,9 @@ async function main() {
         existingTopics.push(topic);
       }
 
+      await prisma.testAnswer.deleteMany({
+        where: { question: { topicId: topic.id } },
+      });
       const deleted = await prisma.question.deleteMany({ where: { topicId: topic.id } });
       const short = topicRu.length > 72 ? `${topicRu.slice(0, 72)}…` : topicRu;
       console.log(`Topic "${short}": removed ${deleted.count} old questions`);
