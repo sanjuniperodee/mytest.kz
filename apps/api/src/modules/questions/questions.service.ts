@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   QUESTION_METADATA_LOCALE_KEY,
   type QuestionContentLocale,
 } from '../../common/question-locale';
+import {
+  combineTopicAndStem,
+  extractSlot,
+  previewFromSlot,
+  questionTextSimilarity,
+} from '../../common/question-similarity';
 
 @Injectable()
 export class QuestionsService {
@@ -112,6 +118,128 @@ export class QuestionsService {
       data,
       include: { answerOptions: true },
     });
+  }
+
+  /**
+   * Полное обновление вопроса из админки: контент, метаданные, варианты (полная замена списка).
+   */
+  async updateFull(
+    id: string,
+    data: {
+      difficulty?: number;
+      type?: string;
+      content?: Prisma.InputJsonValue;
+      explanation?: Prisma.InputJsonValue | null;
+      imageUrls?: string[] | null;
+      contentLocale?: QuestionContentLocale;
+      answerOptions?: { content: Prisma.InputJsonValue; isCorrect: boolean; sortOrder: number }[];
+    },
+  ) {
+    const existing = await this.prisma.question.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Question not found');
+
+    const prevMeta =
+      existing.metadata && typeof existing.metadata === 'object' && existing.metadata !== null
+        ? { ...(existing.metadata as Record<string, unknown>) }
+        : {};
+
+    if (data.contentLocale !== undefined) {
+      prevMeta[QUESTION_METADATA_LOCALE_KEY] = data.contentLocale;
+    }
+
+    const replaceAnswers = Array.isArray(data.answerOptions) && data.answerOptions.length > 0;
+
+    return this.prisma.$transaction(async (tx) => {
+      if (replaceAnswers) {
+        await tx.answerOption.deleteMany({ where: { questionId: id } });
+      }
+
+      return tx.question.update({
+        where: { id },
+        data: {
+          ...(data.difficulty !== undefined ? { difficulty: data.difficulty } : {}),
+          ...(data.type !== undefined ? { type: data.type } : {}),
+          ...(data.content !== undefined ? { content: data.content } : {}),
+          ...(data.explanation !== undefined
+            ? { explanation: data.explanation === null ? Prisma.DbNull : data.explanation }
+            : {}),
+          ...(data.imageUrls !== undefined
+            ? {
+                imageUrls:
+                  data.imageUrls === null ? Prisma.DbNull : (data.imageUrls as unknown as Prisma.InputJsonValue),
+              }
+            : {}),
+          ...(data.contentLocale !== undefined ? { metadata: prevMeta as Prisma.InputJsonValue } : {}),
+          ...(replaceAnswers
+            ? {
+                answerOptions: {
+                  create: data.answerOptions!.map((opt) => ({
+                    content: opt.content,
+                    isCorrect: opt.isCorrect,
+                    sortOrder: opt.sortOrder,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          answerOptions: { orderBy: { sortOrder: 'asc' } },
+          subject: { select: { id: true, name: true, slug: true } },
+          examType: { select: { id: true, name: true, slug: true } },
+          topic: { select: { id: true, name: true } },
+        },
+      });
+    });
+  }
+
+  /**
+   * Похожие вопросы по тексту условия (тот же экзамен + предмет). Без pg_trgm: до 900 строк, скоринг в памяти.
+   */
+  async findSimilar(params: {
+    examTypeId: string;
+    subjectId: string;
+    locale: 'ru' | 'kk';
+    text: string;
+    excludeId?: string;
+    threshold?: number;
+    limit?: number;
+  }) {
+    const threshold = params.threshold ?? 0.45;
+    const limit = Math.min(params.limit ?? 12, 20);
+    const needle = params.text.trim();
+
+    if (!needle || needle.length < 8) {
+      return { items: [] as { id: string; score: number; preview: string }[] };
+    }
+
+    const rows = await this.prisma.question.findMany({
+      where: {
+        examTypeId: params.examTypeId,
+        subjectId: params.subjectId,
+        isActive: true,
+        ...(params.excludeId ? { id: { not: params.excludeId } } : {}),
+      },
+      select: { id: true, content: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 900,
+    });
+
+    const scored = rows
+      .map((row) => {
+        const slot = extractSlot(row.content, params.locale);
+        const hay = combineTopicAndStem(slot);
+        const score = questionTextSimilarity(needle, hay);
+        return {
+          id: row.id,
+          score,
+          preview: previewFromSlot(slot, 160),
+        };
+      })
+      .filter((x) => x.score >= threshold)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    return { items: scored };
   }
 
   async delete(id: string) {

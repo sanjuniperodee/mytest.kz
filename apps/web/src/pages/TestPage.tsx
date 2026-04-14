@@ -375,7 +375,11 @@ export function TestPage() {
 
           <div className="animate-fadeIn test-question-layout" key={currentAnswer.questionId}>
             <div className="test-question-stem">
-              <QuestionDisplay content={currentQuestion.content} imageUrls={currentQuestion.imageUrls} />
+              <QuestionDisplay
+          content={currentQuestion.content}
+          imageUrls={currentQuestion.imageUrls}
+          subjectSlug={currentAnswer.question?.subject?.slug}
+        />
             </div>
             <div className="test-question-answers">
               <div className="test-answer-options-label">{t('test.answerOptionsLabel')}</div>

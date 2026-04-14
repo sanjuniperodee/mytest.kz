@@ -247,7 +247,11 @@ export function ReviewPage() {
                 {isExpanded && (
                   <div className="review-card-body animate-fadeIn">
                     <div style={{ height: 1, background: 'var(--border)', marginBottom: 16 }} />
-                    <QuestionDisplay content={answer.question.content} imageUrls={answer.question.imageUrls} />
+                    <QuestionDisplay
+                      content={answer.question.content}
+                      imageUrls={answer.question.imageUrls}
+                      subjectSlug={answer.question?.subject?.slug}
+                    />
                     <AnswerOptions
                       options={answer.question.answerOptions}
                       selectedIds={answer.selectedIds}

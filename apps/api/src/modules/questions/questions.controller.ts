@@ -13,6 +13,32 @@ export class QuestionsController {
     return this.questionsService.create(data);
   }
 
+  /** Похожие вопросы для админки (дубликаты / кривые совпадения). */
+  @Get('similar')
+  async similar(
+    @Query('examTypeId') examTypeId?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('locale') locale?: string,
+    @Query('text') text?: string,
+    @Query('excludeId') excludeId?: string,
+    @Query('threshold') threshold?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!examTypeId || !subjectId || !text?.trim()) {
+      return { items: [] };
+    }
+    const loc = locale === 'kk' ? 'kk' : 'ru';
+    return this.questionsService.findSimilar({
+      examTypeId,
+      subjectId,
+      locale: loc,
+      text,
+      excludeId: excludeId || undefined,
+      threshold: threshold ? parseFloat(threshold) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
   @Get()
   async findMany(
     @Query('id') id?: string,
@@ -45,6 +71,9 @@ export class QuestionsController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() data: any) {
+    if (data && (data.content !== undefined || Array.isArray(data.answerOptions))) {
+      return this.questionsService.updateFull(id, data);
+    }
     return this.questionsService.update(id, data);
   }
 

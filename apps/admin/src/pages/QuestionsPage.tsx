@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import {
   Table,
   Button,
-  Modal,
   Form,
   Input,
   Select,
@@ -19,18 +18,27 @@ import {
   Tabs,
   Typography,
   Tooltip,
+  Drawer,
+  Alert,
+  Divider,
+  Modal,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
+import { useDebouncedValue } from '../lib/useDebouncedValue';
 import {
   getLocalizedText,
   getQuestionContentLocale,
   getQuestionPreviewText,
+  pickContentLang,
   localeFilterParam,
   localeFilterToTabKey,
   tabKeyToLocaleFilter,
   LOCALE_TAB_KEYS,
+  parseQuestionFormSlots,
+  buildQuestionContentJson,
+  buildSimilarityNeedle,
   type AdminLocaleFilter,
 } from '../lib/questionContent';
 
@@ -59,6 +67,31 @@ function localeTag(locale: ReturnType<typeof getQuestionContentLocale>) {
   return <Tag color="default">Нет метки</Tag>;
 }
 
+function explanationFromRecord(exp: unknown): {
+  explanation_ru: string;
+  explanation_kk: string;
+  explanation_en: string;
+} {
+  if (!exp || typeof exp !== 'object') {
+    return { explanation_ru: '', explanation_kk: '', explanation_en: '' };
+  }
+  const o = exp as Record<string, unknown>;
+  return {
+    explanation_ru: typeof o.ru === 'string' ? o.ru : '',
+    explanation_kk: typeof o.kk === 'string' ? o.kk : '',
+    explanation_en: typeof o.en === 'string' ? o.en : '',
+  };
+}
+
+function answersToFormList(q: Question) {
+  return (q.answerOptions || []).map((opt) => ({
+    ru: pickContentLang(opt.content, 'ru'),
+    kk: pickContentLang(opt.content, 'kk'),
+    en: pickContentLang(opt.content, 'en'),
+    isCorrect: opt.isCorrect,
+  }));
+}
+
 export function QuestionsPage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -68,10 +101,35 @@ export function QuestionsPage() {
   const [subjectId, setSubjectId] = useState<string | undefined>();
   const [localeFilter, setLocaleFilter] = useState<AdminLocaleFilter>('');
   const [previewLang, setPreviewLang] = useState<'kk' | 'ru'>('ru');
-  const [modalOpen, setModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   const localeParams = useMemo(() => localeFilterParam(localeFilter), [localeFilter]);
+
+  const stemRu = Form.useWatch('stem_ru', form);
+  const topicRu = Form.useWatch('topic_ru', form);
+  const stemKk = Form.useWatch('stem_kk', form);
+  const topicKk = Form.useWatch('topic_kk', form);
+  const contentLocaleWatch = Form.useWatch('contentLocale', form);
+  const formSubjectId = Form.useWatch('subjectId', form);
+  const formExamTypeId = Form.useWatch('examTypeId', form);
+
+  const similaritySource = useMemo(() => {
+    const loc = contentLocaleWatch === 'kk' ? 'kk' : 'ru';
+    return buildSimilarityNeedle(
+      {
+        topic_ru: topicRu || '',
+        stem_ru: stemRu || '',
+        topic_kk: topicKk || '',
+        stem_kk: stemKk || '',
+      },
+      loc,
+    );
+  }, [contentLocaleWatch, topicRu, stemRu, topicKk, stemKk]);
+
+  const debouncedSimilaritySource = useDebouncedValue(similaritySource, 480);
 
   const { data: examTypes } = useQuery({
     queryKey: ['exam-types'],
@@ -160,55 +218,149 @@ export function QuestionsPage() {
     enabled: !!examTypeId,
   });
 
+  const { data: editingQuestion, isLoading: editingLoading } = useQuery({
+    queryKey: ['admin-question-one', editingId],
+    queryFn: async () => {
+      const { data } = await api.get('/admin/questions', { params: { id: editingId, limit: 1 } });
+      return data.items?.[0] as Question | undefined;
+    },
+    enabled: drawerOpen && editorMode === 'edit' && !!editingId,
+  });
+
   useEffect(() => {
-    if (!modalOpen) return;
+    if (!drawerOpen || editorMode !== 'edit' || !editingQuestion) return;
+    const exp = explanationFromRecord(editingQuestion.explanation);
+    const meta = editingQuestion.metadata as { contentLocale?: string } | undefined;
+    form.setFieldsValue({
+      examTypeId: editingQuestion.examTypeId,
+      subjectId: editingQuestion.subjectId,
+      contentLocale: meta?.contentLocale === 'kk' ? 'kk' : 'ru',
+      difficulty: editingQuestion.difficulty,
+      type: editingQuestion.type,
+      ...parseQuestionFormSlots(editingQuestion.content),
+      ...exp,
+      answers: answersToFormList(editingQuestion),
+    });
+  }, [drawerOpen, editorMode, editingQuestion, form]);
+
+  const similarLocale = contentLocaleWatch === 'kk' ? 'kk' : 'ru';
+  const { data: similarData } = useQuery({
+    queryKey: [
+      'admin-questions-similar',
+      formExamTypeId,
+      formSubjectId,
+      similarLocale,
+      debouncedSimilaritySource,
+      editingId,
+    ],
+    queryFn: async () => {
+      const { data } = await api.get<{ items: { id: string; score: number; preview: string }[] }>(
+        '/admin/questions/similar',
+        {
+          params: {
+            examTypeId: formExamTypeId,
+            subjectId: formSubjectId,
+            locale: similarLocale,
+            text: debouncedSimilaritySource,
+            excludeId: editingId || undefined,
+            threshold: 0.38,
+            limit: 14,
+          },
+        },
+      );
+      return data;
+    },
+    enabled:
+      drawerOpen &&
+      !!formExamTypeId &&
+      !!formSubjectId &&
+      debouncedSimilaritySource.trim().length >= 10,
+  });
+
+  const openCreate = () => {
+    setEditorMode('create');
+    setEditingId(null);
+    form.resetFields();
     form.setFieldsValue({
       examTypeId: examTypeId || undefined,
       subjectId: subjectId || undefined,
       contentLocale: 'ru',
       difficulty: 3,
       type: 'single_choice',
+      topic_ru: '',
+      stem_ru: '',
+      topic_kk: '',
+      stem_kk: '',
+      topic_en: '',
+      stem_en: '',
+      answers: [{}, {}, {}, {}],
     });
-  }, [modalOpen, examTypeId, subjectId, form]);
+    setDrawerOpen(true);
+  };
 
-  const createQuestion = useMutation({
+  const openEdit = (record: Question) => {
+    setEditorMode('edit');
+    setEditingId(record.id);
+    form.resetFields();
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setEditingId(null);
+    form.resetFields();
+  };
+
+  const buildPayload = (values: Record<string, unknown>) => {
+    const answers = values.answers as Array<{ ru?: string; kk?: string; en?: string; isCorrect?: boolean }>;
+    const content = buildQuestionContentJson({
+      topic_ru: (values.topic_ru as string) || '',
+      stem_ru: (values.stem_ru as string) || '',
+      topic_kk: (values.topic_kk as string) || '',
+      stem_kk: (values.stem_kk as string) || '',
+      topic_en: (values.topic_en as string) || '',
+      stem_en: (values.stem_en as string) || '',
+    });
+    return {
+      topicId: (values.topicId as string) || (values.subjectId as string),
+      subjectId: values.subjectId as string,
+      examTypeId: values.examTypeId as string,
+      difficulty: values.difficulty as number,
+      type: values.type as string,
+      contentLocale: values.contentLocale === 'kk' ? 'kk' : 'ru',
+      content,
+      explanation: values.explanation_ru
+        ? {
+            kk: (values.explanation_kk as string) || '',
+            ru: values.explanation_ru as string,
+            en: (values.explanation_en as string) || '',
+          }
+        : undefined,
+      answerOptions: answers.map((a, i) => ({
+        content: { kk: a.kk || '', ru: a.ru || '', en: a.en || '' },
+        isCorrect: a.isCorrect || false,
+        sortOrder: i,
+      })),
+    };
+  };
+
+  const saveQuestion = useMutation({
     mutationFn: async (values: Record<string, unknown>) => {
-      const answers = values.answers as Array<{ ru?: string; kk?: string; en?: string; isCorrect?: boolean }>;
-      const payload = {
-        topicId: values.topicId || values.subjectId,
-        subjectId: values.subjectId,
-        examTypeId: values.examTypeId,
-        difficulty: values.difficulty,
-        type: values.type,
-        contentLocale: values.contentLocale === 'kk' ? 'kk' : 'ru',
-        content: {
-          kk: { text: (values.content_kk as string) || '' },
-          ru: { text: values.content_ru as string },
-          en: { text: (values.content_en as string) || '' },
-        },
-        explanation: values.explanation_ru
-          ? {
-              kk: (values.explanation_kk as string) || '',
-              ru: values.explanation_ru as string,
-              en: (values.explanation_en as string) || '',
-            }
-          : undefined,
-        answerOptions: answers.map((a, i) => ({
-          content: { kk: a.kk || '', ru: a.ru || '', en: a.en || '' },
-          isCorrect: a.isCorrect || false,
-          sortOrder: i,
-        })),
-      };
+      const payload = buildPayload(values);
+      if (editorMode === 'edit' && editingId) {
+        await api.patch(`/admin/questions/${editingId}`, payload);
+        return;
+      }
       await api.post('/admin/questions', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-questions'] });
       queryClient.invalidateQueries({ queryKey: ['admin-questions-count'] });
-      setModalOpen(false);
-      form.resetFields();
-      message.success('Вопрос создан');
+      queryClient.invalidateQueries({ queryKey: ['admin-question-one'] });
+      closeDrawer();
+      message.success(editorMode === 'edit' ? 'Вопрос сохранён' : 'Вопрос создан');
     },
-    onError: () => message.error('Ошибка при создании'),
+    onError: () => message.error('Ошибка сохранения'),
   });
 
   const deleteQuestion = useMutation({
@@ -222,13 +374,17 @@ export function QuestionsPage() {
     },
   });
 
+  const similarItems = similarData?.items || [];
+  const strongDup = similarItems.filter((x) => x.score >= 0.85);
+  const mediumSim = similarItems.filter((x) => x.score >= 0.72 && x.score < 0.85);
+
   const columns: ColumnsType<Question> = useMemo(
     () => [
       {
         title: (
           <Space size={8}>
             <span>Текст вопроса</span>
-            <Tooltip title="Какой слот показывать в превью, если в записи оба языка">
+            <Tooltip title="Превью: заголовок + условие (если заданы отдельно)">
               <Segmented
                 size="small"
                 value={previewLang}
@@ -307,20 +463,23 @@ export function QuestionsPage() {
       },
       {
         title: 'Действия',
-        width: 88,
+        width: 120,
         fixed: 'right',
         render: (_: unknown, record: Question) => (
-          <Button
-            type="text"
-            icon={<DeleteOutlined />}
-            danger
-            onClick={() => {
-              Modal.confirm({
-                title: 'Удалить вопрос?',
-                onOk: () => deleteQuestion.mutate(record.id),
-              });
-            }}
-          />
+          <Space size={0}>
+            <Button type="text" icon={<EditOutlined />} onClick={() => openEdit(record)} aria-label="Изменить" />
+            <Button
+              type="text"
+              icon={<DeleteOutlined />}
+              danger
+              onClick={() => {
+                Modal.confirm({
+                  title: 'Удалить вопрос?',
+                  onOk: () => deleteQuestion.mutate(record.id),
+                });
+              }}
+            />
+          </Space>
         ),
       },
     ],
@@ -333,11 +492,13 @@ export function QuestionsPage() {
         <div>
           <h2 className="admin-page-title">Вопросы</h2>
           <p className="admin-page-lead" style={{ marginBottom: 0 }}>
-            Вкладки делят список по <Typography.Text code>metadata.contentLocale</Typography.Text> (как пулы в тестах KK /
-            RU). «Без метки» — записи до миграции.
+            Заголовок (тема блока) и условие хранятся отдельно в JSON{' '}
+            <Typography.Text code>topicLine</Typography.Text> + <Typography.Text code>text</Typography.Text> — в
+            тесте как раньше склеивается для подписи к условию. При вводе условия показываются похожие вопросы того же
+            предмета (оценка по словам и биграммам; ≥0,85 — вероятный дубликат).
           </p>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           Добавить вопрос
         </Button>
       </div>
@@ -488,19 +649,30 @@ export function QuestionsPage() {
         }}
       />
 
-      <Modal
-        title="Новый вопрос"
-        open={modalOpen}
-        onCancel={() => {
-          setModalOpen(false);
-          form.resetFields();
-        }}
-        onOk={() => form.submit()}
-        confirmLoading={createQuestion.isPending}
-        width={820}
+      <Drawer
+        title={editorMode === 'edit' ? 'Редактирование вопроса' : 'Новый вопрос'}
+        width={920}
+        open={drawerOpen}
+        onClose={closeDrawer}
         destroyOnClose
+        extra={
+          <Space>
+            <Button onClick={closeDrawer}>Отмена</Button>
+            <Button type="primary" loading={saveQuestion.isPending} onClick={() => form.submit()}>
+              Сохранить
+            </Button>
+          </Space>
+        }
       >
-        <Form form={form} layout="vertical" onFinish={(v) => createQuestion.mutate(v)}>
+        {editorMode === 'edit' && editingLoading && (
+          <Typography.Paragraph>Загрузка…</Typography.Paragraph>
+        )}
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(v) => saveQuestion.mutate(v)}
+          style={{ maxWidth: 880 }}
+        >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             <Form.Item name="examTypeId" label="Тип экзамена" rules={[{ required: true }]}>
               <Select
@@ -523,7 +695,7 @@ export function QuestionsPage() {
               label="Язык контента в тестах"
               rules={[{ required: true }]}
               initialValue="ru"
-              tooltip="Определяет, в каком пуле вопрос окажется при сдаче на KK или RU"
+              tooltip="Пул KK/RU при сборке сессии"
             >
               <Select
                 options={[
@@ -548,31 +720,111 @@ export function QuestionsPage() {
             </Form.Item>
           </div>
 
-          <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-            Поле topicId в API подставляется из предмета, если тема не задана. Для отдельной темы используйте bulk-import
-            или правку в БД.
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+            Поле <Typography.Text code>topicId</Typography.Text> в API = предмет, если тема не задана отдельно.
           </Typography.Paragraph>
 
-          <Form.Item name="content_ru" label="Текст вопроса (RU)" rules={[{ required: true }]}>
-            <TextArea rows={3} placeholder="Используйте $...$ для формул LaTeX" />
+          <Divider orientation="left">Русский</Divider>
+          <Form.Item
+            name="topic_ru"
+            label="Текст вопроса / подпись блока (RU)"
+            tooltip="Короткая строка: раздел, контекст ЕНТ. Не путать с условием ниже."
+          >
+            <Input placeholder="Например: Раздел «Алгебра»" />
           </Form.Item>
-          <Form.Item name="content_kk" label="Текст вопроса (KK)">
-            <TextArea rows={3} />
+          <Form.Item name="stem_ru" label="Условие / формулировка (RU)" rules={[{ required: true }]}>
+            <TextArea rows={5} placeholder="Основной текст задания. LaTeX: $...$" />
           </Form.Item>
-          <Form.Item name="content_en" label="Текст вопроса (EN)">
+
+          <Divider orientation="left">Қазақша</Divider>
+          <Form.Item name="topic_kk" label="Текст вопроса / подпись (KK)">
+            <Input placeholder="Бөлім атауы" />
+          </Form.Item>
+          <Form.Item name="stem_kk" label="Условие (KK)">
+            <TextArea rows={4} />
+          </Form.Item>
+
+          <Divider orientation="left">English (опционально)</Divider>
+          <Form.Item name="topic_en" label="Topic line (EN)">
+            <Input />
+          </Form.Item>
+          <Form.Item name="stem_en" label="Stem (EN)">
             <TextArea rows={2} />
           </Form.Item>
 
-          <Form.Item name="explanation_ru" label="Объяснение (RU) — Premium">
+          {drawerOpen && !!formSubjectId && (
+            <>
+              {strongDup.length > 0 && (
+                <Alert
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="Высокое сходство (≥85%) — проверьте дубликат"
+                  description={
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {strongDup.map((row) => (
+                        <li key={row.id}>
+                          <Typography.Text strong>{Math.round(row.score * 100)}%</Typography.Text>{' '}
+                          <Link to={`/questions?id=${row.id}`} onClick={() => closeDrawer()}>
+                            {row.preview}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
+              {mediumSim.length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="Похожие вопросы (72–85%)"
+                  description={
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {mediumSim.map((row) => (
+                        <li key={row.id}>
+                          <Typography.Text>{Math.round(row.score * 100)}%</Typography.Text>{' '}
+                          <Link to={`/questions?id=${row.id}`}>{row.preview}</Link>
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
+              {similarItems.length > 0 && strongDup.length === 0 && mediumSim.length === 0 && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="Возможные совпадения"
+                  description={
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {similarItems.slice(0, 8).map((row) => (
+                        <li key={row.id}>
+                          {Math.round(row.score * 100)}%{' '}
+                          <Link to={`/questions?id=${row.id}`}>{row.preview}</Link>
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
+            </>
+          )}
+
+          <Divider orientation="left">Объяснение (Premium)</Divider>
+          <Form.Item name="explanation_ru" label="Объяснение (RU)">
             <TextArea rows={2} />
           </Form.Item>
           <Form.Item name="explanation_kk" label="Объяснение (KK)">
             <TextArea rows={2} />
           </Form.Item>
+          <Form.Item name="explanation_en" label="Объяснение (EN)">
+            <TextArea rows={2} />
+          </Form.Item>
 
-          <Typography.Title level={5} style={{ marginTop: 8 }}>
-            Варианты ответов
-          </Typography.Title>
+          <Typography.Title level={5}>Варианты ответов</Typography.Title>
           <Form.List name="answers" initialValue={[{}, {}, {}, {}]}>
             {(fields, { add, remove }) => (
               <>
@@ -611,7 +863,7 @@ export function QuestionsPage() {
             )}
           </Form.List>
         </Form>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

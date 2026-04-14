@@ -61,7 +61,8 @@ export interface Question {
   id: string;
   difficulty: number;
   type: string;
-  content: string;
+  /** JSON локалей: строка или { ru: { topicLine?, text }, ... } */
+  content: unknown;
   imageUrls?: string[];
   answerOptions: AnswerOption[];
   subject?: { id: string; name: unknown; slug: string };
