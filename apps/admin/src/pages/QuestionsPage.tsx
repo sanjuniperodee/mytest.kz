@@ -936,7 +936,23 @@ export function QuestionsPage() {
           >
             <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
           </Form.Item>
-          <Form.Item name="stem_ru" label="Формулировка вопроса (RU)" rules={[{ required: true }]}>
+          <Form.Item
+            name="stem_ru"
+            label="Формулировка вопроса (RU)"
+            dependencies={['contentLocale', 'stem_kk']}
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const loc = getFieldValue('contentLocale');
+                  if (loc === 'kk') return Promise.resolve();
+                  if (!(String(value || '').trim())) {
+                    return Promise.reject(new Error('Заполните формулировку на русском'));
+                  }
+                  return Promise.resolve();
+                },
+              }),
+            ]}
+          >
             <TextArea
               placeholder="Что именно спрашивают. LaTeX: $...$"
               autoSize={{ minRows: 6, maxRows: 22 }}
@@ -954,7 +970,23 @@ export function QuestionsPage() {
           <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
             <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
           </Form.Item>
-          <Form.Item name="stem_kk" label="Сұрақ формулировкасы (KK)">
+          <Form.Item
+            name="stem_kk"
+            label="Сұрақ формулировкасы (KK)"
+            dependencies={['contentLocale', 'stem_ru']}
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const loc = getFieldValue('contentLocale');
+                  if (loc === 'ru') return Promise.resolve();
+                  if (!(String(value || '').trim())) {
+                    return Promise.reject(new Error('Қазақша сұрақ мәтінін толтырыңыз'));
+                  }
+                  return Promise.resolve();
+                },
+              }),
+            ]}
+          >
             <TextArea autoSize={{ minRows: 6, maxRows: 22 }} />
           </Form.Item>
 

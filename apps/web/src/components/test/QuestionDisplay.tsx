@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getQuestionContentDisplayParts } from '../../lib/localizedText';
 import { renderMathInTextWithLineBreaks } from '../../lib/questionStem';
-import { splitReadingStem } from '@bilimland/shared';
 
 interface Props {
   content: unknown;
   imageUrls?: string[];
-  /** Для «Оқу сауаттылығы» — мәтін мен сұрақты бөлек көрсету (если нет поля passage). */
+  /** Для «Оқу сауаттылығы»: `passage` + `text` из JSON; без `passage` — цельный `text` (без эвристического сплита). */
   subjectSlug?: string;
 }
 
@@ -38,11 +37,6 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
   );
 
   const isReading = subjectSlug === 'reading_literacy';
-  /** Legacy: весь текст в `text`, эвристика делит на мәтін + сұрақ. */
-  const splitFromStem = useMemo(() => {
-    if (!isReading || passage) return null;
-    return splitReadingStem(stem);
-  }, [isReading, passage, stem]);
 
   const [materialCollapsed, setMaterialCollapsed] = useState(false);
   useEffect(() => {
@@ -60,19 +54,8 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
     [passage],
   );
   const renderedStem = useMemo(() => renderMathInTextWithLineBreaks(stem), [stem]);
-  const renderedSplitPassage = useMemo(
-    () => (splitFromStem ? renderMathInTextWithLineBreaks(splitFromStem.passage) : ''),
-    [splitFromStem],
-  );
-  const renderedSplitPrompt = useMemo(
-    () => (splitFromStem ? renderMathInTextWithLineBreaks(splitFromStem.prompt) : ''),
-    [splitFromStem],
-  );
-
   const readingExplicitPassage = isReading && !!passage;
-  const readingLegacySplit = isReading && !passage && !!splitFromStem;
-  const showPlainStem =
-    stem.trim().length > 0 && !readingLegacySplit && !readingExplicitPassage;
+  const showPlainStem = stem.trim().length > 0 && !readingExplicitPassage;
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -133,54 +116,6 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
             </button>
           ) : null}
         </div>
-      ) : null}
-
-      {readingLegacySplit ? (
-        <>
-          <div
-            style={{
-              marginBottom: 18,
-              padding: '14px 16px',
-              borderRadius: 'var(--r-md)',
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <div style={labelStyle}>{t('test.readingPassage')}</div>
-            {!materialCollapsed && (
-              <div
-                dangerouslySetInnerHTML={{ __html: renderedSplitPassage }}
-                className="question-stem-body"
-                style={stemBodyStyle}
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => setMaterialCollapsed((c) => !c)}
-              className="reading-passage-toggle"
-              style={{
-                marginTop: materialCollapsed ? 0 : 12,
-                padding: 0,
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                fontSize: 14,
-                fontWeight: 600,
-                color: 'var(--accent)',
-              }}
-            >
-              {materialCollapsed ? t('test.readingShowPassage') : t('test.readingHidePassage')}
-            </button>
-          </div>
-          <div style={{ marginBottom: 4 }}>
-            <div style={labelStyle}>{t('test.readingQuestion')}</div>
-            <div
-              dangerouslySetInnerHTML={{ __html: renderedSplitPrompt }}
-              className="question-stem-body"
-              style={stemBodyStyle}
-            />
-          </div>
-        </>
       ) : null}
 
       {readingExplicitPassage ? (

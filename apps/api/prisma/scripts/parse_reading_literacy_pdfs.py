@@ -130,7 +130,7 @@ QUESTION_STARTERS = [
     r"Определите\s+стиль\s+текст\s",  # 82-ru: 'Определите стиль текст.'
     r"Утверждение\s+которое\s+не\s",  # 82-ru: 'Утверждение, которое не соответствует тексту'
     r"Согласно\s+тексту\s+молоко\s",  # 82-ru: 'Согласно тексту, молоко - универсальная пища, по'
-    r"информацию\s+о\s+ближайшей\s",  # 82-ru: 'информацию о ближайшей поляне, полной нектарных '
+    r"Согласно\s+источнику,\s+расшифровка\s",  # 82-ru: пчёлы — задание в конце, не «информацию о…» из мәтін
     r"согласно\s+тексту\s+можно\s",  # 19-ru: 'согласно тексту) можно сжечь за час интенсивного'
     r"Мəтінге\s+қайшы\s+тұжырым\s",  # 19-kk: 'Мəтінге қайшы тұжырым:'
     r"Қазақ\s+хандығын\s+кімдер\s",  # 35-kk: 'Қазақ хандығын кімдер құрды?'
@@ -138,7 +138,7 @@ QUESTION_STARTERS = [
     r"Бейбарыс\s+əскери\s+жолын\s",  # 35-kk: 'Бейбарыс əскери жолын неден бастады?'
     r"«Далбай»\s+қандай\s+шырға\s",  # 35-kk: '«Далбай» қандай шырға түрі?'
     r"Қазақтың\s+ерекше\s+ырымы\s",  # 50-kk: 'Қазақтың ерекше ырымы'
-    r"мереке\s+күндері\s+қыздар\s",  # 50-kk: 'мереке күндері қыздар мойын-омырауына сəн ретінд'
+    r"Өңіржиектің\s+жасалу\s+жолының\s+реттілігін\s",  # 50-kk: реттілігін анықтаңыз (ішкі мәтіннен «мереке…» емес)
     r"Керней\s+аспабының\s+көне\s",  # 50-kk: 'Керней аспабының көне музыкалық аспап жəне оның '
     r"Мəтінге\s+лайық\s+тақырып\s",  # 50-kk: 'Мəтінге лайық тақырып'
     r"Лениндік\s+сыйлық\s+алған\s",  # 50-kk: 'Лениндік сыйлық алған шығармалар жинағы'
@@ -149,7 +149,7 @@ QUESTION_STARTERS = [
     r"Согласно\s+тексту\s+Сыдык\s",  # 82-ru: 'Согласно тексту, Сыдык Мухамеджанов – это'
     r"Основная\s+мысль\s+текста\s",  # 82-ru: 'Основная мысль текста'
     r"Лихачеву\s+Третий\s+абзац\s",  # 82-ru: 'Лихачеву) Третий абзац соотносится с выражением'
-    r"Длина\s+береговой\s+линии\s",  # 82-ru: 'Длина береговой линии Байкала равна'
+    r"Длина\s+береговой\s+линии\s+Байкала\s+равна",  # 82-ru: формулировка вопроса; короткий «Длина береговой…» ловит мәтін
     r"Согласно\s+тексту\s+суши\s",  # 19-ru: 'Согласно тексту, суши появились еще в'
     r"Бата\s+беру\s+дəстүрінің\s",  # 35-kk: 'Бата беру дəстүрінің негізгі мақсаты қандай?'
     r"Жарыс\s+қазан\s+ырымының\s",  # 35-kk: 'Жарыс қазан ырымының негізгі мақсаты қандай?'
@@ -198,7 +198,7 @@ QUESTION_STARTERS = [
     r"Ахмет\s+Яссауи\s+қай\s",  # 50-kk: 'Ахмет Яссауи қай ғасырда өмір сүрген?'
     r"Кіші\s+жүзде\s+билік\s",  # 50-kk: 'Кіші жүзде билік үшін күрес шиеленіскен кезең'
     r"в\s+соответствии\s+с\s",  # 82-ru: 'в соответствии с текстом)'
-    r"Что\s+такое\s+Ольхон\s",  # 82-ru: 'Что такое Ольхон?'
+    r"Что\s+такое\s+Ольхон\??",  # 82-ru: после слова сразу «?», без пробела
     r"Жарыс\s+қазан\s+асу\s",  # 35-kk: 'Жарыс қазан асу кезінде қандай тағам əзірленеді?'
     r"Абзац\s+в\s+котором\s",  # 82-ru: 'Абзац, в котором содержится информация о приобще'
     r"Но\s+особое\s+место\s",  # 82-ru: 'Но особое место в сердце писателя занял велосипе'
@@ -361,15 +361,33 @@ def _find_question_split(rest: str) -> Optional[int]:
     return best
 
 
-def _find_last_question_split(rest: str, *, min_passage: int) -> Optional[int]:
-    """Самое позднее совпадение — для passageRu/questionRu: задание обычно в конце, не внутри (3) Термин «…»."""
-    best: Optional[int] = None
+def _split_position_plausible(rest: str, pos: int) -> bool:
+    """Отсекаем стартёр внутри фразы: «…сородичам» + «информацию…», «…өңіржиекті» + «мереке…»."""
+    pb = rest[:pos].rstrip()
+    q = rest[pos:].strip()
+    if len(q) < 4:
+        return False
+    rlen = len(rest)
+    if rlen and len(q) > max(_MAX_PROMPT_LEN, int(0.48 * rlen)):
+        if not _looks_like_question_tail(q):
+            return False
+    if pb and pb[-1].isalpha() and q and q[0].islower():
+        return False
+    return True
+
+
+def _pick_last_plausible_starter_split(rest: str, *, min_passage: int) -> Optional[int]:
+    """Самое позднее из стартёров, но не разрыв середины предложения (см. _split_position_plausible)."""
+    candidates: list[int] = []
     for rx in _STARTER_RES:
         for m in rx.finditer(rest):
             st = m.start()
-            if st >= min_passage and (best is None or st > best):
-                best = st
-    return best
+            if st >= min_passage:
+                candidates.append(st)
+    for pos in sorted(set(candidates), reverse=True):
+        if _split_position_plausible(rest, pos):
+            return pos
+    return None
 
 
 def _fix_missing_space_after_period(s: str) -> str:
@@ -606,7 +624,7 @@ def extract_passage_question_from_stem(
     passage_body: Optional[str] = None
     question: Optional[str] = None
 
-    pos = _find_last_question_split(rest, min_passage=min_passage)
+    pos = _pick_last_plausible_starter_split(rest, min_passage=mp)
     if pos is not None:
         pb = rest[:pos].rstrip()
         qn = rest[pos:].strip()
