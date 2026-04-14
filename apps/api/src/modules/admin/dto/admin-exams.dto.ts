@@ -128,6 +128,13 @@ export class TemplateSectionInputDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  /** ЕНТ профиль: с какого по счёту вопроса в секции (1-based) начислять 2 балла; по умолчанию 31 */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  profileHeavyFrom?: number;
 }
 
 export class CreateTestTemplateDto {

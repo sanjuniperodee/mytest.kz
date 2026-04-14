@@ -66,6 +66,8 @@ model Question {
   explanation Json?    // {"kk": "...", "ru": "...", "en": "..."} — premium
   imageUrls   Json?    @map("image_urls")
   metadata    Json?
+  /// Балл за верный ответ (ЕНТ: обычно 1; профиль 31–40 — 2). Если null — берётся правило секции шаблона.
+  scoreWeight Int?     @map("score_weight") @db.SmallInt
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -115,6 +117,8 @@ model TestTemplateSection {
   questionCount Int    @map("question_count")
   selectionMode String @default("random") @db.VarChar(20)
   sortOrder     Int    @default(0) @map("sort_order")
+  /// Профиль ЕНТ: с какого по счёту вопроса в секции (1-based) начислять 2 балла; null — не задано (дефолт 31 в scorer)
+  profileHeavyFrom Int? @map("profile_heavy_from") @db.SmallInt
 
   template TestTemplate @relation(fields: [templateId], references: [id])
   subject  Subject      @relation(fields: [subjectId], references: [id])

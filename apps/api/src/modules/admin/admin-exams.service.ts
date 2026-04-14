@@ -200,6 +200,10 @@ export class AdminExamsService {
             questionCount: s.questionCount,
             selectionMode: s.selectionMode ?? 'random',
             sortOrder: s.sortOrder ?? i,
+            profileHeavyFrom:
+              s.profileHeavyFrom !== undefined && s.profileHeavyFrom !== null
+                ? s.profileHeavyFrom
+                : null,
           },
         });
       }
@@ -240,6 +244,10 @@ export class AdminExamsService {
             questionCount: s.questionCount,
             selectionMode: s.selectionMode ?? 'random',
             sortOrder: s.sortOrder ?? i,
+            profileHeavyFrom:
+              s.profileHeavyFrom !== undefined && s.profileHeavyFrom !== null
+                ? s.profileHeavyFrom
+                : null,
           },
         });
       }

@@ -62,6 +62,7 @@ type TemplateRow = {
     questionCount: number;
     selectionMode: string;
     sortOrder: number;
+    profileHeavyFrom?: number | null;
     subject?: { id: string; slug: string; name: unknown };
   }[];
 };
@@ -295,6 +296,7 @@ export function ExamCatalogPage() {
         subjectId: string;
         questionCount: number;
         selectionMode?: string;
+        profileHeavyFrom?: number | null;
       }>) || [];
       const body = {
         name: {
@@ -309,6 +311,12 @@ export function ExamCatalogPage() {
           questionCount: Number(s.questionCount),
           selectionMode: s.selectionMode || 'random',
           sortOrder: i,
+          profileHeavyFrom:
+            s.profileHeavyFrom === undefined ||
+            s.profileHeavyFrom === null ||
+            (typeof s.profileHeavyFrom === 'number' && Number.isNaN(s.profileHeavyFrom))
+              ? null
+              : Math.max(1, Math.min(500, Math.floor(Number(s.profileHeavyFrom)))),
         })),
       };
       if (payload.mode === 'create' && payload.examId) {
@@ -799,6 +807,7 @@ export function ExamCatalogPage() {
                           subjectId: s.subjectId,
                           questionCount: s.questionCount,
                           selectionMode: s.selectionMode,
+                          profileHeavyFrom: s.profileHeavyFrom ?? undefined,
                         })),
                       });
                     }}
@@ -907,6 +916,13 @@ export function ExamCatalogPage() {
                             { value: 'ordered', label: 'ordered' },
                           ]}
                         />
+                      </Form.Item>
+                      <Form.Item
+                        name={[field.name, 'profileHeavyFrom']}
+                        label="ЕНТ: с какого № ×2"
+                        tooltip="Только профильный блок: с этого номера по счёту в секции вопрос даёт 2 балла. Пусто — по умолчанию с 31-го."
+                      >
+                        <InputNumber min={1} max={200} placeholder="31" style={{ width: 120 }} />
                       </Form.Item>
                       {fields.length > 1 && (
                         <Button type="text" danger onClick={() => remove(field.name)}>

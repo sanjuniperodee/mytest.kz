@@ -6,6 +6,8 @@ export interface GeneratedSection {
   subjectId: string;
   questionIds: string[];
   sortOrder: number;
+  /** ЕНТ профиль: с какого 1-based индекса в секции — 2 балла; null — в скорере по умолчанию 31 */
+  profileHeavyFrom?: number | null;
 }
 
 /** Режим прохождения ЕНТ (только для exam slug `ent`). */
@@ -62,6 +64,7 @@ export class TestGeneratorService {
           subjectId: section.subjectId,
           questionIds,
           sortOrder: section.sortOrder,
+          profileHeavyFrom: section.profileHeavyFrom ?? null,
         });
       }
     }
@@ -90,6 +93,7 @@ export class TestGeneratorService {
           subjectId,
           questionIds,
           sortOrder: lastSortOrder + i + 1,
+          profileHeavyFrom: 31,
         });
       }
     }

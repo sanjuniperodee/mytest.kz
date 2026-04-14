@@ -149,6 +149,7 @@ export class TestSessionService {
           isMandatory: subject?.isMandatory ?? true,
           questionCount: sec.questionIds.length,
           sortOrder: sec.sortOrder,
+          profileHeavyFrom: sec.profileHeavyFrom ?? null,
         };
       }),
     );
@@ -445,6 +446,7 @@ export class TestSessionService {
       isMandatory: boolean;
       questionCount: number;
       sortOrder: number;
+      profileHeavyFrom: number | null;
     }[] = [];
 
     let lastSubjectId: string | null = null;
@@ -459,6 +461,7 @@ export class TestSessionService {
           isMandatory: sub.isMandatory ?? true,
           questionCount: 0,
           sortOrder: sectionsMeta.length,
+          profileHeavyFrom: sub.isMandatory ? null : 31,
         });
       }
       sectionsMeta[sectionsMeta.length - 1].questionCount++;

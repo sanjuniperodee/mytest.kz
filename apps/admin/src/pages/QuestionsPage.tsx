@@ -163,6 +163,8 @@ interface Question {
   subjectId: string;
   topicId: string;
   difficulty: number;
+  /** ЕНТ: явный вес; null — по правилу секции шаблона */
+  scoreWeight?: number | null;
   type: string;
   content: unknown;
   explanation: unknown;
@@ -399,6 +401,7 @@ export function QuestionsPage() {
       topicId: editingQuestion.topicId,
       contentLocale: meta?.contentLocale === 'kk' ? 'kk' : 'ru',
       difficulty: editingQuestion.difficulty,
+      scoreWeight: editingQuestion.scoreWeight ?? undefined,
       type: editingQuestion.type,
       ...parseQuestionFormSlots(editingQuestion.content, getQuestionContentLocale(editingQuestion.metadata)),
       ...exp,
@@ -485,6 +488,7 @@ export function QuestionsPage() {
       subjectId: subjectId || undefined,
       contentLocale: 'ru',
       difficulty: 3,
+      scoreWeight: undefined,
       type: 'single_choice',
       passage_ru: '',
       passage_kk: '',
@@ -518,6 +522,7 @@ export function QuestionsPage() {
       subjectId: subjectId || undefined,
       contentLocale: previewLang === 'kk' ? 'kk' : 'ru',
       difficulty: 3,
+      scoreWeight: undefined,
       type: 'single_choice',
       passage_ru: '',
       passage_kk: '',
@@ -558,6 +563,12 @@ export function QuestionsPage() {
       subjectId: values.subjectId as string,
       examTypeId: values.examTypeId as string,
       difficulty: values.difficulty as number,
+      scoreWeight:
+        values.scoreWeight === undefined ||
+        values.scoreWeight === null ||
+        values.scoreWeight === ''
+          ? null
+          : Math.max(1, Math.min(5, Math.round(Number(values.scoreWeight)))),
       type: values.type as string,
       contentLocale: values.contentLocale === 'kk' ? 'kk' : 'ru',
       content,
@@ -686,6 +697,12 @@ export function QuestionsPage() {
         dataIndex: 'difficulty',
         width: 100,
         render: (v: number) => '⭐'.repeat(v),
+      },
+      {
+        title: 'Балл',
+        width: 72,
+        render: (_: unknown, r: Question) =>
+          r.scoreWeight != null ? <Tag>{r.scoreWeight}</Tag> : <Tag color="default">авто</Tag>,
       },
       {
         title: 'Вариантов',
@@ -1010,6 +1027,13 @@ export function QuestionsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Form.Item name="difficulty" label="Сложность" rules={[{ required: true }]} initialValue={3}>
               <InputNumber min={1} max={5} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="scoreWeight"
+              label="Балл (ЕНТ)"
+              tooltip="Пусто — считается по шаблону теста (например вопросы 31–40 профиля по 2). Заданное значение переопределяет правило для этого вопроса."
+            >
+              <InputNumber min={1} max={5} placeholder="Авто" style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="type" label="Тип вопроса" rules={[{ required: true }]} initialValue="single_choice">
               <Select

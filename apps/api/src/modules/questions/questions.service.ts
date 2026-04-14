@@ -28,8 +28,14 @@ export class QuestionsService {
     /** kk | ru — для выборки вопросов по языку теста */
     contentLocale?: QuestionContentLocale;
     answerOptions: { content: Prisma.InputJsonValue; isCorrect: boolean; sortOrder: number }[];
+    /** ЕНТ: явный вес в баллах (1–5); null — по правилу секции шаблона */
+    scoreWeight?: number | null;
   }) {
     const loc = data.contentLocale ?? 'ru';
+    const sw =
+      data.scoreWeight === undefined || data.scoreWeight === null
+        ? null
+        : Math.round(Number(data.scoreWeight));
     return this.prisma.question.create({
       data: {
         topicId: data.topicId,
@@ -37,6 +43,7 @@ export class QuestionsService {
         examTypeId: data.examTypeId,
         difficulty: data.difficulty,
         type: data.type,
+        scoreWeight: sw !== null && Number.isFinite(sw) ? Math.max(1, Math.min(5, sw)) : null,
         content: data.content,
         explanation: data.explanation ?? Prisma.DbNull,
         imageUrls: data.imageUrls ?? Prisma.DbNull,
@@ -136,6 +143,7 @@ export class QuestionsService {
       imageUrls?: string[] | null;
       contentLocale?: QuestionContentLocale;
       answerOptions?: { content: Prisma.InputJsonValue; isCorrect: boolean; sortOrder: number }[];
+      scoreWeight?: number | null;
     },
   ) {
     const existing = await this.prisma.question.findUnique({ where: { id } });
@@ -165,6 +173,17 @@ export class QuestionsService {
           ...(data.examTypeId !== undefined ? { examTypeId: data.examTypeId } : {}),
           ...(data.difficulty !== undefined ? { difficulty: data.difficulty } : {}),
           ...(data.type !== undefined ? { type: data.type } : {}),
+          ...(data.scoreWeight !== undefined
+            ? {
+                scoreWeight:
+                  data.scoreWeight === null
+                    ? null
+                    : (() => {
+                        const sw = Math.round(Number(data.scoreWeight));
+                        return Number.isFinite(sw) ? Math.max(1, Math.min(5, sw)) : null;
+                      })(),
+              }
+            : {}),
           ...(data.content !== undefined ? { content: data.content } : {}),
           ...(data.explanation !== undefined
             ? { explanation: data.explanation === null ? Prisma.DbNull : data.explanation }

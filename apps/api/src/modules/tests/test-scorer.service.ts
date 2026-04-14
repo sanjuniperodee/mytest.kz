@@ -27,11 +27,14 @@ type QuestionPlacement = {
   isMandatory: boolean;
   /** 1-based индекс вопроса внутри секции предмета */
   indexInSubject: number;
+  /** С какого индекса (1-based) в секции — 2 балла; null → 31 */
+  profileHeavyFrom: number | null;
 };
 
-/** ЕНТ: в профильном предмете 1–30 по 1 баллу, 31–40 по 2 балла (внутри каждой секции счёт с 1). */
-function entProfileQuestionWeight(indexInSubject: number): number {
-  return indexInSubject <= 30 ? 1 : 2;
+/** ЕНТ профиль: до порога — 1 балл, с порога — 2 (по умолчанию порог 31). */
+function entProfileMaxPoints(indexInSubject: number, profileHeavyFrom: number | null): number {
+  const from = profileHeavyFrom ?? 31;
+  return indexInSubject < from ? 1 : 2;
 }
 
 function buildQuestionPlacementFromMetadata(metadata: unknown): Map<string, QuestionPlacement> | null {
@@ -43,6 +46,7 @@ function buildQuestionPlacementFromMetadata(metadata: unknown): Map<string, Ques
       questionCount?: number;
       isMandatory?: boolean;
       sortOrder?: number;
+      profileHeavyFrom?: number | null;
     }>;
   };
   const order = Array.isArray(m.questionOrder) ? m.questionOrder : [];
@@ -57,6 +61,10 @@ function buildQuestionPlacementFromMetadata(metadata: unknown): Map<string, Ques
   for (const sec of sections) {
     const n = Math.max(0, Math.floor(Number(sec.questionCount) || 0));
     const isMandatory = sec.isMandatory !== false;
+    const heavy =
+      sec.profileHeavyFrom === undefined || sec.profileHeavyFrom === null
+        ? null
+        : Math.max(1, Math.floor(Number(sec.profileHeavyFrom) || 31));
     for (let i = 0; i < n; i++) {
       const qid = order[ptr++];
       if (!qid) return map.size > 0 ? map : null;
@@ -64,15 +72,23 @@ function buildQuestionPlacementFromMetadata(metadata: unknown): Map<string, Ques
         subjectId: sec.subjectId,
         isMandatory,
         indexInSubject: i + 1,
+        profileHeavyFrom: heavy,
       });
     }
   }
   return map;
 }
 
-function entMaxPointsForPlacement(p: QuestionPlacement): number {
+function entMaxPointsForPlacement(
+  p: QuestionPlacement,
+  questionScoreWeight: number | null | undefined,
+): number {
+  if (questionScoreWeight != null) {
+    const w = Math.round(Number(questionScoreWeight));
+    if (Number.isFinite(w)) return Math.max(1, Math.min(5, w));
+  }
   if (p.isMandatory) return 1;
-  return entProfileQuestionWeight(p.indexInSubject);
+  return entProfileMaxPoints(p.indexInSubject, p.profileHeavyFrom);
 }
 
 @Injectable()
@@ -149,8 +165,9 @@ export class TestScorerService {
       const subject = (answer.question as { subject?: { id: string; name: unknown; slug: string; isMandatory: boolean } }).subject;
       const subjectId = subject?.id || answer.question.subjectId;
       const pos = entWeightedActive ? placement!.get(answer.questionId) : undefined;
+      const qSw = (answer.question as { scoreWeight?: number | null }).scoreWeight;
       const wMax =
-        entWeightedActive && pos ? entMaxPointsForPlacement(pos) : 1;
+        entWeightedActive && pos ? entMaxPointsForPlacement(pos, qSw) : 1;
       const wEarned = isCorrect ? wMax : 0;
       weightedRaw += wEarned;
       weightedMax += wMax;
