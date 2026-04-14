@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../api/hooks/useAuth';
 import { useMistakesSummary, useStartMistakesPractice } from '../api/hooks/useTests';
 import { Spinner } from '../components/common/Spinner';
+import { localizedText } from '../lib/localizedText';
 
 const EXAM_GRADIENTS: Record<string, string> = {
   ent: 'linear-gradient(135deg, #6366f1, #4f46e5)',
@@ -30,6 +31,7 @@ export function MistakesPage() {
   );
 
   const lang = user?.preferredLanguage ?? 'ru';
+  const uiLang = i18n.language;
 
   const getExamLabel = useCallback(
     (slug: string) => t(`profile.examNames.${slug}`, { defaultValue: slug.toUpperCase() }),
@@ -39,6 +41,16 @@ export function MistakesPage() {
   const getSubjectLabel = useCallback(
     (slug: string) => t(`mistakes.subjects.${slug}`, { defaultValue: slug }),
     [t],
+  );
+
+  const examTitle = useCallback(
+    (name: unknown, slug: string) => localizedText(name, uiLang) || getExamLabel(slug),
+    [uiLang, getExamLabel],
+  );
+
+  const subjectTitle = useCallback(
+    (name: unknown, slug: string) => localizedText(name, uiLang) || getSubjectLabel(slug),
+    [uiLang, getSubjectLabel],
   );
 
   const onPractice = async (examTypeId?: string) => {
@@ -102,7 +114,7 @@ export function MistakesPage() {
                     <div className="mistakes-exam-row-main">
                       <span className="mistakes-exam-dot" style={{ background: grad }} aria-hidden />
                       <div>
-                        <div className="mistakes-exam-name">{getExamLabel(row.examSlug)}</div>
+                        <div className="mistakes-exam-name">{examTitle(row.examName, row.examSlug)}</div>
                         <div className="mistakes-exam-count">
                           {t('mistakes.questionsToFix', { count: row.count })}
                         </div>
@@ -140,9 +152,9 @@ export function MistakesPage() {
                 >
                   <span className="mistakes-history-date">{dateFmt.format(new Date(r.recoveredAt))}</span>
                   <span className="mistakes-history-meta">
-                    {getExamLabel(r.examSlug)}
+                    {examTitle(r.examName, r.examSlug)}
                     {' · '}
-                    {getSubjectLabel(r.subjectSlug)}
+                    {subjectTitle(r.subjectName, r.subjectSlug)}
                   </span>
                   <span className="mistakes-history-cta">{t('mistakes.viewSession')}</span>
                 </Link>

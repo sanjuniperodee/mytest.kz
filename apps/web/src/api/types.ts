@@ -97,12 +97,20 @@ export interface SessionMetadata {
 
 export interface MistakesSummary {
   openTotal: number;
-  openByExam: { examTypeId: string; examSlug: string; count: number }[];
+  openByExam: {
+    examTypeId: string;
+    examSlug: string;
+    /** JSON i18n из БД */
+    examName: unknown | null;
+    count: number;
+  }[];
   recentRecoveries: {
     questionId: string;
     examTypeId: string;
     examSlug: string;
+    examName: unknown;
     subjectSlug: string;
+    subjectName: unknown;
     sessionId: string;
     recoveredAt: string;
   }[];

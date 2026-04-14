@@ -14,6 +14,10 @@ export type MistakeRecoveryRow = {
   sessionId: string;
   subjectSlug: string;
   examSlug: string;
+  /** Json { kk, ru, en } из exam_types */
+  examName: unknown;
+  /** Json { kk, ru, en } из subjects */
+  subjectName: unknown;
 };
 
 @Injectable()
@@ -62,7 +66,9 @@ export class MistakesService {
         a."examTypeId",
         a."sessionId",
         s.slug AS "subjectSlug",
-        et.slug AS "examSlug"
+        et.slug AS "examSlug",
+        et.name AS "examName",
+        s.name AS "subjectName"
       FROM attempts a
       INNER JOIN questions q ON q.id = a."questionId"
       INNER JOIN subjects s ON s.id = q.subject_id
@@ -93,6 +99,7 @@ export class MistakesService {
       .map((id) => ({
         examTypeId: id,
         examSlug: examMap.get(id)?.slug ?? '',
+        examName: examMap.get(id)?.name ?? null,
         count: byExam.get(id) ?? 0,
       }))
       .sort((a, b) => b.count - a.count);
@@ -102,7 +109,9 @@ export class MistakesService {
       questionId: r.questionId,
       examTypeId: r.examTypeId,
       examSlug: r.examSlug,
+      examName: r.examName,
       subjectSlug: r.subjectSlug,
+      subjectName: r.subjectName,
       sessionId: r.sessionId,
       recoveredAt: r.finishedAt.toISOString(),
     }));

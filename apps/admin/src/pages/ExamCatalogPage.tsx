@@ -112,7 +112,11 @@ export function ExamCatalogPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-exams-catalog'] });
     queryClient.invalidateQueries({ queryKey: ['admin-exam-templates'] });
-    queryClient.invalidateQueries({ queryKey: ['exam-types'] });
+    /** Совпадает с apps/web (useExamTypes, useSubjects, useTemplates) */
+    queryClient.invalidateQueries({ queryKey: ['examTypes'] });
+    queryClient.invalidateQueries({ queryKey: ['subjects'] });
+    queryClient.invalidateQueries({ queryKey: ['templates'] });
+    queryClient.invalidateQueries({ queryKey: ['mistakes-summary'] });
   };
 
   const createExam = useMutation({
