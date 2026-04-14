@@ -66,22 +66,65 @@ function pickContentSlot(value: unknown, lang: AppLang): ContentSlot | null {
   return null;
 }
 
+/** Legacy: первая строка в одном поле — подпись, остальное — условие (как в старых сидах). */
+function splitFirstLineBody(full: string): { topicLine: string; text: string } {
+  const s = String(full || '').replace(/\r\n/g, '\n').trim();
+  const i = s.indexOf('\n');
+  if (i === -1) return { topicLine: '', text: s };
+  const first = s.slice(0, i).trim();
+  const rest = s.slice(i + 1).trim();
+  if (!rest) return { topicLine: '', text: s };
+  return { topicLine: first, text: rest };
+}
+
+export type QuestionContentDisplayParts = {
+  /** Подпись блока / «текст вопроса» из API (`topicLine`), без условия. */
+  topicLine: string | null;
+  /** Условие (`text`), уже без дублирования с topicLine. */
+  stem: string;
+};
+
 /**
- * Одна строка для условия в UI: при явном topicLine — «тема\\nтело» (как в старых сидах),
- * иначе только text (первая строка темы может быть внутри text).
+ * Разбор контента вопроса для UI: явные `topicLine` + `text` в JSON,
+ * иначе fallback по локали и при необходимости — первая строка внутри одного поля.
  */
-export function flattenQuestionContentForDisplay(value: unknown, language: string | undefined): string {
+export function getQuestionContentDisplayParts(
+  value: unknown,
+  language: string | undefined,
+): QuestionContentDisplayParts {
   const lang = normalizeLang(language);
   const order: AppLang[] =
     lang === 'kk' ? ['kk', 'ru', 'en'] : lang === 'en' ? ['en', 'ru', 'kk'] : ['ru', 'kk', 'en'];
+
   for (const l of order) {
     const slot = pickContentSlot(value, l);
     if (!slot) continue;
-    const t = (slot.topicLine || '').trim();
-    const b = (slot.text || '').trim();
-    if (t && b) return `${t}\n${b}`;
-    if (b) return b;
-    if (t) return t;
+    const topic = (slot.topicLine || '').trim();
+    const text = (slot.text || '').trim();
+    if (!topic && !text) continue;
+
+    if (topic && text) return { topicLine: topic, stem: text };
+    if (text && !topic) {
+      const split = splitFirstLineBody(text);
+      if (split.topicLine && split.text) return { topicLine: split.topicLine, stem: split.text };
+      return { topicLine: null, stem: text };
+    }
+    if (topic && !text) return { topicLine: null, stem: topic };
   }
-  return localizedText(value, language);
+
+  const flat = localizedText(value, language).trim();
+  if (!flat) return { topicLine: null, stem: '' };
+  const split = splitFirstLineBody(flat);
+  if (split.topicLine && split.text) return { topicLine: split.topicLine, stem: split.text };
+  return { topicLine: null, stem: flat };
+}
+
+/**
+ * Одна строка (например для превью / SEO). Для экрана теста предпочтительнее
+ * {@link getQuestionContentDisplayParts}.
+ */
+export function flattenQuestionContentForDisplay(value: unknown, language: string | undefined): string {
+  const { topicLine, stem } = getQuestionContentDisplayParts(value, language);
+  if (topicLine && stem) return `${topicLine}\n${stem}`;
+  return stem || topicLine || '';
 }

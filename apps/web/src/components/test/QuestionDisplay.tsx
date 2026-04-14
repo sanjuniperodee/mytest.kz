@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { flattenQuestionContentForDisplay } from '../../lib/localizedText';
-import { renderMathInTextWithLineBreaks, splitQuestionStemLine } from '../../lib/questionStem';
+import { getQuestionContentDisplayParts } from '../../lib/localizedText';
+import { renderMathInTextWithLineBreaks } from '../../lib/questionStem';
 import { splitReadingStem } from '../../lib/splitReadingStem';
 
 interface Props {
@@ -30,25 +30,27 @@ const labelStyle: CSSProperties = {
 
 export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
   const { t, i18n } = useTranslation();
-  const text = useMemo(
-    () => flattenQuestionContentForDisplay(content, i18n.language),
+  const { topicLine, stem } = useMemo(
+    () => getQuestionContentDisplayParts(content, i18n.language),
     [content, i18n.language],
   );
-  const { topic, body } = useMemo(() => splitQuestionStemLine(text), [text]);
-  const toRender = topic ? body : text;
 
   const isReading = subjectSlug === 'reading_literacy';
   const readingParts = useMemo(
-    () => (isReading ? splitReadingStem(toRender) : null),
-    [isReading, toRender],
+    () => (isReading ? splitReadingStem(stem) : null),
+    [isReading, stem],
   );
 
   const [passageCollapsed, setPassageCollapsed] = useState(false);
   useEffect(() => {
     setPassageCollapsed(false);
-  }, [text]);
+  }, [stem, topicLine]);
 
-  const renderedSingle = useMemo(() => renderMathInTextWithLineBreaks(toRender), [toRender]);
+  const renderedTopic = useMemo(
+    () => (topicLine ? renderMathInTextWithLineBreaks(topicLine) : ''),
+    [topicLine],
+  );
+  const renderedSingle = useMemo(() => renderMathInTextWithLineBreaks(stem), [stem]);
   const renderedPassage = useMemo(
     () => (readingParts ? renderMathInTextWithLineBreaks(readingParts.passage) : ''),
     [readingParts],
@@ -60,6 +62,25 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
 
   return (
     <div style={{ marginBottom: 20 }}>
+      {topicLine ? (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: '12px 14px',
+            borderRadius: 'var(--r-md)',
+            background: 'var(--surface-elevated)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <div style={labelStyle}>{t('test.questionContextLabel')}</div>
+          <div
+            dangerouslySetInnerHTML={{ __html: renderedTopic }}
+            className="question-stem-body question-block-topic"
+            style={{ ...stemBodyStyle, fontSize: 15, fontWeight: 500 }}
+          />
+        </div>
+      ) : null}
+
       {isReading && readingParts ? (
         <>
           <div

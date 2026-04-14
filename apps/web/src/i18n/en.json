@@ -80,6 +80,7 @@
     "contextSubject": "Subject: {{name}}",
     "contextInSection": "In this section: {{current}}/{{total}}",
     "readingPassage": "Text",
+    "questionContextLabel": "Context",
     "readingQuestion": "Question",
     "readingHidePassage": "Hide text",
     "readingShowPassage": "Show text",

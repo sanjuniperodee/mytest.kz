@@ -80,6 +80,7 @@
     "contextSubject": "Предмет: {{name}}",
     "contextInSection": "В блоке: {{current}}/{{total}}",
     "readingPassage": "Текст",
+    "questionContextLabel": "К заданию",
     "readingQuestion": "Вопрос",
     "readingHidePassage": "Скрыть текст",
     "readingShowPassage": "Показать текст",

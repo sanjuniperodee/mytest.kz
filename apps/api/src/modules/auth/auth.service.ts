@@ -74,7 +74,13 @@ export class AuthService {
    * Step 1: User enters phone (same as shared in Telegram bot).
    * Redis key + code sent to Telegram chat by telegramId.
    */
-  async requestWebCode(rawPhone: string) {
+  /**
+   * @param opts.fromTelegramBot — одно сообщение в Telegram: префикс «номер сохранён» + код (без второго дублирующего текста из бота).
+   */
+  async requestWebCode(
+    rawPhone: string,
+    opts?: { fromTelegramBot?: boolean },
+  ) {
     const normalized = normalizeKzPhone(rawPhone || '');
     if (!normalized) {
       throw new BadRequestException('Введите корректный номер телефона');
@@ -96,7 +102,9 @@ export class AuthService {
     const redisKey = `auth:code:${normalized}`;
     await this.redis.set(redisKey, code, 'EX', AUTH_CODE_TTL_SECONDS);
 
-    await this.telegramBot.sendAuthCodeToTelegram(user.telegramId, code);
+    await this.telegramBot.sendAuthCodeToTelegram(user.telegramId, code, {
+      includePhoneLinkedAck: opts?.fromTelegramBot === true,
+    });
 
     return { message: 'Code sent to your Telegram' };
   }

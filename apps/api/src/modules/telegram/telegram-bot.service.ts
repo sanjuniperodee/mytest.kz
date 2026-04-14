@@ -15,11 +15,12 @@ import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
-  private bot: Telegraf;
+  private bot: Telegraf | null = null;
   private channelId: string;
   /** HTTPS origin of the Mini App (Bot API WebAppInfo.url), same as public site. */
   private readonly webAppUrl: string;
   private readonly logger = new Logger(TelegramBotService.name);
+  private readonly botToken: string;
 
   constructor(
     private config: ConfigService,
@@ -27,26 +28,38 @@ export class TelegramBotService implements OnModuleInit {
     @Inject(forwardRef(() => AuthService))
     private authService: AuthService,
   ) {
-    const token = config.get<string>('TELEGRAM_BOT_TOKEN', '');
-    this.bot = new Telegraf(token);
+    this.botToken = (config.get<string>('TELEGRAM_BOT_TOKEN', '') || '').trim();
     this.channelId = config.get<string>('TELEGRAM_CHANNEL_ID', '');
     const raw =
       config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://my-test.kz';
     this.webAppUrl = raw.replace(/\/+$/, '');
   }
 
+  /** Inline «Открыть» — для сообщений с кодом (сайт). */
   private openAppInlineKeyboard() {
     return Markup.inlineKeyboard([
       [Markup.button.webApp('🚀 Открыть MyTest', this.webAppUrl)],
     ]);
   }
 
+  /**
+   * Одна reply-клавиатура: WebApp + контакт (в одном сообщении с /start, без второго «шума»).
+   * Без oneTime — пользователь может сначала открыть приложение, потом отправить номер.
+   */
+  private mainReplyKeyboard() {
+    return Markup.keyboard([
+      [Markup.button.webApp('🚀 Открыть MyTest', this.webAppUrl)],
+      [Markup.button.contactRequest('📱 Номер для входа на сайте')],
+    ]).resize();
+  }
+
   async onModuleInit() {
-    const contactKb = Markup.keyboard([
-      [Markup.button.contactRequest('📱 Поделиться номером')],
-    ])
-      .resize()
-      .oneTime();
+    if (!this.botToken) {
+      this.logger.warn('TELEGRAM_BOT_TOKEN пуст — бот не запускается.');
+      return;
+    }
+
+    this.bot = new Telegraf(this.botToken);
 
     this.bot.start(async (ctx) => {
       const tgUser = ctx.from;
@@ -70,13 +83,14 @@ export class TelegramBotService implements OnModuleInit {
         });
 
         await ctx.reply(
-          '👋 Добро пожаловать в MyTest!\n\n' +
-            'Кнопка ниже открывает мини-приложение. Чтобы входить с сайта, поделитесь номером в следующем сообщении — код придёт в этот чат.',
-          this.openAppInlineKeyboard(),
-        );
-        await ctx.reply(
-          '📱 Нажмите кнопку и отправьте свой номер телефона.',
-          contactKb,
+          '👋 <b>MyTest</b>\n\n' +
+            '• <b>Мини-приложение</b> — первая кнопка.\n' +
+            '• <b>Вход с сайта</b> — вторая кнопка: поделитесь номером казахстанского оператора. ' +
+            'Код для входа придёт <i>в этот же чат</i> одним сообщением.',
+          {
+            parse_mode: 'HTML',
+            ...this.mainReplyKeyboard(),
+          },
         );
       } catch (error) {
         this.logger.error(`Error handling /start for ${tgUser.id}: ${error}`);
@@ -93,12 +107,14 @@ export class TelegramBotService implements OnModuleInit {
       if ('contact' in ctx.message) {
         const contact = ctx.message.contact;
         if (contact.user_id !== undefined && contact.user_id !== from.id) {
-          await ctx.reply('Используйте кнопку и отправьте свой номер телефона.');
+          await ctx.reply('Отправьте именно <b>свой</b> контакт через кнопку.', {
+            parse_mode: 'HTML',
+          });
           return;
         }
         normalized = normalizeKzPhone(contact.phone_number);
         if (!normalized) {
-          await ctx.reply('Не удалось распознать номер. Попробуйте ещё раз.');
+          await ctx.reply('Не удалось распознать номер. Нужен номер оператора KZ.');
           return;
         }
       } else if ('text' in ctx.message) {
@@ -116,19 +132,15 @@ export class TelegramBotService implements OnModuleInit {
           data: { phone: normalized },
         });
         try {
-          await this.authService.requestWebCode(normalized);
+          await this.authService.requestWebCode(normalized, { fromTelegramBot: true });
         } catch (sendErr) {
           this.logger.error(`requestWebCode after phone save failed: ${sendErr}`);
           await ctx.reply(
-            '✅ Номер сохранён. Код не удалось отправить — нажмите «Отправить код» на сайте.',
-            { reply_markup: { remove_keyboard: true } },
+            'Номер сохранён, но код не отправился. Нажмите «Отправить код» на сайте или /start.',
+            Markup.removeKeyboard(),
           );
           return;
         }
-        await ctx.reply(
-          '✅ Номер сохранён. Код для входа отправлен в этот чат. На сайте введите тот же номер и код.',
-          { reply_markup: { remove_keyboard: true } },
-        );
       } catch (e) {
         if (e instanceof PrismaClientKnownRequestError && e.code === 'P2002') {
           await ctx.reply(
@@ -149,7 +161,7 @@ export class TelegramBotService implements OnModuleInit {
 
     const safeStop = (signal: NodeJS.Signals) => {
       try {
-        this.bot.stop(signal);
+        this.bot?.stop(signal);
       } catch {
         /* telegraf throws if bot was not running */
       }
@@ -159,6 +171,7 @@ export class TelegramBotService implements OnModuleInit {
   }
 
   async checkChannelMembership(telegramUserId: number): Promise<boolean> {
+    if (!this.bot) return false;
     try {
       const member = await this.bot.telegram.getChatMember(
         this.channelId,
@@ -173,17 +186,31 @@ export class TelegramBotService implements OnModuleInit {
     }
   }
 
-  /** Send login code to an existing Telegram chat. */
-  async sendAuthCodeToTelegram(telegramId: bigint, code: string): Promise<void> {
+  /**
+   * Код входа в Telegram. HTML — без конфликтов с символами в коде.
+   * includePhoneLinkedAck — префикс при привязке номера из бота (одно сообщение вместо двух).
+   */
+  async sendAuthCodeToTelegram(
+    telegramId: bigint,
+    code: string,
+    options?: { includePhoneLinkedAck?: boolean },
+  ): Promise<void> {
+    if (!this.bot) {
+      this.logger.warn('sendAuthCodeToTelegram: бот не запущен');
+      throw new BadRequestException('Telegram-бот недоступен.');
+    }
+    const ack = options?.includePhoneLinkedAck
+      ? '✅ <b>Номер сохранён.</b> На сайте введите тот же номер и код ниже.\n\n'
+      : '';
+    const body =
+      ack +
+      `<b>🔐 Код для входа в MyTest:</b> <code>${code}</code>\n\n` +
+      `Код действителен 5 минут.`;
     try {
-      await this.bot.telegram.sendMessage(
-        Number(telegramId),
-        `🔐 Код для входа в MyTest: *${code}*\n\nКод действителен 5 минут.`,
-        {
-          parse_mode: 'Markdown',
-          ...this.openAppInlineKeyboard(),
-        },
-      );
+      await this.bot.telegram.sendMessage(Number(telegramId), body, {
+        parse_mode: 'HTML',
+        ...this.openAppInlineKeyboard(),
+      });
     } catch (error) {
       this.logger.error(`Failed to send auth code to telegramId ${telegramId}: ${error}`);
       throw new BadRequestException(

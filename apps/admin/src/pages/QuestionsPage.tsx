@@ -833,28 +833,34 @@ export function QuestionsPage() {
           <Form.Item
             name="topic_ru"
             label="Текст вопроса / подпись блока (RU)"
-            tooltip="Короткая строка: раздел, контекст ЕНТ. Не путать с условием ниже."
+            tooltip="Раздел, контекст ЕНТ, длинный ввод к заданию. Отдельно от условия ниже."
           >
-            <Input placeholder="Например: Раздел «Алгебра»" />
+            <TextArea
+              placeholder="Например: раздел, вводный абзац…"
+              autoSize={{ minRows: 4, maxRows: 18 }}
+            />
           </Form.Item>
           <Form.Item name="stem_ru" label="Условие / формулировка (RU)" rules={[{ required: true }]}>
-            <TextArea rows={5} placeholder="Основной текст задания. LaTeX: $...$" />
+            <TextArea
+              placeholder="Основной текст задания. LaTeX: $...$"
+              autoSize={{ minRows: 14, maxRows: 36 }}
+            />
           </Form.Item>
 
           <Divider orientation="left">Қазақша</Divider>
           <Form.Item name="topic_kk" label="Текст вопроса / подпись (KK)">
-            <Input placeholder="Бөлім атауы" />
+            <TextArea placeholder="Бөлім, контекст…" autoSize={{ minRows: 4, maxRows: 18 }} />
           </Form.Item>
           <Form.Item name="stem_kk" label="Условие (KK)">
-            <TextArea rows={4} />
+            <TextArea autoSize={{ minRows: 14, maxRows: 36 }} />
           </Form.Item>
 
           <Divider orientation="left">English (опционально)</Divider>
           <Form.Item name="topic_en" label="Topic line (EN)">
-            <Input />
+            <TextArea autoSize={{ minRows: 3, maxRows: 14 }} />
           </Form.Item>
           <Form.Item name="stem_en" label="Stem (EN)">
-            <TextArea rows={2} />
+            <TextArea autoSize={{ minRows: 8, maxRows: 28 }} />
           </Form.Item>
 
           {drawerOpen && !!formSubjectId && (
