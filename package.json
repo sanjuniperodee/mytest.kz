@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "build:api:force": "turbo run build --filter=@bilimland/api --force",
     "lint": "turbo lint",
     "db:migrate": "cd apps/api && npx prisma migrate dev",
     "db:seed": "cd apps/api && npx prisma db seed",
