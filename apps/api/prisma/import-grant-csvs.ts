@@ -27,6 +27,19 @@ type CutoffRow = {
   minScore: number | null;
 };
 
+function dedupeCutoffsJson(rows: CutoffRow[]): { cutoffs: CutoffRow[]; removed: number } {
+  const map = new Map<string, CutoffRow>();
+  for (const c of rows) {
+    const key = `${c.cycleSlug}\t${c.universityCode}\t${c.programKey}\t${c.quotaType}`;
+    const prev = map.get(key);
+    const minScore =
+      c.minScore != null ? c.minScore : prev != null && prev.minScore != null ? prev.minScore : null;
+    map.set(key, { ...c, minScore });
+  }
+  const out = [...map.values()];
+  return { cutoffs: out, removed: rows.length - out.length };
+}
+
 function readCsv(file: string): string[][] {
   const buf = fs.readFileSync(path.join(DATA_DIR, file), 'utf8');
   return parse(buf, {
@@ -231,7 +244,12 @@ function main() {
   const r1 = parseMatrix(matrix2324, '2023-2024', programs);
   const r2 = parseMatrix(matrix2526, '2025-2026', programs);
 
-  const cutoffs = [...r1.cutoffs, ...r2.cutoffs];
+  const mergedCutoffs = [...r1.cutoffs, ...r2.cutoffs];
+  const { cutoffs, removed: deduped } = dedupeCutoffsJson(mergedCutoffs);
+  if (deduped > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(`Removed ${deduped} duplicate cutoff cell(s) (same cycle / university / program / quota).`);
+  }
   universities = ensureUniversitiesForMatrix(universities, cutoffs);
 
   const cycles = [

@@ -27,6 +27,31 @@ type SeedJson = {
   }[];
 };
 
+type CutoffRow = {
+  cycleId: string;
+  universityCode: number;
+  programId: string;
+  quotaType: GrantQuotaType;
+  minScore: number | null;
+};
+
+/** Одна строка на (cycle, вуз, программа, квота): в исходной матрице бывают повторы блоков. */
+function dedupeGrantCutoffs(rows: CutoffRow[]): CutoffRow[] {
+  const map = new Map<string, CutoffRow>();
+  for (const r of rows) {
+    const key = `${r.cycleId}\t${r.universityCode}\t${r.programId}\t${r.quotaType}`;
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, r);
+      continue;
+    }
+    const minScore =
+      r.minScore != null ? r.minScore : prev.minScore != null ? prev.minScore : null;
+    map.set(key, { ...r, minScore });
+  }
+  return [...map.values()];
+}
+
 export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
   if (!fs.existsSync(JSON_PATH)) {
     throw new Error(`Missing ${JSON_PATH}. Run: npm run import:grant-admission -w @bilimland/api`);
@@ -90,13 +115,7 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
     const cycleId = cycleIdBySlug.get(slug);
     if (!cycleId) continue;
     const rows = data.cutoffs.filter((r) => r.cycleSlug === slug);
-    const prismaRows: {
-      cycleId: string;
-      universityCode: number;
-      programId: string;
-      quotaType: GrantQuotaType;
-      minScore: number | null;
-    }[] = [];
+    const prismaRows: CutoffRow[] = [];
     for (const row of rows) {
       const programId = programIdByKey.get(row.programKey);
       if (!programId) {
@@ -111,8 +130,18 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
         minScore: row.minScore,
       });
     }
-    for (let i = 0; i < prismaRows.length; i += CHUNK) {
-      await prisma.grantCutoff.createMany({ data: prismaRows.slice(i, i + CHUNK) });
+    const uniqueRows = dedupeGrantCutoffs(prismaRows);
+    if (uniqueRows.length < prismaRows.length) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `seed-grant-admission: deduped ${prismaRows.length - uniqueRows.length} duplicate cutoff(s) for cycle ${slug}`,
+      );
+    }
+    for (let i = 0; i < uniqueRows.length; i += CHUNK) {
+      await prisma.grantCutoff.createMany({
+        data: uniqueRows.slice(i, i + CHUNK),
+        skipDuplicates: true,
+      });
     }
   }
 
