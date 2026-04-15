@@ -22,6 +22,13 @@ const EXAM_GRADIENTS: Record<string, string> = {
   physmath: 'linear-gradient(135deg, #3b82f6, #2563eb)',
 };
 
+/** Raster badges from `public/assets/images/exams/` */
+const EXAM_ICON_SRC: Record<string, string> = {
+  ent: '/assets/images/exams/ENT.png',
+  nis: '/assets/images/exams/NIS.png',
+  ktl: '/assets/images/exams/KTL.png',
+};
+
 function ExamIcon({ slug }: { slug: string }) {
   const props = { viewBox: '0 0 24 24', width: 22, height: 22, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8 };
   switch (slug) {
@@ -169,7 +176,18 @@ export function HomePage() {
                 className="exam-row"
               >
                 <div className="exam-row-icon" style={{ background: gradient, color: '#fff' }}>
-                  <ExamIcon slug={exam.slug} />
+                  {EXAM_ICON_SRC[exam.slug] ? (
+                    <img
+                      src={EXAM_ICON_SRC[exam.slug]}
+                      alt=""
+                      className="exam-row-icon-img"
+                      width={32}
+                      height={32}
+                      decoding="async"
+                    />
+                  ) : (
+                    <ExamIcon slug={exam.slug} />
+                  )}
                 </div>
                 <div className="exam-row-main">
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, color: 'var(--text-primary)' }}>

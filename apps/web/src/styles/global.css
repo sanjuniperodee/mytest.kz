@@ -800,6 +800,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   pointer-events: none;
 }
 
+.exam-row-icon-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
 .exam-row-main {
   flex: 1;
   min-width: 0;
