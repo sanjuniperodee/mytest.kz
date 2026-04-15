@@ -6,10 +6,11 @@ import {
   type QuestionContentLocale,
 } from '../../common/question-locale';
 import {
-  combineTopicAndStem,
   extractSlot,
+  haystackForAdminSearch,
   previewFromSlot,
   questionTextSimilarity,
+  type AdminTextSearchMode,
 } from '../../common/question-similarity';
 
 @Injectable()
@@ -229,13 +230,27 @@ export class QuestionsService {
     excludeId?: string;
     threshold?: number;
     limit?: number;
+    /** topic — только topicLine; stem — материал + условие + подсказка; all — всё (по умолчанию). */
+    searchIn?: AdminTextSearchMode;
   }) {
-    const threshold = params.threshold ?? 0.45;
+    const mode: AdminTextSearchMode = params.searchIn ?? 'all';
+    const defaultThreshold = mode === 'topic' ? 0.32 : 0.4;
+    const threshold = params.threshold ?? defaultThreshold;
     const limit = Math.min(Math.max(1, params.limit ?? 12), 60);
     const needle = params.text.trim();
+    const minLen = mode === 'topic' ? 2 : 4;
 
-    if (!needle || needle.length < 4) {
-      return { items: [] as { id: string; score: number; preview: string }[] };
+    if (!needle || needle.length < minLen) {
+      return {
+        items: [] as {
+          id: string;
+          score: number;
+          preview: string;
+          subjectSlug: string | null;
+          subjectName: unknown;
+          topicName: unknown;
+        }[],
+      };
     }
 
     const rows = await this.prisma.question.findMany({
@@ -245,7 +260,12 @@ export class QuestionsService {
         isActive: true,
         ...(params.excludeId ? { id: { not: params.excludeId } } : {}),
       },
-      select: { id: true, content: true },
+      select: {
+        id: true,
+        content: true,
+        subject: { select: { slug: true, name: true } },
+        topic: { select: { name: true } },
+      },
       orderBy: { updatedAt: 'desc' },
       take: 900,
     });
@@ -254,8 +274,8 @@ export class QuestionsService {
       .map((row) => {
         const slotRu = extractSlot(row.content, 'ru');
         const slotKk = extractSlot(row.content, 'kk');
-        const hayRu = combineTopicAndStem(slotRu);
-        const hayKk = combineTopicAndStem(slotKk);
+        const hayRu = haystackForAdminSearch(slotRu, mode);
+        const hayKk = haystackForAdminSearch(slotKk, mode);
         const scoreRu = questionTextSimilarity(needle, hayRu);
         const scoreKk = questionTextSimilarity(needle, hayKk);
         let score = Math.max(scoreRu, scoreKk);
@@ -268,6 +288,9 @@ export class QuestionsService {
           id: row.id,
           score,
           preview: previewFromSlot(previewSlot, 160),
+          subjectSlug: row.subject?.slug ?? null,
+          subjectName: row.subject?.name ?? null,
+          topicName: row.topic?.name ?? null,
         };
       })
       .filter((x) => x.score >= threshold)

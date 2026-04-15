@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { QUESTION_METADATA_LOCALE_KEY } from '../src/common/question-locale';
 
@@ -629,6 +631,13 @@ async function main() {
   });
 
   console.log('Templates done');
+
+  const grantJson = path.join(__dirname, 'data', 'grant-admission', 'grant-admission-seed-data.json');
+  if (fs.existsSync(grantJson)) {
+    const { seedGrantAdmission } = await import('./seed-grant-admission');
+    await seedGrantAdmission(prisma);
+    console.log('Grant admission data seeded');
+  }
 
   /* ── Summary ── */
   const [qCount, aCount, tCount, tmplCount, secCount] = await Promise.all([

@@ -157,6 +157,15 @@ type CatalogSubject = {
 };
 type CatalogExam = { id: string; subjects: CatalogSubject[] };
 
+type CatalogSearchRow = {
+  id: string;
+  score: number;
+  preview: string;
+  subjectSlug?: string | null;
+  subjectName?: unknown;
+  topicName?: unknown;
+};
+
 interface Question {
   id: string;
   examTypeId: string;
@@ -217,8 +226,12 @@ export function QuestionsPage() {
   const [subjectId, setSubjectId] = useState<string | undefined>();
   const [localeFilter, setLocaleFilter] = useState<AdminLocaleFilter>('');
   const [previewLang, setPreviewLang] = useState<'kk' | 'ru'>('ru');
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const debouncedCatalogSearch = useDebouncedValue(catalogSearch, 420);
+  const [catalogSearchTopic, setCatalogSearchTopic] = useState('');
+  const [catalogSearchStem, setCatalogSearchStem] = useState('');
+  const [catalogSearchAll, setCatalogSearchAll] = useState('');
+  const debouncedCatalogTopic = useDebouncedValue(catalogSearchTopic, 420);
+  const debouncedCatalogStem = useDebouncedValue(catalogSearchStem, 420);
+  const debouncedCatalogAll = useDebouncedValue(catalogSearchAll, 420);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -444,40 +457,94 @@ export function QuestionsPage() {
       debouncedSimilaritySource.trim().length >= 6,
   });
 
-  const catalogSearchEnabled = !!examTypeId && debouncedCatalogSearch.trim().length >= 4;
-  const { data: catalogSearchData, isFetching: catalogSearchFetching } = useQuery({
+  const catalogTopicEnabled = !!examTypeId && debouncedCatalogTopic.trim().length >= 2;
+  const catalogStemEnabled = !!examTypeId && debouncedCatalogStem.trim().length >= 4;
+  const catalogAllEnabled = !!examTypeId && debouncedCatalogAll.trim().length >= 4;
+
+  const { data: catalogTopicData, isFetching: catalogTopicFetching } = useQuery({
     queryKey: [
       'admin-questions-catalog-search',
+      'topic',
       examTypeId,
       subjectId,
-      debouncedCatalogSearch,
+      debouncedCatalogTopic,
       previewLang,
     ],
     queryFn: async () => {
-      const loc = previewLang === 'kk' ? 'kk' : 'ru';
-      const { data } = await api.get<{ items: { id: string; score: number; preview: string }[] }>(
-        '/admin/questions/similar',
-        {
-          params: {
-            examTypeId,
-            ...(subjectId ? { subjectId } : {}),
-            locale: loc,
-            text: debouncedCatalogSearch.trim(),
-            threshold: 0.4,
-            limit: 40,
-          },
+      const { data } = await api.get<{ items: CatalogSearchRow[] }>('/admin/questions/similar', {
+        params: {
+          examTypeId,
+          ...(subjectId ? { subjectId } : {}),
+          locale: previewLang === 'kk' ? 'kk' : 'ru',
+          limit: 40,
+          text: debouncedCatalogTopic.trim(),
+          searchIn: 'topic',
+          threshold: 0.32,
         },
-      );
+      });
       return data;
     },
-    enabled: catalogSearchEnabled,
+    enabled: catalogTopicEnabled,
   });
 
-  const showCatalogCreateHint =
-    catalogSearchEnabled &&
-    !catalogSearchFetching &&
-    !!catalogSearchData &&
-    catalogSearchData.items.length === 0;
+  const { data: catalogStemData, isFetching: catalogStemFetching } = useQuery({
+    queryKey: [
+      'admin-questions-catalog-search',
+      'stem',
+      examTypeId,
+      subjectId,
+      debouncedCatalogStem,
+      previewLang,
+    ],
+    queryFn: async () => {
+      const { data } = await api.get<{ items: CatalogSearchRow[] }>('/admin/questions/similar', {
+        params: {
+          examTypeId,
+          ...(subjectId ? { subjectId } : {}),
+          locale: previewLang === 'kk' ? 'kk' : 'ru',
+          limit: 40,
+          text: debouncedCatalogStem.trim(),
+          searchIn: 'stem',
+          threshold: 0.4,
+        },
+      });
+      return data;
+    },
+    enabled: catalogStemEnabled,
+  });
+
+  const { data: catalogAllData, isFetching: catalogAllFetching } = useQuery({
+    queryKey: [
+      'admin-questions-catalog-search',
+      'all',
+      examTypeId,
+      subjectId,
+      debouncedCatalogAll,
+      previewLang,
+    ],
+    queryFn: async () => {
+      const { data } = await api.get<{ items: CatalogSearchRow[] }>('/admin/questions/similar', {
+        params: {
+          examTypeId,
+          ...(subjectId ? { subjectId } : {}),
+          locale: previewLang === 'kk' ? 'kk' : 'ru',
+          limit: 40,
+          text: debouncedCatalogAll.trim(),
+          searchIn: 'all',
+          threshold: 0.4,
+        },
+      });
+      return data;
+    },
+    enabled: catalogAllEnabled,
+  });
+
+  const showCatalogTopicHint =
+    catalogTopicEnabled && !catalogTopicFetching && !!catalogTopicData && catalogTopicData.items.length === 0;
+  const showCatalogStemHint =
+    catalogStemEnabled && !catalogStemFetching && !!catalogStemData && catalogStemData.items.length === 0;
+  const showCatalogAllHint =
+    catalogAllEnabled && !catalogAllFetching && !!catalogAllData && catalogAllData.items.length === 0;
 
   const openCreate = () => {
     setEditorMode('create');
@@ -539,11 +606,79 @@ export function QuestionsPage() {
     setDrawerOpen(true);
   };
 
+  const openCreateWithTopicLine = (topicLine: string) => {
+    const t = topicLine.trim();
+    setEditorMode('create');
+    setEditingId(null);
+    form.resetFields();
+    form.setFieldsValue({
+      examTypeId: examTypeId || undefined,
+      subjectId: subjectId || undefined,
+      contentLocale: previewLang === 'kk' ? 'kk' : 'ru',
+      difficulty: 3,
+      scoreWeight: undefined,
+      type: 'single_choice',
+      passage_ru: '',
+      passage_kk: '',
+      passage_en: '',
+      topic_ru: previewLang === 'ru' ? t : '',
+      stem_ru: '',
+      topic_kk: previewLang === 'kk' ? t : '',
+      stem_kk: '',
+      topic_en: '',
+      stem_en: '',
+      answers: [{}, {}, {}, {}],
+      imageUrls: [],
+    });
+    setDrawerOpen(true);
+  };
+
   const closeDrawer = () => {
     setDrawerOpen(false);
     setEditingId(null);
     form.resetFields();
   };
+
+  const catalogSearchColumns: ColumnsType<CatalogSearchRow> = [
+    {
+      title: 'Сходство',
+      width: 88,
+      dataIndex: 'score',
+      render: (s: number) => <Typography.Text strong>{Math.round(s * 100)}%</Typography.Text>,
+    },
+    {
+      title: 'Предмет',
+      width: 110,
+      ellipsis: true,
+      render: (_: unknown, r: CatalogSearchRow) => r.subjectSlug || '—',
+    },
+    {
+      title: 'Тема (банк)',
+      width: 140,
+      ellipsis: true,
+      render: (_: unknown, r: CatalogSearchRow) => getLocalizedText(r.topicName) || '—',
+    },
+    {
+      title: 'Фрагмент',
+      ellipsis: true,
+      dataIndex: 'preview',
+      render: (text: string) => (
+        <Tooltip title={text && text.length > 120 ? text : undefined}>
+          <span>{text || '—'}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: '',
+      width: 100,
+      fixed: 'right',
+      render: (_: unknown, r: CatalogSearchRow) => (
+        <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit({ id: r.id })}>
+          Изменить
+        </Button>
+      ),
+    },
+  ];
 
   const buildPayload = (values: Record<string, unknown>) => {
     const answers = values.answers as Array<{ ru?: string; kk?: string; en?: string; isCorrect?: boolean }>;
@@ -847,46 +982,128 @@ export function QuestionsPage() {
       </Card>
 
       {!!examTypeId && (
-        <Card size="small" title="Поиск по тексту условия" style={{ marginBottom: 16 }}>
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <Input
-              allowClear
-              placeholder="Введите фрагмент вопроса (от 4 символов)…"
-              value={catalogSearch}
-              onChange={(e) => setCatalogSearch(e.target.value)}
-              suffix={catalogSearchFetching ? <Spin size="small" /> : null}
-            />
+        <Card size="small" title="Поиск по каталогу вопросов" style={{ marginBottom: 16 }}>
+          <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Ищется по тексту условия в обеих локалях (RU и KK). Переключатель KK/RU в колонке «Текст вопроса»
-              влияет только на превью в таблице. Без выбора предмета поиск идёт по всему типу экзамена.
+              Три независимых запроса: по подписи блока (topicLine), по тексту вопроса (материал + условие + подсказка) и
+              общий по всем полям. Сравнение идёт по RU и KK одновременно. Переключатель KK/RU над таблицей влияет на
+              приоритет превью в результатах. Без выбора предмета поиск охватывает все предметы типа экзамена.
             </Typography.Text>
-            {catalogSearchData && catalogSearchData.items.length > 0 && (
-              <ul style={{ margin: 0, paddingLeft: 18, maxHeight: 220, overflow: 'auto' }}>
-                {catalogSearchData.items.map((row) => (
-                  <li key={row.id}>
-                    <Button type="link" size="small" onClick={() => openEdit({ id: row.id })} style={{ height: 'auto', whiteSpace: 'normal', textAlign: 'left' }}>
-                      <Typography.Text strong>{Math.round(row.score * 100)}%</Typography.Text>{' '}
-                      {row.preview}
+
+            <div>
+              <Typography.Text strong>По названию блока (topicLine)</Typography.Text>
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+                Не менее 2 символов.
+              </Typography.Paragraph>
+              <Input
+                allowClear
+                placeholder="Например: Тапсырма 3, §12…"
+                value={catalogSearchTopic}
+                onChange={(e) => setCatalogSearchTopic(e.target.value)}
+                suffix={catalogTopicFetching ? <Spin size="small" /> : null}
+              />
+              <Table<CatalogSearchRow>
+                style={{ marginTop: 10 }}
+                size="small"
+                rowKey="id"
+                columns={catalogSearchColumns}
+                dataSource={catalogTopicData?.items ?? []}
+                pagination={{ pageSize: 8, hideOnSinglePage: true, size: 'small' }}
+                locale={{ emptyText: catalogTopicEnabled && !catalogTopicFetching ? 'Нет совпадений' : ' ' }}
+                scroll={{ x: 620 }}
+              />
+              {showCatalogTopicHint && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 8 }}
+                  message="Похожих по названию блока не найдено"
+                  description={
+                    <Button type="primary" size="small" onClick={() => openCreateWithTopicLine(debouncedCatalogTopic)}>
+                      Создать вопрос с этой подписью блока
                     </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {showCatalogCreateHint && (
-              <Alert
-                type="info"
-                showIcon
-                message="Похожих вопросов не найдено"
-                description={
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    <span>Можно сразу создать новый вопрос и вставить введённый текст в условие.</span>
-                    <Button type="primary" onClick={() => openCreateWithStem(debouncedCatalogSearch)}>
+                  }
+                />
+              )}
+            </div>
+
+            <Divider style={{ margin: '4px 0' }} />
+
+            <div>
+              <Typography.Text strong>По тексту вопроса (материал и условие)</Typography.Text>
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+                Не менее 4 символов. Без учёта topicLine.
+              </Typography.Paragraph>
+              <Input
+                allowClear
+                placeholder="Фрагмент условия или текста для чтения…"
+                value={catalogSearchStem}
+                onChange={(e) => setCatalogSearchStem(e.target.value)}
+                suffix={catalogStemFetching ? <Spin size="small" /> : null}
+              />
+              <Table<CatalogSearchRow>
+                style={{ marginTop: 10 }}
+                size="small"
+                rowKey="id"
+                columns={catalogSearchColumns}
+                dataSource={catalogStemData?.items ?? []}
+                pagination={{ pageSize: 8, hideOnSinglePage: true, size: 'small' }}
+                locale={{ emptyText: catalogStemEnabled && !catalogStemFetching ? 'Нет совпадений' : ' ' }}
+                scroll={{ x: 620 }}
+              />
+              {showCatalogStemHint && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 8 }}
+                  message="Похожих по тексту не найдено"
+                  description={
+                    <Button type="primary" size="small" onClick={() => openCreateWithStem(debouncedCatalogStem)}>
+                      Создать вопрос с этим текстом в условии
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+
+            <Divider style={{ margin: '4px 0' }} />
+
+            <div>
+              <Typography.Text strong>Общий поиск</Typography.Text>
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+                Не менее 4 символов. Учитываются материал, подпись блока и условие.
+              </Typography.Paragraph>
+              <Input
+                allowClear
+                placeholder="Любой фрагмент из вопроса…"
+                value={catalogSearchAll}
+                onChange={(e) => setCatalogSearchAll(e.target.value)}
+                suffix={catalogAllFetching ? <Spin size="small" /> : null}
+              />
+              <Table<CatalogSearchRow>
+                style={{ marginTop: 10 }}
+                size="small"
+                rowKey="id"
+                columns={catalogSearchColumns}
+                dataSource={catalogAllData?.items ?? []}
+                pagination={{ pageSize: 8, hideOnSinglePage: true, size: 'small' }}
+                locale={{ emptyText: catalogAllEnabled && !catalogAllFetching ? 'Нет совпадений' : ' ' }}
+                scroll={{ x: 620 }}
+              />
+              {showCatalogAllHint && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 8 }}
+                  message="Совпадений не найдено"
+                  description={
+                    <Button type="primary" size="small" onClick={() => openCreateWithStem(debouncedCatalogAll)}>
                       Создать вопрос с этим текстом
                     </Button>
-                  </Space>
-                }
-              />
-            )}
+                  }
+                />
+              )}
+            </div>
           </Space>
         </Card>
       )}

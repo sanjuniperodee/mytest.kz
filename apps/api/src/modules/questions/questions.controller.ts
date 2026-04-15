@@ -79,11 +79,16 @@ export class QuestionsController {
     @Query('excludeId') excludeId?: string,
     @Query('threshold') threshold?: string,
     @Query('limit') limit?: string,
+    @Query('searchIn') searchInRaw?: string,
   ) {
     if (!examTypeId || !text?.trim()) {
       return { items: [] };
     }
     const loc = locale === 'kk' ? 'kk' : 'ru';
+    const searchIn =
+      searchInRaw === 'topic' || searchInRaw === 'stem' || searchInRaw === 'all'
+        ? searchInRaw
+        : undefined;
     return this.questionsService.findSimilar({
       examTypeId,
       subjectId: subjectId || undefined,
@@ -92,6 +97,7 @@ export class QuestionsController {
       excludeId: excludeId || undefined,
       threshold: threshold ? parseFloat(threshold) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
+      searchIn,
     });
   }
 

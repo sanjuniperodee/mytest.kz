@@ -210,3 +210,66 @@ model TestAnswer {
   @@index([sessionId])
   @@map("test_answers")
 }
+
+/// Официальный код вуза (колонки матрицы грантов).
+model University {
+  code      Int     @id @map("code")
+  name      String  @db.Text
+  shortName String? @map("short_name") @db.VarChar(200)
+
+  cutoffs GrantCutoff[]
+
+  @@map("universities")
+}
+
+/// Образовательная программа (код Bxxx + вариант профиля при дубликатах кода).
+model EntEducationalProgram {
+  id                String   @id @default(uuid()) @db.Uuid
+  code              String   @db.VarChar(20)
+  profileVariant    Int      @default(0) @map("profile_variant")
+  name              String   @db.Text
+  profileSubjects   String   @map("profile_subjects") @db.Text
+  profileShortLabel String?  @map("profile_short_label") @db.VarChar(100)
+
+  cutoffs GrantCutoff[]
+
+  @@unique([code, profileVariant])
+  @@index([code])
+  @@map("ent_educational_programs")
+}
+
+/// Цикл приёма (например 2023-2024).
+model GrantAdmissionCycle {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique @db.VarChar(32)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  cutoffs GrantCutoff[]
+
+  @@map("grant_admission_cycles")
+}
+
+enum GrantQuotaType {
+  GRANT
+  RURAL
+}
+
+/// Минимальный конкурсный балл по данным матрицы (грант / сельская квота).
+model GrantCutoff {
+  id              String          @id @default(uuid()) @db.Uuid
+  cycleId         String          @map("cycle_id") @db.Uuid
+  universityCode  Int             @map("university_code")
+  programId       String          @map("program_id") @db.Uuid
+  quotaType       GrantQuotaType  @map("quota_type")
+  minScore        Int?            @map("min_score")
+
+  cycle       GrantAdmissionCycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  university  University              @relation(fields: [universityCode], references: [code], onDelete: Cascade)
+  program     EntEducationalProgram   @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, universityCode, programId, quotaType])
+  @@index([cycleId, universityCode])
+  @@index([cycleId, programId])
+  @@map("grant_cutoffs")
+}

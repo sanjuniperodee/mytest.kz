@@ -94,6 +94,24 @@ export function combineTopicAndStem(slot: QuestionContentSlot | null): string {
   return parts.join('\n');
 }
 
+/** Режим текстового поиска в админке: только подпись блока / только тело / всё вместе. */
+export type AdminTextSearchMode = 'topic' | 'stem' | 'all';
+
+export function haystackForAdminSearch(
+  slot: QuestionContentSlot | null,
+  mode: AdminTextSearchMode,
+): string {
+  if (!slot) return '';
+  if (mode === 'topic') return (slot.topicLine || '').trim();
+  if (mode === 'stem') {
+    const p = (slot.passage || '').trim();
+    const b = (slot.text || '').trim();
+    const h = (slot.hint || '').trim();
+    return [p, b, h].filter((x) => x.length > 0).join('\n');
+  }
+  return combineTopicAndStem(slot);
+}
+
 export function previewFromSlot(slot: QuestionContentSlot | null, maxLen = 140): string {
   const s = combineTopicAndStem(slot);
   if (s.length <= maxLen) return s;
