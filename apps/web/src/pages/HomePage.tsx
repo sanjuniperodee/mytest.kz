@@ -175,14 +175,23 @@ export function HomePage() {
                 onClick={() => navigate(`/exam/${exam.id}`)}
                 className="exam-row"
               >
-                <div className="exam-row-icon" style={{ background: gradient, color: '#fff' }}>
+                <div
+                  className={
+                    EXAM_ICON_SRC[exam.slug]
+                      ? 'exam-row-icon exam-row-icon--raster'
+                      : 'exam-row-icon'
+                  }
+                  style={
+                    EXAM_ICON_SRC[exam.slug]
+                      ? undefined
+                      : { background: gradient, color: '#fff' }
+                  }
+                >
                   {EXAM_ICON_SRC[exam.slug] ? (
                     <img
                       src={EXAM_ICON_SRC[exam.slug]}
                       alt=""
                       className="exam-row-icon-img"
-                      width={32}
-                      height={32}
                       decoding="async"
                     />
                   ) : (

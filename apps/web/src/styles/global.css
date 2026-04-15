@@ -800,13 +800,30 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   pointer-events: none;
 }
 
+/* Raster exam badges: fill tile, no gradient frame or gloss */
+.exam-row-icon--raster {
+  width: 52px;
+  height: 52px;
+  background: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.exam-row-icon--raster::after {
+  display: none;
+}
+
 .exam-row-icon-img {
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  border-radius: inherit;
   position: relative;
   z-index: 1;
   display: block;
+  border: 0;
+  outline: none;
 }
 
 .exam-row-main {
