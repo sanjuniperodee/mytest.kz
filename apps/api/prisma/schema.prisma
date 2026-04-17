@@ -137,6 +137,7 @@ model User {
   preferredLanguage String    @default("ru") @map("preferred_language") @db.VarChar(2)
   isChannelMember   Boolean   @default(false) @map("is_channel_member")
   channelCheckedAt  DateTime? @map("channel_checked_at") @db.Timestamptz
+  entTrialUsed      Int       @default(0) @map("ent_trial_used")
   isAdmin           Boolean   @default(false) @map("is_admin")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -144,6 +145,7 @@ model User {
   subscriptions        Subscription[]  @relation("UserSubscriptions")
   grantedSubscriptions Subscription[]  @relation("GrantedSubscriptions")
   testSessions         TestSession[]
+  paymentOrders        PaymentOrder[]
 
   @@map("users")
 }
@@ -272,4 +274,34 @@ model GrantCutoff {
   @@index([cycleId, universityCode])
   @@index([cycleId, programId])
   @@map("grant_cutoffs")
+}
+
+enum PaymentOrderStatus {
+  created
+  pending
+  paid
+  failed
+  cancelled
+}
+
+model PaymentOrder {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  planCode           String             @map("plan_code") @db.VarChar(32)
+  amount             Decimal            @db.Decimal(10, 2)
+  currency           String             @default("KZT") @db.VarChar(8)
+  provider           String             @default("freedompay") @db.VarChar(32)
+  providerOrderId    String             @unique @map("provider_order_id") @db.VarChar(120)
+  providerPaymentId  String?            @map("provider_payment_id") @db.VarChar(120)
+  checkoutUrl        String?            @map("checkout_url") @db.Text
+  status             PaymentOrderStatus @default(created)
+  providerPayload    Json?              @map("provider_payload")
+  paidAt             DateTime?          @map("paid_at") @db.Timestamptz
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, status, createdAt])
+  @@map("payment_orders")
 }

@@ -17,7 +17,13 @@
     "greetingMorning": "Good morning",
     "greetingDay": "Good afternoon",
     "greetingEvening": "Good evening",
-    "greetingNight": "Good night"
+    "greetingNight": "Good night",
+    "trialCtaTitle": "Take a UNT trial test",
+    "trialCtaSub": "2 free trials are available right after sign-in",
+    "trialCtaRemaining": "Free attempts left: {{count}}",
+    "trialCtaExhausted": "Free limit reached — open plans",
+    "trialStart": "Start",
+    "trialOpenPlans": "Plans"
   },
   "mistakes": {
     "navShort": "Mistakes",
@@ -130,6 +136,12 @@
     "settings": "Settings",
     "toHome": "Exams",
     "quickNavAria": "Quick actions",
+    "trialCtaTitle": "Take a trial test",
+    "trialCtaSub": "Open UNT and launch your next attempt",
+    "trialCtaRemaining": "Free attempts left: {{count}}",
+    "trialCtaExhausted": "Trial limit reached — open pricing",
+    "trialStart": "Start test",
+    "trialOpenPlans": "View plans",
     "overview": "Overview",
     "avgScoreHint": "Across completed tests",
     "stats": "Statistics",
@@ -213,6 +225,15 @@
     "subscribe": "Subscribe",
     "checkSubscription": "I've subscribed"
   },
+  "paywall": {
+    "kicker": "Access and billing",
+    "title": "Continue after 2 free trials",
+    "exhausted": "Free limit is exhausted. Choose a plan to continue UNT trials and analytics.",
+    "remaining": "Free attempts left: {{count}}",
+    "statusSuccess": "Payment was successful. Access will be activated within a minute.",
+    "statusFail": "Payment was not completed. You can choose a plan and retry.",
+    "payButton": "Proceed to payment"
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
@@ -226,6 +247,7 @@
   "landing": {
     "langLabel": "Language",
     "ctaLogin": "Sign in",
+    "ctaTrial": "Start free UNT trial",
     "ctaScroll": "How it works",
     "ctaGrant": "Estimate profile sum",
     "heroBadge": "Exam-style practice runs",
@@ -285,8 +307,66 @@
     "sectionBenefits": "Why it matters",
     "sectionHow": "Three steps",
     "sectionAbout": "In short",
+    "sectionTrial": "Free access and plans",
     "aboutLead": "Solid prep isn’t last-minute cramming — it’s rehearsing the format until your hands know the tempo.",
     "aboutBody": "MyTest is built around real exam scenarios: section structure, time limits, working through mistakes. We’re for people who prepare steadily — a little every day.",
+    "aboutFacts": [
+      {
+        "title": "Who it is for",
+        "body": "Grade 11 students and applicants who want to adapt to UNT pressure before the real exam."
+      },
+      {
+        "title": "How we approach prep",
+        "body": "No “magic answers”: we train exam discipline, pace, and confidence under a real timer."
+      },
+      {
+        "title": "Support",
+        "body": "If billing or access issues happen, support is available via our Telegram manager."
+      }
+    ],
+    "trialTitle": "2 UNT trial attempts are free",
+    "trialLead": "After Telegram sign-in you can pass two full UNT trial sessions. On the third attempt, pricing and payment are shown.",
+    "trialFeatures": [
+      {
+        "title": "Two launches without card",
+        "body": "No payment required for the first two trial attempts."
+      },
+      {
+        "title": "Full mock flow",
+        "body": "Timer, section logic, mandatory and profile blocks — not a simplified demo."
+      },
+      {
+        "title": "Clear paywall after limit",
+        "body": "When free attempts are exhausted, pricing is transparent and plan-based."
+      },
+      {
+        "title": "Single account history",
+        "body": "Your attempts, mistakes and progress stay in one profile after Telegram sign-in."
+      }
+    ],
+    "pricingTitle": "Plans after the free limit",
+    "pricingFootnote": "Prices may be adjusted by season. The final amount is always shown before Freedom Pay checkout.",
+    "pricingTiers": [
+      {
+        "name": "Start",
+        "price": "5,900 ₸",
+        "period": "/ 30 days",
+        "features": ["Unlimited UNT trials", "Review and analytics", "Phone + desktop access"]
+      },
+      {
+        "name": "Focus",
+        "price": "14,900 ₸",
+        "period": "/ 90 days",
+        "badge": "most chosen",
+        "features": ["Better monthly value", "Stable quarter prep", "Priority support"]
+      },
+      {
+        "name": "Maximum",
+        "price": "26,900 ₸",
+        "period": "/ 180 days",
+        "features": ["Full exam-season runway", "Best value per month", "Fits early preparation"]
+      }
+    ],
     "footerTagline": "Focused prep — without the chaos.",
     "footerCta": "Go to tests",
     "seoTitle": "MyTest — UNT, NIS, NUET practice tests online | Kazakhstan",

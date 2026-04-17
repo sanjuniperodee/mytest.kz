@@ -157,8 +157,14 @@ export function ExamPage() {
       });
       navigate(`/test/${session.id}`);
     } catch (err: any) {
-      const msg = err.response?.data?.message || t('common.error');
-      safeShowAlert(webApp, msg);
+      const rawMessage = err?.response?.data?.message;
+      const msg = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
+      if (msg === 'TRIAL_LIMIT_EXCEEDED') {
+        navigate('/paywall?reason=trial_exhausted');
+        return;
+      }
+      const displayMessage = typeof msg === 'string' ? msg : t('common.error');
+      safeShowAlert(webApp, displayMessage);
     }
   };
 

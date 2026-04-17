@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useExamTypes } from '../api/hooks/useExams';
 import { useSessions, useMistakesSummary } from '../api/hooks/useTests';
 import { useAuth } from '../api/hooks/useAuth';
+import { useProfile } from '../api/hooks/useProfile';
 import { Spinner } from '../components/common/Spinner';
 import { localizedText } from '../lib/localizedText';
 
@@ -59,6 +60,7 @@ export function HomePage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: profile } = useProfile();
   const { data: examTypes, isLoading } = useExamTypes();
   const { data: sessionsData } = useSessions(1);
   const { data: mistakesSummary } = useMistakesSummary();
@@ -68,6 +70,8 @@ export function HomePage() {
   if (isLoading) return <Spinner fullScreen />;
 
   const firstName = user?.firstName || '';
+  const entExam = examTypes?.find((exam) => exam.slug === 'ent');
+  const entTrial = profile?.trialStatus?.ent;
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 6) return t('home.greetingNight');
@@ -91,6 +95,50 @@ export function HomePage() {
         </h1>
         <p className="page-subtitle">{t('home.subtitle')}</p>
       </div>
+
+      <button
+        type="button"
+        className="surface"
+        onClick={() => {
+          if (entTrial?.exhausted) {
+            navigate('/paywall');
+            return;
+          }
+          if (entExam) {
+            navigate(`/exam/${entExam.id}`);
+            return;
+          }
+          navigate('/app');
+        }}
+        style={{
+          width: '100%',
+          textAlign: 'left',
+          marginBottom: 14,
+          padding: '14px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          border: '1px solid rgba(99, 102, 241, 0.3)',
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.1))',
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+            {t('home.trialCtaTitle')}
+          </div>
+          <div style={{ marginTop: 3, fontSize: 12, color: 'var(--text-muted)' }}>
+            {entTrial
+              ? (entTrial.exhausted
+                  ? t('home.trialCtaExhausted')
+                  : t('home.trialCtaRemaining', { count: entTrial.remaining }))
+              : t('home.trialCtaSub')}
+          </div>
+        </div>
+        <span className="badge badge-accent" style={{ whiteSpace: 'nowrap' }}>
+          {entTrial?.exhausted ? t('home.trialOpenPlans') : t('home.trialStart')}
+        </span>
+      </button>
 
       {(mistakesSummary?.openTotal ?? 0) > 0 && (
         <button

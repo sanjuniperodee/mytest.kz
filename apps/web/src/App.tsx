@@ -12,6 +12,7 @@ import { MistakesPage } from './pages/MistakesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ChannelGatePage } from './pages/ChannelGatePage';
+import { PaywallPage } from './pages/PaywallPage';
 import { Spinner } from './components/common/Spinner';
 import { NavBar } from './components/common/NavBar';
 
@@ -68,6 +69,7 @@ function AppRoutes() {
           element={<SettingsPage />}
         />
         <Route path="/mistakes" element={<MistakesPage />} />
+        <Route path="/paywall" element={<PaywallPage />} />
       </Route>
       <Route
         path="/exam/:examId"

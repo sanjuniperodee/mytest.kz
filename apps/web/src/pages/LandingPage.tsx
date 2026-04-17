@@ -13,6 +13,9 @@ import './landing.css';
 
 type Benefit = { tag: string; title: string; body: string };
 type Step = { title: string; body: string };
+type AboutFact = { title: string; body: string };
+type TrialFeature = { title: string; body: string };
+type PricingTier = { name: string; price: string; period: string; badge?: string; features: string[] };
 
 const STEP_ICONS = [
   <IconLogin key="i0" />,
@@ -30,6 +33,18 @@ export function LandingPage() {
   );
   const steps = useMemo(
     () => t('landing.steps', { returnObjects: true }) as Step[],
+    [t, i18n.language],
+  );
+  const aboutFacts = useMemo(
+    () => t('landing.aboutFacts', { returnObjects: true }) as AboutFact[],
+    [t, i18n.language],
+  );
+  const trialFeatures = useMemo(
+    () => t('landing.trialFeatures', { returnObjects: true }) as TrialFeature[],
+    [t, i18n.language],
+  );
+  const pricingTiers = useMemo(
+    () => t('landing.pricingTiers', { returnObjects: true }) as PricingTier[],
     [t, i18n.language],
   );
 
@@ -98,7 +113,7 @@ export function LandingPage() {
                 ))}
               </div>
               <Link to="/login" className="ld-btn ld-btn-primary">
-                {t('landing.ctaLogin')}
+                {t('landing.ctaTrial')}
               </Link>
             </div>
           </div>
@@ -116,7 +131,7 @@ export function LandingPage() {
               <p className="ld-lead">{t('landing.heroLead')}</p>
               <div className="ld-hero-btns">
                 <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
-                  {t('landing.ctaLogin')}
+                  {t('landing.ctaTrial')}
                 </Link>
                 <a href="#grant" className="ld-btn ld-btn-glass">
                   {t('landing.ctaGrant')}
@@ -205,6 +220,59 @@ export function LandingPage() {
             <p className="ld-eyebrow">{t('landing.sectionAbout')}</p>
             <p className="ld-about-lead">{t('landing.aboutLead')}</p>
             <p className="ld-about-body">{t('landing.aboutBody')}</p>
+            <div className="ld-about-facts">
+              {aboutFacts.map((fact) => (
+                <article key={fact.title} className="ld-about-fact">
+                  <h4>{fact.title}</h4>
+                  <p>{fact.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="ld-section ld-section-trial">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionTrial')}</p>
+            <div className="ld-trial-wrap">
+              <div>
+                <h2 className="ld-trial-title">{t('landing.trialTitle')}</h2>
+                <p className="ld-trial-lead">{t('landing.trialLead')}</p>
+                <div className="ld-trial-grid">
+                  {trialFeatures.map((feature) => (
+                    <article key={feature.title} className="ld-trial-item">
+                      <h4>{feature.title}</h4>
+                      <p>{feature.body}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+              <aside className="ld-pricing-preview">
+                <p className="ld-pricing-title">{t('landing.pricingTitle')}</p>
+                <div className="ld-pricing-list">
+                  {pricingTiers.map((tier) => (
+                    <article key={tier.name} className="ld-pricing-card">
+                      <div className="ld-pricing-card-head">
+                        <h4>{tier.name}</h4>
+                        {tier.badge ? <span>{tier.badge}</span> : null}
+                      </div>
+                      <p className="ld-pricing-price">
+                        {tier.price} <small>{tier.period}</small>
+                      </p>
+                      <ul>
+                        {tier.features.map((feature) => (
+                          <li key={feature}>{feature}</li>
+                        ))}
+                      </ul>
+                    </article>
+                  ))}
+                </div>
+                <p className="ld-pricing-footnote">{t('landing.pricingFootnote')}</p>
+                <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
+                  {t('landing.ctaTrial')}
+                </Link>
+              </aside>
+            </div>
           </div>
         </section>
 
@@ -225,7 +293,7 @@ export function LandingPage() {
                 </a>
               ) : null}
               <Link to="/login" className="ld-btn ld-btn-primary">
-                {t('landing.footerCta')}
+                {t('landing.ctaTrial')}
               </Link>
             </div>
           </div>

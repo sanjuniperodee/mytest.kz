@@ -6,7 +6,6 @@ import { useAuth } from '../api/hooks/useAuth';
 import { QuestionDisplay } from '../components/test/QuestionDisplay';
 import { AnswerOptions } from '../components/test/AnswerOptions';
 import { Spinner } from '../components/common/Spinner';
-import { openTelegramTmeLink, useTelegram } from '../lib/telegram';
 import { renderMathInText } from '../lib/katex';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 import { localizedText } from '../lib/localizedText';
@@ -282,7 +281,6 @@ function ExplanationSection({ sessionId, questionId, hasSubscription }: {
   sessionId: string; questionId: string; hasSubscription: boolean;
 }) {
   const { t } = useTranslation();
-  const { webApp } = useTelegram();
   const [show, setShow] = useState(false);
   const { data, isLoading } = useExplanation(sessionId, questionId, show && hasSubscription);
 
@@ -305,7 +303,7 @@ function ExplanationSection({ sessionId, questionId, hasSubscription }: {
         </p>
         <button className="btn btn-primary btn-xs" style={{ width: 'auto', padding: '8px 20px' }}
           onClick={() => {
-            openTelegramTmeLink(webApp, 'https://t.me/bilimland_manager');
+            window.location.href = '/paywall';
           }}>
           {t('review.getPremium')}
         </button>

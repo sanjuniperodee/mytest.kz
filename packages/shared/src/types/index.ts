@@ -88,6 +88,18 @@ export interface UserDto {
   preferredLanguage: Language;
   isChannelMember: boolean;
   hasActiveSubscription: boolean;
+  trialStatus?: TrialStatusDto;
+}
+
+export interface TrialStatusItemDto {
+  limit: number;
+  used: number;
+  remaining: number;
+  exhausted: boolean;
+}
+
+export interface TrialStatusDto {
+  ent: TrialStatusItemDto;
 }
 
 // Subscription
@@ -136,4 +148,23 @@ export interface UserStatsDto {
   inProgressSessionsCount: number;
   averageScore: number;
   byExamType: UserExamStatsDto[];
+}
+
+export interface BillingPlanDto {
+  id: string;
+  name: string;
+  description: string;
+  priceKzt: number;
+  durationDays: number;
+  highlight?: string;
+  features: string[];
+}
+
+export interface BillingCheckoutRequestDto {
+  planId: string;
+}
+
+export interface BillingCheckoutResponseDto {
+  orderId: string;
+  checkoutUrl: string;
 }

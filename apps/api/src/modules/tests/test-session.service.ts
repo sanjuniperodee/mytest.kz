@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
+import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
 
 @Injectable()
 export class TestSessionService {
@@ -43,6 +44,32 @@ export class TestSessionService {
     if (!template) throw new NotFoundException('Template not found');
 
     const examSlug = (template.examType as { slug?: string }).slug ?? '';
+
+    if (examSlug === 'ent') {
+      const now = new Date();
+      const activeSubscription = await this.prisma.subscription.findFirst({
+        where: {
+          userId,
+          isActive: true,
+          startsAt: { lte: now },
+          expiresAt: { gt: now },
+        },
+      });
+      if (!activeSubscription) {
+        const consumed = await this.prisma.user.updateMany({
+          where: {
+            id: userId,
+            entTrialUsed: { lt: ENT_TRIAL_LIMIT },
+          },
+          data: {
+            entTrialUsed: { increment: 1 },
+          },
+        });
+        if (consumed.count === 0) {
+          throw new BadRequestException('TRIAL_LIMIT_EXCEEDED');
+        }
+      }
+    }
 
     let resolvedEntScope = entScope;
     if (examSlug === 'ent') {

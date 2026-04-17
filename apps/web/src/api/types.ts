@@ -9,6 +9,18 @@ export interface User {
   isChannelMember: boolean;
   isAdmin: boolean;
   hasActiveSubscription?: boolean;
+  trialStatus?: TrialStatus;
+}
+
+export interface TrialStatusItem {
+  limit: number;
+  used: number;
+  remaining: number;
+  exhausted: boolean;
+}
+
+export interface TrialStatus {
+  ent: TrialStatusItem;
 }
 
 export interface AuthResponse {
@@ -171,4 +183,19 @@ export interface UserStats {
   inProgressSessionsCount: number;
   averageScore: number;
   byExamType: UserExamStats[];
+}
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  description: string;
+  priceKzt: number;
+  durationDays: number;
+  highlight?: string;
+  features: string[];
+}
+
+export interface CheckoutResponse {
+  orderId: string;
+  checkoutUrl: string;
 }

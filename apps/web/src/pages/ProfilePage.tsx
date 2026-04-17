@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useProfile, useUserStats } from '../api/hooks/useProfile';
 import { useSessions, useMistakesSummary } from '../api/hooks/useTests';
+import { useExamTypes } from '../api/hooks/useExams';
 import { Spinner } from '../components/common/Spinner';
-import { openTelegramTmeLink, useTelegram } from '../lib/telegram';
 import { localizedText } from '../lib/localizedText';
 
 const EXAM_GRADIENTS: Record<string, string> = {
@@ -139,10 +139,10 @@ function ProfileExamTrend({ scores, label }: { scores: number[]; label: string }
 export function ProfilePage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { webApp } = useTelegram();
 
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: stats, isLoading: statsLoading } = useUserStats();
+  const { data: examTypes } = useExamTypes();
   const { data: sessionsData } = useSessions(1);
   const { data: mistakesSummary } = useMistakesSummary();
 
@@ -187,10 +187,9 @@ export function ProfilePage() {
     || (profile?.telegramUsername ? `@${profile.telegramUsername}` : null)
     || t('profile.guestName');
 
-  const openPremium = () => {
-    const link = 'https://t.me/bilimland_manager';
-    openTelegramTmeLink(webApp, link);
-  };
+  const openPremium = () => navigate('/paywall');
+  const entExam = examTypes?.find((exam) => exam.slug === 'ent');
+  const entTrial = profile?.trialStatus?.ent;
 
   return (
     <div className="page profile-page">
@@ -243,6 +242,35 @@ export function ProfilePage() {
             <span>{t('profile.settings')}</span>
           </Link>
         </nav>
+        <button
+          type="button"
+          className="profile-trial-cta"
+          onClick={() => {
+            if (entTrial?.exhausted) {
+              navigate('/paywall');
+              return;
+            }
+            if (entExam) {
+              navigate(`/exam/${entExam.id}`);
+              return;
+            }
+            navigate('/app');
+          }}
+        >
+          <div>
+            <strong>{t('profile.trialCtaTitle')}</strong>
+            <span>
+              {entTrial
+                ? (entTrial.exhausted
+                    ? t('profile.trialCtaExhausted')
+                    : t('profile.trialCtaRemaining', { count: entTrial.remaining }))
+                : t('profile.trialCtaSub')}
+            </span>
+          </div>
+          <span className="profile-trial-pill">
+            {entTrial?.exhausted ? t('profile.trialOpenPlans') : t('profile.trialStart')}
+          </span>
+        </button>
       </header>
 
       <section className="profile-section">

@@ -13,6 +13,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { AdmissionModule } from './modules/admission/admission.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -29,6 +30,7 @@ import { AdmissionModule } from './modules/admission/admission.module';
     TelegramModule,
     BulkImportModule,
     AdmissionModule,
+    BillingModule,
   ],
 })
 export class AppModule {}

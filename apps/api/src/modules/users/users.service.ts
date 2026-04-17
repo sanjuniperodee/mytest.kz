@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
+import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
 
 @Injectable()
 export class UsersService {
@@ -54,6 +55,14 @@ export class UsersService {
       isChannelMember,
       hasActiveSubscription: !!activeSubscription,
       subscription: activeSubscription,
+      trialStatus: {
+        ent: {
+          limit: ENT_TRIAL_LIMIT,
+          used: user.entTrialUsed,
+          remaining: Math.max(0, ENT_TRIAL_LIMIT - user.entTrialUsed),
+          exhausted: user.entTrialUsed >= ENT_TRIAL_LIMIT,
+        },
+      },
     };
   }
 
