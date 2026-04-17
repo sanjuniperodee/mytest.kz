@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ENT_MAX, ENT_THRESHOLD_2026, type EntScores } from '@bilimland/shared';
 import {
   fetchAdmissionChanceProfileSubjects,
@@ -30,6 +30,7 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
   const [quotaType, setQuotaType] = useState<'GRANT' | 'RURAL'>('GRANT');
   const [profileSubjects, setProfileSubjects] = useState('');
   const [universityCode, setUniversityCode] = useState<number | ''>('');
+  const [universitySearch, setUniversitySearch] = useState('');
   const [professionFilterId, setProfessionFilterId] = useState('');
   const [activeProgramId, setActiveProgramId] = useState('');
 
@@ -68,6 +69,7 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
       }),
     enabled: Boolean(cycleSlug),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   // Backward compatibility: if chance endpoints are not deployed yet,
@@ -90,12 +92,36 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
   }, [profileSubjectsQ.data, legacyProgramsQ.data]);
 
   useEffect(() => {
-    if (profileSubjects && !availableProfileSubjects.some((item) => item.value === profileSubjects)) {
+    if (!profileSubjects) return;
+    // Пока список пуст (загрузка / пустой ответ) — не сбрасываем выбор, иначе смена вуза «обнуляет» профиль
+    if (!availableProfileSubjects.length) return;
+    if (!availableProfileSubjects.some((item) => item.value === profileSubjects)) {
       setProfileSubjects('');
       setProfessionFilterId('');
       setActiveProgramId('');
     }
   }, [profileSubjects, availableProfileSubjects]);
+
+  const filteredUniversities = useMemo(() => {
+    const list = universitiesQ.data ?? [];
+    const q = universitySearch.trim().toLowerCase();
+    const filtered =
+      q.length === 0
+        ? list
+        : list.filter((u) => {
+            const name = u.name.toLowerCase();
+            const codeStr = String(u.code);
+            const short = (u.shortName ?? '').toLowerCase();
+            return name.includes(q) || codeStr.includes(q) || short.includes(q);
+          });
+    if (universityCode !== '') {
+      const selected = list.find((u) => u.code === universityCode);
+      if (selected && !filtered.some((u) => u.code === selected.code)) {
+        return [selected, ...filtered];
+      }
+    }
+    return filtered;
+  }, [universitiesQ.data, universitySearch, universityCode]);
 
   const programsQ = useQuery({
     queryKey: [
@@ -204,215 +230,255 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
   return (
     <div className={`chance-widget chance-widget-${variant}`}>
       {admissionError ? <p className="chance-api-note">{t('chance.apiUnavailable')}</p> : null}
+      <div className={`chance-layout ${variant === 'platform' ? 'is-platform' : 'is-landing'}`}>
+        <aside className="chance-layout-controls">
+          <div className="chance-form-grid" data-testid={`chance-selects-${variant}`}>
+            <section className="chance-block">
+              <div className="chance-block-head">
+                <h3>{t('chance.requiredFilters')}</h3>
+                <span className="chance-block-badge">{t('chance.requiredBadge')}</span>
+              </div>
+              <div className="chance-selects">
+                <Field label={t('chance.year')} htmlFor={`chance-cycle-${variant}`}>
+                  <select
+                    id={`chance-cycle-${variant}`}
+                    className="chance-select"
+                    value={cycleSlug}
+                    onChange={(e) => setCycleSlug(e.target.value)}
+                  >
+                    {(cyclesQ.data ?? []).map((c) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.slug}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-      <div className="chance-form-grid" data-testid={`chance-selects-${variant}`}>
-        <section className="chance-block">
-          <div className="chance-block-head">
-            <h3>{t('chance.requiredFilters')}</h3>
-            <span className="chance-block-badge">{t('chance.requiredBadge')}</span>
+                <Field label={t('chance.quota')} htmlFor={`chance-quota-${variant}`}>
+                  <select
+                    id={`chance-quota-${variant}`}
+                    className="chance-select"
+                    value={quotaType}
+                    onChange={(e) => setQuotaType(e.target.value as 'GRANT' | 'RURAL')}
+                  >
+                    <option value="GRANT">{t('chance.quotaGrant')}</option>
+                    <option value="RURAL">{t('chance.quotaRural')}</option>
+                  </select>
+                </Field>
+
+                <Field label={t('chance.profileSubjects')} htmlFor={`chance-profile-${variant}`}>
+                  <select
+                    id={`chance-profile-${variant}`}
+                    className="chance-select"
+                    value={profileSubjects}
+                    onChange={(e) => {
+                      setProfileSubjects(e.target.value);
+                      setProfessionFilterId('');
+                      setActiveProgramId('');
+                    }}
+                    disabled={!cycleSlug || (profileSubjectsQ.isLoading && legacyProgramsQ.isLoading)}
+                  >
+                    <option value="">{t('chance.pick')}</option>
+                    {availableProfileSubjects.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </section>
+
+            <section className="chance-block">
+              <div className="chance-block-head">
+                <h3>{t('chance.optionalFilters')}</h3>
+                <span className="chance-block-badge chance-block-badge-ghost">{t('chance.optionalBadge')}</span>
+              </div>
+              <div className="chance-selects">
+                <Field label={t('chance.universityOptional')} htmlFor={`chance-university-${variant}`}>
+                  <input
+                    type="search"
+                    className="chance-select chance-university-search"
+                    value={universitySearch}
+                    onChange={(e) => setUniversitySearch(e.target.value)}
+                    placeholder={t('chance.universitySearchPlaceholder')}
+                    aria-label={t('chance.universitySearchPlaceholder')}
+                    autoComplete="off"
+                  />
+                  <select
+                    id={`chance-university-${variant}`}
+                    className="chance-select chance-university-select"
+                    value={universityCode === '' ? '' : String(universityCode)}
+                    onChange={(e) => {
+                      const next = e.target.value ? Number(e.target.value) : '';
+                      setUniversityCode(next);
+                      setProfessionFilterId('');
+                      setActiveProgramId('');
+                      if (next === '') setUniversitySearch('');
+                    }}
+                  >
+                    <option value="">{t('chance.allUniversities')}</option>
+                    {filteredUniversities.map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {item.name} ({item.code})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label={t('chance.professionOptional')} htmlFor={`chance-program-filter-${variant}`}>
+                  <select
+                    id={`chance-program-filter-${variant}`}
+                    className="chance-select"
+                    value={professionFilterId}
+                    onChange={(e) => {
+                      setProfessionFilterId(e.target.value);
+                      setActiveProgramId(e.target.value);
+                    }}
+                    disabled={!programOptions.length}
+                  >
+                    <option value="">{t('chance.allProfessions')}</option>
+                    {programOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </section>
           </div>
-          <div className="chance-selects">
-            <Field label={t('chance.year')} htmlFor={`chance-cycle-${variant}`}>
-              <select
-                id={`chance-cycle-${variant}`}
-                className="chance-select"
-                value={cycleSlug}
-                onChange={(e) => setCycleSlug(e.target.value)}
-              >
-                {(cyclesQ.data ?? []).map((c) => (
-                  <option key={c.id} value={c.slug}>
-                    {c.slug}
-                  </option>
-                ))}
-              </select>
-            </Field>
 
-            <Field label={t('chance.quota')} htmlFor={`chance-quota-${variant}`}>
-              <select
-                id={`chance-quota-${variant}`}
-                className="chance-select"
-                value={quotaType}
-                onChange={(e) => setQuotaType(e.target.value as 'GRANT' | 'RURAL')}
-              >
-                <option value="GRANT">{t('chance.quotaGrant')}</option>
-                <option value="RURAL">{t('chance.quotaRural')}</option>
-              </select>
-            </Field>
-
-            <Field label={t('chance.profileSubjects')} htmlFor={`chance-profile-${variant}`}>
-              <select
-                id={`chance-profile-${variant}`}
-                className="chance-select"
-                value={profileSubjects}
-                onChange={(e) => {
-                  setProfileSubjects(e.target.value);
-                  setProfessionFilterId('');
-                  setActiveProgramId('');
-                }}
-                disabled={!cycleSlug || (profileSubjectsQ.isLoading && legacyProgramsQ.isLoading)}
-              >
-                <option value="">{t('chance.pick')}</option>
-                {availableProfileSubjects.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+          <div className="chance-panel">
+            <ScoreRow
+              id={`chance-math-${variant}`}
+              label={t('landing.grantMath')}
+              value={scores.mathLit}
+              onChange={setScore('mathLit')}
+              max={ENT_MAX.mathLit}
+              threshold={ENT_THRESHOLD_2026.mathLit}
+            />
+            <ScoreRow
+              id={`chance-reading-${variant}`}
+              label={t('landing.grantReading')}
+              value={scores.readingLit}
+              onChange={setScore('readingLit')}
+              max={ENT_MAX.readingLit}
+              threshold={ENT_THRESHOLD_2026.readingLit}
+            />
+            <ScoreRow
+              id={`chance-history-${variant}`}
+              label={t('landing.grantHistory')}
+              value={scores.history}
+              onChange={setScore('history')}
+              max={ENT_MAX.history}
+              threshold={ENT_THRESHOLD_2026.history}
+            />
+            <ScoreRow
+              id={`chance-p1-${variant}`}
+              label={t('landing.grantProfile1')}
+              value={scores.profile1}
+              onChange={setScore('profile1')}
+              max={ENT_MAX.profile1}
+              threshold={ENT_THRESHOLD_2026.profile1}
+            />
+            <ScoreRow
+              id={`chance-p2-${variant}`}
+              label={t('landing.grantProfile2')}
+              value={scores.profile2}
+              onChange={setScore('profile2')}
+              max={ENT_MAX.profile2}
+              threshold={ENT_THRESHOLD_2026.profile2}
+            />
           </div>
-        </section>
 
-        <section className="chance-block">
-          <div className="chance-block-head">
-            <h3>{t('chance.optionalFilters')}</h3>
-            <span className="chance-block-badge chance-block-badge-ghost">{t('chance.optionalBadge')}</span>
+          <p className="chance-total">
+            {t('chance.total')}: <strong>{total}</strong>
+          </p>
+          <div className="chance-legend">
+            <span className="chance-legend-item pass">{t('chance.legendPass')}</span>
+            <span className="chance-legend-item fail">{t('chance.legendFail')}</span>
           </div>
-          <div className="chance-selects">
-            <Field label={t('chance.universityOptional')} htmlFor={`chance-university-${variant}`}>
-              <select
-                id={`chance-university-${variant}`}
-                className="chance-select"
-                value={universityCode === '' ? '' : String(universityCode)}
-                onChange={(e) => {
-                  setUniversityCode(e.target.value ? Number(e.target.value) : '');
-                  setProfessionFilterId('');
-                  setActiveProgramId('');
-                }}
-              >
-                <option value="">{t('chance.allUniversities')}</option>
-                {(universitiesQ.data ?? []).map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name} ({item.code})
-                  </option>
-                ))}
-              </select>
-            </Field>
+        </aside>
 
-            <Field label={t('chance.professionOptional')} htmlFor={`chance-program-filter-${variant}`}>
-              <select
-                id={`chance-program-filter-${variant}`}
-                className="chance-select"
-                value={professionFilterId}
-                onChange={(e) => {
-                  setProfessionFilterId(e.target.value);
-                  setActiveProgramId(e.target.value);
-                }}
-                disabled={!programOptions.length}
-              >
-                <option value="">{t('chance.allProfessions')}</option>
-                {programOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-        </section>
-      </div>
-
-      <div className="chance-panel">
-        <ScoreRow
-          id={`chance-math-${variant}`}
-          label={t('landing.grantMath')}
-          value={scores.mathLit}
-          onChange={setScore('mathLit')}
-          max={ENT_MAX.mathLit}
-          threshold={ENT_THRESHOLD_2026.mathLit}
-        />
-        <ScoreRow
-          id={`chance-reading-${variant}`}
-          label={t('landing.grantReading')}
-          value={scores.readingLit}
-          onChange={setScore('readingLit')}
-          max={ENT_MAX.readingLit}
-          threshold={ENT_THRESHOLD_2026.readingLit}
-        />
-        <ScoreRow
-          id={`chance-history-${variant}`}
-          label={t('landing.grantHistory')}
-          value={scores.history}
-          onChange={setScore('history')}
-          max={ENT_MAX.history}
-          threshold={ENT_THRESHOLD_2026.history}
-        />
-        <ScoreRow
-          id={`chance-p1-${variant}`}
-          label={t('landing.grantProfile1')}
-          value={scores.profile1}
-          onChange={setScore('profile1')}
-          max={ENT_MAX.profile1}
-          threshold={ENT_THRESHOLD_2026.profile1}
-        />
-        <ScoreRow
-          id={`chance-p2-${variant}`}
-          label={t('landing.grantProfile2')}
-          value={scores.profile2}
-          onChange={setScore('profile2')}
-          max={ENT_MAX.profile2}
-          threshold={ENT_THRESHOLD_2026.profile2}
-        />
-      </div>
-
-      <p className="chance-total">
-        {t('chance.total')}: <strong>{total}</strong>
-      </p>
-      <div className="chance-legend">
-        <span className="chance-legend-item pass">{t('chance.legendPass')}</span>
-        <span className="chance-legend-item fail">{t('chance.legendFail')}</span>
-      </div>
-
-      <div className="chance-results-grid">
-        <section className="chance-results">
-          <h3 className="chance-list-title">{t('chance.professionsListTitle')}</h3>
-          {!profileSubjects ? (
-            <p className="chance-api-note">{t('chance.fillRequired')}</p>
-          ) : programsQ.isLoading ? (
-            <p className="chance-api-note">{t('chance.loading')}</p>
-          ) : !visiblePrograms.length ? (
-            <p className="chance-api-note">{t('chance.noPrograms')}</p>
-          ) : (
-            <div className="chance-list">
-              {visiblePrograms.map((row) => (
-                <ProgramCard
-                  key={row.programId}
-                  row={row}
-                  selected={row.programId === selectedProgramId}
-                  onSelect={() => setActiveProgramId(row.programId)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {selectedProgramId ? (
-        <section className="chance-results">
-          <h3 className="chance-list-title">{t('chance.universitiesListTitle')}</h3>
-          {selectedProgram && (
-            <p className="chance-selected-program">
-              {t('chance.selectedProgram')}: <strong>{selectedProgram.programCode} - {selectedProgram.programName}</strong>
-            </p>
-          )}
-          {universitiesByProgramQ.isLoading ? (
-            <p className="chance-api-note">{t('chance.loading')}</p>
-          ) : !(universitiesByProgramQ.data ?? []).length ? (
-            <p className="chance-api-note">{t('chance.noUniversities')}</p>
-          ) : (
-            <div className="chance-list">
-              {universitiesByProgramQ.data?.map((row) => (
-                <div key={`${row.universityCode}-${row.programId}`} className={`chance-card ${row.isPass ? 'is-pass' : 'is-fail'}`}>
-                  <p className="chance-card-title">
-                    {row.universityName} ({row.universityCode})
-                  </p>
-                  <p className="chance-card-meta">
-                    {t('chance.cutoff')}: {row.displayedMinScore} · {t('chance.byQuota')}: {t(`chance.quota${row.displayedQuotaType === 'RURAL' ? 'Rural' : 'Grant'}`)}
-                  </p>
+        <section className={`chance-layout-results ${selectedProgramId ? 'is-split' : ''}`}>
+          <section className="chance-results">
+            <h3 className="chance-list-title">{t('chance.professionsListTitle')}</h3>
+            {!profileSubjects ? (
+              <p className="chance-api-note">{t('chance.fillRequired')}</p>
+            ) : programsQ.isLoading ? (
+              <p className="chance-api-note">{t('chance.loading')}</p>
+            ) : !visiblePrograms.length ? (
+              <p className="chance-api-note">{t('chance.noPrograms')}</p>
+            ) : (
+              <div className="chance-prof-table">
+                <div className="chance-prof-head">
+                  <span>{t('chance.colProfession')}</span>
+                  <span>{t('chance.colCutoff')}</span>
+                  <span>{t('chance.colUniversities')}</span>
+                  <span>{t('chance.colStatus')}</span>
                 </div>
-              ))}
+                <div className="chance-prof-body">
+                  {visiblePrograms.map((row) => (
+                    <ProgramCard
+                      key={row.programId}
+                      row={row}
+                      selected={row.programId === selectedProgramId}
+                      onSelect={() => setActiveProgramId(row.programId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {selectedProgramId ? (
+            <section className="chance-results chance-results-universities">
+              <h3 className="chance-list-title">{t('chance.universitiesListTitle')}</h3>
+              {selectedProgram && (
+                <p className="chance-selected-program">
+                  {t('chance.selectedProgram')}:{' '}
+                  <strong>
+                    {selectedProgram.programCode} - {selectedProgram.programName}
+                  </strong>
+                </p>
+              )}
+              {universitiesByProgramQ.isLoading ? (
+                <p className="chance-api-note">{t('chance.loading')}</p>
+              ) : !(universitiesByProgramQ.data ?? []).length ? (
+                <p className="chance-api-note">{t('chance.noUniversities')}</p>
+              ) : (
+                <div className="chance-list">
+                  {universitiesByProgramQ.data?.map((row) => (
+                    <div key={`${row.universityCode}-${row.programId}`} className={`chance-card ${row.isPass ? 'is-pass' : 'is-fail'}`}>
+                      <div className="chance-uni-top">
+                        <p className="chance-card-title">
+                          {row.universityName} ({row.universityCode})
+                        </p>
+                        <span className="chance-uni-cutoff-pill">
+                          {t('chance.cutoffShort')}: {row.displayedMinScore}
+                        </span>
+                      </div>
+                      <p className="chance-card-meta">
+                        {t('chance.byQuota')}: {t(`chance.quota${row.displayedQuotaType === 'RURAL' ? 'Rural' : 'Grant'}`)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          <aside className="chance-cutoff-note" aria-labelledby={`chance-cutoff-note-${variant}`}>
+            <p id={`chance-cutoff-note-${variant}`} className="chance-cutoff-note-kicker">
+              {t('chance.cutoffNoteTitle')}
+            </p>
+            <div className="chance-cutoff-note-body">
+              <p>{t('chance.cutoffNoteP1')}</p>
+              <p>{t('chance.cutoffNoteP2')}</p>
             </div>
-          )}
+          </aside>
         </section>
-        ) : null}
       </div>
 
       {variant === 'landing' ? (
@@ -487,15 +553,20 @@ function ProgramCard({
   return (
     <button
       type="button"
-      className={`chance-card chance-card-button ${row.isPass ? 'is-pass' : 'is-fail'} ${selected ? 'is-selected' : ''}`}
+      className={`chance-prof-row chance-card-button ${row.isPass ? 'is-pass' : 'is-fail'} ${selected ? 'is-selected' : ''}`}
       onClick={onSelect}
     >
-      <p className="chance-card-title">
-        {row.programCode} - {row.programName}
-      </p>
-      <p className="chance-card-meta">
-        {t('chance.cutoff')}: {row.displayedMinScore} · {t('chance.universitiesCount')}: {row.universityCount}
-      </p>
+      <span className="chance-prof-col-main">
+        <strong>{row.programName}</strong>
+        <em>{row.programCode}</em>
+      </span>
+      <span>{row.displayedMinScore}</span>
+      <span>{row.universityCount}</span>
+      <span>
+        <b className={`chance-status ${row.isPass ? 'pass' : 'fail'}`}>
+          {row.isPass ? t('chance.statusPass') : t('chance.statusFail')}
+        </b>
+      </span>
     </button>
   );
 }

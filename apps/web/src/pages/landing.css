@@ -1127,6 +1127,10 @@ html:has(.landing-root) body {
   color: var(--ld-text);
 }
 
+.landing-root .chance-card-meta {
+  color: rgba(238, 241, 255, 0.78);
+}
+
 .landing-root .chance-select-label,
 .landing-root .chance-card-meta,
 .landing-root .chance-api-note,
@@ -1140,9 +1144,45 @@ html:has(.landing-root) body {
   color: var(--ld-text);
 }
 
+.landing-root .chance-prof-table {
+  border-color: var(--ld-border);
+}
+
+.landing-root .chance-prof-head {
+  background: rgba(15, 23, 42, 0.45);
+  border-bottom-color: var(--ld-border);
+  color: var(--ld-muted);
+}
+
+.landing-root .chance-prof-row {
+  border-bottom-color: var(--ld-border);
+}
+
+.landing-root .chance-prof-col-main strong {
+  color: var(--ld-text);
+}
+
+.landing-root .chance-prof-col-main em {
+  color: var(--ld-muted);
+}
+
 .landing-root .chance-block-badge-ghost {
   color: var(--ld-muted);
   border-color: var(--ld-border);
+}
+
+.landing-root .chance-cutoff-note {
+  border-color: var(--ld-border);
+  background: rgba(15, 23, 42, 0.32);
+  border-left-color: rgba(46, 231, 216, 0.55);
+}
+
+.landing-root .chance-cutoff-note-kicker {
+  color: rgba(238, 241, 255, 0.65);
+}
+
+.landing-root .chance-cutoff-note-body p {
+  color: rgba(238, 241, 255, 0.82);
 }
 
 .ld-footer-copy {

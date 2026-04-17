@@ -2937,6 +2937,25 @@ html[data-theme="light"] .profile-hero-glow {
   padding: var(--sp-4);
 }
 
+.chance-layout {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.chance-layout-controls {
+  min-width: 0;
+}
+
+.chance-layout-results {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.chance-layout-results.is-split {
+  grid-template-columns: 1fr;
+}
+
 .chance-form-grid {
   display: grid;
   gap: var(--sp-3);
@@ -2993,6 +3012,14 @@ html[data-theme="light"] .profile-hero-glow {
   gap: 6px;
 }
 
+.chance-university-search {
+  margin-bottom: 4px;
+}
+
+.chance-university-select {
+  margin-top: 0;
+}
+
 .chance-select-label {
   font-size: 12px;
   color: var(--text-muted);
@@ -3007,6 +3034,18 @@ html[data-theme="light"] .profile-hero-glow {
   color: var(--text-primary);
   padding: 10px 12px;
   font-size: 14px;
+  /* Native OS dropdowns inherit page color-scheme; force light popup for readable options in dark UI */
+  color-scheme: light;
+}
+
+.chance-select option {
+  color: #0f172a;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .chance-select option {
+  color: #0f172a;
+  background: #ffffff;
 }
 
 .chance-panel {
@@ -3112,6 +3151,85 @@ html[data-theme="light"] .profile-hero-glow {
   gap: 10px;
 }
 
+.chance-prof-table {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.chance-prof-head,
+.chance-prof-row {
+  display: grid;
+  grid-template-columns: 1.4fr 120px 120px 140px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+}
+
+.chance-prof-head {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.chance-prof-row {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+
+.chance-prof-row:last-child {
+  border-bottom: none;
+}
+
+.chance-prof-row.is-pass {
+  background: color-mix(in oklab, var(--success) 8%, var(--bg-card));
+}
+
+.chance-prof-row.is-fail {
+  opacity: 0.78;
+}
+
+.chance-prof-col-main {
+  display: grid;
+  gap: 2px;
+}
+
+.chance-prof-col-main strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chance-prof-col-main em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chance-status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chance-status.pass {
+  color: var(--success);
+  background: color-mix(in oklab, var(--success) 18%, transparent);
+}
+
+.chance-status.fail {
+  color: var(--text-muted);
+  background: color-mix(in oklab, var(--text-muted) 12%, transparent);
+}
+
 .chance-card {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -3142,18 +3260,69 @@ html[data-theme="light"] .profile-hero-glow {
   margin: 0 0 6px;
   font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.4;
 }
 
 .chance-card-meta {
   margin: 0;
   font-size: 13px;
-  color: var(--text-muted);
+  color: color-mix(in oklab, var(--text-muted) 72%, #ffffff);
+}
+
+.chance-uni-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.chance-uni-cutoff-pill {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
 }
 
 .chance-api-note {
   margin: 0 0 10px;
   color: var(--text-muted);
   font-size: 14px;
+}
+
+.chance-cutoff-note {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  padding-left: calc(var(--sp-4) + 6px);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  border-left: 3px solid color-mix(in oklab, var(--accent) 55%, var(--border));
+  background: color-mix(in oklab, var(--bg-surface) 94%, var(--text-muted) 6%);
+}
+
+.chance-cutoff-note-kicker {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chance-cutoff-note-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chance-cutoff-note-body p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
 }
 
 .chance-cta {
@@ -3164,5 +3333,38 @@ html[data-theme="light"] .profile-hero-glow {
   text-decoration: none;
   color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+}
+
+@media (min-width: 1120px) {
+  .chance-layout.is-platform {
+    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .chance-layout.is-platform .chance-layout-controls {
+    position: sticky;
+    top: 24px;
+  }
+
+  .chance-layout.is-platform .chance-layout-results.is-split {
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    align-items: start;
+  }
+
+  .chance-layout.is-platform .chance-results-universities {
+    position: sticky;
+    top: 24px;
+  }
+}
+
+@media (max-width: 860px) {
+  .chance-prof-head {
+    display: none;
+  }
+
+  .chance-prof-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
 }
 

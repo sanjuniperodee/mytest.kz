@@ -252,7 +252,7 @@
     "of": "of"
   },
   "chance": {
-    "pageTitle": "Admission Chance",
+    "pageTitle": "Grant admission chance",
     "pageLead": "Fill required filters to view matching programs and universities with passing scores for the selected year.",
     "requiredFilters": "Step 1. Required parameters",
     "optionalFilters": "Step 2. Optional filters",
@@ -265,12 +265,20 @@
     "profileSubjects": "Profile subjects",
     "professionOptional": "Program (optional)",
     "universityOptional": "University (optional)",
+    "universitySearchPlaceholder": "Search by name or code…",
     "allProfessions": "All programs",
     "allUniversities": "All universities",
     "pick": "Choose…",
     "total": "Total score",
     "professionsListTitle": "Matching programs",
     "universitiesListTitle": "Universities for selected program",
+    "colProfession": "Program",
+    "colCutoff": "Cutoff",
+    "colUniversities": "Universities",
+    "colStatus": "Status",
+    "statusPass": "Pass",
+    "statusFail": "Below",
+    "cutoffShort": "Cutoff",
     "cutoff": "Passing score",
     "byQuota": "Quota",
     "universitiesCount": "Universities",
@@ -282,7 +290,10 @@
     "loading": "Loading data…",
     "noPrograms": "No matching programs for these filters.",
     "noUniversities": "No universities found for the selected program.",
-    "apiUnavailable": "Admission reference data is temporarily unavailable."
+    "apiUnavailable": "Admission reference data is temporarily unavailable.",
+    "cutoffNoteTitle": "About cutoff scores",
+    "cutoffNoteP1": "The cutoff scores shown are the minimum totals with which applicants were admitted on a grant to the listed university and program.",
+    "cutoffNoteP2": "These figures can change from year to year — up or down — depending on applicants’ preparation, the number of grants, and competition for each specialty."
   },
   "landing": {
     "langLabel": "Language",
