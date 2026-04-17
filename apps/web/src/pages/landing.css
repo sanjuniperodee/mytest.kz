@@ -1115,7 +1115,8 @@ html:has(.landing-root) body {
 }
 
 .landing-root .chance-panel,
-.landing-root .chance-card {
+.landing-root .chance-card,
+.landing-root .chance-block {
   border-color: var(--ld-border);
   background: rgba(15, 23, 42, 0.35);
 }
@@ -1137,6 +1138,11 @@ html:has(.landing-root) body {
 .landing-root .chance-total strong,
 .landing-root .chance-list-title {
   color: var(--ld-text);
+}
+
+.landing-root .chance-block-badge-ghost {
+  color: var(--ld-muted);
+  border-color: var(--ld-border);
 }
 
 .ld-footer-copy {

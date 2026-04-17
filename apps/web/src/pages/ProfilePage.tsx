@@ -190,6 +190,19 @@ export function ProfilePage() {
   const openPremium = () => navigate('/paywall');
   const entExam = examTypes?.find((exam) => exam.slug === 'ent');
   const entTrial = profile?.trialStatus?.ent;
+  const hasPremium = profile?.hasActiveSubscription === true;
+  const trialSubtitle = hasPremium
+    ? t('profile.trialCtaPremium')
+    : entTrial
+      ? (entTrial.exhausted
+          ? t('profile.trialCtaExhausted')
+          : t('profile.trialCtaRemaining', { count: entTrial.remaining }))
+      : t('profile.trialCtaSub');
+  const trialActionLabel = hasPremium
+    ? t('profile.trialPremiumAction')
+    : entTrial?.exhausted
+      ? t('profile.trialOpenPlans')
+      : t('profile.trialStart');
 
   return (
     <div className="page profile-page">
@@ -246,7 +259,7 @@ export function ProfilePage() {
           type="button"
           className="profile-trial-cta"
           onClick={() => {
-            if (entTrial?.exhausted) {
+            if (!hasPremium && entTrial?.exhausted) {
               navigate('/paywall');
               return;
             }
@@ -259,16 +272,10 @@ export function ProfilePage() {
         >
           <div>
             <strong>{t('profile.trialCtaTitle')}</strong>
-            <span>
-              {entTrial
-                ? (entTrial.exhausted
-                    ? t('profile.trialCtaExhausted')
-                    : t('profile.trialCtaRemaining', { count: entTrial.remaining }))
-                : t('profile.trialCtaSub')}
-            </span>
+            <span>{trialSubtitle}</span>
           </div>
           <span className="profile-trial-pill">
-            {entTrial?.exhausted ? t('profile.trialOpenPlans') : t('profile.trialStart')}
+            {trialActionLabel}
           </span>
         </button>
       </header>

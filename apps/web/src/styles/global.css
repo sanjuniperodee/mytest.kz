@@ -2937,6 +2937,49 @@ html[data-theme="light"] .profile-hero-glow {
   padding: var(--sp-4);
 }
 
+.chance-form-grid {
+  display: grid;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.chance-block {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  padding: var(--sp-3);
+}
+
+.chance-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.chance-block-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chance-block-badge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+}
+
+.chance-block-badge-ghost {
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
 .chance-selects {
   display: grid;
   gap: var(--sp-3);
@@ -3019,13 +3062,48 @@ html[data-theme="light"] .profile-hero-glow {
   color: var(--text-primary);
 }
 
+.chance-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 var(--sp-2);
+}
+
+.chance-legend-item {
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+}
+
+.chance-legend-item.pass {
+  border-color: color-mix(in oklab, var(--success) 40%, var(--border));
+  background: color-mix(in oklab, var(--success) 10%, var(--bg-surface));
+}
+
+.chance-legend-item.fail {
+  opacity: 0.8;
+}
+
 .chance-results {
   margin-top: var(--sp-4);
+}
+
+.chance-results-grid {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: 1fr;
 }
 
 .chance-list-title {
   margin: 0 0 10px;
   font-size: 16px;
+}
+
+.chance-selected-program {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .chance-list {
@@ -3087,3 +3165,4 @@ html[data-theme="light"] .profile-hero-glow {
   color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
 }
+

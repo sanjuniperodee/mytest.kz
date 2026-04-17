@@ -12,6 +12,7 @@ export function PaywallPage() {
   const { data: profile } = useProfile();
   const checkout = useCreateCheckout();
   const paymentStatus = searchParams.get('payment');
+  const hasPremium = profile?.hasActiveSubscription === true;
 
   if (isLoading) return <Spinner fullScreen />;
 
@@ -25,7 +26,9 @@ export function PaywallPage() {
         <p className="paywall-kicker">{t('paywall.kicker')}</p>
         <h1 className="paywall-title">{t('paywall.title')}</h1>
         <p className="paywall-subtitle">
-          {profile?.trialStatus?.ent?.exhausted
+          {hasPremium
+            ? t('paywall.active')
+            : profile?.trialStatus?.ent?.exhausted
             ? t('paywall.exhausted')
             : t('paywall.remaining', { count: profile?.trialStatus?.ent?.remaining ?? 0 })}
         </p>
@@ -35,39 +38,46 @@ export function PaywallPage() {
         {paymentStatus === 'failed' && (
           <p className="paywall-status paywall-status-fail">{t('paywall.statusFail')}</p>
         )}
+        {hasPremium && (
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/app')}>
+            {t('paywall.activeButton')}
+          </button>
+        )}
       </div>
 
-      <div className="paywall-grid stagger-list">
-        {plans?.map((plan) => (
-          <article key={plan.id} className="surface paywall-card">
-            <div className="paywall-card-head">
-              <h3>{plan.name}</h3>
-              {plan.highlight ? <span>{plan.highlight}</span> : null}
-            </div>
-            <p className="paywall-card-description">{plan.description}</p>
-            <p className="paywall-card-price">
-              {new Intl.NumberFormat('ru-RU').format(plan.priceKzt)} ₸
-              <small> / {plan.durationDays} дн.</small>
-            </p>
-            <ul className="paywall-features">
-              {plan.features.map((feature) => (
-                <li key={feature}>{feature}</li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={checkout.isPending}
-              onClick={async () => {
-                const data = await checkout.mutateAsync(plan.id);
-                window.location.href = data.checkoutUrl;
-              }}
-            >
-              {checkout.isPending ? t('common.loading') : t('paywall.payButton')}
-            </button>
-          </article>
-        ))}
-      </div>
+      {!hasPremium && (
+        <div className="paywall-grid stagger-list">
+          {plans?.map((plan) => (
+            <article key={plan.id} className="surface paywall-card">
+              <div className="paywall-card-head">
+                <h3>{plan.name}</h3>
+                {plan.highlight ? <span>{plan.highlight}</span> : null}
+              </div>
+              <p className="paywall-card-description">{plan.description}</p>
+              <p className="paywall-card-price">
+                {new Intl.NumberFormat('ru-RU').format(plan.priceKzt)} ₸
+                <small> / {plan.durationDays} дн.</small>
+              </p>
+              <ul className="paywall-features">
+                {plan.features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={checkout.isPending}
+                onClick={async () => {
+                  const data = await checkout.mutateAsync(plan.id);
+                  window.location.href = data.checkoutUrl;
+                }}
+              >
+                {checkout.isPending ? t('common.loading') : t('paywall.payButton')}
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

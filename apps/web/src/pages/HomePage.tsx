@@ -72,6 +72,19 @@ export function HomePage() {
   const firstName = user?.firstName || '';
   const entExam = examTypes?.find((exam) => exam.slug === 'ent');
   const entTrial = profile?.trialStatus?.ent;
+  const hasPremium = profile?.hasActiveSubscription === true;
+  const trialSubtitle = hasPremium
+    ? t('home.trialCtaPremium')
+    : entTrial
+      ? (entTrial.exhausted
+          ? t('home.trialCtaExhausted')
+          : t('home.trialCtaRemaining', { count: entTrial.remaining }))
+      : t('home.trialCtaSub');
+  const trialActionLabel = hasPremium
+    ? t('home.trialPremiumAction')
+    : entTrial?.exhausted
+      ? t('home.trialOpenPlans')
+      : t('home.trialStart');
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 6) return t('home.greetingNight');
@@ -100,7 +113,7 @@ export function HomePage() {
         type="button"
         className="surface"
         onClick={() => {
-          if (entTrial?.exhausted) {
+          if (!hasPremium && entTrial?.exhausted) {
             navigate('/paywall');
             return;
           }
@@ -128,15 +141,11 @@ export function HomePage() {
             {t('home.trialCtaTitle')}
           </div>
           <div style={{ marginTop: 3, fontSize: 12, color: 'var(--text-muted)' }}>
-            {entTrial
-              ? (entTrial.exhausted
-                  ? t('home.trialCtaExhausted')
-                  : t('home.trialCtaRemaining', { count: entTrial.remaining }))
-              : t('home.trialCtaSub')}
+            {trialSubtitle}
           </div>
         </div>
         <span className="badge badge-accent" style={{ whiteSpace: 'nowrap' }}>
-          {entTrial?.exhausted ? t('home.trialOpenPlans') : t('home.trialStart')}
+          {trialActionLabel}
         </span>
       </button>
 

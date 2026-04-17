@@ -23,8 +23,10 @@
     "trialCtaSub": "2 free trials are available right after sign-in",
     "trialCtaRemaining": "Free attempts left: {{count}}",
     "trialCtaExhausted": "Free limit reached — open plans",
+    "trialCtaPremium": "Premium is active — UNT trial access is unlimited",
     "trialStart": "Start",
-    "trialOpenPlans": "Plans"
+    "trialOpenPlans": "Plans",
+    "trialPremiumAction": "Go to UNT"
   },
   "mistakes": {
     "navShort": "Mistakes",
@@ -141,8 +143,10 @@
     "trialCtaSub": "Open UNT and launch your next attempt",
     "trialCtaRemaining": "Free attempts left: {{count}}",
     "trialCtaExhausted": "Trial limit reached — open pricing",
+    "trialCtaPremium": "Premium is active — trial limits are removed",
     "trialStart": "Start test",
     "trialOpenPlans": "View plans",
+    "trialPremiumAction": "Open UNT",
     "overview": "Overview",
     "avgScoreHint": "Across completed tests",
     "stats": "Statistics",
@@ -231,9 +235,11 @@
     "title": "Continue after 2 free trials",
     "exhausted": "Free limit is exhausted. Choose a plan to continue UNT trials and analytics.",
     "remaining": "Free attempts left: {{count}}",
+    "active": "You already have an active Premium plan. No additional purchase is needed now.",
     "statusSuccess": "Payment was successful. Access will be activated within a minute.",
     "statusFail": "Payment was not completed. You can choose a plan and retry.",
-    "payButton": "Proceed to payment"
+    "payButton": "Proceed to payment",
+    "activeButton": "Go to exams"
   },
   "common": {
     "loading": "Loading...",
@@ -248,6 +254,10 @@
   "chance": {
     "pageTitle": "Admission Chance",
     "pageLead": "Fill required filters to view matching programs and universities with passing scores for the selected year.",
+    "requiredFilters": "Step 1. Required parameters",
+    "optionalFilters": "Step 2. Optional filters",
+    "requiredBadge": "Required",
+    "optionalBadge": "Optional",
     "year": "Year / cycle",
     "quota": "Quota",
     "quotaGrant": "No quota (grant)",
@@ -264,6 +274,10 @@
     "cutoff": "Passing score",
     "byQuota": "Quota",
     "universitiesCount": "Universities",
+    "legendPass": "Likely pass (score >= cutoff)",
+    "legendFail": "Below cutoff",
+    "selectedProgram": "Selected program",
+    "pickProgramHint": "Select a program on the left to see universities.",
     "fillRequired": "Fill required fields: year, quota, profile subjects and UNT scores.",
     "loading": "Loading data…",
     "noPrograms": "No matching programs for these filters.",
