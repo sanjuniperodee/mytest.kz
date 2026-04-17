@@ -31,7 +31,7 @@ export class TelegramBotService implements OnModuleInit {
     this.botToken = (config.get<string>('TELEGRAM_BOT_TOKEN', '') || '').trim();
     this.channelId = config.get<string>('TELEGRAM_CHANNEL_ID', '');
     const raw =
-      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://my-test.kz';
+      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://my-test.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
   }
 
