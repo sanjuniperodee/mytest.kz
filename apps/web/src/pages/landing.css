@@ -1108,6 +1108,37 @@ html:has(.landing-root) body {
   display: inline-flex;
 }
 
+.landing-root .chance-widget {
+  border: 1px solid var(--ld-border);
+  background: linear-gradient(160deg, rgba(46, 231, 216, 0.06), rgba(167, 139, 250, 0.04));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+}
+
+.landing-root .chance-panel,
+.landing-root .chance-card {
+  border-color: var(--ld-border);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.landing-root .chance-select {
+  border-color: var(--ld-border);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--ld-text);
+}
+
+.landing-root .chance-select-label,
+.landing-root .chance-card-meta,
+.landing-root .chance-api-note,
+.landing-root .chance-total {
+  color: var(--ld-muted);
+}
+
+.landing-root .chance-card-title,
+.landing-root .chance-total strong,
+.landing-root .chance-list-title {
+  color: var(--ld-text);
+}
+
 .ld-footer-copy {
   font-size: 14px;
   color: var(--ld-muted);

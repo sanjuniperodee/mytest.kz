@@ -4,6 +4,7 @@
   },
   "nav": {
     "home": "Home",
+    "chance": "Chance",
     "profile": "Profile",
     "settings": "Settings",
     "ariaLabel": "Main navigation"
@@ -243,6 +244,31 @@
     "save": "Save",
     "back": "Back",
     "of": "of"
+  },
+  "chance": {
+    "pageTitle": "Admission Chance",
+    "pageLead": "Fill required filters to view matching programs and universities with passing scores for the selected year.",
+    "year": "Year / cycle",
+    "quota": "Quota",
+    "quotaGrant": "No quota (grant)",
+    "quotaRural": "Rural quota",
+    "profileSubjects": "Profile subjects",
+    "professionOptional": "Program (optional)",
+    "universityOptional": "University (optional)",
+    "allProfessions": "All programs",
+    "allUniversities": "All universities",
+    "pick": "Choose…",
+    "total": "Total score",
+    "professionsListTitle": "Matching programs",
+    "universitiesListTitle": "Universities for selected program",
+    "cutoff": "Passing score",
+    "byQuota": "Quota",
+    "universitiesCount": "Universities",
+    "fillRequired": "Fill required fields: year, quota, profile subjects and UNT scores.",
+    "loading": "Loading data…",
+    "noPrograms": "No matching programs for these filters.",
+    "noUniversities": "No universities found for the selected program.",
+    "apiUnavailable": "Admission reference data is temporarily unavailable."
   },
   "landing": {
     "langLabel": "Language",

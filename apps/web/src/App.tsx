@@ -9,6 +9,7 @@ import { TestPage } from './pages/TestPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MistakesPage } from './pages/MistakesPage';
+import { AdmissionChancePage } from './pages/AdmissionChancePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ChannelGatePage } from './pages/ChannelGatePage';
@@ -68,6 +69,7 @@ function AppRoutes() {
           path="/settings"
           element={<SettingsPage />}
         />
+        <Route path="/admission-chance" element={<AdmissionChancePage />} />
         <Route path="/mistakes" element={<MistakesPage />} />
         <Route path="/paywall" element={<PaywallPage />} />
       </Route>

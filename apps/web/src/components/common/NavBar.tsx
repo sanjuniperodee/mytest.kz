@@ -22,6 +22,15 @@ const SettingsIcon = ({ active }: { active: boolean }) => (
   </svg>
 );
 
+const AdmissionIcon = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19h16" />
+    <path d="M6 17V9" />
+    <path d="M12 17V5" />
+    <path d="M18 17v-6" />
+  </svg>
+);
+
 export function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,6 +38,7 @@ export function NavBar() {
 
   const items = [
     { path: '/app', Icon: HomeIcon, label: t('nav.home') },
+    { path: '/admission-chance', Icon: AdmissionIcon, label: t('nav.chance') },
     { path: '/profile', Icon: ProfileIcon, label: t('nav.profile') },
     { path: '/settings', Icon: SettingsIcon, label: t('nav.settings') },
   ];
