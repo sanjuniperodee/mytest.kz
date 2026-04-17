@@ -7,6 +7,7 @@ import {
   fetchAdmissionChanceProfileSubjects,
   fetchAdmissionChancePrograms,
   fetchAdmissionChanceUniversities,
+  fetchAdmissionPrograms,
   fetchAdmissionCycles,
   fetchAdmissionUniversities,
   type AdmissionChanceProgram,
@@ -69,13 +70,32 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
     staleTime: 60_000,
   });
 
+  // Backward compatibility: if chance endpoints are not deployed yet,
+  // derive basic selectors from the legacy programs endpoint.
+  const legacyProgramsQ = useQuery({
+    queryKey: ['admission', 'legacy-programs', 'fallback'],
+    queryFn: () => fetchAdmissionPrograms({ take: 500 }),
+    enabled: profileSubjectsQ.isError,
+    staleTime: 60_000,
+  });
+
+  const availableProfileSubjects = useMemo(() => {
+    if (profileSubjectsQ.data?.length) {
+      return profileSubjectsQ.data;
+    }
+    const values = new Set((legacyProgramsQ.data ?? []).map((item) => item.profileSubjects).filter(Boolean));
+    return [...values]
+      .sort((a, b) => a.localeCompare(b, 'ru'))
+      .map((value) => ({ value, label: value }));
+  }, [profileSubjectsQ.data, legacyProgramsQ.data]);
+
   useEffect(() => {
-    if (profileSubjects && !(profileSubjectsQ.data ?? []).some((item) => item.value === profileSubjects)) {
+    if (profileSubjects && !availableProfileSubjects.some((item) => item.value === profileSubjects)) {
       setProfileSubjects('');
       setProfessionFilterId('');
       setActiveProgramId('');
     }
-  }, [profileSubjects, profileSubjectsQ.data]);
+  }, [profileSubjects, availableProfileSubjects]);
 
   const programsQ = useQuery({
     queryKey: [
@@ -109,12 +129,21 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
   });
 
   const programOptions = useMemo(
-    () =>
-      (programsQ.data ?? []).map((item) => ({
-        id: item.programId,
-        label: `${item.programCode} - ${item.programName}`,
-      })),
-    [programsQ.data],
+    () => {
+      if (programsQ.data?.length) {
+        return programsQ.data.map((item) => ({
+          id: item.programId,
+          label: `${item.programCode} - ${item.programName}`,
+        }));
+      }
+      return (legacyProgramsQ.data ?? [])
+        .filter((item) => (profileSubjects ? item.profileSubjects === profileSubjects : true))
+        .map((item) => ({
+          id: item.id,
+          label: `${item.code} - ${item.name}`,
+        }));
+    },
+    [programsQ.data, legacyProgramsQ.data, profileSubjects],
   );
 
   useEffect(() => {
@@ -126,7 +155,7 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
     }
   }, [programOptions, professionFilterId, activeProgramId]);
 
-  const visiblePrograms = useMemo(() => {
+  const visiblePrograms = useMemo<AdmissionChanceProgram[]>(() => {
     const rows = programsQ.data ?? [];
     if (!professionFilterId) return rows;
     return rows.filter((item) => item.programId === professionFilterId);
@@ -165,7 +194,10 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
     staleTime: 15_000,
   });
 
-  const admissionError = cyclesQ.isError || universitiesQ.isError || profileSubjectsQ.isError;
+  const admissionError =
+    cyclesQ.isError ||
+    universitiesQ.isError ||
+    (profileSubjectsQ.isError && legacyProgramsQ.isError);
 
   return (
     <div className={`chance-widget chance-widget-${variant}`}>
@@ -209,10 +241,10 @@ export function AdmissionChanceWidget({ variant }: { variant: ChanceWidgetVarian
               setProfessionFilterId('');
               setActiveProgramId('');
             }}
-            disabled={!cycleSlug || profileSubjectsQ.isLoading}
+            disabled={!cycleSlug || (profileSubjectsQ.isLoading && legacyProgramsQ.isLoading)}
           >
             <option value="">{t('chance.pick')}</option>
-            {(profileSubjectsQ.data ?? []).map((item) => (
+            {availableProfileSubjects.map((item) => (
               <option key={item.value} value={item.value}>
                 {item.label}
               </option>

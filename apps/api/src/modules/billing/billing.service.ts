@@ -76,7 +76,19 @@ export class BillingService {
       throw new BadRequestException(`PAYMENT_GATEWAY_ERROR:${response.status}`);
     }
     const gatewayData = this.parseGatewayResponse(text);
-    const checkoutUrl = gatewayData.pg_payment_url || gatewayData.payment_url;
+    const status = (gatewayData.pg_status || '').toLowerCase();
+    if (status && status !== 'ok' && status !== 'success' && status !== 'pending') {
+      const code = gatewayData.pg_error_code || 'unknown';
+      const description =
+        gatewayData.pg_error_description ||
+        gatewayData.pg_description ||
+        'unknown';
+      throw new BadRequestException(`PAYMENT_GATEWAY_${code}:${description}`);
+    }
+    const checkoutUrl =
+      gatewayData.pg_redirect_url ||
+      gatewayData.pg_payment_url ||
+      gatewayData.payment_url;
     if (!checkoutUrl) throw new BadRequestException('PAYMENT_URL_MISSING');
 
     await this.prisma.paymentOrder.create({
@@ -238,11 +250,31 @@ export class BillingService {
       }
     }
 
-    const tags = ['pg_payment_url', 'payment_url', 'pg_status', 'pg_error_description', 'pg_error_code'];
+    const tags = [
+      'pg_redirect_url',
+      'pg_redirect_url_type',
+      'pg_redirect_qr',
+      'pg_payment_url',
+      'payment_url',
+      'pg_status',
+      'pg_error_description',
+      'pg_error_code',
+      'pg_description',
+      'pg_payment_id',
+      'pg_order_id',
+    ];
     const result: Record<string, string> = {};
     for (const tag of tags) {
       const m = trimmed.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
       if (m) result[tag] = m[1];
+    }
+    // Fallback: collect all simple tags under XML response
+    if (Object.keys(result).length === 0 && trimmed.startsWith('<')) {
+      const fallback = [...trimmed.matchAll(/<([a-zA-Z0-9_:-]+)>([\s\S]*?)<\/\1>/g)];
+      for (const [, key, value] of fallback) {
+        if (!key || key === 'response' || key === 'request') continue;
+        result[key] = value.trim();
+      }
     }
     return result;
   }
