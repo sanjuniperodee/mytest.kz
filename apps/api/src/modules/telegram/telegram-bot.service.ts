@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Telegraf, Markup } from 'telegraf';
+import { Context, Telegraf, Markup } from 'telegraf';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../database/prisma.service';
 import { normalizeKzPhone } from '@bilimland/shared';
@@ -53,6 +53,44 @@ export class TelegramBotService implements OnModuleInit {
     ]).resize();
   }
 
+  /** /start и то же самое по смыслу (Telegram команда — только со слэшем). */
+  private async sendStartWelcome(ctx: Context) {
+    const tgUser = ctx.from;
+    if (!tgUser) return;
+
+    try {
+      await this.prisma.user.upsert({
+        where: { telegramId: BigInt(tgUser.id) },
+        update: {
+          telegramUsername: tgUser.username || null,
+          firstName: tgUser.first_name,
+          lastName: tgUser.last_name || null,
+        },
+        create: {
+          telegramId: BigInt(tgUser.id),
+          telegramUsername: tgUser.username || null,
+          firstName: tgUser.first_name,
+          lastName: tgUser.last_name || null,
+          preferredLanguage: tgUser.language_code === 'kk' ? 'kk' : 'ru',
+        },
+      });
+
+      await ctx.reply(
+        '👋 <b>MyTest</b>\n\n' +
+          '• <b>Мини-приложение</b> — первая кнопка.\n' +
+          '• <b>Вход с сайта</b> — вторая кнопка: поделитесь номером казахстанского оператора. ' +
+          'Код для входа придёт <i>в этот же чат</i> одним сообщением.',
+        {
+          parse_mode: 'HTML',
+          ...this.mainReplyKeyboard(),
+        },
+      );
+    } catch (error) {
+      this.logger.error(`Error handling /start for ${tgUser.id}: ${error}`);
+      await ctx.reply('Произошла ошибка. Попробуйте ещё раз.');
+    }
+  }
+
   async onModuleInit() {
     if (!this.botToken) {
       this.logger.warn('TELEGRAM_BOT_TOKEN пуст — бот не запускается.');
@@ -62,40 +100,21 @@ export class TelegramBotService implements OnModuleInit {
     this.bot = new Telegraf(this.botToken);
 
     this.bot.start(async (ctx) => {
-      const tgUser = ctx.from;
-      if (!tgUser) return;
+      await this.sendStartWelcome(ctx);
+    });
 
-      try {
-        await this.prisma.user.upsert({
-          where: { telegramId: BigInt(tgUser.id) },
-          update: {
-            telegramUsername: tgUser.username || null,
-            firstName: tgUser.first_name,
-            lastName: tgUser.last_name || null,
-          },
-          create: {
-            telegramId: BigInt(tgUser.id),
-            telegramUsername: tgUser.username || null,
-            firstName: tgUser.first_name,
-            lastName: tgUser.last_name || null,
-            preferredLanguage: tgUser.language_code === 'kk' ? 'kk' : 'ru',
-          },
-        });
-
-        await ctx.reply(
-          '👋 <b>MyTest</b>\n\n' +
-            '• <b>Мини-приложение</b> — первая кнопка.\n' +
-            '• <b>Вход с сайта</b> — вторая кнопка: поделитесь номером казахстанского оператора. ' +
-            'Код для входа придёт <i>в этот же чат</i> одним сообщением.',
-          {
-            parse_mode: 'HTML',
-            ...this.mainReplyKeyboard(),
-          },
-        );
-      } catch (error) {
-        this.logger.error(`Error handling /start for ${tgUser.id}: ${error}`);
-        await ctx.reply('Произошла ошибка. Попробуйте ещё раз.');
-      }
+    /**
+     * Сообщения вида «буду /start», «hi /start» — без entity bot_command, поэтому `bot.start` не срабатывает.
+     * Реагируем, если `/start` есть в конце после пробела (кроме случаев с длинным «хвостом» после /start).
+     */
+    this.bot.on('text', async (ctx, next) => {
+      const raw = ctx.message?.text?.trim() ?? '';
+      if (!raw || raw.startsWith('//')) return next();
+      const startTail = /^(.+)\s\/start(@[A-Za-z0-9_]*)?(?:\s+(\S.*))?$/i.exec(raw);
+      if (!startTail) return next();
+      const payload = startTail[3]?.trim();
+      if (payload && payload.length > 64) return next();
+      await this.sendStartWelcome(ctx);
     });
 
     this.bot.on('message', async (ctx, next) => {
