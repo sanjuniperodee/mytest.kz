@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useBillingPlans, useCreateCheckout } from '../api/hooks/useBilling';
+import { useBillingPlans } from '../api/hooks/useBilling';
 import { useProfile } from '../api/hooks/useProfile';
 import { Spinner } from '../components/common/Spinner';
 
@@ -10,7 +10,7 @@ export function PaywallPage() {
   const [searchParams] = useSearchParams();
   const { data: plans, isLoading } = useBillingPlans();
   const { data: profile } = useProfile();
-  const checkout = useCreateCheckout();
+
   const paymentStatus = searchParams.get('payment');
   const hasPremium = profile?.hasActiveSubscription === true;
 
