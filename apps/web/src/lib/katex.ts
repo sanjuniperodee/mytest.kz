@@ -8,8 +8,15 @@ import katex from 'katex';
  * $$...$$ for display math
  */
 export function renderMathInText(text: string): string {
+  if (!text) return text;
+  
+  // Handle Markdown images first: ![alt](url)
+  let result = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
+    return `<img src="${url}" alt="${alt}" style="max-width: 100%; border-radius: 8px; margin: 8px 0; border: 1px solid var(--border);" />`;
+  });
+
   // Handle display math first ($$...$$)
-  let result = text.replace(/\$\$([\s\S]+?)\$\$/g, (_match, latex: string) => {
+  result = result.replace(/\$\$([\s\S]+?)\$\$/g, (_match, latex: string) => {
     try {
       return katex.renderToString(latex.trim(), {
         displayMode: true,

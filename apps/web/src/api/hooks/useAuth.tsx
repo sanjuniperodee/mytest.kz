@@ -50,15 +50,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearTokens();
       }
 
-      if (isTelegram && webApp?.initData) {
+      // initData из контекста или окна: до первого setState в TelegramProvider эффект Auth мог
+      // уже завершиться без входа и отправить на /login — читаем window как запасной вариант.
+      const initDataRaw = (
+        webApp?.initData ||
+        (typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData : '') ||
+        ''
+      ).trim();
+
+      if (initDataRaw) {
         try {
           const { data } = await api.post<AuthResponse>('/auth/telegram', {
-            initData: webApp.initData,
+            initData: initDataRaw,
           });
           setTokens(data.accessToken, data.refreshToken);
           setUser(data.user);
         } catch {
-          // Telegram auth failed
+          // Telegram auth failed (неверный hash / другой TELEGRAM_BOT_TOKEN на API, сеть, CORS)
         }
       }
 

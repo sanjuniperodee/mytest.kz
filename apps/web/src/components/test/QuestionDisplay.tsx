@@ -9,6 +9,7 @@ interface Props {
   imageUrls?: string[];
   /** Для «Оқу сауаттылығы»: `passage` + `text` из JSON; без `passage` — цельный `text` (без эвристического сплита). */
   subjectSlug?: string;
+  hideTopicBlock?: boolean;
 }
 
 const stemBodyStyle: CSSProperties = {
@@ -17,7 +18,7 @@ const stemBodyStyle: CSSProperties = {
   color: 'var(--text-primary)',
   fontWeight: 400,
   letterSpacing: '-0.1px',
-};
+} as CSSProperties;
 
 const labelStyle: CSSProperties = {
   fontSize: 12,
@@ -26,11 +27,11 @@ const labelStyle: CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
   marginBottom: 8,
-};
+} as CSSProperties;
 
 const PASSAGE_COLLAPSE_LEN = 360;
 
-export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
+export function QuestionDisplay({ content, imageUrls, subjectSlug, hideTopicBlock }: Props) {
   const { t, i18n } = useTranslation();
   const { passage, topicLine, stem } = useMemo(
     () => getQuestionContentDisplayParts(content, i18n.language),
@@ -60,7 +61,7 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug }: Props) {
 
   return (
     <div style={{ marginBottom: 20 }}>
-      {topicLine ? (
+      {topicLine && !hideTopicBlock ? (
         <div
           style={{
             marginBottom: 14,

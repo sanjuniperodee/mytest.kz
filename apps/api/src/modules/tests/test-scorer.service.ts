@@ -150,17 +150,9 @@ export class TestScorerService {
 
       const selectedIds = answer.selectedIds;
 
-      const isCorrect =
-        selectedIds.length > 0 &&
-        selectedIds.length === correctOptionIds.length &&
-        selectedIds.every((id) => correctOptionIds.includes(id));
-
-      if (isCorrect) correctCount++;
-
-      await this.prisma.testAnswer.update({
-        where: { id: answer.id },
-        data: { isCorrect },
-      });
+      let errors = 0;
+      for (const id of correctOptionIds) if (!selectedIds.includes(id)) errors++;
+      for (const id of selectedIds) if (!correctOptionIds.includes(id)) errors++;
 
       const subject = (answer.question as { subject?: { id: string; name: unknown; slug: string; isMandatory: boolean } }).subject;
       const subjectId = subject?.id || answer.question.subjectId;
@@ -168,7 +160,25 @@ export class TestScorerService {
       const qSw = (answer.question as { scoreWeight?: number | null }).scoreWeight;
       const wMax =
         entWeightedActive && pos ? entMaxPointsForPlacement(pos, qSw) : 1;
-      const wEarned = isCorrect ? wMax : 0;
+
+      let wEarned = 0;
+      if (selectedIds.length > 0) {
+        if (errors === 0) {
+          wEarned = wMax;
+        } else if (errors === 1 && wMax === 2) {
+          wEarned = 1;
+        }
+      }
+
+      const isPerfectlyCorrect = selectedIds.length > 0 && errors === 0;
+
+      if (isPerfectlyCorrect) correctCount++;
+
+      await this.prisma.testAnswer.update({
+        where: { id: answer.id },
+        data: { isCorrect: isPerfectlyCorrect },
+      });
+
       weightedRaw += wEarned;
       weightedMax += wMax;
 
@@ -185,7 +195,7 @@ export class TestScorerService {
       }
       const sec = sectionAgg.get(subjectId)!;
       sec.totalCount++;
-      if (isCorrect) sec.correctCount++;
+      if (isPerfectlyCorrect) sec.correctCount++;
       sec.rawPoints += wEarned;
       sec.maxPoints += wMax;
     }

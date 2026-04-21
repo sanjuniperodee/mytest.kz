@@ -55,7 +55,24 @@ export class TestSessionService {
           expiresAt: { gt: now },
         },
       });
-      if (!activeSubscription) {
+
+      let hasValidSubscription = false;
+      if (activeSubscription) {
+        if (activeSubscription.planType === 'trial') {
+          const testsTakenWithTrial = await this.prisma.testSession.count({
+            where: {
+              userId,
+              examType: { slug: 'ent' },
+              startedAt: { gte: activeSubscription.startsAt },
+            },
+          });
+          if (testsTakenWithTrial < 1) hasValidSubscription = true;
+        } else {
+          hasValidSubscription = true;
+        }
+      }
+
+      if (!hasValidSubscription) {
         const consumed = await this.prisma.user.updateMany({
           where: {
             id: userId,

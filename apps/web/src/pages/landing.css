@@ -692,6 +692,226 @@ html:has(.landing-root) body {
   line-height: 1.55;
 }
 
+.ld-about-body-secondary {
+  margin-top: 14px;
+  max-width: 62ch;
+}
+
+/* Platform capabilities */
+.ld-section-platform {
+  padding-top: 0;
+}
+
+.ld-platform-heading {
+  margin: 0 0 10px;
+  font-family: var(--ld-display);
+  font-size: clamp(1.35rem, 2.8vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--ld-text);
+}
+
+.ld-platform-lead {
+  margin: 0 0 22px;
+  font-size: 15px;
+  color: var(--ld-muted);
+  line-height: 1.6;
+  max-width: 58ch;
+}
+
+.ld-platform-grid {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 720px) {
+  .ld-platform-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .ld-platform-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+.ld-platform-card {
+  padding: 18px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--ld-border);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100%;
+}
+
+.ld-platform-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ld-cyan);
+  background: rgba(46, 231, 216, 0.08);
+  border: 1px solid rgba(46, 231, 216, 0.18);
+}
+
+.ld-platform-title {
+  margin: 0;
+  font-family: var(--ld-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ld-text);
+  line-height: 1.25;
+}
+
+.ld-platform-body {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ld-muted);
+  line-height: 1.55;
+}
+
+/* Direction popularity */
+.ld-section-directions {
+  padding-top: 0;
+}
+
+.ld-directions-lead {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: var(--ld-muted);
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.ld-directions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.ld-directions-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.ld-directions-label {
+  font-size: 13px;
+  color: var(--ld-text);
+  line-height: 1.35;
+}
+
+.ld-directions-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ld-violet);
+  font-variant-numeric: tabular-nums;
+}
+
+.ld-directions-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ld-directions-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ld-cyan), var(--ld-violet));
+  min-width: 4px;
+}
+
+/* Testimonials */
+.ld-section-testimonials {
+  padding-top: 0;
+}
+
+.ld-testimonials-grid {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 800px) {
+  .ld-testimonials-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+
+.ld-testimonial {
+  margin: 0;
+  padding: 22px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--ld-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ld-testimonial-quote {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ld-text);
+  font-style: normal;
+}
+
+.ld-testimonial-author {
+  font-size: 13px;
+  color: var(--ld-muted);
+}
+
+/* Footer brand + contacts */
+.ld-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-start;
+  max-width: 520px;
+}
+
+.ld-footer-contact-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ld-dim);
+}
+
+.ld-footer-contact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ld-footer-contact-list a {
+  color: var(--ld-muted);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.ld-footer-contact-list a:hover {
+  color: var(--ld-cyan);
+}
+
 .ld-section-trial {
   padding-top: 0;
 }

@@ -55,6 +55,11 @@ export function PaywallPage() {
               </div>
               <p className="paywall-card-description">{plan.description}</p>
               <p className="paywall-card-price">
+                {plan.originalPriceKzt ? (
+                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', marginRight: 8, fontSize: '0.85em' }}>
+                    {new Intl.NumberFormat('ru-RU').format(plan.originalPriceKzt)} ₸
+                  </span>
+                ) : null}
                 {new Intl.NumberFormat('ru-RU').format(plan.priceKzt)} ₸
                 <small> / {plan.durationDays} дн.</small>
               </p>
@@ -66,13 +71,13 @@ export function PaywallPage() {
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={checkout.isPending}
-                onClick={async () => {
-                  const data = await checkout.mutateAsync(plan.id);
-                  window.location.href = data.checkoutUrl;
+                onClick={() => {
+                  const WA_NUMBER = '77088431748';
+                  const message = `Здравствуйте! Хочу приобрести тариф "${plan.name}" за ${plan.priceKzt}₸`;
+                  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
                 }}
               >
-                {checkout.isPending ? t('common.loading') : t('paywall.payButton')}
+                {t('paywall.payButton')}
               </button>
             </article>
           ))}

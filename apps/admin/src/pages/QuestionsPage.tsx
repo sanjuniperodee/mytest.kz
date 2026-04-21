@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import {
@@ -215,6 +215,72 @@ function answersToFormList(q: Question) {
     en: pickContentLang(opt.content, 'en'),
     isCorrect: opt.isCorrect,
   }));
+}
+
+function MarkdownTextArea(props: any) {
+  const { value, onChange, ...rest } = props;
+  const inputRef = useRef<any>(null);
+  
+  const handleInsertImage = (url: string) => {
+    const textarea = inputRef.current?.resizableTextArea?.textArea;
+    const start = textarea?.selectionStart || 0;
+    const end = textarea?.selectionEnd || 0;
+    const currentVal = value || '';
+    const alt = 'image';
+    const textToInsert = `\n\n![${alt}](${url})\n\n`;
+    
+    const newVal = currentVal.substring(0, start) + textToInsert + currentVal.substring(end);
+    onChange?.(newVal);
+    
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
+      }
+    }, 10);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <TextArea ref={inputRef} value={value} onChange={onChange} {...rest} />
+      <Upload
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        showUploadList={false}
+        customRequest={async (opt) => {
+          const { file, onError, onSuccess } = opt;
+          try {
+            const fd = new FormData();
+            fd.append('file', file as File);
+            const token = localStorage.getItem('admin_accessToken');
+            const res = await fetch(questionImageUploadUrl(), {
+              method: 'POST',
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              body: fd,
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const data = (await res.json()) as { url: string };
+            if (data?.url) {
+              handleInsertImage(data.url);
+              message.success('Вставлено изображение');
+            }
+            onSuccess?.(data);
+          } catch (e) {
+            message.error('Не удалось загрузить изображение');
+            onError?.(e as Error);
+          }
+        }}
+      >
+        <Tooltip title="Вставить изображение в текст">
+          <Button 
+            icon={<PictureOutlined />} 
+            size="small" 
+            type="text" 
+            style={{ position: 'absolute', top: 4, right: 4, background: 'var(--surface-elevated)', zIndex: 1 }} 
+          />
+        </Tooltip>
+      </Upload>
+    </div>
+  );
 }
 
 export function QuestionsPage() {
@@ -1282,10 +1348,10 @@ export function QuestionsPage() {
                 label="Сұрақ мәтіні (KK) — оқылатын бөлім"
                 tooltip="Оқу сауаттылығы мәтіні, тарих контексті."
               >
-                <TextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 12, maxRows: 40 }} />
+                <MarkdownTextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 12, maxRows: 40 }} />
               </Form.Item>
               <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
-                <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
+                <MarkdownTextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
               </Form.Item>
               <Form.Item
                 name="stem_kk"
@@ -1304,7 +1370,7 @@ export function QuestionsPage() {
                   }),
                 ]}
               >
-                <TextArea autoSize={{ minRows: 6, maxRows: 22 }} />
+                <MarkdownTextArea autoSize={{ minRows: 6, maxRows: 22 }} />
               </Form.Item>
               <Collapse
                 bordered={false}
@@ -1320,13 +1386,13 @@ export function QuestionsPage() {
                           label="Текст вопроса (RU) — что читают"
                           tooltip="Мәтін для оқу сауаттылығы, длинный контекст в тарихе и т.д."
                         >
-                          <TextArea
+                          <MarkdownTextArea
                             placeholder="Вводный текст, мәтін, исторический отрывок…"
                             autoSize={{ minRows: 8, maxRows: 32 }}
                           />
                         </Form.Item>
                         <Form.Item name="topic_ru" label="Подпись блока / раздел (RU), опционально">
-                          <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
+                          <MarkdownTextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
                         </Form.Item>
                         <Form.Item
                           name="stem_ru"
@@ -1345,7 +1411,7 @@ export function QuestionsPage() {
                             }),
                           ]}
                         >
-                          <TextArea
+                          <MarkdownTextArea
                             placeholder="Что именно спрашивают. LaTeX: $...$"
                             autoSize={{ minRows: 5, maxRows: 18 }}
                           />
@@ -1359,13 +1425,13 @@ export function QuestionsPage() {
                     children: (
                       <>
                         <Form.Item name="passage_en" label="Question text / passage (EN)">
-                          <TextArea autoSize={{ minRows: 6, maxRows: 28 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 6, maxRows: 28 }} />
                         </Form.Item>
                         <Form.Item name="topic_en" label="Section label (EN), optional">
-                          <TextArea autoSize={{ minRows: 2, maxRows: 10 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 2, maxRows: 10 }} />
                         </Form.Item>
                         <Form.Item name="stem_en" label="Question stem (EN)">
-                          <TextArea autoSize={{ minRows: 4, maxRows: 16 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 4, maxRows: 16 }} />
                         </Form.Item>
                       </>
                     ),
@@ -1381,7 +1447,7 @@ export function QuestionsPage() {
                 label="Текст вопроса (RU) — что читают"
                 tooltip="Мәтін для оқу сауаттылығы, длинный контекст в тарихе и т.д. Не путать с подписью раздела ЕНТ."
               >
-                <TextArea
+                <MarkdownTextArea
                   placeholder="Вводный текст, мәтін, исторический отрывок…"
                   autoSize={{ minRows: 12, maxRows: 40 }}
                 />
@@ -1391,7 +1457,7 @@ export function QuestionsPage() {
                 label="Подпись блока / раздел (RU), опционально"
                 tooltip="Короткая строка ЕНТ («Раздел …»). Не заменяет текст вопроса выше."
               >
-                <TextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
+                <MarkdownTextArea placeholder="Например: Раздел «Алгебра»" autoSize={{ minRows: 2, maxRows: 8 }} />
               </Form.Item>
               <Form.Item
                 name="stem_ru"
@@ -1410,7 +1476,7 @@ export function QuestionsPage() {
                   }),
                 ]}
               >
-                <TextArea
+                <MarkdownTextArea
                   placeholder="Что именно спрашивают. LaTeX: $...$"
                   autoSize={{ minRows: 6, maxRows: 22 }}
                 />
@@ -1429,10 +1495,10 @@ export function QuestionsPage() {
                           label="Сұрақ мәтіні (KK) — оқылатын бөлім"
                           tooltip="Оқу сауаттылығы мәтіні, тарих контексті."
                         >
-                          <TextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 8, maxRows: 32 }} />
+                          <MarkdownTextArea placeholder="Мәтін, контекст…" autoSize={{ minRows: 8, maxRows: 32 }} />
                         </Form.Item>
                         <Form.Item name="topic_kk" label="Бөлім / блок (KK), міндетті емес">
-                          <TextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
+                          <MarkdownTextArea placeholder="Қысқа тақырып" autoSize={{ minRows: 2, maxRows: 8 }} />
                         </Form.Item>
                         <Form.Item
                           name="stem_kk"
@@ -1451,7 +1517,7 @@ export function QuestionsPage() {
                             }),
                           ]}
                         >
-                          <TextArea autoSize={{ minRows: 5, maxRows: 18 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 5, maxRows: 18 }} />
                         </Form.Item>
                       </>
                     ),
@@ -1462,13 +1528,13 @@ export function QuestionsPage() {
                     children: (
                       <>
                         <Form.Item name="passage_en" label="Question text / passage (EN)">
-                          <TextArea autoSize={{ minRows: 8, maxRows: 32 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 8, maxRows: 32 }} />
                         </Form.Item>
                         <Form.Item name="topic_en" label="Section label (EN), optional">
-                          <TextArea autoSize={{ minRows: 2, maxRows: 10 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 2, maxRows: 10 }} />
                         </Form.Item>
                         <Form.Item name="stem_en" label="Question stem (EN)">
-                          <TextArea autoSize={{ minRows: 5, maxRows: 18 }} />
+                          <MarkdownTextArea autoSize={{ minRows: 5, maxRows: 18 }} />
                         </Form.Item>
                       </>
                     ),
@@ -1543,7 +1609,7 @@ export function QuestionsPage() {
           {contentLocaleWatch === 'kk' ? (
             <>
               <Form.Item name="explanation_kk" label="Объяснение (KK)">
-                <TextArea rows={2} />
+                <MarkdownTextArea rows={2} />
               </Form.Item>
               <Collapse
                 bordered={false}
@@ -1554,10 +1620,10 @@ export function QuestionsPage() {
                     children: (
                       <>
                         <Form.Item name="explanation_ru" label="Объяснение (RU)">
-                          <TextArea rows={2} />
+                          <MarkdownTextArea rows={2} />
                         </Form.Item>
                         <Form.Item name="explanation_en" label="Объяснение (EN)">
-                          <TextArea rows={2} />
+                          <MarkdownTextArea rows={2} />
                         </Form.Item>
                       </>
                     ),
@@ -1568,7 +1634,7 @@ export function QuestionsPage() {
           ) : (
             <>
               <Form.Item name="explanation_ru" label="Объяснение (RU)">
-                <TextArea rows={2} />
+                <MarkdownTextArea rows={2} />
               </Form.Item>
               <Collapse
                 bordered={false}
@@ -1579,10 +1645,10 @@ export function QuestionsPage() {
                     children: (
                       <>
                         <Form.Item name="explanation_kk" label="Объяснение (KK)">
-                          <TextArea rows={2} />
+                          <MarkdownTextArea rows={2} />
                         </Form.Item>
                         <Form.Item name="explanation_en" label="Объяснение (EN)">
-                          <TextArea rows={2} />
+                          <MarkdownTextArea rows={2} />
                         </Form.Item>
                       </>
                     ),

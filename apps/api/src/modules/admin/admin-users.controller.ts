@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { AdminService } from './admin.service';
@@ -24,5 +24,19 @@ export class AdminUsersController {
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() data: { isAdmin?: boolean }) {
     return this.adminService.updateUser(id, data);
+  }
+
+  @Post(':id/grant-trial')
+  async grantTrial(@Param('id') userId: string, @Req() req: any) {
+    const adminId = req.user.id;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 1 day
+    return this.adminService.grantSubscription(adminId, {
+      userId,
+      planType: 'trial',
+      startsAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      paymentNote: 'Granted by admin: trial',
+    });
   }
 }

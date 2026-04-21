@@ -73,12 +73,18 @@ const TelegramContext = createContext<TelegramContextValue>({
   isTelegram: false,
 });
 
+/** Скрипт telegram-web-app.js в index.html выполняется до React — WebApp уже есть на первом кадре. */
+function readTelegramWebAppFromWindow(): TelegramWebApp | null {
+  if (typeof window === 'undefined') return null;
+  return window.Telegram?.WebApp ?? null;
+}
+
 export function TelegramProvider({ children }: { children: ReactNode }) {
-  const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
+  const [webApp, setWebApp] = useState<TelegramWebApp | null>(readTelegramWebAppFromWindow);
   const isTelegram = !!webApp;
 
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
+    const tg = readTelegramWebAppFromWindow();
     if (tg) {
       tg.ready();
       tg.expand();

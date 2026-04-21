@@ -190,6 +190,7 @@ export interface BillingPlan {
   name: string;
   description: string;
   priceKzt: number;
+  originalPriceKzt?: number;
   durationDays: number;
   highlight?: string;
   features: string[];

@@ -3,6 +3,7 @@ export interface BillingPlan {
   name: string;
   description: string;
   priceKzt: number;
+  originalPriceKzt?: number;
   durationDays: number;
   highlight?: string;
   features: string[];
@@ -16,28 +17,40 @@ export interface BillingPlan {
  */
 export const BILLING_PLANS: BillingPlan[] = [
   {
-    id: 'start-30',
-    name: 'Старт 30 дней',
-    description: 'Для быстрого входа в ритм и первых устойчивых результатов.',
-    priceKzt: 5900,
+    id: 'trial',
+    name: 'Пробный',
+    description: 'Одноразовое прохождение теста (действует только на 1 тест).',
+    priceKzt: 750,
+    durationDays: 1,
+    features: ['Доступ к 1 тесту', 'Разбор ошибок', 'Статистика'],
+  },
+  {
+    id: 'week',
+    name: 'Неделя',
+    description: 'Короткий интенсив для проверки своих сил.',
+    priceKzt: 2400,
+    originalPriceKzt: 4800,
+    durationDays: 7,
+    features: ['Все функции системы', 'Снятие ограничений'],
+  },
+  {
+    id: 'month',
+    name: 'Месяц',
+    description: 'Стандартный цикл подготовки.',
+    priceKzt: 3900,
+    originalPriceKzt: 7800,
     durationDays: 30,
-    features: ['Неограниченные пробные ЕНТ', 'Разбор ошибок', 'Статистика по прогрессу'],
+    highlight: 'популярно',
+    features: ['Полный трекинг', 'Доступ на месяц', 'Аналитика'],
   },
   {
-    id: 'focus-90',
-    name: 'Фокус 90 дней',
-    description: 'Основной тариф на четверть подготовки.',
-    priceKzt: 14900,
-    durationDays: 90,
-    highlight: 'выгодный',
-    features: ['Выгоднее месячного', 'Стабильный цикл подготовки', 'Приоритетная поддержка'],
-  },
-  {
-    id: 'max-180',
-    name: 'Максимум 180 дней',
+    id: 'annual',
+    name: 'Годовой',
     description: 'Для полной подготовки до экзамена.',
-    priceKzt: 26900,
-    durationDays: 180,
+    priceKzt: 28000,
+    originalPriceKzt: 56000,
+    durationDays: 365,
+    highlight: 'выгодно',
     features: ['Лучшее соотношение цены', 'Долгий горизонт подготовки', 'Доступ ко всем обновлениям'],
   },
 ];

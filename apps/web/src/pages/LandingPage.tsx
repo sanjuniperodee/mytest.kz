@@ -14,6 +14,9 @@ import './landing.css';
 type Benefit = { tag: string; title: string; body: string };
 type Step = { title: string; body: string };
 type AboutFact = { title: string; body: string };
+type PlatformFeature = { icon: 'progress' | 'mistakes' | 'topics' | 'thresholds'; title: string; body: string };
+type DirectionShare = { label: string; pct: number };
+type Testimonial = { quote: string; author: string };
 type TrialFeature = { title: string; body: string };
 type PricingTier = { name: string; price: string; period: string; badge?: string; features: string[] };
 
@@ -45,6 +48,18 @@ export function LandingPage() {
   );
   const pricingTiers = useMemo(
     () => t('landing.pricingTiers', { returnObjects: true }) as PricingTier[],
+    [t, i18n.language],
+  );
+  const platformFeatures = useMemo(
+    () => t('landing.platformFeatures', { returnObjects: true }) as PlatformFeature[],
+    [t, i18n.language],
+  );
+  const directionShares = useMemo(
+    () => t('landing.directionShares', { returnObjects: true }) as DirectionShare[],
+    [t, i18n.language],
+  );
+  const testimonials = useMemo(
+    () => t('landing.testimonials', { returnObjects: true }) as Testimonial[],
     [t, i18n.language],
   );
 
@@ -220,12 +235,70 @@ export function LandingPage() {
             <p className="ld-eyebrow">{t('landing.sectionAbout')}</p>
             <p className="ld-about-lead">{t('landing.aboutLead')}</p>
             <p className="ld-about-body">{t('landing.aboutBody')}</p>
+            <p className="ld-about-body ld-about-body-secondary">{t('landing.aboutClosing')}</p>
             <div className="ld-about-facts">
               {aboutFacts.map((fact) => (
                 <article key={fact.title} className="ld-about-fact">
                   <h4>{fact.title}</h4>
                   <p>{fact.body}</p>
                 </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="platform" className="ld-section ld-section-platform">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionPlatform')}</p>
+            <h2 className="ld-platform-heading">{t('landing.platformHeading')}</h2>
+            <p className="ld-platform-lead">{t('landing.platformLead')}</p>
+            <div className="ld-platform-grid">
+              {platformFeatures.map((feature) => (
+                <article key={feature.title} className="ld-platform-card">
+                  <div className="ld-platform-icon" aria-hidden>
+                    <PlatformIcon name={feature.icon} />
+                  </div>
+                  <h3 className="ld-platform-title">{feature.title}</h3>
+                  <p className="ld-platform-body">{feature.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="directions" className="ld-section ld-section-directions" aria-labelledby="ld-directions-title">
+          <div className="ld-max">
+            <p className="ld-eyebrow" id="ld-directions-title">
+              {t('landing.sectionDirections')}
+            </p>
+            <p className="ld-directions-lead">{t('landing.directionsLead')}</p>
+            <ul className="ld-directions-list">
+              {directionShares.map((row) => (
+                <li key={row.label} className="ld-directions-row">
+                  <div className="ld-directions-row-head">
+                    <span className="ld-directions-label">{row.label}</span>
+                    <span className="ld-directions-pct">{row.pct}%</span>
+                  </div>
+                  <div className="ld-directions-track" aria-hidden>
+                    <div className="ld-directions-fill" style={{ width: `${Math.min(100, row.pct)}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section id="reviews" className="ld-section ld-section-testimonials" aria-labelledby="ld-reviews-title">
+          <div className="ld-max">
+            <p className="ld-eyebrow" id="ld-reviews-title">
+              {t('landing.sectionTestimonials')}
+            </p>
+            <div className="ld-testimonials-grid">
+              {testimonials.map((item) => (
+                <blockquote key={item.author} className="ld-testimonial">
+                  <p className="ld-testimonial-quote">«{item.quote}»</p>
+                  <footer className="ld-testimonial-author">— {item.author}</footer>
+                </blockquote>
               ))}
             </div>
           </div>
@@ -278,9 +351,29 @@ export function LandingPage() {
 
         <footer className="ld-footer">
           <div className="ld-max ld-footer-inner">
-            <p className="ld-footer-copy">
-              <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
-            </p>
+            <div className="ld-footer-brand">
+              <p className="ld-footer-copy">
+                <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
+              </p>
+              <div className="ld-footer-contact" aria-label={t('landing.footerContactAria')}>
+                <p className="ld-footer-contact-title">{t('landing.footerContactTitle')}</p>
+                <ul className="ld-footer-contact-list">
+                  <li>
+                    <a href={t('landing.contactWhatsappHref')} target="_blank" rel="noopener noreferrer">
+                      {t('landing.contactWhatsappLabel')}
+                    </a>
+                  </li>
+                  <li>
+                    <a href={`mailto:${t('landing.contactEmail')}`}>{t('landing.contactEmail')}</a>
+                  </li>
+                  <li>
+                    <a href={t('landing.contactSiteHref')} target="_blank" rel="noopener noreferrer">
+                      {t('landing.contactSiteLabel')}
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
             <div className="ld-footer-actions">
               {waUrl ? (
                 <a
@@ -291,7 +384,16 @@ export function LandingPage() {
                 >
                   {t('landing.whatsappCta')}
                 </a>
-              ) : null}
+              ) : (
+                <a
+                  href={t('landing.contactWhatsappHref')}
+                  className="ld-btn ld-btn-glass"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t('landing.whatsappCta')}
+                </a>
+              )}
               <Link to="/login" className="ld-btn ld-btn-primary">
                 {t('landing.ctaTrial')}
               </Link>
@@ -328,4 +430,39 @@ function IconTarget() {
       <circle cx="12" cy="12" r="2" />
     </svg>
   );
+}
+
+function PlatformIcon({ name }: { name: PlatformFeature['icon'] }) {
+  const common = { width: 26, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 } as const;
+  switch (name) {
+    case 'progress':
+      return (
+        <svg {...common}>
+          <path d="M4 19V5M8 19V11M12 19V8M16 19v-5M20 19V4" strokeLinecap="round" />
+        </svg>
+      );
+    case 'mistakes':
+      return (
+        <svg {...common}>
+          <path d="M12 3a6 6 0 0 1 6 6c0 4-6 12-6 12S6 13 6 9a6 6 0 0 1 6-6Z" />
+          <path d="M12 10v3M12 16h.01" strokeLinecap="round" />
+        </svg>
+      );
+    case 'topics':
+      return (
+        <svg {...common}>
+          <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round" />
+          <circle cx="18" cy="12" r="2" />
+        </svg>
+      );
+    case 'thresholds':
+      return (
+        <svg {...common}>
+          <path d="M4 20V4M4 20h16" strokeLinecap="round" />
+          <path d="m7 16 4-5 4 3 5-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    default:
+      return <IconTarget />;
+  }
 }

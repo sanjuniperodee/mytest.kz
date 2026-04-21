@@ -301,12 +301,12 @@
     "ctaTrial": "Start free UNT trial",
     "ctaScroll": "How it works",
     "ctaGrant": "Estimate profile sum",
-    "heroBadge": "Exam-style practice runs",
+    "heroBadge": "Learning platform for students",
     "marqueeLine": "ENT · NIS · NUET · KTL · Telegram · timer · mistakes · progress · kk · ru · en",
-    "heroKicker": "Online platform · Kazakhstan",
-    "heroTitle": "Exam rhythm —",
-    "heroTitleEm": "before test day",
-    "heroLead": "Practice tests shaped like ENT, NIS, NUET and more: timer, sections, mistake review and progress. Telegram login — no separate password.",
+    "heroKicker": "MyTest · Kazakhstan",
+    "heroTitle": "Exam prep —",
+    "heroTitleEm": "in one system",
+    "heroLead": "Clear, structured preparation: UNT-style practice tests and more, analytics by topic and subject, progress over time and mistake review. Sign in with Telegram — no separate password.",
     "ticketAria": "Session snapshot",
     "ticketLabel": "What a run feels like",
     "ticketRow1L": "Timer & navigation",
@@ -316,12 +316,12 @@
     "ticketRow3L": "Languages",
     "ticketRow3R": "kk · ru · en",
     "ticketFoot": "Not “yet another question bank” — practice for staying calm under time pressure.",
-    "stripeQuote": "We don’t promise the exam will match verbatim. We give a familiar rhythm — so on the day you spend nerves on problems, not the UI.",
-    "sectionStats": "At a glance",
+    "stripeQuote": "MyTest is not just a set of tests. It is a system that brings together diagnostics, analysis and growth in one learning space.",
+    "sectionStats": "Social proof",
     "stats": [
-      { "value": "UNT · NIS · NUET · KTL", "label": "Formats in the catalog" },
-      { "value": "kk · ru · en", "label": "Interface languages" },
-      { "value": "Timer · mistakes · progress", "label": "Inside a session" }
+      { "value": "1000+", "label": "trial sessions" },
+      { "value": "108", "label": "average user score" },
+      { "value": "UNT · NIS · NUET · KTL", "label": "formats in the catalog" }
     ],
     "sectionGrant": "Score hint",
     "grantTitle": "UNT total score (max. 140)",
@@ -355,24 +355,82 @@
     "grantCutoffDisclaimer": "Figures reflect past competition; the current year may differ.",
     "grantCtaLogin": "Sign in and start tests",
     "whatsappCta": "Message on WhatsApp",
-    "sectionBenefits": "Why it matters",
+    "sectionBenefits": "Why MyTest",
     "sectionHow": "Three steps",
-    "sectionAbout": "In short",
+    "sectionAbout": "About us",
+    "sectionPlatform": "Features",
+    "platformHeading": "Platform capabilities",
+    "platformLead": "Tools that help you see the full picture — from one attempt to topics and dynamics over time.",
+    "platformFeatures": [
+      {
+        "icon": "progress",
+        "title": "Student progress",
+        "body": "Track progress across exams, subjects and topics; compare results with classmates, your district and national peers."
+      },
+      {
+        "icon": "mistakes",
+        "title": "Mistake review",
+        "body": "After each test, review every mistake: correct answers, explanations and linked topics."
+      },
+      {
+        "icon": "topics",
+        "title": "Topic analytics",
+        "body": "Detailed breakdown by topic to spot weak areas and learning trends."
+      },
+      {
+        "icon": "thresholds",
+        "title": "Cut-off scores",
+        "body": "Analytics on cut-off scores by field over recent years — context for exam requirements and how they change."
+      }
+    ],
+    "sectionDirections": "Popular profile combinations",
+    "directionsLead": "Share of profile combinations among platform users (indicative).",
+    "directionShares": [
+      { "label": "Physics / Mathematics", "pct": 50 },
+      { "label": "Mathematics / Informatics", "pct": 15 },
+      { "label": "Biology / Chemistry", "pct": 15 },
+      { "label": "Mathematics / Geography", "pct": 4 },
+      { "label": "Physics / Informatics", "pct": 3 },
+      { "label": "Kazakhstan history / World history", "pct": 3 },
+      { "label": "Kazakhstan history / Law basics", "pct": 3 },
+      { "label": "Kazakh / Literature", "pct": 3 },
+      { "label": "English / Kazakhstan history", "pct": 2 },
+      { "label": "Geography / Foreign language", "pct": 2 }
+    ],
+    "sectionTestimonials": "Reviews",
+    "testimonials": [
+      {
+        "quote": "March and January UNT questions were very different from our school mocks, but here the difficulty is as close as possible to the real exam.",
+        "author": "Samgat Zhumali"
+      },
+      {
+        "quote": "Students love how convenient the platform and UI are. It matters that repeated tests have minimal question repetition.",
+        "author": "Narbek Orazbek"
+      }
+    ],
     "sectionTrial": "Free access and plans",
-    "aboutLead": "Solid prep isn’t last-minute cramming — it’s rehearsing the format until your hands know the tempo.",
-    "aboutBody": "MyTest is built around real exam scenarios: section structure, time limits, working through mistakes. We’re for people who prepare steadily — a little every day.",
+    "footerContactTitle": "Contact",
+    "footerContactAria": "MyTest contacts",
+    "contactWhatsappLabel": "WhatsApp +7 777 593 2124",
+    "contactWhatsappHref": "https://wa.me/77775932124",
+    "contactEmail": "mytest.info.kz@gmail.com",
+    "contactSiteLabel": "my-test.kz",
+    "contactSiteHref": "https://my-test.kz/",
+    "aboutLead": "MyTest is an educational platform for school students: exam preparation and systematic improvement of learning outcomes. We make preparation clearer, more transparent and more structured.",
+    "aboutBody": "Preparation often means many disconnected tests — it is hard to see your real level and progress. MyTest brings this into one system.",
+    "aboutClosing": "After each test you get analytics by topic, subject and mastery; plus progress over time, mistake review and cut-off analytics for recent years.",
     "aboutFacts": [
       {
-        "title": "Who it is for",
-        "body": "Grade 11 students and applicants who want to adapt to UNT pressure before the real exam."
+        "title": "Mission",
+        "body": "We turn preparation into a clear growth system: help students learn more effectively, understand their level and unlock their potential."
       },
       {
-        "title": "How we approach prep",
-        "body": "No “magic answers”: we train exam discipline, pace, and confidence under a real timer."
+        "title": "Who we are",
+        "body": "We are an educational platform that turns preparation into a clear growth system and helps students prepare for exams effectively, conveniently and mindfully."
       },
       {
-        "title": "Support",
-        "body": "If billing or access issues happen, support is available via our Telegram manager."
+        "title": "What sets us apart",
+        "body": "We don’t just offer tests — we turn preparation into a system with deep analytics where students see their real level, progress and weak spots."
       }
     ],
     "trialTitle": "2 UNT trial attempts are free",
@@ -421,7 +479,7 @@
     "footerTagline": "Focused prep — without the chaos.",
     "footerCta": "Go to tests",
     "seoTitle": "MyTest — UNT, NIS, NUET practice tests online | Kazakhstan",
-    "seoDescription": "Prepare for UNT, NIS, NUET and KTL-style exams: timed practice tests, mistake review and progress tracking. Sign in with Telegram. Languages: Kazakh, Russian, English.",
+    "seoDescription": "MyTest for school students: UNT and other exam prep, analytics by topic and subject, progress, mistake review and cut-off score context. Sign in with Telegram.",
     "seoKeywords": "UNT online, NIS test, NUET practice, Kazakhstan exams, college prep, mytest, trial exam",
     "seoOgImageAlt": "MyTest — online exam practice platform for Kazakhstan",
     "seoHowToName": "How to start using MyTest",
@@ -450,29 +508,29 @@
     ],
     "benefits": [
       {
-        "tag": "Format",
-        "title": "Not “just questions”",
-        "body": "A session behaves like a test: sections, timer, deadline pressure — so nothing feels alien later."
+        "tag": "System",
+        "title": "One trajectory",
+        "body": "Instead of scattered tests — one connected flow: you see level, progress and what to focus on next."
+      },
+      {
+        "tag": "Analytics",
+        "title": "Breakdown after each test",
+        "body": "Detailed analysis by topic, subject and mastery — so you know strengths and weaknesses."
+      },
+      {
+        "tag": "Dynamics",
+        "title": "Progress over time",
+        "body": "Track how your results change: how you move toward your goal and where to push harder."
       },
       {
         "tag": "Mistakes",
-        "title": "Repeat until it sticks",
-        "body": "We mark where you slipped and bring you back to the same patterns until they feel automatic."
+        "title": "Mistake review",
+        "body": "Every wrong answer can be unpacked: the right solution and the related topic."
       },
       {
-        "tag": "Progress",
-        "title": "You see momentum",
-        "body": "Not a single score at the end — a trail of attempts: where you grew, where it’s still thin."
-      },
-      {
-        "tag": "Access",
-        "title": "Telegram instead of passwords",
-        "body": "A code lands in the bot; you sign in from any device. Less friction — more time on tasks."
-      },
-      {
-        "tag": "Topics",
-        "title": "Where you slip",
-        "body": "After a session it’s easy to revisit the kinds of tasks and topics that cost you the most time."
+        "tag": "Benchmarks",
+        "title": "Cut-offs and trends",
+        "body": "Cut-off score data from recent years — context for exam requirements."
       }
     ],
     "steps": [

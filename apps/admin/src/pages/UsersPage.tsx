@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Table, Input, Tag, Switch, Space, message, Empty } from 'antd';
+import { Table, Input, Tag, Switch, Space, message, Empty, Button } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 
@@ -40,6 +40,16 @@ export function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       message.success('Обновлено');
+    },
+  });
+
+  const grantTrial = useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/admin/users/${id}/grant-trial`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      message.success('Пробный тариф выдан');
     },
   });
 
@@ -92,6 +102,22 @@ export function UsersPage() {
           onChange={(checked) => toggleAdmin.mutate({ id: record.id, isAdmin: checked })}
           size="small"
         />
+      ),
+    },
+    {
+      title: 'Действия',
+      key: 'actions',
+      width: 120,
+      render: (_: unknown, record: User) => (
+        <Button 
+          size="small" 
+          type="primary" 
+          ghost 
+          onClick={() => grantTrial.mutate(record.id)}
+          loading={grantTrial.isPending}
+        >
+          Выдать пробный
+        </Button>
       ),
     },
     {

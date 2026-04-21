@@ -381,6 +381,7 @@ export function TestPage() {
           content={currentQuestion.content}
           imageUrls={currentQuestion.imageUrls}
           subjectSlug={currentAnswer.question?.subject?.slug}
+          hideTopicBlock={true}
         />
             </div>
             <div className="test-question-answers">
