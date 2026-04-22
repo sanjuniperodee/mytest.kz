@@ -388,18 +388,6 @@ html:has(.landing-root.is-light) body {
   padding: 0 0 clamp(16px, 3vw, 30px);
 }
 
-.ld-hero-meta-grid {
-  display: grid;
-  gap: 14px;
-}
-
-@media (min-width: 960px) {
-  .ld-hero-meta-grid {
-    grid-template-columns: 1.05fr 0.95fr;
-    align-items: start;
-  }
-}
-
 .ld-hero-pills {
   display: flex;
   flex-wrap: wrap;
@@ -424,39 +412,6 @@ html:has(.landing-root.is-light) body {
 .ld-hero-pill:hover {
   border-color: rgba(46, 231, 216, 0.34);
   color: var(--ld-cyan);
-}
-
-.ld-hero-mini-stats {
-  display: grid;
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .ld-hero-mini-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.ld-hero-mini-stat {
-  padding: 14px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--ld-border);
-  background: var(--ld-surface);
-}
-
-.ld-hero-mini-stat h3 {
-  margin: 0 0 4px;
-  font-family: var(--ld-display);
-  font-size: 1.05rem;
-  line-height: 1.2;
-  color: var(--ld-text);
-}
-
-.ld-hero-mini-stat p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--ld-muted);
 }
 
 .ld-hero-grid {
@@ -1893,8 +1848,7 @@ html:has(.landing-root.is-light) body {
   background: rgba(255, 255, 255, 1);
 }
 
-.landing-root.is-light .ld-hero-pill,
-.landing-root.is-light .ld-hero-mini-stat {
+.landing-root.is-light .ld-hero-pill {
   background: rgba(255, 255, 255, 0.8);
   border-color: rgba(148, 163, 184, 0.34);
 }

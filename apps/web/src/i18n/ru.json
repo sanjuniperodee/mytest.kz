@@ -328,6 +328,7 @@
     "heroCarouselDot": "Слайд",
     "heroCarouselPrev": "Предыдущий слайд",
     "heroCarouselNext": "Следующий слайд",
+    "heroQuickNavAria": "Быстрые ссылки по разделам страницы",
     "heroSlides": [
       {
         "title": "Подготовка к экзаменам в одном месте",

@@ -23,7 +23,6 @@ type Testimonial = { quote: string; author: string };
 type TrialFeature = { title: string; body: string };
 type PricingTier = { name: string; price: string; period: string; badge?: string; features: string[] };
 type TestTypeCard = { title: string; items: string[]; cta: string };
-type StatItem = { value: string; label: string };
 type HeroSlide = {
   title: string;
   subtitle?: string;
@@ -85,10 +84,6 @@ export function LandingPage() {
   );
   const testTypes = useMemo(
     () => t('landing.testTypes', { returnObjects: true }) as TestTypeCard[],
-    [t, i18n.language],
-  );
-  const heroStats = useMemo(
-    () => t('landing.stats', { returnObjects: true }) as StatItem[],
     [t, i18n.language],
   );
   const platformFeatures = useMemo(
@@ -353,31 +348,21 @@ export function LandingPage() {
           </section>
         ) : null}
 
-        <section className="ld-hero-meta" aria-label={t('landing.sectionBenefits')}>
+        <section className="ld-hero-meta" aria-label={t('landing.heroQuickNavAria')}>
           <div className="ld-max">
-            <div className="ld-hero-meta-grid">
-              <div className="ld-hero-pills">
-                <a href="#grant" className="ld-hero-pill">
-                  {t('landing.sectionGrant')}
-                </a>
-                <a href="#test-types" className="ld-hero-pill">
-                  {t('landing.sectionTestTypes')}
-                </a>
-                <a href="#instruction" className="ld-hero-pill">
-                  {t('landing.sectionInstruction')}
-                </a>
-                <a href="#lead" className="ld-hero-pill">
-                  {t('landing.leadSection')}
-                </a>
-              </div>
-              <div className="ld-hero-mini-stats">
-                {heroStats.slice(0, 3).map((item) => (
-                  <article key={`${item.value}-${item.label}`} className="ld-hero-mini-stat">
-                    <h3>{item.value}</h3>
-                    <p>{item.label}</p>
-                  </article>
-                ))}
-              </div>
+            <div className="ld-hero-pills">
+              <a href="#grant" className="ld-hero-pill">
+                {t('landing.sectionGrant')}
+              </a>
+              <a href="#test-types" className="ld-hero-pill">
+                {t('landing.sectionTestTypes')}
+              </a>
+              <a href="#instruction" className="ld-hero-pill">
+                {t('landing.sectionInstruction')}
+              </a>
+              <a href="#lead" className="ld-hero-pill">
+                {t('landing.leadSection')}
+              </a>
             </div>
           </div>
         </section>
