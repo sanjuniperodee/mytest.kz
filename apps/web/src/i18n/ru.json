@@ -232,7 +232,10 @@
     "authStep3": "Здесь введите номер и код из Telegram",
     "authAlreadyHaveCode": "Код уже пришёл в Telegram — ввести код",
     "invalidCode": "Неверный или истёкший код",
-    "subscribeRequired": "Для начала работы подпишитесь на наш канал"
+    "subscribeRequired": "Для начала работы подпишитесь на наш канал",
+    "telegramAutoLogin": "Проверяем вход через Telegram...",
+    "telegramPhoneRequired": "Сначала поделитесь номером в боте через кнопку «Поделиться номером», затем снова откройте MyTest.",
+    "telegramRetry": "Я уже поделился номером — повторить вход"
   },
   "channel": {
     "seoTitle": "Подписка на канал — MyTest",

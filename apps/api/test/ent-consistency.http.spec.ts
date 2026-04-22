@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { TestScorerService } from '../src/modules/tests/test-scorer.service';
 import { TestSessionService } from '../src/modules/tests/test-session.service';
+import { TestGeneratorService } from '../src/modules/tests/test-generator.service';
 import { UsersService } from '../src/modules/users/users.service';
 
 type EntSectionSeed = {
@@ -524,5 +525,57 @@ describe('ENT 120/140 consistency', () => {
       service.startTest('user-1', 'tpl-ent', 'ru', ['profile-1', 'profile-2'], 'full'),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prismaMock.testSession.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps ENT profile 31-40 as isolated 2-point block (shuffle only inside block)', async () => {
+    const regular = Array.from({ length: ENT_CONFIG.profileTier1Count }, (_, i) => ({
+      id: `p1-r${i + 1}`,
+      scoreWeight: 1,
+    }));
+    const heavy = Array.from(
+      {
+        length:
+          ENT_CONFIG.profileQuestionsPerSubject - ENT_CONFIG.profileTier1Count,
+      },
+      (_, i) => ({
+        id: `p1-h${i + 1}`,
+        scoreWeight: ENT_CONFIG.profileTier2Points,
+      }),
+    );
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...regular, ...heavy]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result).toHaveLength(1);
+    const ids = result[0].questionIds;
+    expect(ids).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(ids.slice(0, ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-r'))).toBe(
+      true,
+    );
+    expect(ids.slice(ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-h'))).toBe(
+      true,
+    );
   });
 });

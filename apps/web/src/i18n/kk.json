@@ -232,7 +232,10 @@
     "authStep3": "Мұнда нөмір мен Telegram-дағы кодты енгізіңіз",
     "authAlreadyHaveCode": "Код қазірдің өзінде келді — кодты енгізу",
     "invalidCode": "Қате немесе мерзімі өткен код",
-    "subscribeRequired": "Жұмысты бастау үшін каналға жазылыңыз"
+    "subscribeRequired": "Жұмысты бастау үшін каналға жазылыңыз",
+    "telegramAutoLogin": "Telegram арқылы кіру тексерілуде...",
+    "telegramPhoneRequired": "Алдымен ботта «Нөмірмен бөлісу» арқылы нөмірді жіберіңіз, содан кейін MyTest-ты қайта ашыңыз.",
+    "telegramRetry": "Нөмірді жібердім — кіруді қайталау"
   },
   "channel": {
     "seoTitle": "Каналға жазылу — MyTest",

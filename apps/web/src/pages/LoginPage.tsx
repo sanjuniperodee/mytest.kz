@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { normalizeKzPhone, maskPhoneDigits } from '@bilimland/shared';
@@ -12,7 +12,7 @@ const BOT_DEEP_LINK = 'https://t.me/bilimhan_bot?start=web';
 export function LoginPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { login, requestCode, loginWithCode, user } = useAuth();
+  const { login, requestCode, loginWithCode, user, isLoading: authLoading } = useAuth();
   const { isTelegram, webApp } = useTelegram();
 
   const [phone, setPhone] = useState('');
@@ -21,18 +21,49 @@ export function LoginPage() {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [telegramAutoError, setTelegramAutoError] = useState('');
+  const [telegramAutoLoading, setTelegramAutoLoading] = useState(false);
+  const telegramAttemptedRef = useRef(false);
 
   const htmlLang = i18n.language === 'kk' ? 'kk' : i18n.language === 'en' ? 'en' : 'ru';
 
   if (user) { navigate('/app', { replace: true }); return null; }
 
+  const mapTelegramAuthError = (msg: string | undefined): string => {
+    if (msg === 'PHONE_REQUIRED_IN_BOT') return t('auth.telegramPhoneRequired');
+    return t('common.error');
+  };
+
+  const extractBackendMessage = (err: unknown): string | undefined => {
+    if (!err || typeof err !== 'object' || !('response' in err)) return undefined;
+    const maybeResp = (err as { response?: { data?: { message?: unknown } } }).response;
+    const raw = maybeResp?.data?.message;
+    if (Array.isArray(raw)) return typeof raw[0] === 'string' ? raw[0] : undefined;
+    return typeof raw === 'string' ? raw : undefined;
+  };
+
+  const tryTelegramLogin = async (initData: string) => {
+    setTelegramAutoError('');
+    setTelegramAutoLoading(true);
+    try {
+      await login(initData);
+      navigate('/app', { replace: true });
+    } catch (err) {
+      setTelegramAutoError(mapTelegramAuthError(extractBackendMessage(err)));
+    } finally {
+      setTelegramAutoLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isTelegram || !webApp?.initData) return;
+    if (authLoading || telegramAttemptedRef.current) return;
+    telegramAttemptedRef.current = true;
+    void tryTelegramLogin(webApp.initData);
+  }, [isTelegram, webApp?.initData, authLoading]);
+
   if (isTelegram && webApp?.initData) {
-    const handleTelegramLogin = async () => {
-      setLoading(true);
-      try { await login(webApp.initData); navigate('/app', { replace: true }); }
-      catch { setError(t('common.error')); }
-      finally { setLoading(false); }
-    };
+    const isBusy = authLoading || telegramAutoLoading;
     return (
       <>
         <AdvancedSEO
@@ -50,11 +81,34 @@ export function LoginPage() {
           </aside>
           <div className="login-page-panel">
             <Logo title={t('app.name')} />
-            <p className="login-page-panel-hint">{t('home.subtitle')}</p>
-            <button className="btn btn-primary login-page-submit" onClick={handleTelegramLogin} disabled={loading}>
-              {loading ? t('common.loading') : t('auth.telegramLogin')}
-            </button>
-            {error && <ErrorMsg text={error} />}
+            <p className="login-page-panel-hint">{t('auth.telegramAutoLogin')}</p>
+            {isBusy ? (
+              <button className="btn btn-primary login-page-submit" disabled>
+                {t('common.loading')}
+              </button>
+            ) : (
+              <>
+                <a
+                  className="btn btn-primary login-page-submit"
+                  href={BOT_DEEP_LINK}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: 8 }}
+                >
+                  {t('auth.authOpenBot')}
+                </a>
+                <button
+                  className="btn btn-ghost login-page-submit"
+                  onClick={() => {
+                    telegramAttemptedRef.current = false;
+                    void tryTelegramLogin(webApp.initData);
+                  }}
+                >
+                  {t('auth.telegramRetry')}
+                </button>
+              </>
+            )}
+            {telegramAutoError && <ErrorMsg text={telegramAutoError} />}
           </div>
         </div>
       </>

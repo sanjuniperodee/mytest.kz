@@ -47,13 +47,23 @@ export class TelegramBotService implements OnModuleInit {
   }
 
   /**
-   * Одна reply-клавиатура: WebApp + контакт (в одном сообщении с /start, без второго «шума»).
-   * Без oneTime — пользователь может сначала открыть приложение, потом отправить номер.
+   * Reply-клавиатура для пользователей с уже привязанным номером:
+   * WebApp + возможность обновить номер.
    */
   private mainReplyKeyboard() {
     return Markup.keyboard([
       [Markup.button.webApp('🚀 Открыть MyTest', this.webAppUrl)],
-      [Markup.button.contactRequest('📱 Номер для входа на сайте')],
+      [Markup.button.contactRequest('📱 Обновить номер телефона')],
+    ]).resize();
+  }
+
+  /**
+   * Reply-клавиатура для первичного онбординга:
+   * до номера не показываем кнопку WebApp, чтобы не ронять пользователя в непонятный login-loop.
+   */
+  private contactOnlyKeyboard() {
+    return Markup.keyboard([
+      [Markup.button.contactRequest('📱 Поделиться номером')],
     ]).resize();
   }
 
@@ -79,14 +89,33 @@ export class TelegramBotService implements OnModuleInit {
         },
       });
 
+      const user = await this.prisma.user.findUnique({
+        where: { telegramId: BigInt(tgUser.id) },
+        select: { phone: true },
+      });
+
+      if (user?.phone) {
+        await ctx.reply(
+          '✅ <b>Номер уже привязан.</b>\n\n' +
+            'Нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.\n' +
+            'Если хотите поменять номер для входа на сайте, используйте кнопку ниже.',
+          {
+            parse_mode: 'HTML',
+            ...this.mainReplyKeyboard(),
+          },
+        );
+        return;
+      }
+
       await ctx.reply(
-        '👋 <b>MyTest</b>\n\n' +
-          '• <b>Мини-приложение</b> — первая кнопка.\n' +
-          '• <b>Вход с сайта</b> — вторая кнопка: поделитесь номером казахстанского оператора. ' +
-          'Код для входа придёт <i>в этот же чат</i> одним сообщением.',
+        '👋 <b>Добро пожаловать в MyTest</b>\n\n' +
+          'Чтобы включить вход и открыть приложение:\n' +
+          '1) Нажмите <b>«Поделиться номером»</b>\n' +
+          '2) Отправьте <b>свой</b> номер KZ через кнопку\n' +
+          '3) После этого появится кнопка <b>«Открыть MyTest»</b>, и вход будет работать сразу',
         {
           parse_mode: 'HTML',
-          ...this.mainReplyKeyboard(),
+          ...this.contactOnlyKeyboard(),
         },
       );
     } catch (error) {
@@ -155,17 +184,37 @@ export class TelegramBotService implements OnModuleInit {
       }
 
       try {
-        await this.prisma.user.update({
+        await this.prisma.user.upsert({
           where: { telegramId: BigInt(from.id) },
-          data: { phone: normalized },
+          update: {
+            telegramUsername: from.username || null,
+            firstName: from.first_name,
+            lastName: from.last_name || null,
+            phone: normalized,
+          },
+          create: {
+            telegramId: BigInt(from.id),
+            telegramUsername: from.username || null,
+            firstName: from.first_name,
+            lastName: from.last_name || null,
+            preferredLanguage: from.language_code === 'kk' ? 'kk' : 'ru',
+            phone: normalized,
+          },
         });
+        await ctx.reply(
+          '✅ <b>Номер сохранён.</b>\n\n' +
+            'Теперь нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.',
+          {
+            parse_mode: 'HTML',
+            ...this.mainReplyKeyboard(),
+          },
+        );
         try {
           await this.authService.requestWebCode(normalized, { fromTelegramBot: true });
         } catch (sendErr) {
           this.logger.error(`requestWebCode after phone save failed: ${sendErr}`);
           await ctx.reply(
-            'Номер сохранён, но код не отправился. Нажмите «Отправить код» на сайте или /start.',
-            Markup.removeKeyboard(),
+            'Номер сохранён, но код не отправился. Используйте вход через мини-приложение или попробуйте ещё раз /start.',
           );
           return;
         }

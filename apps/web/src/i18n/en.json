@@ -232,7 +232,10 @@
     "authStep3": "Enter your phone and the code here on the site",
     "authAlreadyHaveCode": "I already have the code in Telegram",
     "invalidCode": "Invalid or expired code",
-    "subscribeRequired": "Subscribe to our channel to get started"
+    "subscribeRequired": "Subscribe to our channel to get started",
+    "telegramAutoLogin": "Checking Telegram sign-in...",
+    "telegramPhoneRequired": "Please share your phone number in the bot first, then open MyTest again.",
+    "telegramRetry": "I've shared my phone — retry sign-in"
   },
   "channel": {
     "seoTitle": "Subscribe to channel — MyTest",

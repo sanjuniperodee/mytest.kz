@@ -63,6 +63,15 @@ export class AuthService {
       });
     }
 
+    /**
+     * Production onboarding rule:
+     * Mini App login is allowed only after user shares phone in bot.
+     * This removes confusing states where app opens but web/OTP flow is unavailable.
+     */
+    if (!user.phone) {
+      throw new BadRequestException('PHONE_REQUIRED_IN_BOT');
+    }
+
     return this.generateTokens({
       ...user,
       telegramId: Number(user.telegramId),

@@ -95,13 +95,15 @@ export class TestGeneratorService {
         const subjectId = profileSubjectIds![i];
         if (sections.some((s) => s.subjectId === subjectId)) continue;
 
-        const questionIds = await this.selectQuestions(
-          subjectId,
-          profileQuestionCount,
-          'random',
-          userId,
-          language,
-        );
+        const questionIds = strictEntFull
+          ? await this.selectStrictEntProfileQuestions(subjectId, userId, language)
+          : await this.selectQuestions(
+              subjectId,
+              profileQuestionCount,
+              'random',
+              userId,
+              language,
+            );
         if (strictEntFull && questionIds.length !== profileQuestionCount) {
           throw new BadRequestException(
             `ENT full question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
@@ -138,23 +140,7 @@ export class TestGeneratorService {
       if (questions.length === 0) return [];
 
       const ids = questions.map((q) => q.id);
-      let ordered: string[];
-      if (userId) {
-        const seenRows = await this.prisma.testAnswer.findMany({
-          where: {
-            session: { userId },
-            questionId: { in: ids },
-          },
-          distinct: ['questionId'],
-          select: { questionId: true },
-        });
-        const seen = new Set(seenRows.map((r) => r.questionId));
-        const fresh = ids.filter((id) => !seen.has(id));
-        const repeat = ids.filter((id) => seen.has(id));
-        ordered = [...this.shuffle(fresh), ...this.shuffle(repeat)];
-      } else {
-        ordered = this.shuffle([...ids]);
-      }
+      const ordered = await this.orderWithFreshFirst(ids, userId);
       return ordered.slice(0, count);
     } else {
       const questions = await this.prisma.question.findMany({
@@ -165,6 +151,95 @@ export class TestGeneratorService {
       });
       return questions.map((q) => q.id);
     }
+  }
+
+  /**
+   * Strict ENT full profile generation:
+   * - first 30 questions stay in 1-point tier
+   * - last 10 questions stay in 2-point tier
+   * - shuffle is allowed only inside each tier block
+   */
+  private async selectStrictEntProfileQuestions(
+    subjectId: string,
+    userId?: string,
+    language?: string,
+  ): Promise<string[]> {
+    const localeWhere = questionWhereForTestLanguage(language);
+    const questions = await this.prisma.question.findMany({
+      where: {
+        AND: [{ subjectId }, { isActive: true }, localeWhere],
+      },
+      select: { id: true, scoreWeight: true },
+    });
+    if (questions.length === 0) return [];
+
+    const allIds = questions.map((q) => q.id);
+    const heavyIds = questions
+      .filter((q) => Number(q.scoreWeight ?? 0) === ENT_CONFIG.profileTier2Points)
+      .map((q) => q.id);
+    const regularIds = questions
+      .filter((q) => Number(q.scoreWeight ?? 0) !== ENT_CONFIG.profileTier2Points)
+      .map((q) => q.id);
+
+    const orderedHeavy = await this.orderWithFreshFirst(heavyIds, userId);
+    const orderedRegular = await this.orderWithFreshFirst(regularIds, userId);
+    const orderedAll = await this.orderWithFreshFirst(allIds, userId);
+
+    const tier1Count = ENT_CONFIG.profileTier1Count;
+    const tier2Count =
+      ENT_CONFIG.profileQuestionsPerSubject - ENT_CONFIG.profileTier1Count;
+
+    const selectedTier2 = this.takeUnique(
+      [orderedHeavy, orderedRegular, orderedAll],
+      tier2Count,
+    );
+    const selectedTier2Set = new Set(selectedTier2);
+    const selectedTier1 = this.takeUnique(
+      [
+        orderedRegular.filter((id) => !selectedTier2Set.has(id)),
+        orderedHeavy.filter((id) => !selectedTier2Set.has(id)),
+        orderedAll.filter((id) => !selectedTier2Set.has(id)),
+      ],
+      tier1Count,
+    );
+
+    return [...this.shuffle(selectedTier1), ...this.shuffle(selectedTier2)];
+  }
+
+  private async orderWithFreshFirst(
+    ids: string[],
+    userId?: string,
+  ): Promise<string[]> {
+    if (ids.length === 0) return [];
+    if (!userId) return this.shuffle([...ids]);
+
+    const seenRows = await this.prisma.testAnswer.findMany({
+      where: {
+        session: { userId },
+        questionId: { in: ids },
+      },
+      distinct: ['questionId'],
+      select: { questionId: true },
+    });
+    const seen = new Set(seenRows.map((r) => r.questionId));
+    const fresh = ids.filter((id) => !seen.has(id));
+    const repeat = ids.filter((id) => seen.has(id));
+    return [...this.shuffle(fresh), ...this.shuffle(repeat)];
+  }
+
+  private takeUnique(pools: string[][], count: number): string[] {
+    if (count <= 0) return [];
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const pool of pools) {
+      for (const id of pool) {
+        if (seen.has(id)) continue;
+        out.push(id);
+        seen.add(id);
+        if (out.length >= count) return out;
+      }
+    }
+    return out;
   }
 
   private shuffle<T>(array: T[]): T[] {
