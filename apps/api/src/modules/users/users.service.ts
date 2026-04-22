@@ -35,14 +35,28 @@ export class UsersService {
       });
     }
 
-    const activeSubscription = await this.prisma.subscription.findFirst({
-      where: {
-        userId,
-        isActive: true,
-        expiresAt: { gt: new Date() },
-        startsAt: { lte: new Date() },
-      },
-    });
+    const now = new Date();
+    const [activeSubscription, activePaidSubscription] = await Promise.all([
+      this.prisma.subscription.findFirst({
+        where: {
+          userId,
+          isActive: true,
+          expiresAt: { gt: now },
+          startsAt: { lte: now },
+        },
+        orderBy: { expiresAt: 'desc' },
+      }),
+      this.prisma.subscription.findFirst({
+        where: {
+          userId,
+          isActive: true,
+          expiresAt: { gt: now },
+          startsAt: { lte: now },
+          planType: { not: 'trial' },
+        },
+        orderBy: { expiresAt: 'desc' },
+      }),
+    ]);
 
     return {
       id: user.id,
@@ -54,8 +68,9 @@ export class UsersService {
       preferredLanguage: user.preferredLanguage,
       isAdmin: user.isAdmin,
       isChannelMember,
-      hasActiveSubscription: !!activeSubscription,
-      subscription: activeSubscription,
+      // Premium in UI means paid plan; trial should not show "unlimited".
+      hasActiveSubscription: !!activePaidSubscription,
+      subscription: activePaidSubscription ?? activeSubscription,
       trialStatus: {
         ent: {
           limit: ENT_TRIAL_LIMIT,

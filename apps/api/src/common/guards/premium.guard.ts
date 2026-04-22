@@ -15,6 +15,7 @@ export class PremiumGuard implements CanActivate {
         isActive: true,
         expiresAt: { gt: new Date() },
         startsAt: { lte: new Date() },
+        planType: { not: 'trial' },
       },
     });
 
