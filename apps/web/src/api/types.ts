@@ -124,12 +124,14 @@ export interface SessionSection {
   subjectName: unknown;
   subjectSlug: string;
   isMandatory?: boolean;
+  profileHeavyFrom?: number | null;
   questionCount: number;
   sortOrder: number;
 }
 
 export interface SessionMetadata {
   kind?: 'remediation';
+  entScope?: 'mandatory' | 'profile' | 'full';
   remediationDurationMins?: number;
   sections: SessionSection[];
   profileSubjectIds: string[];

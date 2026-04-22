@@ -9,6 +9,8 @@ import { Spinner } from '../components/common/Spinner';
 import { renderMathInText } from '../lib/katex';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 import { localizedText } from '../lib/localizedText';
+import { ENT_CONFIG } from '@bilimland/shared';
+import type { SessionMetadata } from '../api/types';
 
 function BackArrow() {
   return (
@@ -16,6 +18,55 @@ function BackArrow() {
       <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
     </svg>
   );
+}
+
+type EntScope = 'mandatory' | 'profile' | 'full';
+type QuestionPlacement = {
+  subjectId: string;
+  isMandatory: boolean;
+  indexInSubject: number;
+  profileHeavyFrom: number | null;
+};
+
+function getEntScope(metadata: SessionMetadata | undefined): EntScope | undefined {
+  const scope = metadata?.entScope;
+  if (scope === 'mandatory' || scope === 'profile' || scope === 'full') return scope;
+  return undefined;
+}
+
+function buildQuestionPlacementFromMetadata(
+  metadata: SessionMetadata | undefined,
+): Map<string, QuestionPlacement> | null {
+  if (!metadata) return null;
+  const order = Array.isArray(metadata.questionOrder) ? metadata.questionOrder : [];
+  const sections = Array.isArray(metadata.sections) ? metadata.sections : [];
+  if (order.length === 0 || sections.length === 0) return null;
+
+  const sortedSections = [...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const map = new Map<string, QuestionPlacement>();
+  let ptr = 0;
+
+  for (const sec of sortedSections) {
+    const n = Math.max(0, Math.floor(Number(sec.questionCount) || 0));
+    const isMandatory = sec.isMandatory !== false;
+    const heavy =
+      sec.profileHeavyFrom === undefined || sec.profileHeavyFrom === null
+        ? null
+        : Math.max(1, Math.floor(Number(sec.profileHeavyFrom) || 31));
+
+    for (let i = 0; i < n; i++) {
+      const qid = order[ptr++];
+      if (!qid) return map.size > 0 ? map : null;
+      map.set(qid, {
+        subjectId: sec.subjectId,
+        isMandatory,
+        indexInSubject: i + 1,
+        profileHeavyFrom: heavy,
+      });
+    }
+  }
+
+  return map;
 }
 
 export function ReviewPage() {
@@ -44,7 +95,22 @@ export function ReviewPage() {
 
   const sectionStats = useMemo(() => {
     if (orderedAnswers.length === 0) return [];
-    const map = new Map<string, { subjectId: string; subjectName: string; correct: number; total: number }>();
+    const examSlug = session?.examType?.slug ?? '';
+    const entScope = getEntScope(session?.metadata);
+    const placement = buildQuestionPlacementFromMetadata(session?.metadata);
+    const strictEntFullActive =
+      examSlug === 'ent' &&
+      entScope === 'full' &&
+      placement !== null &&
+      placement.size > 0 &&
+      placement.size === orderedAnswers.length &&
+      orderedAnswers.every((a) => placement.has(a.questionId));
+
+    const map = new Map<
+      string,
+      { subjectId: string; subjectName: string; rawPoints: number; maxPoints: number }
+    >();
+
     for (const answer of orderedAnswers) {
       const subj = answer.question?.subject;
       const subjId = subj?.id || 'unknown';
@@ -52,16 +118,46 @@ export function ReviewPage() {
         map.set(subjId, {
           subjectId: subjId,
           subjectName: localizedText(subj?.name, subjectContentLang),
-          correct: 0,
-          total: 0,
+          rawPoints: 0,
+          maxPoints: 0,
         });
       }
       const s = map.get(subjId)!;
-      s.total++;
-      if (answer.isCorrect) s.correct++;
+
+      const pos = strictEntFullActive ? placement!.get(answer.questionId) : undefined;
+      const wMax =
+        strictEntFullActive && pos
+          ? pos.isMandatory
+            ? 1
+            : pos.indexInSubject <= ENT_CONFIG.profileTier1Count
+              ? ENT_CONFIG.profileTier1Points
+              : ENT_CONFIG.profileTier2Points
+          : 1;
+
+      const correctOptionIds = (answer.question.answerOptions || [])
+        .filter((o) => o.isCorrect === true)
+        .map((o) => o.id);
+      const selectedIds = Array.isArray(answer.selectedIds) ? answer.selectedIds : [];
+
+      let errors = 0;
+      for (const id of correctOptionIds) if (!selectedIds.includes(id)) errors++;
+      for (const id of selectedIds) if (!correctOptionIds.includes(id)) errors++;
+
+      let wEarned = 0;
+      if (selectedIds.length > 0) {
+        if (errors === 0) {
+          wEarned = wMax;
+        } else if (errors === 1 && wMax === 2) {
+          // Match backend partial-credit rule for strict ENT weighted scoring.
+          wEarned = 1;
+        }
+      }
+
+      s.rawPoints += wEarned;
+      s.maxPoints += wMax;
     }
     return Array.from(map.values());
-  }, [orderedAnswers, subjectContentLang]);
+  }, [orderedAnswers, session?.examType?.slug, session?.metadata, subjectContentLang]);
 
   const sectionBoundaries = useMemo(() => {
     if (orderedAnswers.length === 0) return [];
@@ -159,13 +255,13 @@ export function ReviewPage() {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {sectionStats.map((sec) => {
-              const pct = sec.total > 0 ? Math.round((sec.correct / sec.total) * 100) : 0;
+              const pct = sec.maxPoints > 0 ? Math.round((sec.rawPoints / sec.maxPoints) * 100) : 0;
               return (
                 <div key={sec.subjectId}>
                   <div className="review-section-stat-row">
                     <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, minWidth: 0 }}>{sec.subjectName}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: getScoreColor(pct), whiteSpace: 'nowrap' }}>
-                      {sec.correct}/{sec.total}
+                      {Math.round(sec.rawPoints)}/{Math.round(sec.maxPoints)}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                       ({pct}%)
