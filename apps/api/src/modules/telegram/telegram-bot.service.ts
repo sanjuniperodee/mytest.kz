@@ -23,6 +23,8 @@ export class TelegramBotService implements OnModuleInit {
   private readonly botToken: string;
   private isUpdateLoopRunning = false;
   private launchInProgress = false;
+  private launchRetryTimer: NodeJS.Timeout | null = null;
+  private launchRetryAttempt = 0;
 
   constructor(
     private config: ConfigService,
@@ -189,6 +191,10 @@ export class TelegramBotService implements OnModuleInit {
       } catch {
         /* telegraf throws if bot was not running */
       }
+      if (this.launchRetryTimer) {
+        clearTimeout(this.launchRetryTimer);
+        this.launchRetryTimer = null;
+      }
       this.isUpdateLoopRunning = false;
       this.launchInProgress = false;
     };
@@ -237,6 +243,7 @@ export class TelegramBotService implements OnModuleInit {
           10000,
           'telegram.getMe',
         );
+        this.bot.botInfo = me;
         this.logger.log(
           `Telegram launch: authenticated as @${me.username ?? me.id}`,
         );
@@ -259,15 +266,45 @@ export class TelegramBotService implements OnModuleInit {
       }
 
       this.logger.log('Telegram launch: starting update loop...');
-      await this.bot.launch({ dropPendingUpdates: false });
-      this.isUpdateLoopRunning = true;
-      this.logger.log(
-        `Telegram bot update loop is running (startup ${Date.now() - startedAt}ms)`,
+      // Telegraf v4 long polling launch promise does not resolve while polling is active.
+      // Use onLaunch callback to mark successful startup and avoid awaiting forever.
+      const launchPromise = this.bot.launch(
+        { dropPendingUpdates: false },
+        () => {
+          this.isUpdateLoopRunning = true;
+          this.launchInProgress = false;
+          this.launchRetryAttempt = 0;
+          clearTimeout(pendingWarn);
+          this.logger.log(
+            `Telegram bot update loop is running (startup ${Date.now() - startedAt}ms)`,
+          );
+        },
       );
+
+      void launchPromise.catch((err) => {
+        const msg = String(err);
+        this.isUpdateLoopRunning = false;
+        this.launchInProgress = false;
+        clearTimeout(pendingWarn);
+        this.logger.error(`Failed to launch Telegram bot update loop: ${msg}`);
+        if (
+          msg.includes('409') ||
+          msg.includes('Conflict') ||
+          msg.includes('getUpdates') ||
+          msg.includes('webhook')
+        ) {
+          this.logger.error(
+            'Telegram updates conflict detected. Usually this means webhook is still active or another bot instance is polling updates.',
+          );
+        }
+        this.scheduleLaunchRetry();
+      });
       return;
     } catch (err) {
       const msg = String(err);
       this.isUpdateLoopRunning = false;
+      this.launchInProgress = false;
+      clearTimeout(pendingWarn);
       this.logger.error(`Failed to launch Telegram bot update loop: ${msg}`);
       if (
         msg.includes('409') ||
@@ -279,10 +316,19 @@ export class TelegramBotService implements OnModuleInit {
           'Telegram updates conflict detected. Usually this means webhook is still active or another bot instance is polling updates.',
         );
       }
-    } finally {
-      clearTimeout(pendingWarn);
-      this.launchInProgress = false;
+      this.scheduleLaunchRetry();
     }
+  }
+
+  private scheduleLaunchRetry() {
+    if (this.launchRetryTimer) return;
+    this.launchRetryAttempt += 1;
+    const delayMs = Math.min(30000, 5000 * this.launchRetryAttempt);
+    this.logger.warn(`Retrying Telegram launch in ${delayMs}ms`);
+    this.launchRetryTimer = setTimeout(() => {
+      this.launchRetryTimer = null;
+      void this.launchBotUpdateLoop();
+    }, delayMs);
   }
 
   async checkChannelMembership(telegramUserId: number): Promise<boolean> {
