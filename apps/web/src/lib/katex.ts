@@ -25,7 +25,7 @@ export function renderMathInText(text: string, options?: RenderMathOptions): str
     const idx = Number.parseInt(nRaw, 10) - 1;
     if (!Number.isFinite(idx) || idx < 0 || idx >= pool.length) return '';
     const url = resolveMediaUrl(pool[idx]);
-    return `<img src="${url}" alt="image-${idx + 1}" style="max-width: 100%; border-radius: 8px; margin: 8px 0; border: 1px solid var(--border);" />`;
+    return `<img class="markdown-inline-image" src="${url}" alt="image-${idx + 1}" loading="lazy" decoding="async" />`;
   });
 
   // Handle Markdown images: ![alt](url)
@@ -33,7 +33,7 @@ export function renderMathInText(text: string, options?: RenderMathOptions): str
   result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)|\[!([^\]]*)\]\(([^)]+)\)/g, (_match, alt1, url1, alt2, url2) => {
     const alt = (alt1 ?? alt2 ?? '').trim();
     const url = (url1 ?? url2 ?? '').trim();
-    return `<img src="${resolveMediaUrl(url)}" alt="${alt}" style="max-width: 100%; border-radius: 8px; margin: 8px 0; border: 1px solid var(--border);" />`;
+    return `<img class="markdown-inline-image" src="${resolveMediaUrl(url)}" alt="${alt}" loading="lazy" decoding="async" />`;
   });
 
   // Handle display math first ($$...$$)

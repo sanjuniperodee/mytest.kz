@@ -1198,6 +1198,37 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   margin: 0.75em 0;
 }
 
+/* Unified image sizing in test/review flows:
+   keep media readable, avoid huge banners, and avoid tiny thumbnails. */
+.markdown-inline-image,
+.question-detached-image {
+  display: block;
+  width: clamp(220px, 72%, 560px);
+  max-width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+  margin: 10px auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.question-detached-image-list .question-detached-image {
+  box-shadow: var(--shadow-md);
+  margin-bottom: 10px;
+}
+
+.question-detached-image-list .question-detached-image:last-child {
+  margin-bottom: 0;
+}
+
+.answer-options .markdown-inline-image {
+  width: min(100%, 320px);
+  max-height: 220px;
+  margin: 8px 0;
+}
+
 .test-answer-options-label {
   font-size: 10px;
   font-weight: 800;

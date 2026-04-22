@@ -177,19 +177,15 @@ export function QuestionDisplay({
       ) : null}
 
       {detachedImages.length > 0 && (
-        <div style={{ marginTop: 14 }}>
+        <div style={{ marginTop: 14 }} className="question-detached-image-list">
           {detachedImages.map((url, i) => (
             <img
               key={i}
               src={resolveMediaUrl(url)}
               alt={`Q image ${i + 1}`}
-              style={{
-                maxWidth: '100%',
-                borderRadius: 'var(--r-md)',
-                marginBottom: 8,
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--shadow-md)',
-              }}
+              className="question-detached-image"
+              loading="lazy"
+              decoding="async"
             />
           ))}
         </div>
