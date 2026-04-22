@@ -22,6 +22,7 @@ export class TelegramBotService implements OnModuleInit {
   private readonly logger = new Logger(TelegramBotService.name);
   private readonly botToken: string;
   private isUpdateLoopRunning = false;
+  private launchInProgress = false;
 
   constructor(
     private config: ConfigService,
@@ -178,7 +179,9 @@ export class TelegramBotService implements OnModuleInit {
       }
     });
 
-    await this.launchBotUpdateLoop();
+    // Never block Nest bootstrap on Telegram network operations.
+    // If Telegram is slow/unreachable, API should still start and serve HTTP.
+    void this.launchBotUpdateLoop();
 
     const safeStop = (signal: NodeJS.Signals) => {
       try {
@@ -186,26 +189,85 @@ export class TelegramBotService implements OnModuleInit {
       } catch {
         /* telegraf throws if bot was not running */
       }
+      this.isUpdateLoopRunning = false;
+      this.launchInProgress = false;
     };
     process.once('SIGINT', () => safeStop('SIGINT'));
     process.once('SIGTERM', () => safeStop('SIGTERM'));
   }
 
+  private async withTimeout<T>(
+    p: Promise<T>,
+    ms: number,
+    label: string,
+  ): Promise<T> {
+    let timer: NodeJS.Timeout | null = null;
+    try {
+      return (await Promise.race([
+        p,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`Timeout after ${ms}ms during ${label}`)),
+            ms,
+          );
+        }),
+      ])) as T;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   private async launchBotUpdateLoop() {
     if (!this.bot) return;
+    if (this.isUpdateLoopRunning || this.launchInProgress) return;
+    this.launchInProgress = true;
+    const startedAt = Date.now();
+    const pendingWarn = setTimeout(() => {
+      if (!this.isUpdateLoopRunning) {
+        this.logger.warn(
+          'Telegram launch still pending (>15s). API remains healthy, but bot update loop is waiting on Telegram network/API.',
+        );
+      }
+    }, 15000);
     try {
-      await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
-    } catch (err) {
-      this.logger.warn(`deleteWebhook before launch failed (continuing): ${err}`);
-    }
+      this.logger.log('Telegram launch: checking bot token via getMe...');
+      try {
+        const me = await this.withTimeout(
+          this.bot.telegram.getMe(),
+          10000,
+          'telegram.getMe',
+        );
+        this.logger.log(
+          `Telegram launch: authenticated as @${me.username ?? me.id}`,
+        );
+      } catch (err) {
+        this.logger.warn(`Telegram launch: getMe check failed: ${err}`);
+      }
 
-    try {
+      this.logger.log('Telegram launch: deleting webhook (if any)...');
+      try {
+        await this.withTimeout(
+          this.bot.telegram.deleteWebhook({ drop_pending_updates: false }),
+          10000,
+          'telegram.deleteWebhook',
+        );
+        this.logger.log('Telegram launch: webhook cleared');
+      } catch (err) {
+        this.logger.warn(
+          `Telegram launch: deleteWebhook failed (continuing): ${err}`,
+        );
+      }
+
+      this.logger.log('Telegram launch: starting update loop...');
       await this.bot.launch({ dropPendingUpdates: false });
       this.isUpdateLoopRunning = true;
-      this.logger.log('Telegram bot update loop is running');
+      this.logger.log(
+        `Telegram bot update loop is running (startup ${Date.now() - startedAt}ms)`,
+      );
       return;
     } catch (err) {
       const msg = String(err);
+      this.isUpdateLoopRunning = false;
       this.logger.error(`Failed to launch Telegram bot update loop: ${msg}`);
       if (
         msg.includes('409') ||
@@ -217,6 +279,9 @@ export class TelegramBotService implements OnModuleInit {
           'Telegram updates conflict detected. Usually this means webhook is still active or another bot instance is polling updates.',
         );
       }
+    } finally {
+      clearTimeout(pendingWarn);
+      this.launchInProgress = false;
     }
   }
 
