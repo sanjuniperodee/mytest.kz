@@ -30,8 +30,10 @@ THIS_FILE = Path(__file__).resolve()
 REPO_ROOT = THIS_FILE.parents[4]
 OUT = THIS_FILE.parent.parent / "geo-ent-seed-data.json"
 
+DEFAULT_GEO_DIR = REPO_ROOT / "geo-tsts"
 DEFAULT_KK_PDF = REPO_ROOT / "geo-tsts" / "гео каз 5 нуска толык емес 175сурак (1).pdf"
 DEFAULT_RU_PDF = REPO_ROOT / "geo-tsts" / "гео русс 5вариантов 175вопросов не полный (1).pdf"
+ALT_RU_PDF = REPO_ROOT / "geo-tsts" / "гео русс 5вариантов 175вопросов не полный (1).pdf"
 
 CYR_A = "\u0410"  # А
 CYR_V = "\u0412"  # В
@@ -200,18 +202,46 @@ def build_bank(bank_id: str, label: dict[str, str], pdf_path: Path, locale: str)
     }
 
 
+def resolve_pdf_path(cli_value: Path | None, kind: str) -> Path:
+    """Resolve PDF path with tolerant filename matching."""
+    if cli_value:
+        if cli_value.exists():
+            return cli_value
+        raise SystemExit(f"Missing {kind} PDF: {cli_value}")
+
+    if kind == "KK":
+        candidates = [DEFAULT_KK_PDF]
+        glob_patterns = ["*гео*каз*175*pdf", "*гео*каз*5*pdf"]
+    else:
+        candidates = [DEFAULT_RU_PDF, ALT_RU_PDF]
+        glob_patterns = ["*гео*русс*175*pdf", "*гео*рус*175*pdf", "*гео*ру*5*pdf"]
+
+    for p in candidates:
+        if p.exists():
+            return p
+
+    if DEFAULT_GEO_DIR.exists():
+        for pattern in glob_patterns:
+            matches = sorted(DEFAULT_GEO_DIR.glob(pattern))
+            if matches:
+                return matches[0]
+
+    wanted = ", ".join(str(x) for x in candidates)
+    raise SystemExit(
+        f"Missing {kind} PDF. Looked for: {wanted}\n"
+        f"You can pass explicit path: python3 prisma/scripts/parse_geo_ent_pdfs.py "
+        f"{'--kk-pdf' if kind == 'KK' else '--ru-pdf'} \"/absolute/path/file.pdf\""
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kk-pdf", type=Path, default=DEFAULT_KK_PDF)
-    parser.add_argument("--ru-pdf", type=Path, default=DEFAULT_RU_PDF)
+    parser.add_argument("--kk-pdf", type=Path, default=None)
+    parser.add_argument("--ru-pdf", type=Path, default=None)
     args = parser.parse_args()
 
-    kk_pdf = args.kk_pdf
-    ru_pdf = args.ru_pdf
-    if not kk_pdf.exists():
-        raise SystemExit(f"Missing KK PDF: {kk_pdf}")
-    if not ru_pdf.exists():
-        raise SystemExit(f"Missing RU PDF: {ru_pdf}")
+    kk_pdf = resolve_pdf_path(args.kk_pdf, "KK")
+    ru_pdf = resolve_pdf_path(args.ru_pdf, "RU")
 
     banks = [
         build_bank(
