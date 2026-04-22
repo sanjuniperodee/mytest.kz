@@ -15,6 +15,7 @@ import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { AdmissionModule } from './modules/admission/admission.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { DbSnapshotModule } from './modules/db-snapshot/db-snapshot.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -33,6 +34,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
     AdmissionModule,
     BillingModule,
     SubscriptionsModule,
+    DbSnapshotModule,
   ],
 })
 export class AppModule {}

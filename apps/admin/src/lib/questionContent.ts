@@ -8,6 +8,14 @@ export function getQuestionContentLocale(metadata: unknown): ContentLocaleTag {
   return null;
 }
 
+function stripMediaSyntax(text: string): string {
+  return text
+    .replace(/!\[[^\]]*]\([^)]+\)|\[![^\]]*]\([^)]+\)/gi, ' ')
+    .replace(/\[\[img:\d+]]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function pickContentLang(value: unknown, lang: 'kk' | 'ru' | 'en'): string {
   if (!value) return '';
   if (typeof value === 'string') return value;
@@ -62,13 +70,13 @@ export function getQuestionPreviewText(
 ): string {
   const previewSlot = (lang: 'kk' | 'ru'): string => {
     const slot = pickSlot(record.content, lang);
-    if (!slot) return pickContentLang(record.content, lang);
-    const p = (slot.passage || '').trim();
-    const t = (slot.topicLine || '').trim();
-    const b = (slot.text || '').trim();
+    if (!slot) return stripMediaSyntax(pickContentLang(record.content, lang));
+    const p = stripMediaSyntax((slot.passage || '').trim());
+    const t = stripMediaSyntax((slot.topicLine || '').trim());
+    const b = stripMediaSyntax((slot.text || '').trim());
     const head = p || t;
     if (head && b) return `${head.slice(0, 80)}${head.length > 80 ? '…' : ''} — ${b.slice(0, 100)}${b.length > 100 ? '…' : ''}`;
-    return b || head || pickContentLang(record.content, lang);
+    return b || head || stripMediaSyntax(pickContentLang(record.content, lang));
   };
 
   const tag = getQuestionContentLocale(record.metadata);
@@ -295,6 +303,8 @@ export function buildSimilarityNeedle(
   const passage = prefer === 'kk' ? values.passage_kk : values.passage_ru;
   const topic = prefer === 'kk' ? values.topic_kk : values.topic_ru;
   const stem = prefer === 'kk' ? values.stem_kk : values.stem_ru;
-  const parts = [passage, topic, stem].map((x) => (x || '').trim()).filter(Boolean);
+  const parts = [passage, topic, stem]
+    .map((x) => stripMediaSyntax((x || '').trim()))
+    .filter(Boolean);
   return parts.join('\n');
 }

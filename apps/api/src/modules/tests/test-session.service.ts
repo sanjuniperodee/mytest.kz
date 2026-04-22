@@ -411,6 +411,11 @@ export class TestSessionService {
     return {
       questionId,
       explanation: (answer.question as any).explanation,
+      imageUrls: Array.isArray((answer.question as any).imageUrls)
+        ? (answer.question as any).imageUrls.filter(
+            (x: unknown): x is string => typeof x === 'string' && x.trim().length > 0,
+          )
+        : [],
     };
   }
 

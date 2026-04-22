@@ -264,11 +264,13 @@ export function ReviewPage() {
                       options={answer.question.answerOptions}
                       selectedIds={answer.selectedIds}
                       isMultiple={answer.question.type === 'multiple_choice'}
+                      imageUrls={answer.question.imageUrls}
                       disabled showCorrect onSelect={() => {}}
                     />
                     <ExplanationSection
                       sessionId={sessionId!}
                       questionId={answer.questionId}
+                      questionImageUrls={answer.question.imageUrls}
                       hasSubscription={user?.hasActiveSubscription || false}
                     />
                   </div>
@@ -282,8 +284,8 @@ export function ReviewPage() {
   );
 }
 
-function ExplanationSection({ sessionId, questionId, hasSubscription }: {
-  sessionId: string; questionId: string; hasSubscription: boolean;
+function ExplanationSection({ sessionId, questionId, questionImageUrls, hasSubscription }: {
+  sessionId: string; questionId: string; questionImageUrls?: string[]; hasSubscription: boolean;
 }) {
   const { t } = useTranslation();
   const [show, setShow] = useState(false);
@@ -334,7 +336,12 @@ function ExplanationSection({ sessionId, questionId, hasSubscription }: {
           borderRadius: 'var(--r-md)', border: '1px solid rgba(16, 185, 129, 0.15)',
         }} className="animate-fadeIn">
           {isLoading ? <Spinner size="sm" /> : data?.explanation ? (
-            <div dangerouslySetInnerHTML={{ __html: renderMathInText(data.explanation) }}
+            <div
+              dangerouslySetInnerHTML={{
+                __html: renderMathInText(data.explanation, {
+                  imageUrls: data.imageUrls ?? questionImageUrls ?? [],
+                }),
+              }}
               style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-primary)' }} />
           ) : <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>—</p>}
         </div>

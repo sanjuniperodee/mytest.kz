@@ -1,6 +1,8 @@
 /** Нормализация для сравнения текстов вопросов (админка, без pg_trgm). */
 export function normalizeQuestionText(s: string): string {
   return s
+    .replace(/!\[[^\]]*]\([^)]+\)|\[![^\]]*]\([^)]+\)/gi, ' ')
+    .replace(/\[\[img:\d+]]/gi, ' ')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
@@ -113,7 +115,11 @@ export function haystackForAdminSearch(
 }
 
 export function previewFromSlot(slot: QuestionContentSlot | null, maxLen = 140): string {
-  const s = combineTopicAndStem(slot);
+  const s = combineTopicAndStem(slot)
+    .replace(/!\[[^\]]*]\([^)]+\)|\[![^\]]*]\([^)]+\)/gi, ' ')
+    .replace(/\[\[img:\d+]]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (s.length <= maxLen) return s;
   return `${s.slice(0, maxLen)}…`;
 }

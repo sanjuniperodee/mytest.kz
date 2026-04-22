@@ -6,12 +6,21 @@ interface Props {
   options: AnswerOption[];
   selectedIds: string[];
   isMultiple: boolean;
+  imageUrls?: string[];
   disabled?: boolean;
   showCorrect?: boolean;
   onSelect: (optionId: string) => void;
 }
 
-export function AnswerOptions({ options, selectedIds, isMultiple, disabled = false, showCorrect = false, onSelect }: Props) {
+export function AnswerOptions({
+  options,
+  selectedIds,
+  isMultiple,
+  imageUrls,
+  disabled = false,
+  showCorrect = false,
+  onSelect,
+}: Props) {
   return (
     <div className="answer-options" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {options.map((option, index) => (
@@ -19,6 +28,7 @@ export function AnswerOptions({ options, selectedIds, isMultiple, disabled = fal
           key={option.id}
           option={option}
           index={index}
+          imageUrls={imageUrls}
           isSelected={selectedIds.includes(option.id)}
           isMultiple={isMultiple}
           disabled={disabled}
@@ -30,11 +40,15 @@ export function AnswerOptions({ options, selectedIds, isMultiple, disabled = fal
   );
 }
 
-function OptionItem({ option, index, isSelected, isMultiple, disabled, showCorrect, onSelect }: {
+function OptionItem({ option, index, imageUrls, isSelected, isMultiple, disabled, showCorrect, onSelect }: {
   option: AnswerOption; index: number; isSelected: boolean; isMultiple: boolean;
+  imageUrls?: string[];
   disabled: boolean; showCorrect: boolean; onSelect: (id: string) => void;
 }) {
-  const renderedContent = useMemo(() => renderMathInText(option.content), [option.content]);
+  const renderedContent = useMemo(
+    () => renderMathInText(option.content, { imageUrls }),
+    [option.content, imageUrls],
+  );
   const letter = 'ABCDEFGH'[index] || String(index + 1);
 
   let bg = 'var(--bg-card)';

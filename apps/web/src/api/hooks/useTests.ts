@@ -120,7 +120,7 @@ export function useTestReview(sessionId: string | undefined) {
 }
 
 export function useExplanation(sessionId: string, questionId: string, enabled: boolean) {
-  return useQuery<{ questionId: string; explanation: string }>({
+  return useQuery<{ questionId: string; explanation: string; imageUrls?: string[] }>({
     queryKey: ['explanation', sessionId, questionId],
     queryFn: async () => {
       const { data } = await api.get(

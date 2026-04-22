@@ -6,6 +6,8 @@
     "postinstall": "prisma generate",
     "prebuild": "prisma generate && npm -w @bilimland/shared run build",
     "build": "nest build",
+    "migrate:check-safe": "ts-node prisma/scripts/check-migrations-safe.ts",
+    "migrate:deploy:safe": "npm run migrate:check-safe && prisma migrate deploy",
     "predev": "prisma generate",
     "dev": "nest start --watch",
     "prestart": "prisma generate",

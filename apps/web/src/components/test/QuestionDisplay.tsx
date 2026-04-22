@@ -48,16 +48,45 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug, hideTopicBloc
   const passageNeedsToggle = (passage || '').length > PASSAGE_COLLAPSE_LEN;
 
   const renderedTopic = useMemo(
-    () => (topicLine ? renderMathInTextWithLineBreaks(topicLine) : ''),
-    [topicLine],
+    () => (topicLine ? renderMathInTextWithLineBreaks(topicLine, imageUrls) : ''),
+    [topicLine, imageUrls],
   );
   const renderedPassage = useMemo(
-    () => (passage ? renderMathInTextWithLineBreaks(passage) : ''),
-    [passage],
+    () => (passage ? renderMathInTextWithLineBreaks(passage, imageUrls) : ''),
+    [passage, imageUrls],
   );
-  const renderedStem = useMemo(() => renderMathInTextWithLineBreaks(stem), [stem]);
+  const renderedStem = useMemo(
+    () => renderMathInTextWithLineBreaks(stem, imageUrls),
+    [stem, imageUrls],
+  );
   const readingExplicitPassage = isReading && !!passage;
   const showPlainStem = stem.trim().length > 0 && !readingExplicitPassage;
+  const detachedImages = useMemo(() => {
+    const all = Array.isArray(imageUrls) ? imageUrls.filter((u) => typeof u === 'string' && u.trim()) : [];
+    if (all.length === 0) return all;
+
+    const source = [topicLine || '', passage || '', stem || ''].join('\n');
+    const usedByToken = new Set<number>();
+    const tokenRe = /\[\[img:(\d+)\]\]/gi;
+    let tokenMatch: RegExpExecArray | null;
+    while ((tokenMatch = tokenRe.exec(source)) !== null) {
+      const idx = Number.parseInt(tokenMatch[1], 10) - 1;
+      if (Number.isFinite(idx) && idx >= 0) usedByToken.add(idx);
+    }
+
+    const usedByUrl = new Set<string>();
+    const markdownRe = /!\[[^\]]*\]\(([^)]+)\)|\[![^\]]*\]\(([^)]+)\)/g;
+    let mdMatch: RegExpExecArray | null;
+    while ((mdMatch = markdownRe.exec(source)) !== null) {
+      const url = String(mdMatch[1] ?? mdMatch[2] ?? '').trim();
+      if (url) usedByUrl.add(resolveMediaUrl(url));
+    }
+
+    return all.filter((url, idx) => {
+      if (usedByToken.has(idx)) return false;
+      return !usedByUrl.has(resolveMediaUrl(url));
+    });
+  }, [imageUrls, topicLine, passage, stem]);
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -139,9 +168,9 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug, hideTopicBloc
         />
       ) : null}
 
-      {imageUrls && imageUrls.length > 0 && (
+      {detachedImages.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          {imageUrls.map((url, i) => (
+          {detachedImages.map((url, i) => (
             <img
               key={i}
               src={resolveMediaUrl(url)}

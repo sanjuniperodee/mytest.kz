@@ -221,37 +221,62 @@ function MarkdownTextArea(props: any) {
   const { value, onChange, ...rest } = props;
   const inputRef = useRef<any>(null);
   const textValue = typeof value === 'string' ? value : '';
+  const form = Form.useFormInstance();
+  const watchedImageUrls = Form.useWatch('imageUrls', form);
+  const imagePool = useMemo(() => normalizeImageUrls(watchedImageUrls), [watchedImageUrls]);
 
   const markdownImages = useMemo(() => {
     const out: Array<{ alt: string; url: string }> = [];
-    const re = /!\[([^\]]*)\]\(([^)]+)\)|\[!([^\]]*)\]\(([^)]+)\)/g;
+    const re = /!\[([^\]]*)\]\(([^)]+)\)|\[!([^\]]*)\]\(([^)]+)\)|\[\[img:(\d+)\]\]/gi;
     let m: RegExpExecArray | null;
     while ((m = re.exec(textValue)) !== null) {
+      const tokenNumRaw = m[5];
+      if (tokenNumRaw) {
+        const tokenNum = Number.parseInt(tokenNumRaw, 10);
+        const tokenIdx = tokenNum - 1;
+        const mapped = tokenIdx >= 0 && tokenIdx < imagePool.length ? imagePool[tokenIdx] : '';
+        if (!mapped) continue;
+        out.push({ alt: `image-${tokenNum}`, url: mapped });
+        continue;
+      }
       const alt = String(m[1] ?? m[3] ?? '').trim();
       const url = String(m[2] ?? m[4] ?? '').trim();
       if (!url) continue;
       out.push({ alt, url });
     }
     return out;
-  }, [textValue]);
-  
-  const handleInsertImage = (url: string) => {
+  }, [textValue, imagePool]);
+
+  const insertAtCursor = (snippet: string) => {
     const textarea = inputRef.current?.resizableTextArea?.textArea;
     const start = textarea?.selectionStart || 0;
     const end = textarea?.selectionEnd || 0;
-    const currentVal = value || '';
-    const alt = 'image';
-    const textToInsert = `\n\n![${alt}](${url})\n\n`;
-    
-    const newVal = currentVal.substring(0, start) + textToInsert + currentVal.substring(end);
+    const currentVal = typeof value === 'string' ? value : '';
+    const newVal = currentVal.substring(0, start) + snippet + currentVal.substring(end);
     onChange?.(newVal);
-    
     setTimeout(() => {
-      if (textarea) {
-        textarea.focus();
-        textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
-      }
+      if (!textarea) return;
+      textarea.focus();
+      const pos = start + snippet.length;
+      textarea.setSelectionRange(pos, pos);
     }, 10);
+  };
+  
+  const handleInsertImage = (url: string) => {
+    if (!form) {
+      insertAtCursor(`\n\n![image](${url})\n\n`);
+      return;
+    }
+
+    let pool = imagePool;
+    let idx = pool.findIndex((u) => u === url);
+    if (idx === -1) {
+      pool = [...pool, url];
+      form.setFieldsValue({ imageUrls: pool });
+      idx = pool.length - 1;
+    }
+    // Big-text UX: keep content readable, store full URL in dedicated image pool.
+    insertAtCursor(`\n\n[[img:${idx + 1}]]\n\n`);
   };
 
   return (

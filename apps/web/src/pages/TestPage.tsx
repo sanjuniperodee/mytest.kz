@@ -390,6 +390,7 @@ export function TestPage() {
                 options={currentQuestion.answerOptions}
                 selectedIds={getSelectedForQuestion(currentAnswer.questionId)}
                 isMultiple={currentQuestion.type === 'multiple_choice'}
+                imageUrls={currentQuestion.imageUrls}
                 onSelect={handleSelectOption}
               />
               <div style={{ marginTop: 8, minHeight: 18 }}>
