@@ -126,13 +126,8 @@ async function main() {
         existingTopics.push(topic);
       }
 
-      await prisma.testAnswer.deleteMany({
-        where: { question: { topicId: topic.id } },
-      });
-      const deleted = await prisma.question.deleteMany({ where: { topicId: topic.id } });
-      console.log(`Topic "${topicRu}": removed ${deleted.count} old questions`);
-
       let insertedTopic = 0;
+      let skippedTopic = 0;
       for (const q of topicGroup.questions) {
         const locale = q.contentLocale === 'ru' ? 'ru' : 'kk';
         const optionsKeys = sortOptionKeys(Object.keys(q.options ?? {})).filter((k) => {
@@ -146,6 +141,22 @@ async function main() {
         if (!hasAnyCorrect) continue;
 
         const questionType = correctSet.size > 1 ? 'multiple_choice' : 'single_choice';
+        const existingCount = await prisma.question.count({
+          where: {
+            topicId: topic.id,
+            subjectId: subject.id,
+            examTypeId: ent.id,
+            AND: [
+              { metadata: { path: ['sourceBankId'], equals: bank.id } },
+              { metadata: { path: ['sourceQuestionNo'], equals: q.n } },
+              { metadata: { path: [QUESTION_METADATA_LOCALE_KEY], equals: locale } },
+            ],
+          },
+        });
+        if (existingCount > 0) {
+          skippedTopic += 1;
+          continue;
+        }
 
         await prisma.question.create({
           data: {
@@ -183,7 +194,7 @@ async function main() {
       }
 
       insertedTotal += insertedTopic;
-      console.log(`Topic "${topicRu}": inserted ${insertedTopic} questions`);
+      console.log(`Topic "${topicRu}": inserted ${insertedTopic}, skipped existing ${skippedTopic}`);
     }
   }
 
