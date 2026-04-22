@@ -101,3 +101,57 @@ body {
 .admin-row-highlight td {
   background: var(--admin-accent-soft) !important;
 }
+
+/* Light polish for Ant Design surfaces */
+.admin-shell .ant-layout {
+  background: transparent;
+}
+
+.admin-shell .ant-layout-header {
+  background: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.admin-shell .ant-card {
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.03),
+    0 8px 28px rgba(15, 23, 42, 0.05);
+}
+
+.admin-shell .ant-table-wrapper .ant-table {
+  border-radius: 12px;
+}
+
+.admin-shell .ant-table-wrapper .ant-table-thead > tr > th {
+  background: #f8fbff;
+  color: #1e293b;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-weight: 700;
+}
+
+.admin-shell .ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.admin-shell .ant-input,
+.admin-shell .ant-input-affix-wrapper,
+.admin-shell .ant-input-number,
+.admin-shell .ant-select-selector,
+.admin-shell .ant-picker,
+.admin-shell .ant-input-textarea textarea {
+  border-radius: 10px !important;
+  border-color: rgba(148, 163, 184, 0.45) !important;
+}
+
+.admin-shell .ant-input:focus,
+.admin-shell .ant-input-affix-wrapper-focused,
+.admin-shell .ant-input-number-focused,
+.admin-shell .ant-select-focused .ant-select-selector,
+.admin-shell .ant-picker-focused,
+.admin-shell .ant-input-textarea textarea:focus {
+  border-color: rgba(59, 91, 219, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.12) !important;
+}

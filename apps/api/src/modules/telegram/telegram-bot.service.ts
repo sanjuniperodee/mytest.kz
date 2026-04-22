@@ -18,6 +18,7 @@ export class TelegramBotService implements OnModuleInit {
   private bot: Telegraf | null = null;
   private channelId: string;
   private readonly leadAdminChatId: string;
+  private readonly leadAdminUsername: string;
   /** HTTPS origin of the Mini App (Bot API WebAppInfo.url), same as public site. */
   private readonly webAppUrl: string;
   private readonly logger = new Logger(TelegramBotService.name);
@@ -36,6 +37,8 @@ export class TelegramBotService implements OnModuleInit {
     this.botToken = (config.get<string>('TELEGRAM_BOT_TOKEN', '') || '').trim();
     this.channelId = config.get<string>('TELEGRAM_CHANNEL_ID', '');
     this.leadAdminChatId = (config.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '').trim();
+    this.leadAdminUsername =
+      (config.get<string>('TELEGRAM_ADMIN_USERNAME') || '@sanjuniperodee').trim();
     const raw =
       config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://www.my-test.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
@@ -455,11 +458,10 @@ export class TelegramBotService implements OnModuleInit {
       this.logger.warn('sendLeadNotificationToAdmin: бот не запущен');
       throw new BadRequestException('Telegram-бот недоступен.');
     }
-    if (!this.leadAdminChatId) {
-      this.logger.error('TELEGRAM_ADMIN_CHAT_ID is not configured');
-      throw new BadRequestException(
-        'Не настроен TELEGRAM_ADMIN_CHAT_ID для уведомлений администратора.',
-      );
+    const target = this.leadAdminChatId || this.leadAdminUsername;
+    if (!target) {
+      this.logger.error('TELEGRAM_ADMIN_CHAT_ID / TELEGRAM_ADMIN_USERNAME are not configured');
+      throw new BadRequestException('Не настроен получатель админ-уведомлений в Telegram.');
     }
     const body = [
       '📩 <b>Новая заявка с лендинга</b>',
@@ -479,12 +481,12 @@ export class TelegramBotService implements OnModuleInit {
       .join('\n');
 
     try {
-      await this.bot.telegram.sendMessage(this.leadAdminChatId, body, {
+      await this.bot.telegram.sendMessage(target, body, {
         parse_mode: 'HTML',
       });
     } catch (error) {
       this.logger.error(
-        `Failed to send lead notification to ${this.leadAdminChatId}: ${error}`,
+        `Failed to send lead notification to ${target}: ${error}`,
       );
       throw new BadRequestException(
         'Не удалось отправить заявку в Telegram. Проверьте, что админ открыл бота.',

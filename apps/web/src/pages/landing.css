@@ -1828,6 +1828,56 @@ html:has(.landing-root.is-light) body {
   color: #0f172a;
 }
 
+.landing-root.is-light .chance-widget {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: linear-gradient(160deg, rgba(99, 102, 241, 0.08), rgba(46, 231, 216, 0.08));
+}
+
+.landing-root.is-light .chance-panel,
+.landing-root.is-light .chance-card,
+.landing-root.is-light .chance-block {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+.landing-root.is-light .chance-select-label,
+.landing-root.is-light .chance-card-meta,
+.landing-root.is-light .chance-api-note,
+.landing-root.is-light .chance-total,
+.landing-root.is-light .chance-cutoff-note-kicker,
+.landing-root.is-light .chance-block-badge-ghost,
+.landing-root.is-light .chance-prof-col-main em {
+  color: #64748b;
+}
+
+.landing-root.is-light .chance-card-title,
+.landing-root.is-light .chance-total strong,
+.landing-root.is-light .chance-list-title,
+.landing-root.is-light .chance-prof-col-main strong,
+.landing-root.is-light .chance-cutoff-note-body p {
+  color: #0f172a;
+}
+
+.landing-root.is-light .chance-prof-table {
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+.landing-root.is-light .chance-prof-head {
+  background: rgba(241, 245, 249, 0.9);
+  color: #64748b;
+  border-bottom-color: rgba(148, 163, 184, 0.28);
+}
+
+.landing-root.is-light .chance-prof-row {
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+
+.landing-root.is-light .chance-cutoff-note {
+  background: rgba(255, 255, 255, 0.86);
+  border-color: rgba(148, 163, 184, 0.28);
+  border-left-color: rgba(99, 102, 241, 0.55);
+}
+
 .landing-root.is-light .ld-grant-cutoff,
 .landing-root.is-light .ld-grant-tier,
 .landing-root.is-light .ld-grant-sum-value,
