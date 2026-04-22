@@ -387,7 +387,11 @@ export class TestSessionService {
 
     if (!session) throw new NotFoundException('Session not found or not finished');
 
-    return this.normalizeSessionScore(session);
+    const scoreResult = await this.scorer.calculateScore(sessionId);
+    return {
+      ...this.normalizeSessionScore(session),
+      sectionScores: scoreResult.sections,
+    };
   }
 
   async getExplanation(sessionId: string, userId: string, questionId: string) {

@@ -118,6 +118,17 @@ export interface TestAnswer {
   question: Question;
 }
 
+export interface SessionSectionScore {
+  subjectId: string;
+  subjectName: unknown;
+  subjectSlug: string;
+  correctCount: number;
+  totalCount: number;
+  score: number;
+  rawPoints?: number;
+  maxPoints?: number;
+}
+
 export interface SessionSection {
   subjectId: string;
   /** JSON или строка с бэка */
@@ -173,6 +184,7 @@ export interface TestSession {
   rawScore: number | null;
   maxScore: number | null;
   metadata?: SessionMetadata;
+  sectionScores?: SessionSectionScore[];
   answers: TestAnswer[];
   examType?: ExamType;
 }
