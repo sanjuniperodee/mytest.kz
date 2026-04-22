@@ -23,6 +23,7 @@ import {
   RocketOutlined,
   FundProjectionScreenOutlined,
   AppstoreOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
 import { UsersPage } from './pages/UsersPage';
@@ -35,6 +36,7 @@ import { UniversityThresholdsPage } from './pages/UniversityThresholdsPage';
 import { AdmissionChancePage } from './pages/AdmissionChancePage';
 import { ExplanationsPage } from './pages/ExplanationsPage';
 import { ExamCatalogPage } from './pages/ExamCatalogPage';
+import { LandingSettingsPage } from './pages/LandingSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 
 const { Sider, Content, Header } = Layout;
@@ -54,6 +56,7 @@ const MENU_NAV: Record<string, string> = {
   questions: '/questions',
   exams: '/exams',
   subscriptions: '/subscriptions',
+  'landing-settings': '/landing-settings',
 };
 
 function menuKeyFromPath(pathname: string): string {
@@ -67,6 +70,7 @@ function menuKeyFromPath(pathname: string): string {
   if (pathname.startsWith('/questions')) return 'questions';
   if (pathname.startsWith('/exams')) return 'exams';
   if (pathname.startsWith('/subscriptions')) return 'subscriptions';
+  if (pathname.startsWith('/landing-settings')) return 'landing-settings';
   return 'dashboard';
 }
 
@@ -106,6 +110,7 @@ function AdminLayout() {
       { key: 'questions', icon: <QuestionCircleOutlined />, label: 'Вопросы' },
       { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены и шаблоны' },
       { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+      { key: 'landing-settings', icon: <SettingOutlined />, label: 'Настройки лендинга' },
     ],
     [],
   );
@@ -214,6 +219,7 @@ function AdminLayout() {
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/exams" element={<ExamCatalogPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/landing-settings" element={<LandingSettingsPage />} />
           </Routes>
         </Content>
       </Layout>

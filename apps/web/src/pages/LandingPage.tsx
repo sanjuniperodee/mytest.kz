@@ -1,12 +1,15 @@
-import { useMemo } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../api/hooks/useAuth';
+import { api } from '../api/client';
 import { Spinner } from '../components/common/Spinner';
 import { AdvancedSEO } from '../components/seo/AdvancedSEO';
 import { buildLandingJsonLd, type FaqItem } from '../components/seo/buildLandingJsonLd';
 import { getSiteUrl } from '../lib/siteUrl';
 import { getWhatsAppUrl } from '../lib/whatsapp';
+import { resolveMediaUrl } from '../lib/resolveMediaUrl';
+import { getEffectiveTheme, setThemePreference } from '../lib/theme';
 import { LandingStatsStrip } from '../components/landing/LandingStatsStrip';
 import { GrantEstimator } from '../components/landing/GrantEstimator';
 import './landing.css';
@@ -19,6 +22,22 @@ type DirectionShare = { label: string; pct: number };
 type Testimonial = { quote: string; author: string };
 type TrialFeature = { title: string; body: string };
 type PricingTier = { name: string; price: string; period: string; badge?: string; features: string[] };
+type TestTypeCard = { title: string; items: string[]; cta: string };
+type HeroSlide = {
+  title: string;
+  subtitle?: string;
+  desktopImageUrl: string;
+  tabletImageUrl: string;
+  mobileImageUrl: string;
+  buttonLabel?: string;
+};
+type LandingRuntimeSettings = {
+  instructionVideoUrl: string;
+  instagramUrl: string;
+  tiktokUrl: string;
+  whatsappUrl: string;
+  heroSlides?: HeroSlide[];
+};
 
 const STEP_ICONS = [
   <IconLogin key="i0" />,
@@ -29,6 +48,15 @@ const STEP_ICONS = [
 export function LandingPage() {
   const { t, i18n } = useTranslation();
   const { user, isLoading } = useAuth();
+  const [leadName, setLeadName] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
+  const [leadMessage, setLeadMessage] = useState('');
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [leadResult, setLeadResult] = useState<'idle' | 'success' | 'error'>('idle');
+  const [runtimeSettings, setRuntimeSettings] = useState<LandingRuntimeSettings | null>(null);
+  const [runtimeSettingsLoaded, setRuntimeSettingsLoaded] = useState(false);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [landingTheme, setLandingTheme] = useState<'light' | 'dark'>(() => getEffectiveTheme());
 
   const benefits = useMemo(
     () => t('landing.benefits', { returnObjects: true }) as Benefit[],
@@ -48,6 +76,10 @@ export function LandingPage() {
   );
   const pricingTiers = useMemo(
     () => t('landing.pricingTiers', { returnObjects: true }) as PricingTier[],
+    [t, i18n.language],
+  );
+  const testTypes = useMemo(
+    () => t('landing.testTypes', { returnObjects: true }) as TestTypeCard[],
     [t, i18n.language],
   );
   const platformFeatures = useMemo(
@@ -74,6 +106,52 @@ export function LandingPage() {
   );
 
   const htmlLang = i18n.language === 'kk' ? 'kk' : i18n.language === 'en' ? 'en' : 'ru';
+  const langs = ['ru', 'kk', 'en'] as const;
+  const marquee = `${t('landing.marqueeLine')} · `;
+  const waUrl = getWhatsAppUrl();
+  const fallbackWhatsAppHref = t('landing.contactWhatsappHref');
+  const fallbackInstagramHref = t('landing.contactInstagramHref');
+  const fallbackTiktokHref = t('landing.contactTiktokHref');
+  const defaultHeroSlides = useMemo(
+    () => (t('landing.heroSlides', { returnObjects: true }) as HeroSlide[]) || [],
+    [t, i18n.language],
+  );
+  const instructionVideoUrl = runtimeSettings?.instructionVideoUrl || t('landing.instructionVideoUrl');
+  const instructionVideoEmbedUrl = toYoutubeEmbedUrl(instructionVideoUrl);
+  const instagramHref = runtimeSettings?.instagramUrl || fallbackInstagramHref;
+  const tiktokHref = runtimeSettings?.tiktokUrl || fallbackTiktokHref;
+  const whatsappHref = runtimeSettingsLoaded
+    ? runtimeSettings?.whatsappUrl || fallbackWhatsAppHref
+    : waUrl || fallbackWhatsAppHref;
+  const heroSlides = runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides;
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<LandingRuntimeSettings>('/public/landing-settings')
+      .then(({ data }) => {
+        if (!cancelled) setRuntimeSettings(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setRuntimeSettingsLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', landingTheme);
+  }, [landingTheme]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [heroSlides]);
 
   if (isLoading) {
     return <Spinner fullScreen />;
@@ -83,9 +161,28 @@ export function LandingPage() {
     return <Navigate to="/app" replace />;
   }
 
-  const langs = ['ru', 'kk', 'en'] as const;
-  const marquee = `${t('landing.marqueeLine')} · `;
-  const waUrl = getWhatsAppUrl();
+  const handleLeadSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (leadLoading) return;
+    setLeadLoading(true);
+    setLeadResult('idle');
+    try {
+      await api.post('/leads', {
+        name: leadName.trim(),
+        phone: leadPhone.trim(),
+        message: leadMessage.trim() || undefined,
+        source: 'landing',
+      });
+      setLeadName('');
+      setLeadPhone('');
+      setLeadMessage('');
+      setLeadResult('success');
+    } catch {
+      setLeadResult('error');
+    } finally {
+      setLeadLoading(false);
+    }
+  };
 
   return (
     <>
@@ -98,7 +195,7 @@ export function LandingPage() {
         jsonLd={jsonLd}
         ogImageAlt={t('landing.seoOgImageAlt')}
       />
-      <div className="landing-root">
+      <div className={`landing-root ${landingTheme === 'light' ? 'is-light' : ''}`}>
         <div className="ld-aurora" aria-hidden />
         <div className="ld-grid" aria-hidden />
         <div className="ld-noise" aria-hidden />
@@ -112,6 +209,18 @@ export function LandingPage() {
               </span>
             </div>
             <div className="ld-nav-actions">
+              <button
+                type="button"
+                className="ld-theme-toggle"
+                onClick={() => {
+                  const next = landingTheme === 'dark' ? 'light' : 'dark';
+                  setLandingTheme(next);
+                  setThemePreference(next);
+                }}
+                aria-label={t('landing.themeToggleAria')}
+              >
+                {landingTheme === 'dark' ? t('landing.themeLight') : t('landing.themeDark')}
+              </button>
               <div className="ld-lang" role="group" aria-label={t('landing.langLabel')}>
                 {langs.map((lng) => (
                   <button
@@ -134,53 +243,81 @@ export function LandingPage() {
           </div>
         </header>
 
-        <section className="ld-hero" aria-labelledby="ld-hero-title">
-          <div className="ld-max ld-hero-grid">
-            <div className="ld-hero-copy">
-              <span className="ld-chip">{t('landing.heroBadge')}</span>
-              <p className="ld-kicker">{t('landing.heroKicker')}</p>
-              <h1 id="ld-hero-title" className="ld-headline">
-                <span className="ld-headline-a">{t('landing.heroTitle')}</span>{' '}
-                <span className="ld-headline-b">{t('landing.heroTitleEm')}</span>
-              </h1>
-              <p className="ld-lead">{t('landing.heroLead')}</p>
-              <div className="ld-hero-btns">
-                <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
-                  {t('landing.ctaTrial')}
-                </Link>
-                <a href="#grant" className="ld-btn ld-btn-glass">
-                  {t('landing.ctaGrant')}
-                </a>
-                <a href="#how" className="ld-btn ld-btn-glass">
-                  {t('landing.ctaScroll')}
-                </a>
+        {heroSlides.length > 0 ? (
+          <section className="ld-hero-carousel" aria-label={t('landing.heroCarouselAria')}>
+            <div className="ld-max">
+              <div className="ld-carousel-shell">
+                {heroSlides.map((slide, idx) => (
+                  <article
+                    key={`${slide.title}-${idx}`}
+                    className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
+                    aria-hidden={idx !== heroIndex}
+                  >
+                    <picture>
+                      <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
+                      <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
+                      <img
+                        src={resolveMediaUrl(slide.desktopImageUrl)}
+                        alt={slide.title}
+                        loading={idx === 0 ? 'eager' : 'lazy'}
+                      />
+                    </picture>
+                    <div className="ld-carousel-overlay">
+                      <h1 className="ld-carousel-title">{slide.title}</h1>
+                      {slide.subtitle ? <p className="ld-carousel-subtitle">{slide.subtitle}</p> : null}
+                      <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
+                        {slide.buttonLabel || t('landing.ctaTrial')}
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+                {heroSlides.length > 1 ? (
+                  <div className="ld-carousel-dots" role="tablist" aria-label={t('landing.heroCarouselDotsAria')}>
+                    {heroSlides.map((slide, idx) => (
+                      <button
+                        key={`${slide.title}-dot-${idx}`}
+                        type="button"
+                        className={idx === heroIndex ? 'is-active' : ''}
+                        onClick={() => setHeroIndex(idx)}
+                        aria-label={`${t('landing.heroCarouselDot')} ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
-
-            <aside className="ld-glass" aria-label={t('landing.ticketAria')}>
-              <div className="ld-glass-glow" aria-hidden />
-              <p className="ld-glass-label">{t('landing.ticketLabel')}</p>
-              <ul className="ld-glass-rows">
-                <li>
-                  <span>{t('landing.ticketRow1L')}</span>
-                  <span className="ld-muted">{t('landing.ticketRow1R')}</span>
-                </li>
-                <li>
-                  <span>{t('landing.ticketRow2L')}</span>
-                  <span className="ld-muted">{t('landing.ticketRow2R')}</span>
-                </li>
-                <li>
-                  <span>{t('landing.ticketRow3L')}</span>
-                  <span className="ld-muted">{t('landing.ticketRow3R')}</span>
-                </li>
-              </ul>
-              <p className="ld-glass-foot">{t('landing.ticketFoot')}</p>
-            </aside>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <LandingStatsStrip />
         <GrantEstimator />
+
+        <section className="ld-section ld-section-instruction" id="instruction">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionInstruction')}</p>
+            <div className="ld-instruction-wrap">
+              <div>
+                <h2 className="ld-trial-title">{t('landing.instructionTitle')}</h2>
+                <p className="ld-trial-lead">{t('landing.instructionLead')}</p>
+              </div>
+              <div className="ld-instruction-video">
+                {instructionVideoEmbedUrl ? (
+                  <iframe
+                    src={instructionVideoEmbedUrl}
+                    title={t('landing.instructionVideoTitle')}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                ) : (
+                  <a href={instructionVideoUrl} target="_blank" rel="noopener noreferrer" className="ld-btn ld-btn-glass">
+                    {t('landing.instructionOpenVideo')}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="ld-marquee-outer" aria-hidden>
           <div className="ld-marquee-track">
@@ -198,6 +335,28 @@ export function LandingPage() {
                   <span className="ld-tile-tag">{b.tag}</span>
                   <h3 className="ld-tile-title">{b.title}</h3>
                   <p className="ld-tile-body">{b.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="test-types" className="ld-section ld-section-test-types">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.sectionTestTypes')}</p>
+            <h2 className="ld-trial-title">{t('landing.testTypesTitle')}</h2>
+            <div className="ld-test-types-grid">
+              {testTypes.map((card) => (
+                <article key={card.title} className="ld-test-type-card">
+                  <h3>{card.title}</h3>
+                  <ul>
+                    {card.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <Link to="/login" className="ld-btn ld-btn-primary">
+                    {card.cta}
+                  </Link>
                 </article>
               ))}
             </div>
@@ -349,17 +508,88 @@ export function LandingPage() {
           </div>
         </section>
 
+        <section className="ld-section ld-section-lead" id="lead">
+          <div className="ld-max">
+            <p className="ld-eyebrow">{t('landing.leadSection')}</p>
+            <div className="ld-lead-wrap">
+              <div>
+                <h2 className="ld-trial-title">{t('landing.leadTitle')}</h2>
+                <p className="ld-trial-lead">{t('landing.leadSubtitle')}</p>
+              </div>
+              <form className="ld-lead-form" onSubmit={handleLeadSubmit}>
+                <label className="ld-lead-field">
+                  <span>{t('landing.leadNameLabel')}</span>
+                  <input
+                    type="text"
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    placeholder={t('landing.leadNamePlaceholder')}
+                    autoComplete="name"
+                    minLength={2}
+                    maxLength={100}
+                    required
+                  />
+                </label>
+                <label className="ld-lead-field">
+                  <span>{t('landing.leadPhoneLabel')}</span>
+                  <input
+                    type="tel"
+                    value={leadPhone}
+                    onChange={(e) => setLeadPhone(e.target.value)}
+                    placeholder={t('landing.leadPhonePlaceholder')}
+                    autoComplete="tel"
+                    minLength={5}
+                    maxLength={30}
+                    required
+                  />
+                </label>
+                <label className="ld-lead-field">
+                  <span>{t('landing.leadMessageLabel')}</span>
+                  <textarea
+                    value={leadMessage}
+                    onChange={(e) => setLeadMessage(e.target.value)}
+                    placeholder={t('landing.leadMessagePlaceholder')}
+                    maxLength={1000}
+                    rows={4}
+                  />
+                </label>
+                <button type="submit" className="ld-btn ld-btn-primary ld-btn-lg" disabled={leadLoading}>
+                  {leadLoading ? t('landing.leadSubmitting') : t('landing.leadSubmit')}
+                </button>
+                {leadResult === 'success' ? (
+                  <p className="ld-lead-status ld-lead-status-success">{t('landing.leadSuccess')}</p>
+                ) : null}
+                {leadResult === 'error' ? (
+                  <p className="ld-lead-status ld-lead-status-error">{t('landing.leadError')}</p>
+                ) : null}
+              </form>
+            </div>
+          </div>
+        </section>
+
         <footer className="ld-footer">
           <div className="ld-max ld-footer-inner">
             <div className="ld-footer-brand">
               <p className="ld-footer-copy">
                 <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
               </p>
+              <ul className="ld-footer-socials" aria-label={t('landing.footerSocialsAria')}>
+                <li>
+                  <a href={instagramHref} target="_blank" rel="noopener noreferrer">
+                    {t('landing.contactInstagramLabel')}
+                  </a>
+                </li>
+                <li>
+                  <a href={tiktokHref} target="_blank" rel="noopener noreferrer">
+                    {t('landing.contactTiktokLabel')}
+                  </a>
+                </li>
+              </ul>
               <div className="ld-footer-contact" aria-label={t('landing.footerContactAria')}>
                 <p className="ld-footer-contact-title">{t('landing.footerContactTitle')}</p>
                 <ul className="ld-footer-contact-list">
                   <li>
-                    <a href={t('landing.contactWhatsappHref')} target="_blank" rel="noopener noreferrer">
+                    <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
                       {t('landing.contactWhatsappLabel')}
                     </a>
                   </li>
@@ -375,34 +605,41 @@ export function LandingPage() {
               </div>
             </div>
             <div className="ld-footer-actions">
-              {waUrl ? (
-                <a
-                  href={waUrl}
-                  className="ld-btn ld-btn-glass"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {t('landing.whatsappCta')}
-                </a>
-              ) : (
-                <a
-                  href={t('landing.contactWhatsappHref')}
-                  className="ld-btn ld-btn-glass"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {t('landing.whatsappCta')}
-                </a>
-              )}
+              <a href={whatsappHref} className="ld-btn ld-btn-glass" target="_blank" rel="noopener noreferrer">
+                {t('landing.whatsappCta')}
+              </a>
               <Link to="/login" className="ld-btn ld-btn-primary">
                 {t('landing.ctaTrial')}
               </Link>
             </div>
           </div>
+          <div className="ld-max">
+            <p className="ld-footer-rights">{t('landing.footerRights')}</p>
+          </div>
         </footer>
       </div>
     </>
   );
+}
+
+function toYoutubeEmbedUrl(rawUrl: string): string | null {
+  const value = rawUrl.trim();
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.hostname.includes('youtu.be')) {
+      const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (parsed.hostname.includes('youtube.com')) {
+      if (parsed.pathname.startsWith('/embed/')) return value;
+      const id = parsed.searchParams.get('v');
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function IconLogin() {

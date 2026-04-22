@@ -480,3 +480,12 @@ model PaymentOrder {
   @@index([userId, status, createdAt])
   @@map("payment_orders")
 }
+
+model SiteSetting {
+  key       String   @id @db.VarChar(100)
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("site_settings")
+}

@@ -315,11 +315,27 @@
   },
   "landing": {
     "langLabel": "Язык",
+    "themeToggleAria": "Переключить тему лендинга",
+    "themeLight": "Светлая",
+    "themeDark": "Тёмная",
     "ctaLogin": "Войти",
     "ctaTrial": "Начать бесплатный пробный ЕНТ",
     "ctaScroll": "Как это устроено",
     "ctaGrant": "Оценить сумму баллов",
     "heroBadge": "Образовательная платформа для школьников",
+    "heroCarouselAria": "Главный баннер-карусель",
+    "heroCarouselDotsAria": "Навигация по слайдам",
+    "heroCarouselDot": "Слайд",
+    "heroSlides": [
+      {
+        "title": "Подготовка к экзаменам в одном месте",
+        "subtitle": "Таймер, аналитика ошибок и прогресс по предметам в удобном формате.",
+        "desktopImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=80",
+        "tabletImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1200&q=80",
+        "mobileImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=800&q=80",
+        "buttonLabel": "Начать тест"
+      }
+    ],
     "marqueeLine": "ЕНТ · НИШ · НУЭТ · КТЛ · Telegram · таймер · ошибки · прогресс · қазақша · русский · English",
     "heroKicker": "MyTest · Казахстан",
     "heroTitle": "Подготовка к экзаменам —",
@@ -374,6 +390,25 @@
     "grantCtaLogin": "Перейти ко входу и тестам",
     "whatsappCta": "Написать в WhatsApp",
     "sectionBenefits": "Почему MyTest",
+    "sectionTestTypes": "Каталог",
+    "testTypesTitle": "Виды тестирования",
+    "testTypes": [
+      {
+        "title": "Пробный тест ЕНТ",
+        "items": ["120 вопросов", "5 предметов", "240 минут", "до 140 баллов"],
+        "cta": "Начать тест"
+      },
+      {
+        "title": "Подготовительный тест БИЛ",
+        "items": ["60 вопросов", "2 предмета", "110 минут", "до 240 баллов"],
+        "cta": "Начать тест"
+      },
+      {
+        "title": "Подготовительный тест НИШ",
+        "items": ["180 вопросов", "6 предметов", "240 минут", "до 1500 баллов"],
+        "cta": "Начать тест"
+      }
+    ],
     "sectionHow": "Три шага",
     "sectionAbout": "О нас",
     "sectionPlatform": "Возможности",
@@ -427,10 +462,34 @@
       }
     ],
     "sectionTrial": "Пробный доступ и тарифы",
+    "sectionInstruction": "Инструкция",
+    "instructionTitle": "Инструкция по тестированию",
+    "instructionLead": "На всякий случай добавили короткое видео по работе с платформой. Позже вы сможете заменить ссылку в админке.",
+    "instructionVideoTitle": "Инструкция по тестированию MyTest",
+    "instructionOpenVideo": "Открыть видео",
+    "instructionVideoUrl": "https://youtu.be/xsfHraWRMQ0?si=L3vYe1tIRvOU2XpJ",
+    "leadSection": "Оставить заявку",
+    "leadTitle": "Оставьте заявку — мы свяжемся с вами",
+    "leadSubtitle": "Отправьте контакты, и администратор ответит вам в ближайшее время.",
+    "leadNameLabel": "Имя",
+    "leadNamePlaceholder": "Ваше имя",
+    "leadPhoneLabel": "Телефон",
+    "leadPhonePlaceholder": "+7 7XX XXX XX XX",
+    "leadMessageLabel": "Комментарий (необязательно)",
+    "leadMessagePlaceholder": "Удобное время для связи или ваш вопрос",
+    "leadSubmit": "Отправить заявку",
+    "leadSubmitting": "Отправляем...",
+    "leadSuccess": "Заявка отправлена. Скоро с вами свяжемся.",
+    "leadError": "Не удалось отправить заявку. Попробуйте еще раз.",
     "footerContactTitle": "Контакты",
     "footerContactAria": "Контакты MyTest",
+    "footerSocialsAria": "Социальные сети MyTest",
     "contactWhatsappLabel": "WhatsApp +7 777 593 2124",
     "contactWhatsappHref": "https://wa.me/77775932124",
+    "contactInstagramLabel": "Instagram",
+    "contactInstagramHref": "https://instagram.com/",
+    "contactTiktokLabel": "TikTok",
+    "contactTiktokHref": "https://www.tiktok.com/",
     "contactEmail": "mytest.info.kz@gmail.com",
     "contactSiteLabel": "my-test.kz",
     "contactSiteHref": "https://my-test.kz/",
@@ -494,6 +553,7 @@
         "features": ["Полный сезон подготовки", "Лучшее соотношение цены за месяц", "Подходит для раннего старта"]
       }
     ],
+    "footerRights": "© MyTest 2026. Все права защищены.",
     "footerTagline": "Подготовка к экзамену — без хаоса.",
     "footerCta": "Перейти к тестам",
     "seoTitle": "MyTest — ЕНТ, НИШ, НУЭТ: пробные тесты онлайн | Казахстан",

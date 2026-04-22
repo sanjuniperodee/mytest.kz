@@ -315,11 +315,27 @@
   },
   "landing": {
     "langLabel": "Language",
+    "themeToggleAria": "Toggle landing theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
     "ctaLogin": "Sign in",
     "ctaTrial": "Start free UNT trial",
     "ctaScroll": "How it works",
     "ctaGrant": "Estimate profile sum",
     "heroBadge": "Learning platform for students",
+    "heroCarouselAria": "Main hero carousel",
+    "heroCarouselDotsAria": "Slide navigation",
+    "heroCarouselDot": "Slide",
+    "heroSlides": [
+      {
+        "title": "Exam preparation in one place",
+        "subtitle": "Timer, mistake analytics, and progress tracking across subjects.",
+        "desktopImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=80",
+        "tabletImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1200&q=80",
+        "mobileImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=800&q=80",
+        "buttonLabel": "Start test"
+      }
+    ],
     "marqueeLine": "ENT · NIS · NUET · KTL · Telegram · timer · mistakes · progress · kk · ru · en",
     "heroKicker": "MyTest · Kazakhstan",
     "heroTitle": "Exam prep —",
@@ -374,6 +390,25 @@
     "grantCtaLogin": "Sign in and start tests",
     "whatsappCta": "Message on WhatsApp",
     "sectionBenefits": "Why MyTest",
+    "sectionTestTypes": "Catalog",
+    "testTypesTitle": "Testing types",
+    "testTypes": [
+      {
+        "title": "UNT trial test",
+        "items": ["120 questions", "5 subjects", "240 minutes", "up to 140 points"],
+        "cta": "Start test"
+      },
+      {
+        "title": "BIL prep test",
+        "items": ["60 questions", "2 subjects", "110 minutes", "up to 240 points"],
+        "cta": "Start test"
+      },
+      {
+        "title": "NIS prep test",
+        "items": ["180 questions", "6 subjects", "240 minutes", "up to 1500 points"],
+        "cta": "Start test"
+      }
+    ],
     "sectionHow": "Three steps",
     "sectionAbout": "About us",
     "sectionPlatform": "Features",
@@ -427,10 +462,34 @@
       }
     ],
     "sectionTrial": "Free access and plans",
+    "sectionInstruction": "Instruction",
+    "instructionTitle": "Testing instruction",
+    "instructionLead": "Added a short onboarding video just in case. You can replace this link later from the admin panel.",
+    "instructionVideoTitle": "MyTest testing instruction",
+    "instructionOpenVideo": "Open video",
+    "instructionVideoUrl": "https://youtu.be/xsfHraWRMQ0?si=L3vYe1tIRvOU2XpJ",
+    "leadSection": "Leave a request",
+    "leadTitle": "Leave a request — we'll contact you",
+    "leadSubtitle": "Send your contact details and an admin will get back to you shortly.",
+    "leadNameLabel": "Name",
+    "leadNamePlaceholder": "Your name",
+    "leadPhoneLabel": "Phone",
+    "leadPhonePlaceholder": "+7 7XX XXX XX XX",
+    "leadMessageLabel": "Comment (optional)",
+    "leadMessagePlaceholder": "Best time to call or your question",
+    "leadSubmit": "Send request",
+    "leadSubmitting": "Sending...",
+    "leadSuccess": "Request sent. We will contact you soon.",
+    "leadError": "Failed to send request. Please try again.",
     "footerContactTitle": "Contact",
     "footerContactAria": "MyTest contacts",
+    "footerSocialsAria": "MyTest social links",
     "contactWhatsappLabel": "WhatsApp +7 777 593 2124",
     "contactWhatsappHref": "https://wa.me/77775932124",
+    "contactInstagramLabel": "Instagram",
+    "contactInstagramHref": "https://instagram.com/",
+    "contactTiktokLabel": "TikTok",
+    "contactTiktokHref": "https://www.tiktok.com/",
     "contactEmail": "mytest.info.kz@gmail.com",
     "contactSiteLabel": "my-test.kz",
     "contactSiteHref": "https://my-test.kz/",
@@ -494,6 +553,7 @@
         "features": ["Full exam-season runway", "Best value per month", "Fits early preparation"]
       }
     ],
+    "footerRights": "© MyTest 2026. All rights reserved.",
     "footerTagline": "Focused prep — without the chaos.",
     "footerCta": "Go to tests",
     "seoTitle": "MyTest — UNT, NIS, NUET practice tests online | Kazakhstan",

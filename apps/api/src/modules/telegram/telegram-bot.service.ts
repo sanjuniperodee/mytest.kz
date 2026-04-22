@@ -17,6 +17,7 @@ import { AuthService } from '../auth/auth.service';
 export class TelegramBotService implements OnModuleInit {
   private bot: Telegraf | null = null;
   private channelId: string;
+  private readonly leadAdminChatId: string;
   /** HTTPS origin of the Mini App (Bot API WebAppInfo.url), same as public site. */
   private readonly webAppUrl: string;
   private readonly logger = new Logger(TelegramBotService.name);
@@ -34,9 +35,17 @@ export class TelegramBotService implements OnModuleInit {
   ) {
     this.botToken = (config.get<string>('TELEGRAM_BOT_TOKEN', '') || '').trim();
     this.channelId = config.get<string>('TELEGRAM_CHANNEL_ID', '');
+    this.leadAdminChatId = (config.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '').trim();
     const raw =
       config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://www.my-test.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
+  }
+
+  private escapeHtml(input: string): string {
+    return input
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   /** Inline «Открыть» — для сообщений с кодом (сайт). */
@@ -430,6 +439,55 @@ export class TelegramBotService implements OnModuleInit {
       this.logger.error(`Failed to send auth code to telegramId ${telegramId}: ${error}`);
       throw new BadRequestException(
         'Не удалось отправить код. Откройте бота @bilimhan_bot по ссылке с сайта и укажите номер.',
+      );
+    }
+  }
+
+  async sendLeadNotificationToAdmin(payload: {
+    name: string;
+    phone: string;
+    message?: string | null;
+    source?: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    if (!this.bot) {
+      this.logger.warn('sendLeadNotificationToAdmin: бот не запущен');
+      throw new BadRequestException('Telegram-бот недоступен.');
+    }
+    if (!this.leadAdminChatId) {
+      this.logger.error('TELEGRAM_ADMIN_CHAT_ID is not configured');
+      throw new BadRequestException(
+        'Не настроен TELEGRAM_ADMIN_CHAT_ID для уведомлений администратора.',
+      );
+    }
+    const body = [
+      '📩 <b>Новая заявка с лендинга</b>',
+      '',
+      `<b>Имя:</b> ${this.escapeHtml(payload.name)}`,
+      `<b>Телефон:</b> <code>${this.escapeHtml(payload.phone)}</code>`,
+      payload.message
+        ? `<b>Сообщение:</b> ${this.escapeHtml(payload.message)}`
+        : '<b>Сообщение:</b> —',
+      payload.source ? `<b>Источник:</b> ${this.escapeHtml(payload.source)}` : null,
+      payload.ip ? `<b>IP:</b> <code>${this.escapeHtml(payload.ip)}</code>` : null,
+      payload.userAgent
+        ? `<b>User-Agent:</b> ${this.escapeHtml(payload.userAgent)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    try {
+      await this.bot.telegram.sendMessage(this.leadAdminChatId, body, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send lead notification to ${this.leadAdminChatId}: ${error}`,
+      );
+      throw new BadRequestException(
+        'Не удалось отправить заявку в Telegram. Проверьте, что админ открыл бота.',
       );
     }
   }

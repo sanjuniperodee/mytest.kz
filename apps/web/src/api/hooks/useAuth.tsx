@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { api, setTokens, clearTokens, getAccessToken } from '../client';
 import { useTelegram } from '../../lib/telegram';
 import type { User, AuthResponse } from '../types';
+import { setThemePreference } from '../../lib/theme';
 
 interface AuthContextValue {
   user: User | null;
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (getAccessToken()) {
         const profile = await fetchProfile();
         if (profile) {
+          setThemePreference('light');
           setIsLoading(false);
           return;
         }
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             initData: initDataRaw,
           });
           setTokens(data.accessToken, data.refreshToken);
+          setThemePreference('light');
           setUser(data.user);
         } catch {
           // Telegram auth failed (неверный hash / другой TELEGRAM_BOT_TOKEN на API, сеть, CORS)
@@ -79,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (initData: string) => {
     const { data } = await api.post<AuthResponse>('/auth/telegram', { initData });
     setTokens(data.accessToken, data.refreshToken);
+    setThemePreference('light');
     setUser(data.user);
   }, []);
 
@@ -92,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       code,
     });
     setTokens(data.accessToken, data.refreshToken);
+    setThemePreference('light');
     setUser(data.user);
   }, []);
 

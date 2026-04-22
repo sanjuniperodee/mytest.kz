@@ -16,6 +16,8 @@ import { AdmissionModule } from './modules/admission/admission.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { DbSnapshotModule } from './modules/db-snapshot/db-snapshot.module';
+import { LeadsModule } from './modules/leads/leads.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -35,6 +37,8 @@ import { DbSnapshotModule } from './modules/db-snapshot/db-snapshot.module';
     BillingModule,
     SubscriptionsModule,
     DbSnapshotModule,
+    LeadsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

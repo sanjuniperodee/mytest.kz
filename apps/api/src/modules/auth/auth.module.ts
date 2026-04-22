@@ -15,7 +15,9 @@ import { TelegramModule } from '../telegram/telegram.module';
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '15m' },
+        signOptions: {
+          expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN') || '12h',
+        },
       }),
       inject: [ConfigService],
     }),

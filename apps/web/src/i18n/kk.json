@@ -315,11 +315,27 @@
   },
   "landing": {
     "langLabel": "Тіл",
+    "themeToggleAria": "Лендинг тақырыбын ауыстыру",
+    "themeLight": "Жарық",
+    "themeDark": "Қараңғы",
     "ctaLogin": "Кіру",
     "ctaTrial": "ҰБТ тегін байқау тестін бастау",
     "ctaScroll": "Қалай жұмыс істейді",
     "ctaGrant": "Балл сомасын бағалау",
     "heroBadge": "Оқушыларға арналған білім беру платформасы",
+    "heroCarouselAria": "Негізгі карусель баннері",
+    "heroCarouselDotsAria": "Слайд навигациясы",
+    "heroCarouselDot": "Слайд",
+    "heroSlides": [
+      {
+        "title": "Емтиханға дайындық бір жерде",
+        "subtitle": "Таймер, қателер талдауы және пәндер бойынша прогресс бір платформада.",
+        "desktopImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=80",
+        "tabletImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1200&q=80",
+        "mobileImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=800&q=80",
+        "buttonLabel": "Тестті бастау"
+      }
+    ],
     "marqueeLine": "ҰБТ · НИШ · НУЭТ · ҚТЛ · Telegram · таймер · қателер · прогресс · қазақша · орысша · English",
     "heroKicker": "MyTest · Қазақстан",
     "heroTitle": "Емтиханға дайындық —",
@@ -374,6 +390,25 @@
     "grantCtaLogin": "Кіру және тесттерге өту",
     "whatsappCta": "WhatsApp-та жазу",
     "sectionBenefits": "Неге MyTest",
+    "sectionTestTypes": "Каталог",
+    "testTypesTitle": "Тестілеу түрлері",
+    "testTypes": [
+      {
+        "title": "ҰБТ пробный тесті",
+        "items": ["120 сұрақ", "5 пән", "240 минут", "140 баллға дейін"],
+        "cta": "Тестті бастау"
+      },
+      {
+        "title": "БИЛ дайындық тесті",
+        "items": ["60 сұрақ", "2 пән", "110 минут", "240 баллға дейін"],
+        "cta": "Тестті бастау"
+      },
+      {
+        "title": "НИШ дайындық тесті",
+        "items": ["180 сұрақ", "6 пән", "240 минут", "1500 баллға дейін"],
+        "cta": "Тестті бастау"
+      }
+    ],
     "sectionHow": "Үш қадам",
     "sectionAbout": "Біз туралы",
     "sectionPlatform": "Мүмкіндіктер",
@@ -427,10 +462,34 @@
       }
     ],
     "sectionTrial": "Тегін лимит және тарифтер",
+    "sectionInstruction": "Нұсқаулық",
+    "instructionTitle": "Тестілеу нұсқаулығы",
+    "instructionLead": "Қосымша ретінде платформаны қолдану туралы қысқа видео қостық. Кейін сілтемені админкадан ауыстыра аласыз.",
+    "instructionVideoTitle": "MyTest тестілеу нұсқаулығы",
+    "instructionOpenVideo": "Видеоны ашу",
+    "instructionVideoUrl": "https://youtu.be/xsfHraWRMQ0?si=L3vYe1tIRvOU2XpJ",
+    "leadSection": "Өтінім қалдыру",
+    "leadTitle": "Өтінім қалдырыңыз — сізбен байланысамыз",
+    "leadSubtitle": "Байланыс мәліметін жіберіңіз, әкімші жақын уақытта хабарласады.",
+    "leadNameLabel": "Аты-жөні",
+    "leadNamePlaceholder": "Аты-жөніңіз",
+    "leadPhoneLabel": "Телефон",
+    "leadPhonePlaceholder": "+7 7XX XXX XX XX",
+    "leadMessageLabel": "Түсініктеме (міндетті емес)",
+    "leadMessagePlaceholder": "Хабарласуға ыңғайлы уақыт немесе сұрағыңыз",
+    "leadSubmit": "Өтінім жіберу",
+    "leadSubmitting": "Жіберілуде...",
+    "leadSuccess": "Өтінім жіберілді. Жақында хабарласамыз.",
+    "leadError": "Өтінім жіберілмеді. Қайта байқап көріңіз.",
     "footerContactTitle": "Байланыс",
     "footerContactAria": "MyTest байланысы",
+    "footerSocialsAria": "MyTest әлеуметтік желілері",
     "contactWhatsappLabel": "WhatsApp +7 777 593 2124",
     "contactWhatsappHref": "https://wa.me/77775932124",
+    "contactInstagramLabel": "Instagram",
+    "contactInstagramHref": "https://instagram.com/",
+    "contactTiktokLabel": "TikTok",
+    "contactTiktokHref": "https://www.tiktok.com/",
     "contactEmail": "mytest.info.kz@gmail.com",
     "contactSiteLabel": "my-test.kz",
     "contactSiteHref": "https://my-test.kz/",
@@ -494,6 +553,7 @@
         "features": ["Емтихан маусымына толық цикл", "Айға шаққандағы ең тиімді баға", "Ерте бастағандарға ыңғайлы"]
       }
     ],
+    "footerRights": "© MyTest 2026. Барлық құқықтар қорғалған.",
     "footerTagline": "bilim үшін, бірақ шатасусыз.",
     "footerCta": "Тесттерге өту",
     "seoTitle": "MyTest — ҰБТ, НИШ, НУЭТ: сынақ тесттер онлайн | Қазақстан",
