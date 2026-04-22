@@ -43,7 +43,7 @@ export function ReviewPage() {
   }, [session?.answers, session?.metadata?.questionOrder]);
 
   const sectionStats = useMemo(() => {
-    const backend = session?.sectionScores ?? [];
+    const backend = session?.sectionScores ?? session?.sectionsScores ?? [];
     return backend.map((sec) => {
       const rawPoints =
         typeof sec.rawPoints === 'number' && Number.isFinite(sec.rawPoints)
@@ -61,7 +61,7 @@ export function ReviewPage() {
         score: sec.score,
       };
     });
-  }, [session?.sectionScores, subjectContentLang]);
+  }, [session?.sectionScores, session?.sectionsScores, subjectContentLang]);
 
   const sectionBoundaries = useMemo(() => {
     if (orderedAnswers.length === 0) return [];

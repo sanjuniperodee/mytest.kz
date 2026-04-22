@@ -185,6 +185,7 @@ export interface TestSession {
   maxScore: number | null;
   metadata?: SessionMetadata;
   sectionScores?: SessionSectionScore[];
+  sectionsScores?: SessionSectionScore[];
   answers: TestAnswer[];
   examType?: ExamType;
 }

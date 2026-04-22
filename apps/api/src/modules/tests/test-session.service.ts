@@ -391,6 +391,7 @@ export class TestSessionService {
     return {
       ...this.normalizeSessionScore(session),
       sectionScores: scoreResult.sections,
+      sectionsScores: scoreResult.sections,
     };
   }
 
