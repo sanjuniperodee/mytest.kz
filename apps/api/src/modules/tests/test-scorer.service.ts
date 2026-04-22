@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ENT_CONFIG } from '@bilimland/shared';
 
-interface SectionScore {
+export interface SectionScore {
   subjectId: string;
   subjectName: unknown;
   subjectSlug: string;
