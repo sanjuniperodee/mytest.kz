@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSubjects, useTemplates, useExamTypes } from '../api/hooks/useExams';
 import { useStartTest } from '../api/hooks/useTests';
 import { useAuth } from '../api/hooks/useAuth';
+import { useProfile } from '../api/hooks/useProfile';
 import { Spinner } from '../components/common/Spinner';
 import { safeShowAlert, useTelegram } from '../lib/telegram';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
@@ -42,6 +43,18 @@ function CheckCircle() {
   );
 }
 
+function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
+  if (!targetIso) return null;
+  const target = new Date(targetIso).getTime();
+  if (!Number.isFinite(target)) return null;
+  const diff = Math.max(0, target - nowMs);
+  const totalSec = Math.floor(diff / 1000);
+  const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 /** Для карточек режима ЕНТ: вопросы и время по полному шаблону (пробник). */
 function entModePreview(
   mode: 'mandatory' | 'profile' | 'full',
@@ -66,6 +79,7 @@ export function ExamPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: profile } = useProfile();
   const { webApp } = useTelegram();
   useNoTranslateWhileMounted();
 
@@ -77,6 +91,7 @@ export function ExamPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
   const [entPassMode, setEntPassMode] = useState<'mandatory' | 'profile' | 'full'>('full');
+  const [nowMs, setNowMs] = useState(Date.now());
   /** Язык текста заданий ЕНТ (kk | ru); до явного выбора — из профиля. */
   const [pickedEntQuestionLang, setPickedEntQuestionLang] = useState<'kk' | 'ru' | null>(null);
 
@@ -98,6 +113,12 @@ export function ExamPage() {
   const requiredProfiles = examSlug === 'ent' && entPassMode !== 'mandatory' ? 2 : 0;
   const maxProfiles = requiredProfiles > 0 ? requiredProfiles : electiveSubjects.length;
   const hasElectives = electiveSubjects.length > 0;
+  const examAccess = profile?.accessByExam?.find((a) => a.examTypeId === examId);
+  const dailyBlocked = examAccess?.reasonCode === 'DAILY_LIMIT_REACHED';
+  const accessBlocked =
+    examAccess?.reasonCode === 'TOTAL_LIMIT_EXHAUSTED' ||
+    examAccess?.reasonCode === 'NO_ENTITLEMENT';
+  const accessCountdown = formatCountdown(examAccess?.nextAllowedAt, nowMs);
   const shouldRequireProfiles =
     hasElectives && requiredProfiles > 0 && (!isEnt || entPassMode === 'full' || entPassMode === 'profile');
 
@@ -109,6 +130,11 @@ export function ExamPage() {
   useEffect(() => {
     if (!isEnt) setPickedEntQuestionLang(null);
   }, [isEnt]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const entTemplatesSorted = useMemo(() => {
     if (!templates?.length) return [];
@@ -135,6 +161,7 @@ export function ExamPage() {
 
   const canStart =
     !!templateIdForStart &&
+    (examAccess ? examAccess.hasAccess : true) &&
     (isEnt
       ? entPassMode === 'mandatory' ||
         (entPassMode === 'profile' && selectedProfiles.length === 2) ||
@@ -163,6 +190,14 @@ export function ExamPage() {
         navigate('/paywall?reason=trial_exhausted');
         return;
       }
+      if (msg === 'DAILY_LIMIT_REACHED') {
+        navigate('/paywall?reason=daily_limit');
+        return;
+      }
+      if (msg === 'TOTAL_LIMIT_EXHAUSTED' || msg === 'NO_ENTITLEMENT') {
+        navigate('/paywall?reason=limit_exhausted');
+        return;
+      }
       const displayMessage = typeof msg === 'string' ? msg : t('common.error');
       safeShowAlert(webApp, displayMessage);
     }
@@ -173,6 +208,8 @@ export function ExamPage() {
   const startButtonLabel = (() => {
     if (startTest.isPending) return t('common.loading');
     if (canStart) return t('exam.startTest');
+    if (dailyBlocked) return t('exam.dailyLimitButton');
+    if (accessBlocked) return t('exam.noAccessButton');
     if (!hasTemplates) return t('exam.noTemplatesButton');
     if (isEnt) {
       if (
@@ -209,6 +246,21 @@ export function ExamPage() {
           {examName}
         </div>
       </div>
+
+      {examAccess && !examAccess.hasAccess && (
+        <div className="surface" style={{ marginBottom: 14, padding: '12px 14px' }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+            {dailyBlocked ? t('exam.dailyLimitTitle') : t('exam.noAccessTitle')}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {dailyBlocked
+              ? t('exam.dailyLimitText', {
+                  countdown: accessCountdown ?? '--:--:--',
+                })
+              : t('exam.noAccessText')}
+          </div>
+        </div>
+      )}
 
       {isEnt && (
         <div className="section" style={{ marginTop: -8 }}>

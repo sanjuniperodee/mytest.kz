@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { BILLING_PLANS, ENT_TRIAL_LIMIT, type BillingPlan } from './billing.config';
 import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './freedompay-signature';
+import { AccessService } from '../subscriptions/access.service';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 
@@ -11,6 +12,7 @@ export class BillingService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private accessService: AccessService,
   ) {}
 
   getPlans() {
@@ -151,7 +153,7 @@ export class BillingService {
     const now = new Date();
     const expiresAt = this.addDays(now, plan.durationDays);
 
-    await this.prisma.$transaction(async (tx) => {
+    const createdSubscription = await this.prisma.$transaction(async (tx) => {
       await tx.paymentOrder.update({
         where: { id: order.id },
         data: {
@@ -161,7 +163,7 @@ export class BillingService {
           providerPaymentId: normalized.pg_payment_id || order.providerPaymentId,
         },
       });
-      await tx.subscription.create({
+      return tx.subscription.create({
         data: {
           userId: order.userId,
           planType: plan.id,
@@ -171,6 +173,7 @@ export class BillingService {
         },
       });
     });
+    await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
 
     return { ok: true, status: 'paid' };
   }

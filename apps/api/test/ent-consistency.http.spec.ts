@@ -209,12 +209,14 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
-        findFirst: jest.fn().mockResolvedValue({
-          isActive: true,
-          planType: 'premium',
-          startsAt: new Date(Date.now() - 1000),
-          expiresAt: new Date(Date.now() + 1000 * 60),
-        }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            isActive: true,
+            planType: 'premium',
+            startsAt: new Date(Date.now() - 1000),
+            expiresAt: new Date(Date.now() + 1000 * 60),
+          },
+        ]),
       },
       user: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -243,11 +245,15 @@ describe('ENT 120/140 consistency', () => {
     } as any;
     const scorerMock = {} as any;
     const mistakesMock = {} as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    } as any;
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
       scorerMock,
       mistakesMock,
+      accessMock,
     );
 
     await service.startTest(
@@ -341,7 +347,21 @@ describe('ENT 120/140 consistency', () => {
           .mockResolvedValueOnce([entInvalidInProgress, entValidInProgress]),
       },
     } as any;
-    const users = new UsersService(prismaMock, {} as any);
+    const accessMock = {
+      getUserAccessByExam: jest.fn().mockResolvedValue([
+        {
+          examTypeId: 'exam-ent',
+          examSlug: 'ent',
+          hasAccess: true,
+          reasonCode: null,
+          nextAllowedAt: null,
+          hasPaidTier: false,
+          total: { used: 1, limit: 2, remaining: 1, isUnlimited: false },
+          daily: { used: 0, limit: null, remaining: null, isUnlimited: true, nextResetAt: null },
+        },
+      ]),
+    } as any;
+    const users = new UsersService(prismaMock, {} as any, accessMock);
 
     const stats = await users.getStats('user-1');
 
@@ -351,6 +371,68 @@ describe('ENT 120/140 consistency', () => {
     expect(entStats?.testsCount).toBe(1);
     expect(entStats?.bestMaxScore).toBe(140);
     expect(entStats?.inProgressCount).toBe(1);
+  });
+
+  it('returns combined trial status when free attempts and purchased trial both exist', async () => {
+    const now = new Date();
+    const trialSubStartsAt = new Date(now.getTime() - 60 * 60 * 1000);
+    const trialSubExpiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+    const prismaMock = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          telegramId: BigInt(1001),
+          telegramUsername: 'u1',
+          phone: '+77001112233',
+          firstName: 'User',
+          lastName: 'One',
+          preferredLanguage: 'ru',
+          isAdmin: false,
+          isChannelMember: true,
+          channelCheckedAt: now,
+          entTrialUsed: 1,
+        }),
+      },
+      subscription: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sub-trial',
+            userId: 'user-1',
+            isActive: true,
+            planType: 'trial',
+            startsAt: trialSubStartsAt,
+            expiresAt: trialSubExpiresAt,
+          },
+        ]),
+      },
+      testSession: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+    } as any;
+    const accessMock = {
+      getUserAccessByExam: jest.fn().mockResolvedValue([
+        {
+          examTypeId: 'exam-ent',
+          examSlug: 'ent',
+          hasAccess: true,
+          reasonCode: null,
+          nextAllowedAt: null,
+          hasPaidTier: false,
+          total: { used: 0, limit: 2, remaining: 2, isUnlimited: false },
+          daily: { used: 0, limit: null, remaining: null, isUnlimited: true, nextResetAt: null },
+        },
+      ]),
+    } as any;
+    const users = new UsersService(prismaMock, {} as any, accessMock);
+
+    const profile = await users.getProfile('user-1');
+    const ent = profile?.trialStatus?.ent;
+
+    expect(profile?.hasActiveSubscription).toBe(false);
+    expect(ent?.freeRemaining).toBe(1);
+    expect(ent?.paidTrialRemaining).toBe(1);
+    expect(ent?.totalRemaining).toBe(2);
+    expect(ent?.exhausted).toBe(false);
   });
 
   it('rejects ENT full start when generated composition is not exactly 120', async () => {
@@ -395,12 +477,14 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
-        findFirst: jest.fn().mockResolvedValue({
-          isActive: true,
-          planType: 'premium',
-          startsAt: new Date(Date.now() - 1000),
-          expiresAt: new Date(Date.now() + 1000 * 60),
-        }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            isActive: true,
+            planType: 'premium',
+            startsAt: new Date(Date.now() - 1000),
+            expiresAt: new Date(Date.now() + 1000 * 60),
+          },
+        ]),
       },
       user: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -425,11 +509,15 @@ describe('ENT 120/140 consistency', () => {
     } as any;
     const scorerMock = {} as any;
     const mistakesMock = {} as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    } as any;
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
       scorerMock,
       mistakesMock,
+      accessMock,
     );
 
     await expect(

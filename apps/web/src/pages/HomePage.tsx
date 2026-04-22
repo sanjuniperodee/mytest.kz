@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useExamTypes } from '../api/hooks/useExams';
@@ -56,6 +57,18 @@ function ChevronRight() {
   );
 }
 
+function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
+  if (!targetIso) return null;
+  const target = new Date(targetIso).getTime();
+  if (!Number.isFinite(target)) return null;
+  const diff = Math.max(0, target - nowMs);
+  const totalSec = Math.floor(diff / 1000);
+  const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 export function HomePage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -64,6 +77,12 @@ export function HomePage() {
   const { data: examTypes, isLoading } = useExamTypes();
   const { data: sessionsData } = useSessions(1);
   const { data: mistakesSummary } = useMistakesSummary();
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const inProgressSessions = sessionsData?.items.filter((s) => s.status === 'in_progress');
 
@@ -71,18 +90,45 @@ export function HomePage() {
 
   const firstName = user?.firstName || '';
   const entExam = examTypes?.find((exam) => exam.slug === 'ent');
+  const entAccess = profile?.accessByExam?.find((x) => x.examSlug === 'ent');
   const entTrial = profile?.trialStatus?.ent;
-  const hasPremium = profile?.hasActiveSubscription === true;
+  const hasPremium =
+    profile?.hasActiveSubscription === true ||
+    (entAccess?.hasPaidTier === true && (entAccess?.hasAccess ?? false));
+  const dailyCountdown = formatCountdown(entAccess?.nextAllowedAt, nowMs);
+  const entTotalRemainingFromAccess =
+    entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : null;
+  const entTotalRemaining = Math.max(
+    0,
+    entTotalRemainingFromAccess ?? entTrial?.totalRemaining ?? entTrial?.remaining ?? 0,
+  );
+  const entFreeRemaining = Math.max(
+    0,
+    entTrial?.freeRemaining ?? entTrial?.remaining ?? 0,
+  );
+  const entPaidTrialRemaining = Math.max(0, entTrial?.paidTrialRemaining ?? 0);
+  const dailyBlocked = entAccess?.reasonCode === 'DAILY_LIMIT_REACHED';
+  const trialExhausted = !hasPremium && !dailyBlocked && entTotalRemaining <= 0;
   const trialSubtitle = hasPremium
     ? t('home.trialCtaPremium')
-    : entTrial
-      ? (entTrial.exhausted
-          ? t('home.trialCtaExhausted')
-          : t('home.trialCtaRemaining', { count: entTrial.remaining }))
-      : t('home.trialCtaSub');
+    : dailyBlocked
+      ? t('home.dailyLimitReached', { countdown: dailyCountdown ?? '--:--:--' })
+    : entTotalRemaining > 0
+      ? entPaidTrialRemaining > 0 && entFreeRemaining > 0
+        ? t('home.trialCtaMixed', {
+            total: entTotalRemaining,
+            free: entFreeRemaining,
+            paid: entPaidTrialRemaining,
+          })
+        : entPaidTrialRemaining > 0
+          ? t('home.trialCtaPaidTrialOnly', { count: entPaidTrialRemaining })
+          : t('home.trialCtaRemaining', { count: entTotalRemaining })
+      : t('home.trialCtaExhausted');
   const trialActionLabel = hasPremium
     ? t('home.trialPremiumAction')
-    : entTrial?.exhausted
+    : dailyBlocked
+      ? t('home.trialOpenPlans')
+      : trialExhausted
       ? t('home.trialOpenPlans')
       : t('home.trialStart');
   const greeting = (() => {
@@ -113,8 +159,12 @@ export function HomePage() {
         type="button"
         className="surface"
         onClick={() => {
-          if (!hasPremium && entTrial?.exhausted) {
+          if (trialExhausted) {
             navigate('/paywall');
+            return;
+          }
+          if (dailyBlocked) {
+            navigate('/paywall?reason=daily_limit');
             return;
           }
           if (entExam) {

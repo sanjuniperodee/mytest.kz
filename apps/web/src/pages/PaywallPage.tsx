@@ -1,8 +1,21 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useBillingPlans } from '../api/hooks/useBilling';
 import { useProfile } from '../api/hooks/useProfile';
 import { Spinner } from '../components/common/Spinner';
+
+function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
+  if (!targetIso) return null;
+  const target = new Date(targetIso).getTime();
+  if (!Number.isFinite(target)) return null;
+  const diff = Math.max(0, target - nowMs);
+  const totalSec = Math.floor(diff / 1000);
+  const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
 
 export function PaywallPage() {
   const { t } = useTranslation();
@@ -10,9 +23,32 @@ export function PaywallPage() {
   const [searchParams] = useSearchParams();
   const { data: plans, isLoading } = useBillingPlans();
   const { data: profile } = useProfile();
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const paymentStatus = searchParams.get('payment');
-  const hasPremium = profile?.hasActiveSubscription === true;
+  const entAccess = profile?.accessByExam?.find((x) => x.examSlug === 'ent');
+  const hasPremium =
+    profile?.hasActiveSubscription === true ||
+    (entAccess?.hasPaidTier === true && (entAccess?.hasAccess ?? false));
+  const dailyBlocked = entAccess?.reasonCode === 'DAILY_LIMIT_REACHED';
+  const dailyCountdown = formatCountdown(entAccess?.nextAllowedAt, nowMs);
+  const entTrial = profile?.trialStatus?.ent;
+  const entTotalRemainingFromAccess =
+    entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : null;
+  const entTotalRemaining = Math.max(
+    0,
+    entTotalRemainingFromAccess ?? entTrial?.totalRemaining ?? entTrial?.remaining ?? 0,
+  );
+  const entFreeRemaining = Math.max(
+    0,
+    entTrial?.freeRemaining ?? entTrial?.remaining ?? 0,
+  );
+  const entPaidTrialRemaining = Math.max(0, entTrial?.paidTrialRemaining ?? 0);
 
   if (isLoading) return <Spinner fullScreen />;
 
@@ -28,9 +64,21 @@ export function PaywallPage() {
         <p className="paywall-subtitle">
           {hasPremium
             ? t('paywall.active')
-            : profile?.trialStatus?.ent?.exhausted
-            ? t('paywall.exhausted')
-            : t('paywall.remaining', { count: profile?.trialStatus?.ent?.remaining ?? 0 })}
+            : dailyBlocked
+              ? t('paywall.dailyLimitReached', {
+                  countdown: dailyCountdown ?? '--:--:--',
+                })
+            : entTotalRemaining <= 0
+              ? t('paywall.exhausted')
+              : entPaidTrialRemaining > 0 && entFreeRemaining > 0
+                ? t('paywall.remainingMixed', {
+                    total: entTotalRemaining,
+                    free: entFreeRemaining,
+                    paid: entPaidTrialRemaining,
+                  })
+                : entPaidTrialRemaining > 0
+                  ? t('paywall.remainingPaidOnly', { count: entPaidTrialRemaining })
+                  : t('paywall.remaining', { count: entTotalRemaining })}
         </p>
         {paymentStatus === 'success' && (
           <p className="paywall-status paywall-status-success">{t('paywall.statusSuccess')}</p>

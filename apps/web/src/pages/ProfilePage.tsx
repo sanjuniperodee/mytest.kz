@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -116,6 +116,18 @@ function formatDurationSecs(secs: number, t: TFunction) {
   return t('profile.durationSec', { s });
 }
 
+function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
+  if (!targetIso) return null;
+  const target = new Date(targetIso).getTime();
+  if (!Number.isFinite(target)) return null;
+  const diff = Math.max(0, target - nowMs);
+  const totalSec = Math.floor(diff / 1000);
+  const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 function ProfileExamTrend({ scores, label }: { scores: number[]; label: string }) {
   if (scores.length < 2) return null;
   const maxH = 28;
@@ -145,6 +157,12 @@ export function ProfilePage() {
   const { data: examTypes } = useExamTypes();
   const { data: sessionsData } = useSessions(1);
   const { data: mistakesSummary } = useMistakesSummary();
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const dateFmt = useMemo(
     () => new Intl.DateTimeFormat(i18n.language === 'kk' ? 'kk-KZ' : i18n.language === 'en' ? 'en-GB' : 'ru-RU', {
@@ -189,18 +207,45 @@ export function ProfilePage() {
 
   const openPremium = () => navigate('/paywall');
   const entExam = examTypes?.find((exam) => exam.slug === 'ent');
+  const entAccess = profile?.accessByExam?.find((x) => x.examSlug === 'ent');
   const entTrial = profile?.trialStatus?.ent;
-  const hasPremium = profile?.hasActiveSubscription === true;
+  const hasPremium =
+    profile?.hasActiveSubscription === true ||
+    (entAccess?.hasPaidTier === true && (entAccess?.hasAccess ?? false));
+  const dailyBlocked = entAccess?.reasonCode === 'DAILY_LIMIT_REACHED';
+  const dailyCountdown = formatCountdown(entAccess?.nextAllowedAt, nowMs);
+  const entTotalRemainingFromAccess =
+    entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : null;
+  const entTotalRemaining = Math.max(
+    0,
+    entTotalRemainingFromAccess ?? entTrial?.totalRemaining ?? entTrial?.remaining ?? 0,
+  );
+  const entFreeRemaining = Math.max(
+    0,
+    entTrial?.freeRemaining ?? entTrial?.remaining ?? 0,
+  );
+  const entPaidTrialRemaining = Math.max(0, entTrial?.paidTrialRemaining ?? 0);
+  const trialExhausted = !hasPremium && !dailyBlocked && entTotalRemaining <= 0;
   const trialSubtitle = hasPremium
     ? t('profile.trialCtaPremium')
-    : entTrial
-      ? (entTrial.exhausted
-          ? t('profile.trialCtaExhausted')
-          : t('profile.trialCtaRemaining', { count: entTrial.remaining }))
-      : t('profile.trialCtaSub');
+    : dailyBlocked
+      ? t('profile.dailyLimitReached', { countdown: dailyCountdown ?? '--:--:--' })
+    : entTotalRemaining > 0
+      ? entPaidTrialRemaining > 0 && entFreeRemaining > 0
+        ? t('profile.trialCtaMixed', {
+            total: entTotalRemaining,
+            free: entFreeRemaining,
+            paid: entPaidTrialRemaining,
+          })
+        : entPaidTrialRemaining > 0
+          ? t('profile.trialCtaPaidTrialOnly', { count: entPaidTrialRemaining })
+          : t('profile.trialCtaRemaining', { count: entTotalRemaining })
+      : t('profile.trialCtaExhausted');
   const trialActionLabel = hasPremium
     ? t('profile.trialPremiumAction')
-    : entTrial?.exhausted
+    : dailyBlocked
+      ? t('profile.trialOpenPlans')
+      : trialExhausted
       ? t('profile.trialOpenPlans')
       : t('profile.trialStart');
 
@@ -259,8 +304,12 @@ export function ProfilePage() {
           type="button"
           className="profile-trial-cta"
           onClick={() => {
-            if (!hasPremium && entTrial?.exhausted) {
+            if (trialExhausted) {
               navigate('/paywall');
+              return;
+            }
+            if (dailyBlocked) {
+              navigate('/paywall?reason=daily_limit');
               return;
             }
             if (entExam) {

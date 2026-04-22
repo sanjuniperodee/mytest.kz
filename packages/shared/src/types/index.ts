@@ -86,9 +86,11 @@ export interface UserDto {
   firstName: string | null;
   lastName: string | null;
   preferredLanguage: Language;
+  timezone?: string;
   isChannelMember: boolean;
   hasActiveSubscription: boolean;
   trialStatus?: TrialStatusDto;
+  accessByExam?: AccessByExamItemDto[];
 }
 
 export interface TrialStatusItemDto {
@@ -100,6 +102,24 @@ export interface TrialStatusItemDto {
 
 export interface TrialStatusDto {
   ent: TrialStatusItemDto;
+}
+
+export interface AccessByExamLimitDto {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  isUnlimited: boolean;
+}
+
+export interface AccessByExamItemDto {
+  examTypeId: string;
+  examSlug: string;
+  hasAccess: boolean;
+  reasonCode: 'DAILY_LIMIT_REACHED' | 'TOTAL_LIMIT_EXHAUSTED' | 'NO_ENTITLEMENT' | null;
+  nextAllowedAt: string | null;
+  hasPaidTier: boolean;
+  total: AccessByExamLimitDto;
+  daily: AccessByExamLimitDto & { nextResetAt: string | null };
 }
 
 // Subscription

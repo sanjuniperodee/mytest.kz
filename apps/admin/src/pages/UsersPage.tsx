@@ -15,6 +15,17 @@ interface User {
   isChannelMember: boolean;
   isAdmin: boolean;
   hasActiveSubscription: boolean;
+  entitlements?: Array<{
+    id: string;
+    examTypeId: string;
+    tier: string;
+    status: string;
+    totalAttemptsLimit: number | null;
+    usedAttemptsTotal: number;
+    dailyAttemptsLimit: number | null;
+    nextAllowedAt: string | null;
+    examType?: { slug: string };
+  }>;
   createdAt: string;
 }
 
@@ -81,6 +92,34 @@ export function UsersPage() {
       dataIndex: 'hasActiveSubscription',
       width: 100,
       render: (v: boolean) => v ? <Tag color="gold">Active</Tag> : <Tag>—</Tag>,
+    },
+    {
+      title: 'Access v2',
+      width: 260,
+      render: (_: unknown, record: User) => {
+        if (!record.entitlements || record.entitlements.length === 0) return '—';
+        const items = record.entitlements.slice(0, 2);
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {items.map((ent) => {
+              const remaining =
+                ent.totalAttemptsLimit == null
+                  ? '∞'
+                  : `${Math.max(0, ent.totalAttemptsLimit - ent.usedAttemptsTotal)}/${ent.totalAttemptsLimit}`;
+              const day = ent.dailyAttemptsLimit == null ? '∞' : String(ent.dailyAttemptsLimit);
+              return (
+                <div key={ent.id} style={{ fontSize: 12 }}>
+                  <Tag color={ent.status === 'active' ? 'green' : 'default'}>
+                    {(ent.examType?.slug ?? 'exam').toUpperCase()}
+                  </Tag>
+                  {remaining} · day {day}
+                  {ent.nextAllowedAt ? ` · next ${new Date(ent.nextAllowedAt).toLocaleString()}` : ''}
+                </div>
+              );
+            })}
+          </div>
+        );
+      },
     },
     {
       title: 'Админ',

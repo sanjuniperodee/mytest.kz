@@ -3,12 +3,14 @@ import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
+import { AccessService } from '../subscriptions/access.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
     private telegramBot: TelegramBotService,
+    private accessService: AccessService,
   ) {}
 
   async getProfile(userId: string) {
@@ -35,28 +37,21 @@ export class UsersService {
       });
     }
 
-    const now = new Date();
-    const [activeSubscription, activePaidSubscription] = await Promise.all([
-      this.prisma.subscription.findFirst({
-        where: {
-          userId,
-          isActive: true,
-          expiresAt: { gt: now },
-          startsAt: { lte: now },
-        },
-        orderBy: { expiresAt: 'desc' },
-      }),
-      this.prisma.subscription.findFirst({
-        where: {
-          userId,
-          isActive: true,
-          expiresAt: { gt: now },
-          startsAt: { lte: now },
-          planType: { not: 'trial' },
-        },
-        orderBy: { expiresAt: 'desc' },
-      }),
-    ]);
+    const accessByExam = await this.accessService.getUserAccessByExam(userId);
+    const entAccess = accessByExam.find((x) => x.examSlug === 'ent');
+    const activePaidAccess = accessByExam.some((x) => x.hasPaidTier && x.hasAccess);
+
+    const freeLimit = ENT_TRIAL_LIMIT;
+    const freeUsed = Math.max(0, user.entTrialUsed);
+    const freeRemaining = Math.max(0, freeLimit - freeUsed);
+    const totalRemainingFromAccess =
+      entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : 0;
+    const paidTrialRemaining = Math.max(0, totalRemainingFromAccess - freeRemaining);
+    const paidTrialLimit = paidTrialRemaining;
+    const paidTrialUsed = 0;
+    const totalLimit = freeLimit + paidTrialLimit;
+    const totalUsed = freeUsed + paidTrialUsed;
+    const totalRemaining = freeRemaining + paidTrialRemaining;
 
     return {
       id: user.id,
@@ -66,27 +61,45 @@ export class UsersService {
       firstName: user.firstName,
       lastName: user.lastName,
       preferredLanguage: user.preferredLanguage,
+      timezone: user.timezone,
       isAdmin: user.isAdmin,
       isChannelMember,
       // Premium in UI means paid plan; trial should not show "unlimited".
-      hasActiveSubscription: !!activePaidSubscription,
-      subscription: activePaidSubscription ?? activeSubscription,
+      hasActiveSubscription: activePaidAccess,
+      accessByExam,
       trialStatus: {
         ent: {
-          limit: ENT_TRIAL_LIMIT,
-          used: user.entTrialUsed,
-          remaining: Math.max(0, ENT_TRIAL_LIMIT - user.entTrialUsed),
-          exhausted: user.entTrialUsed >= ENT_TRIAL_LIMIT,
+          limit: totalLimit,
+          used: totalUsed,
+          remaining: totalRemaining,
+          exhausted: totalRemaining <= 0,
+          freeLimit,
+          freeUsed,
+          freeRemaining,
+          paidTrialLimit,
+          paidTrialUsed,
+          paidTrialRemaining,
+          totalLimit,
+          totalUsed,
+          totalRemaining,
         },
       },
     };
   }
 
-  async updateProfile(userId: string, data: { preferredLanguage?: string }) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data,
-    });
+  async updateProfile(
+    userId: string,
+    data: { preferredLanguage?: string; timezone?: string },
+  ) {
+    if (data.preferredLanguage) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { preferredLanguage: data.preferredLanguage },
+      });
+    }
+    if (data.timezone) {
+      await this.accessService.updateUserTimezone(userId, data.timezone);
+    }
     return this.getProfile(userId);
   }
 

@@ -18,7 +18,8 @@
     "seed:history-kz-ent-kk": "ts-node prisma/seed-history-kz-ent-kk.ts",
     "seed:history-kz-ent-ru": "ts-node prisma/seed-history-kz-ent-ru.ts",
     "seed:grant-admission": "ts-node prisma/seed-grant-admission.ts",
-    "import:grant-admission": "ts-node prisma/import-grant-csvs.ts"
+    "import:grant-admission": "ts-node prisma/import-grant-csvs.ts",
+    "backfill:subscription-v2": "ts-node prisma/backfill-subscription-v2.ts"
   },
   "dependencies": {
     "@bilimland/shared": "*",

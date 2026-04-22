@@ -22,6 +22,10 @@ model ExamType {
   testTemplates TestTemplate[]
   testSessions  TestSession[]
   subscriptions Subscription[]
+  planRules     SubscriptionPlanTemplateExamRule[]
+  entitlements  UserExamEntitlement[]
+  usageLedger   AttemptUsageLedger[]
+  dailyUsage    UserExamDailyUsage[]
 
   @@map("exam_types")
 }
@@ -137,6 +141,8 @@ model User {
   preferredLanguage String    @default("ru") @map("preferred_language") @db.VarChar(2)
   isChannelMember   Boolean   @default(false) @map("is_channel_member")
   channelCheckedAt  DateTime? @map("channel_checked_at") @db.Timestamptz
+  timezone          String    @default("Asia/Almaty") @db.VarChar(80)
+  timezoneChangedAt DateTime? @map("timezone_changed_at") @db.Timestamptz
   entTrialUsed      Int       @default(0) @map("ent_trial_used")
   isAdmin           Boolean   @default(false) @map("is_admin")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -146,6 +152,11 @@ model User {
   grantedSubscriptions Subscription[]  @relation("GrantedSubscriptions")
   testSessions         TestSession[]
   paymentOrders        PaymentOrder[]
+  planTemplatesCreated SubscriptionPlanTemplate[] @relation("PlanTemplateCreatedBy")
+  entitlements         UserExamEntitlement[]      @relation("EntitlementsByUser")
+  entitlementsGranted  UserExamEntitlement[]      @relation("EntitlementsGrantedBy")
+  usageLedger          AttemptUsageLedger[]
+  dailyUsage           UserExamDailyUsage[]
 
   @@map("users")
 }
@@ -165,9 +176,172 @@ model Subscription {
   user     User      @relation("UserSubscriptions", fields: [userId], references: [id])
   grantor  User?     @relation("GrantedSubscriptions", fields: [grantedBy], references: [id])
   examType ExamType? @relation(fields: [examTypeId], references: [id])
+  entitlements UserExamEntitlement[]
 
   @@index([userId, isActive, expiresAt])
   @@map("subscriptions")
+}
+
+enum EntitlementTier {
+  free
+  trial
+  paid
+  admin
+}
+
+enum EntitlementStatus {
+  active
+  exhausted
+  revoked
+  expired
+}
+
+enum EntitlementSourceType {
+  plan_template
+  subscription
+  legacy_free_trial
+  legacy_trial_subscription
+  legacy_paid_subscription
+  admin_override
+  manual
+}
+
+enum AttemptLedgerAction {
+  attempt_consumed
+  daily_blocked
+  total_blocked
+  denied_no_entitlement
+  manual_adjust
+  timezone_changed
+  status_changed
+  backfill
+}
+
+model SubscriptionPlanTemplate {
+  id                 String   @id @default(uuid()) @db.Uuid
+  code               String   @unique @db.VarChar(64)
+  name               String
+  description        String?  @db.Text
+  isActive           Boolean  @default(true) @map("is_active")
+  isPremium          Boolean  @default(false) @map("is_premium")
+  durationDays       Int?     @map("duration_days")
+  totalAttemptsLimit Int?     @map("total_attempts_limit")
+  dailyAttemptsLimit Int?     @map("daily_attempts_limit")
+  timezoneMode       String   @default("user") @map("timezone_mode") @db.VarChar(16)
+  metadata           Json?
+  createdBy          String?  @map("created_by") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  creator      User?                             @relation("PlanTemplateCreatedBy", fields: [createdBy], references: [id])
+  examRules     SubscriptionPlanTemplateExamRule[]
+  entitlements  UserExamEntitlement[]
+
+  @@map("subscription_plan_templates")
+}
+
+model SubscriptionPlanTemplateExamRule {
+  id                 String  @id @default(uuid()) @db.Uuid
+  planTemplateId     String  @map("plan_template_id") @db.Uuid
+  examTypeId         String  @map("exam_type_id") @db.Uuid
+  totalAttemptsLimit Int?    @map("total_attempts_limit")
+  dailyAttemptsLimit Int?    @map("daily_attempts_limit")
+  isUnlimited        Boolean @default(false) @map("is_unlimited")
+  sortOrder          Int     @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  planTemplate SubscriptionPlanTemplate @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
+  examType     ExamType                 @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([planTemplateId, examTypeId])
+  @@index([examTypeId])
+  @@map("subscription_plan_template_exam_rules")
+}
+
+model UserExamEntitlement {
+  id                 String                @id @default(uuid()) @db.Uuid
+  userId             String                @map("user_id") @db.Uuid
+  examTypeId         String                @map("exam_type_id") @db.Uuid
+  tier               EntitlementTier
+  status             EntitlementStatus     @default(active)
+  sourceType         EntitlementSourceType @map("source_type")
+  sourceRef          String?               @map("source_ref") @db.VarChar(120)
+  planTemplateId     String?               @map("plan_template_id") @db.Uuid
+  subscriptionId     String?               @map("subscription_id") @db.Uuid
+  totalAttemptsLimit Int?                  @map("total_attempts_limit")
+  dailyAttemptsLimit Int?                  @map("daily_attempts_limit")
+  usedAttemptsTotal  Int                   @default(0) @map("used_attempts_total")
+  timezone           String                @default("Asia/Almaty") @db.VarChar(80)
+  timezoneLockedUntil DateTime?            @map("timezone_locked_until") @db.Timestamptz
+  windowStartsAt     DateTime              @map("window_starts_at") @db.Timestamptz
+  windowEndsAt       DateTime?             @map("window_ends_at") @db.Timestamptz
+  nextAllowedAt      DateTime?             @map("next_allowed_at") @db.Timestamptz
+  lastAttemptAt      DateTime?             @map("last_attempt_at") @db.Timestamptz
+  exhaustedAt        DateTime?             @map("exhausted_at") @db.Timestamptz
+  revokedAt          DateTime?             @map("revoked_at") @db.Timestamptz
+  createdBy          String?               @map("created_by") @db.Uuid
+  metadata           Json?
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  user          User                      @relation("EntitlementsByUser", fields: [userId], references: [id], onDelete: Cascade)
+  examType      ExamType                  @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  planTemplate  SubscriptionPlanTemplate? @relation(fields: [planTemplateId], references: [id], onDelete: SetNull)
+  subscription  Subscription?             @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  grantor       User?                     @relation("EntitlementsGrantedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  usageLedger   AttemptUsageLedger[]
+  dailyUsage    UserExamDailyUsage[]
+
+  @@index([userId, examTypeId, status])
+  @@index([windowStartsAt, windowEndsAt])
+  @@index([tier, status])
+  @@unique([sourceType, sourceRef])
+  @@map("user_exam_entitlements")
+}
+
+model UserExamDailyUsage {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  examTypeId    String   @map("exam_type_id") @db.Uuid
+  entitlementId String   @map("entitlement_id") @db.Uuid
+  localDay      String   @map("local_day") @db.VarChar(10) // YYYY-MM-DD in entitlement timezone
+  attemptsUsed  Int      @default(0) @map("attempts_used")
+  timezone      String   @db.VarChar(80)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examType    ExamType           @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  entitlement UserExamEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+
+  @@unique([entitlementId, localDay])
+  @@index([userId, examTypeId, localDay])
+  @@map("user_exam_daily_usage")
+}
+
+model AttemptUsageLedger {
+  id            String             @id @default(uuid()) @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  examTypeId    String             @map("exam_type_id") @db.Uuid
+  entitlementId String?            @map("entitlement_id") @db.Uuid
+  sessionId     String?            @map("session_id") @db.Uuid
+  action        AttemptLedgerAction
+  reasonCode    String?            @map("reason_code") @db.VarChar(64)
+  attemptsDelta Int                @default(0) @map("attempts_delta")
+  localDay      String?            @map("local_day") @db.VarChar(10)
+  metadata      Json?
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examType    ExamType            @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  entitlement UserExamEntitlement? @relation(fields: [entitlementId], references: [id], onDelete: SetNull)
+  session     TestSession?        @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, examTypeId, createdAt])
+  @@index([entitlementId, createdAt])
+  @@index([reasonCode])
+  @@map("attempt_usage_ledger")
 }
 
 model TestSession {
@@ -192,6 +366,7 @@ model TestSession {
   template TestTemplate? @relation(fields: [templateId], references: [id])
   examType ExamType      @relation(fields: [examTypeId], references: [id])
   answers  TestAnswer[]
+  usageLedger AttemptUsageLedger[]
 
   @@index([userId, status])
   @@map("test_sessions")

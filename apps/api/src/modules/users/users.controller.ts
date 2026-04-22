@@ -16,7 +16,7 @@ export class UsersController {
   @Patch('me')
   async updateProfile(
     @CurrentUser('id') userId: string,
-    @Body() data: { preferredLanguage?: string },
+    @Body() data: { preferredLanguage?: string; timezone?: string },
   ) {
     return this.usersService.updateProfile(userId, data);
   }

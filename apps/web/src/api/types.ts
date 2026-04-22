@@ -6,10 +6,12 @@ export interface User {
   firstName: string | null;
   lastName: string | null;
   preferredLanguage: 'kk' | 'ru' | 'en';
+  timezone?: string;
   isChannelMember: boolean;
   isAdmin: boolean;
   hasActiveSubscription?: boolean;
   trialStatus?: TrialStatus;
+  accessByExam?: AccessByExamItem[];
 }
 
 export interface TrialStatusItem {
@@ -17,10 +19,37 @@ export interface TrialStatusItem {
   used: number;
   remaining: number;
   exhausted: boolean;
+  freeLimit?: number;
+  freeUsed?: number;
+  freeRemaining?: number;
+  paidTrialLimit?: number;
+  paidTrialUsed?: number;
+  paidTrialRemaining?: number;
+  totalLimit?: number;
+  totalUsed?: number;
+  totalRemaining?: number;
 }
 
 export interface TrialStatus {
   ent: TrialStatusItem;
+}
+
+export interface AccessLimit {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  isUnlimited: boolean;
+}
+
+export interface AccessByExamItem {
+  examTypeId: string;
+  examSlug: string;
+  hasAccess: boolean;
+  reasonCode: 'DAILY_LIMIT_REACHED' | 'TOTAL_LIMIT_EXHAUSTED' | 'NO_ENTITLEMENT' | null;
+  nextAllowedAt: string | null;
+  hasPaidTier: boolean;
+  total: AccessLimit;
+  daily: AccessLimit & { nextResetAt: string | null };
 }
 
 export interface AuthResponse {

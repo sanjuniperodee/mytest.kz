@@ -3,8 +3,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
-import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
+import { AccessService } from '../subscriptions/access.service';
 
 @Injectable()
 export class TestSessionService {
@@ -13,6 +13,7 @@ export class TestSessionService {
     private generator: TestGeneratorService,
     private scorer: TestScorerService,
     private mistakes: MistakesService,
+    private accessService: AccessService,
   ) {}
 
   private normalizeScoreValue(score: unknown): number | null {
@@ -55,48 +56,7 @@ export class TestSessionService {
 
     const examSlug = (template.examType as { slug?: string }).slug ?? '';
 
-    if (examSlug === 'ent') {
-      const now = new Date();
-      const activeSubscription = await this.prisma.subscription.findFirst({
-        where: {
-          userId,
-          isActive: true,
-          startsAt: { lte: now },
-          expiresAt: { gt: now },
-        },
-      });
-
-      let hasValidSubscription = false;
-      if (activeSubscription) {
-        if (activeSubscription.planType === 'trial') {
-          const testsTakenWithTrial = await this.prisma.testSession.count({
-            where: {
-              userId,
-              examType: { slug: 'ent' },
-              startedAt: { gte: activeSubscription.startsAt },
-            },
-          });
-          if (testsTakenWithTrial < 1) hasValidSubscription = true;
-        } else {
-          hasValidSubscription = true;
-        }
-      }
-
-      if (!hasValidSubscription) {
-        const consumed = await this.prisma.user.updateMany({
-          where: {
-            id: userId,
-            entTrialUsed: { lt: ENT_TRIAL_LIMIT },
-          },
-          data: {
-            entTrialUsed: { increment: 1 },
-          },
-        });
-        if (consumed.count === 0) {
-          throw new BadRequestException('TRIAL_LIMIT_EXCEEDED');
-        }
-      }
-    }
+    await this.accessService.assertAndConsumeAttempt(userId, template.examTypeId);
 
     let resolvedEntScope = entScope;
     if (examSlug === 'ent') {
@@ -471,6 +431,7 @@ export class TestSessionService {
       }
       resolvedExamTypeId = [...types][0];
     }
+    await this.accessService.assertAndConsumeAttempt(userId, resolvedExamTypeId);
 
     const questionIdsAll = this.mistakes.getOpenMistakeQuestionIds(
       latest,
