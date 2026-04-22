@@ -14,7 +14,17 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from pypdf import PdfReader
+try:
+    from pypdf import PdfReader
+except ModuleNotFoundError:
+    try:
+        from PyPDF2 import PdfReader  # type: ignore
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "Missing PDF parser dependency. Install with: python3 -m pip install pypdf\n"
+            "Alternative: python3 -m pip install PyPDF2\n"
+            "If geo-ent-seed-data.json already exists, you can skip parsing and run: npm run seed:geo-ent"
+        ) from exc
 
 THIS_FILE = Path(__file__).resolve()
 REPO_ROOT = THIS_FILE.parents[4]
