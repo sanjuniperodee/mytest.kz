@@ -326,6 +326,8 @@
     "heroCarouselAria": "Главный баннер-карусель",
     "heroCarouselDotsAria": "Навигация по слайдам",
     "heroCarouselDot": "Слайд",
+    "heroCarouselPrev": "Предыдущий слайд",
+    "heroCarouselNext": "Следующий слайд",
     "heroSlides": [
       {
         "title": "Подготовка к экзаменам в одном месте",

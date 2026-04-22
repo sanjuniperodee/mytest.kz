@@ -31,7 +31,7 @@ html:has(.landing-root.is-light) body {
   color: var(--ld-text);
   font-family: var(--ld-font);
   font-size: 16px;
-  line-height: 1.55;
+  line-height: 1.6;
   position: relative;
   isolation: isolate;
   overflow-x: clip;
@@ -104,11 +104,12 @@ html:has(.landing-root.is-light) body {
   background: linear-gradient(to bottom, rgba(5, 7, 13, 0.92), rgba(5, 7, 13, 0.65), transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .landing-root.is-light .ld-nav {
   background: linear-gradient(to bottom, rgba(244, 247, 255, 0.94), rgba(244, 247, 255, 0.7), transparent);
+  border-bottom-color: rgba(148, 163, 184, 0.22);
 }
 
 .ld-nav-inner {
@@ -168,7 +169,7 @@ html:has(.landing-root.is-light) body {
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px solid var(--ld-border);
   background: var(--ld-surface);
   color: var(--ld-text);
@@ -215,7 +216,7 @@ html:has(.landing-root.is-light) body {
   font-size: 14px;
   font-weight: 600;
   padding: 11px 22px;
-  border-radius: 999px;
+  border-radius: 14px;
   text-decoration: none;
   border: none;
   cursor: pointer;
@@ -223,7 +224,7 @@ html:has(.landing-root.is-light) body {
 }
 
 .ld-btn-lg {
-  padding: 14px 28px;
+  padding: 13px 26px;
   font-size: 15px;
 }
 
@@ -234,7 +235,7 @@ html:has(.landing-root.is-light) body {
 }
 
 .ld-btn-primary:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 6px 22px rgba(124, 108, 240, 0.22);
 }
 
@@ -264,7 +265,7 @@ html:has(.landing-root.is-light) body {
 
 .ld-carousel-shell {
   position: relative;
-  border-radius: 24px;
+  border-radius: 28px;
   overflow: hidden;
   border: 1px solid var(--ld-border);
   min-height: clamp(320px, 52vw, 520px);
@@ -274,7 +275,7 @@ html:has(.landing-root.is-light) body {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 0.45s ease;
+  transition: opacity 0.55s ease;
   pointer-events: none;
 }
 
@@ -300,7 +301,7 @@ html:has(.landing-root.is-light) body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 14px;
   padding: clamp(18px, 4vw, 36px);
   background: linear-gradient(to top, rgba(5, 7, 13, 0.82) 15%, rgba(5, 7, 13, 0.22) 55%, transparent 100%);
 }
@@ -309,7 +310,7 @@ html:has(.landing-root.is-light) body {
   margin: 0;
   font-family: var(--ld-display);
   font-size: clamp(1.5rem, 3.6vw, 2.6rem);
-  line-height: 1.08;
+  line-height: 1.12;
   letter-spacing: -0.03em;
   max-width: 20ch;
 }
@@ -320,7 +321,42 @@ html:has(.landing-root.is-light) body {
   opacity: 0.94;
   font-size: clamp(0.92rem, 1.5vw, 1.06rem);
   max-width: 54ch;
-  line-height: 1.55;
+  line-height: 1.62;
+}
+
+.ld-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(2, 6, 23, 0.35);
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.ld-carousel-nav:hover {
+  background: rgba(2, 6, 23, 0.56);
+}
+
+.ld-carousel-nav span {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.ld-carousel-nav.is-prev {
+  left: 14px;
+}
+
+.ld-carousel-nav.is-next {
+  right: 14px;
 }
 
 .ld-carousel-dots {
@@ -1756,6 +1792,16 @@ html:has(.landing-root.is-light) body {
   background: rgba(15, 23, 42, 0.28);
 }
 
+.landing-root.is-light .ld-carousel-nav {
+  border-color: rgba(15, 23, 42, 0.22);
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+}
+
+.landing-root.is-light .ld-carousel-nav:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
 .landing-root.is-light .ld-glass,
 .landing-root.is-light .ld-pricing-preview,
 .landing-root.is-light .ld-grant-panel,
@@ -1776,7 +1822,7 @@ html:has(.landing-root.is-light) body {
 .landing-root.is-light .ld-grant-select,
 .landing-root.is-light .ld-lead-field input,
 .landing-root.is-light .ld-lead-field textarea,
-.landing-root.is-light .landing-root .chance-select {
+.landing-root.is-light .chance-select {
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(148, 163, 184, 0.35);
   color: #0f172a;
