@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
+import { ENT_CONFIG } from '@bilimland/shared';
 
 @Injectable()
 export class UsersService {
@@ -92,6 +93,25 @@ export class UsersService {
       }),
     ]);
 
+    const isEntSessionEligibleForStats = (session: {
+      examType: { slug: string } | null;
+      totalQuestions: number;
+      maxScore: number | null;
+      status: string;
+    }) => {
+      if (session.examType?.slug !== 'ent') return true;
+      if (session.totalQuestions !== ENT_CONFIG.totalQuestions) return false;
+      if (session.status === 'in_progress') return true;
+      return (
+        session.maxScore != null &&
+        Number.isFinite(Number(session.maxScore)) &&
+        Math.round(Number(session.maxScore)) === ENT_CONFIG.maxTotalPoints
+      );
+    };
+
+    const analyticsFinishedSessions = finishedSessions.filter(isEntSessionEligibleForStats);
+    const analyticsInProgressSessions = inProgressSessions.filter(isEntSessionEligibleForStats);
+
     type BestSessionPoints = { score: number; raw: number; max: number };
 
     type ExamAgg = {
@@ -129,7 +149,7 @@ export class UsersService {
       return byExam.get(id)!;
     };
 
-    for (const s of finishedSessions) {
+    for (const s of analyticsFinishedSessions) {
       const agg = ensureAgg(s);
       if (s.examType) {
         agg.examSlug = s.examType.slug;
@@ -178,7 +198,7 @@ export class UsersService {
     }
 
     const inProgressByExam = new Map<string, number>();
-    for (const s of inProgressSessions) {
+    for (const s of analyticsInProgressSessions) {
       const agg = ensureAgg(s);
       if (s.examType) {
         if (!agg.examSlug) agg.examSlug = s.examType.slug;
@@ -187,7 +207,9 @@ export class UsersService {
       inProgressByExam.set(s.examTypeId, (inProgressByExam.get(s.examTypeId) ?? 0) + 1);
     }
 
-    const withScore = finishedSessions.filter((s) => Number.isFinite(Number(s.score)));
+    const withScore = analyticsFinishedSessions.filter((s) =>
+      Number.isFinite(Number(s.score)),
+    );
     const totalTests = withScore.length;
     const averageScore =
       totalTests > 0
@@ -249,7 +271,7 @@ export class UsersService {
     return {
       totalTests,
       completedTests: totalTests,
-      inProgressSessionsCount: inProgressSessions.length,
+      inProgressSessionsCount: analyticsInProgressSessions.length,
       averageScore: Math.round(averageScore * 100) / 100,
       byExamType,
     };

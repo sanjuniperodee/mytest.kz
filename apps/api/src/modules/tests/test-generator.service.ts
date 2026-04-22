@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { questionWhereForTestLanguage } from '../../common/question-locale';
+import { ENT_CONFIG } from '@bilimland/shared';
 
 export interface GeneratedSection {
   subjectId: string;
@@ -47,8 +48,15 @@ export class TestGeneratorService {
 
     const examSlug = template.examType?.slug ?? '';
     const entScope = examSlug === 'ent' ? opts?.entScope : undefined;
+    const strictEntFull = examSlug === 'ent' && entScope === 'full';
 
     const sections: GeneratedSection[] = [];
+
+    if (strictEntFull && profileQuestionCount !== ENT_CONFIG.profileQuestionsPerSubject) {
+      throw new BadRequestException(
+        `ENT full requires ${ENT_CONFIG.profileQuestionsPerSubject} questions per profile subject`,
+      );
+    }
 
     const includeTemplateSections = !entScope || entScope !== 'profile';
     if (includeTemplateSections) {
@@ -60,6 +68,11 @@ export class TestGeneratorService {
           userId,
           language,
         );
+        if (strictEntFull && questionIds.length !== section.questionCount) {
+          throw new BadRequestException(
+            `ENT full question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
+          );
+        }
         sections.push({
           subjectId: section.subjectId,
           questionIds,
@@ -89,11 +102,16 @@ export class TestGeneratorService {
           userId,
           language,
         );
+        if (strictEntFull && questionIds.length !== profileQuestionCount) {
+          throw new BadRequestException(
+            `ENT full question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
+          );
+        }
         sections.push({
           subjectId,
           questionIds,
           sortOrder: lastSortOrder + i + 1,
-          profileHeavyFrom: 31,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
         });
       }
     }

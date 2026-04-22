@@ -4,6 +4,7 @@ import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
 import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
+import { ENT_CONFIG } from '@bilimland/shared';
 
 @Injectable()
 export class TestSessionService {
@@ -38,7 +39,16 @@ export class TestSessionService {
   ) {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
-      include: { sections: true, examType: true },
+      include: {
+        sections: {
+          include: {
+            subject: {
+              select: { id: true, slug: true, isMandatory: true },
+            },
+          },
+        },
+        examType: true,
+      },
     });
 
     if (!template) throw new NotFoundException('Template not found');
@@ -112,6 +122,9 @@ export class TestSessionService {
           );
         }
       }
+      if (resolvedEntScope === 'full') {
+        this.validateEntFullTemplate(template.sections);
+      }
     } else {
       resolvedEntScope = undefined;
     }
@@ -136,12 +149,13 @@ export class TestSessionService {
     }
 
     const mandatoryQuestionSum = template.sections.reduce(
-      (s, sec) => s + sec.questionCount,
+      (s, sec) => s + ((sec.subject?.isMandatory ?? true) ? sec.questionCount : 0),
       0,
     );
     const profileQuestionCount = this.getProfileQuestionCount(
       examSlug,
       mandatoryQuestionSum,
+      resolvedEntScope,
     );
 
     // Generate questions with sections
@@ -165,6 +179,10 @@ export class TestSessionService {
     }
 
     const totalQuestions = allAnswerData.length;
+
+    if (examSlug === 'ent' && resolvedEntScope === 'full') {
+      this.assertStrictEntFullComposition(template.sections, sections, totalQuestions);
+    }
 
     const mandatoryQ = template.sections.reduce(
       (acc, s) => acc + s.questionCount,
@@ -599,13 +617,109 @@ export class TestSessionService {
   private getProfileQuestionCount(
     examSlug: string,
     mandatoryQuestionSum: number,
+    entScope?: 'mandatory' | 'profile' | 'full',
   ): number {
     if (examSlug === 'ent') {
+      if (entScope === 'full') return ENT_CONFIG.profileQuestionsPerSubject;
       if (mandatoryQuestionSum >= 35) return 40;
       if (mandatoryQuestionSum >= 20) return 20;
       return 10;
     }
     if (examSlug === 'nuet') return 15;
     return 10;
+  }
+
+  private validateEntFullTemplate(
+    sections: Array<{
+      subjectId: string;
+      questionCount: number;
+      subject?: { slug: string; isMandatory: boolean };
+    }>,
+  ): void {
+    const expected = ENT_CONFIG.mandatoryQuestionCounts;
+    const expectedBySlug = new Map<string, number>(
+      Object.entries(expected).map(([slug, count]) => [slug, Number(count)]),
+    );
+    const actualBySlug = new Map<string, number>();
+
+    for (const sec of sections) {
+      const isMandatory = sec.subject?.isMandatory ?? true;
+      if (!isMandatory) continue;
+      const slug = sec.subject?.slug ?? '';
+      if (!expectedBySlug.has(slug)) {
+        throw new BadRequestException(
+          'ENT full template must contain only mandatory blocks: history_kz, reading_literacy, math_literacy',
+        );
+      }
+      actualBySlug.set(slug, (actualBySlug.get(slug) ?? 0) + sec.questionCount);
+    }
+
+    for (const [slug, expectedCount] of expectedBySlug.entries()) {
+      if ((actualBySlug.get(slug) ?? 0) !== expectedCount) {
+        throw new BadRequestException(
+          'ENT full template must be exactly: history_kz=20, reading_literacy=10, math_literacy=10',
+        );
+      }
+    }
+  }
+
+  private assertStrictEntFullComposition(
+    templateSections: Array<{
+      subjectId: string;
+      questionCount: number;
+      subject?: { slug: string; isMandatory: boolean };
+    }>,
+    generatedSections: Array<{
+      subjectId: string;
+      questionIds: string[];
+    }>,
+    totalQuestions: number,
+  ): void {
+    const mandatoryExpectedBySubject = new Map<string, number>();
+    for (const sec of templateSections) {
+      const isMandatory = sec.subject?.isMandatory ?? true;
+      if (!isMandatory) continue;
+      mandatoryExpectedBySubject.set(
+        sec.subjectId,
+        (mandatoryExpectedBySubject.get(sec.subjectId) ?? 0) + sec.questionCount,
+      );
+    }
+
+    let mandatoryActualTotal = 0;
+    for (const [subjectId, expectedCount] of mandatoryExpectedBySubject.entries()) {
+      const generated = generatedSections.find((s) => s.subjectId === subjectId);
+      const got = generated?.questionIds.length ?? 0;
+      mandatoryActualTotal += got;
+      if (got !== expectedCount) {
+        throw new BadRequestException(
+          `ENT full requires exact mandatory question counts, but subject ${subjectId} has ${got}/${expectedCount}`,
+        );
+      }
+    }
+    if (mandatoryActualTotal !== ENT_CONFIG.maxMandatoryPoints) {
+      throw new BadRequestException(
+        `ENT full mandatory total must be ${ENT_CONFIG.maxMandatoryPoints}`,
+      );
+    }
+
+    const profileSections = generatedSections.filter(
+      (s) => !mandatoryExpectedBySubject.has(s.subjectId),
+    );
+    if (profileSections.length !== 2) {
+      throw new BadRequestException('ENT full requires exactly 2 profile subjects');
+    }
+    for (const sec of profileSections) {
+      if (sec.questionIds.length !== ENT_CONFIG.profileQuestionsPerSubject) {
+        throw new BadRequestException(
+          `ENT full profile subject must contain exactly ${ENT_CONFIG.profileQuestionsPerSubject} questions`,
+        );
+      }
+    }
+
+    if (totalQuestions !== ENT_CONFIG.totalQuestions) {
+      throw new BadRequestException(
+        `ENT full must contain exactly ${ENT_CONFIG.totalQuestions} questions`,
+      );
+    }
   }
 }

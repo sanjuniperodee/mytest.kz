@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { ENT_CONFIG } from '@bilimland/shared';
 
 interface SectionScore {
   subjectId: string;
@@ -35,6 +36,21 @@ type QuestionPlacement = {
 function entProfileMaxPoints(indexInSubject: number, profileHeavyFrom: number | null): number {
   const from = profileHeavyFrom ?? 31;
   return indexInSubject < from ? 1 : 2;
+}
+
+/** ЕНТ full (строгий): профиль 1-30 = 1 балл, 31-40 = 2 балла. */
+function entStrictFullMaxPoints(p: QuestionPlacement): number {
+  if (p.isMandatory) return 1;
+  return p.indexInSubject <= ENT_CONFIG.profileTier1Count
+    ? ENT_CONFIG.profileTier1Points
+    : ENT_CONFIG.profileTier2Points;
+}
+
+function getEntScope(metadata: unknown): 'mandatory' | 'profile' | 'full' | undefined {
+  if (!metadata || typeof metadata !== 'object') return undefined;
+  const scope = (metadata as { entScope?: unknown }).entScope;
+  if (scope === 'mandatory' || scope === 'profile' || scope === 'full') return scope;
+  return undefined;
 }
 
 function buildQuestionPlacementFromMetadata(metadata: unknown): Map<string, QuestionPlacement> | null {
@@ -116,6 +132,7 @@ export class TestScorerService {
     if (!session) throw new Error('Session not found');
 
     const examSlug = (session.examType as { slug?: string }).slug ?? '';
+    const entScope = getEntScope(session.metadata);
     const placement = buildQuestionPlacementFromMetadata(session.metadata);
 
     let correctCount = 0;
@@ -142,6 +159,10 @@ export class TestScorerService {
       placement.size > 0 &&
       placement.size === session.answers.length &&
       session.answers.every((a) => placement.has(a.questionId));
+    const strictEntFullActive =
+      entWeightedActive &&
+      examSlug === 'ent' &&
+      entScope === 'full';
 
     for (const answer of session.answers) {
       const correctOptionIds = answer.question.answerOptions
@@ -159,7 +180,11 @@ export class TestScorerService {
       const pos = entWeightedActive ? placement!.get(answer.questionId) : undefined;
       const qSw = (answer.question as { scoreWeight?: number | null }).scoreWeight;
       const wMax =
-        entWeightedActive && pos ? entMaxPointsForPlacement(pos, qSw) : 1;
+        entWeightedActive && pos
+          ? strictEntFullActive
+            ? entStrictFullMaxPoints(pos)
+            : entMaxPointsForPlacement(pos, qSw)
+          : 1;
 
       let wEarned = 0;
       if (selectedIds.length > 0) {
