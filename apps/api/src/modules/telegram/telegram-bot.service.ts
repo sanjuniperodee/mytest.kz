@@ -21,6 +21,7 @@ export class TelegramBotService implements OnModuleInit {
   private readonly webAppUrl: string;
   private readonly logger = new Logger(TelegramBotService.name);
   private readonly botToken: string;
+  private isUpdateLoopRunning = false;
 
   constructor(
     private config: ConfigService,
@@ -98,6 +99,11 @@ export class TelegramBotService implements OnModuleInit {
     }
 
     this.bot = new Telegraf(this.botToken);
+    this.bot.catch((err, ctx) => {
+      this.logger.error(
+        `Unhandled Telegram update error (updateId=${ctx.update?.update_id ?? 'n/a'}): ${err}`,
+      );
+    });
 
     this.bot.start(async (ctx) => {
       await this.sendStartWelcome(ctx);
@@ -172,11 +178,7 @@ export class TelegramBotService implements OnModuleInit {
       }
     });
 
-    this.bot.launch().catch((err) => {
-      this.logger.error(`Failed to launch Telegram bot: ${err}`);
-    });
-
-    this.logger.log('Telegram bot started');
+    await this.launchBotUpdateLoop();
 
     const safeStop = (signal: NodeJS.Signals) => {
       try {
@@ -187,6 +189,35 @@ export class TelegramBotService implements OnModuleInit {
     };
     process.once('SIGINT', () => safeStop('SIGINT'));
     process.once('SIGTERM', () => safeStop('SIGTERM'));
+  }
+
+  private async launchBotUpdateLoop() {
+    if (!this.bot) return;
+    try {
+      await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
+    } catch (err) {
+      this.logger.warn(`deleteWebhook before launch failed (continuing): ${err}`);
+    }
+
+    try {
+      await this.bot.launch({ dropPendingUpdates: false });
+      this.isUpdateLoopRunning = true;
+      this.logger.log('Telegram bot update loop is running');
+      return;
+    } catch (err) {
+      const msg = String(err);
+      this.logger.error(`Failed to launch Telegram bot update loop: ${msg}`);
+      if (
+        msg.includes('409') ||
+        msg.includes('Conflict') ||
+        msg.includes('getUpdates') ||
+        msg.includes('webhook')
+      ) {
+        this.logger.error(
+          'Telegram updates conflict detected. Usually this means webhook is still active or another bot instance is polling updates.',
+        );
+      }
+    }
   }
 
   async checkChannelMembership(telegramUserId: number): Promise<boolean> {
@@ -217,6 +248,11 @@ export class TelegramBotService implements OnModuleInit {
     if (!this.bot) {
       this.logger.warn('sendAuthCodeToTelegram: бот не запущен');
       throw new BadRequestException('Telegram-бот недоступен.');
+    }
+    if (!this.isUpdateLoopRunning) {
+      this.logger.warn(
+        'sendAuthCodeToTelegram: update loop is not running; bot can send messages but may not receive /start or replies',
+      );
     }
     const ack = options?.includePhoneLinkedAck
       ? '✅ <b>Номер сохранён.</b> На сайте введите тот же номер и код ниже.\n\n'
