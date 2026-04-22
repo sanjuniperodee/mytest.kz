@@ -44,6 +44,59 @@ function normalizeLetter(letter: string): string {
   return (letter || '').trim().toUpperCase();
 }
 
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function extractLocaleText(value: unknown, locale: 'kk' | 'ru'): string {
+  if (typeof value === 'string') return normalizeText(value);
+  if (!value || typeof value !== 'object') return '';
+
+  const obj = value as Record<string, unknown>;
+  const direct = obj[locale];
+  if (typeof direct === 'string') return normalizeText(direct);
+  if (direct && typeof direct === 'object') {
+    const nested = direct as Record<string, unknown>;
+    if (typeof nested.text === 'string') return normalizeText(nested.text);
+  }
+
+  if (locale === 'ru') {
+    const en = obj.en;
+    if (typeof en === 'string') return normalizeText(en);
+    if (en && typeof en === 'object') {
+      const nested = en as Record<string, unknown>;
+      if (typeof nested.text === 'string') return normalizeText(nested.text);
+    }
+  }
+
+  return '';
+}
+
+function detectQuestionLocale(metadata: unknown, content: unknown): 'kk' | 'ru' {
+  if (metadata && typeof metadata === 'object') {
+    const meta = metadata as Record<string, unknown>;
+    if (meta[QUESTION_METADATA_LOCALE_KEY] === 'kk') return 'kk';
+    if (meta[QUESTION_METADATA_LOCALE_KEY] === 'ru') return 'ru';
+  }
+  const kk = extractLocaleText(content, 'kk');
+  const ru = extractLocaleText(content, 'ru');
+  if (kk && !ru) return 'kk';
+  return 'ru';
+}
+
+function buildQuestionFingerprint(
+  locale: 'kk' | 'ru',
+  questionType: string,
+  stem: string,
+  options: Array<{ text: string; isCorrect: boolean }>,
+): string {
+  const normStem = normalizeText(stem);
+  const normOptions = options
+    .map((opt) => `${normalizeText(opt.text)}::${opt.isCorrect ? '1' : '0'}`)
+    .join('|');
+  return `${locale}::${questionType}::${normStem}::${normOptions}`;
+}
+
 function sortOptionKeys(keys: string[]): string[] {
   return [...keys].sort((a, b) => {
     const ia = OPTION_ORDER.indexOf(normalizeLetter(a));
@@ -126,6 +179,34 @@ async function main() {
         existingTopics.push(topic);
       }
 
+      const existingTopicQuestions = await prisma.question.findMany({
+        where: {
+          topicId: topic.id,
+          subjectId: subject.id,
+          examTypeId: ent.id,
+        },
+        include: {
+          answerOptions: {
+            select: { content: true, isCorrect: true, sortOrder: true },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      });
+
+      const existingFingerprints = new Set<string>();
+      for (const existingQuestion of existingTopicQuestions) {
+        const locale = detectQuestionLocale(existingQuestion.metadata, existingQuestion.content);
+        const stem = extractLocaleText(existingQuestion.content, locale);
+        const options = existingQuestion.answerOptions.map((opt) => ({
+          text: extractLocaleText(opt.content, locale),
+          isCorrect: Boolean(opt.isCorrect),
+        }));
+        if (!stem || options.length < 2) continue;
+        existingFingerprints.add(
+          buildQuestionFingerprint(locale, existingQuestion.type, stem, options),
+        );
+      }
+
       let insertedTopic = 0;
       let skippedTopic = 0;
       for (const q of topicGroup.questions) {
@@ -141,19 +222,12 @@ async function main() {
         if (!hasAnyCorrect) continue;
 
         const questionType = correctSet.size > 1 ? 'multiple_choice' : 'single_choice';
-        const existingCount = await prisma.question.count({
-          where: {
-            topicId: topic.id,
-            subjectId: subject.id,
-            examTypeId: ent.id,
-            AND: [
-              { metadata: { path: ['sourceBankId'], equals: bank.id } },
-              { metadata: { path: ['sourceQuestionNo'], equals: q.n } },
-              { metadata: { path: [QUESTION_METADATA_LOCALE_KEY], equals: locale } },
-            ],
-          },
-        });
-        if (existingCount > 0) {
+        const optionRows = optionsKeys.map((letter) => ({
+          text: (q.options[letter] ?? '').trim(),
+          isCorrect: correctSet.has(normalizeLetter(letter)),
+        }));
+        const fingerprint = buildQuestionFingerprint(locale, questionType, q.stem, optionRows);
+        if (existingFingerprints.has(fingerprint)) {
           skippedTopic += 1;
           continue;
         }
@@ -190,11 +264,14 @@ async function main() {
             },
           },
         });
+        existingFingerprints.add(fingerprint);
         insertedTopic += 1;
       }
 
       insertedTotal += insertedTopic;
-      console.log(`Topic "${topicRu}": inserted ${insertedTopic}, skipped existing ${skippedTopic}`);
+      console.log(
+        `Topic "${topicRu}": inserted ${insertedTopic}, skipped exact duplicates ${skippedTopic}`,
+      );
     }
   }
 
