@@ -69,6 +69,30 @@ function buildQuestionPlacementFromMetadata(
   return map;
 }
 
+function entProfileMaxPoints(indexInSubject: number, profileHeavyFrom: number | null): number {
+  const from = profileHeavyFrom ?? 31;
+  return indexInSubject < from ? 1 : 2;
+}
+
+function entStrictFullMaxPoints(p: QuestionPlacement): number {
+  if (p.isMandatory) return 1;
+  return p.indexInSubject <= ENT_CONFIG.profileTier1Count
+    ? ENT_CONFIG.profileTier1Points
+    : ENT_CONFIG.profileTier2Points;
+}
+
+function entMaxPointsForPlacement(
+  p: QuestionPlacement,
+  questionScoreWeight: number | null | undefined,
+): number {
+  if (questionScoreWeight != null) {
+    const w = Math.round(Number(questionScoreWeight));
+    if (Number.isFinite(w)) return Math.max(1, Math.min(5, w));
+  }
+  if (p.isMandatory) return 1;
+  return entProfileMaxPoints(p.indexInSubject, p.profileHeavyFrom);
+}
+
 export function ReviewPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { t, i18n } = useTranslation();
@@ -98,13 +122,13 @@ export function ReviewPage() {
     const examSlug = session?.examType?.slug ?? '';
     const entScope = getEntScope(session?.metadata);
     const placement = buildQuestionPlacementFromMetadata(session?.metadata);
-    const strictEntFullActive =
+    const entWeightedActive =
       examSlug === 'ent' &&
-      entScope === 'full' &&
       placement !== null &&
       placement.size > 0 &&
       placement.size === orderedAnswers.length &&
       orderedAnswers.every((a) => placement.has(a.questionId));
+    const strictEntFullActive = entWeightedActive && entScope === 'full';
 
     const map = new Map<
       string,
@@ -124,14 +148,13 @@ export function ReviewPage() {
       }
       const s = map.get(subjId)!;
 
-      const pos = strictEntFullActive ? placement!.get(answer.questionId) : undefined;
+      const pos = entWeightedActive ? placement!.get(answer.questionId) : undefined;
+      const qSw = (answer.question as { scoreWeight?: number | null }).scoreWeight;
       const wMax =
-        strictEntFullActive && pos
-          ? pos.isMandatory
-            ? 1
-            : pos.indexInSubject <= ENT_CONFIG.profileTier1Count
-              ? ENT_CONFIG.profileTier1Points
-              : ENT_CONFIG.profileTier2Points
+        entWeightedActive && pos
+          ? strictEntFullActive
+            ? entStrictFullMaxPoints(pos)
+            : entMaxPointsForPlacement(pos, qSw)
           : 1;
 
       const correctOptionIds = (answer.question.answerOptions || [])
