@@ -326,6 +326,8 @@
     "heroCarouselAria": "Негізгі карусель баннері",
     "heroCarouselDotsAria": "Слайд навигациясы",
     "heroCarouselDot": "Слайд",
+    "heroCarouselPrev": "Алдыңғы слайд",
+    "heroCarouselNext": "Келесі слайд",
     "heroSlides": [
       {
         "title": "Емтиханға дайындық бір жерде",
