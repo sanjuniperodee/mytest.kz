@@ -14,6 +14,9 @@ type LandingSettings = {
     tabletImageUrl: string;
     mobileImageUrl: string;
     buttonLabel: string;
+    buttonHref: string;
+    showButton: boolean;
+    isActive: boolean;
   }>;
 };
 
@@ -57,6 +60,9 @@ export class SettingsService {
               tabletImageUrl: String(x.tabletImageUrl || '').trim(),
               mobileImageUrl: String(x.mobileImageUrl || '').trim(),
               buttonLabel: String(x.buttonLabel || '').trim() || 'Начать тест',
+              buttonHref: String(x.buttonHref || '').trim() || '/login',
+              showButton: Boolean(x.showButton ?? true),
+              isActive: Boolean(x.isActive ?? true),
             }))
             .filter((x) => x.title && x.desktopImageUrl && x.tabletImageUrl && x.mobileImageUrl)
         : DEFAULT_LANDING_SETTINGS.heroSlides,
@@ -78,6 +84,9 @@ export class SettingsService {
           tabletImageUrl: slide.tabletImageUrl.trim(),
           mobileImageUrl: slide.mobileImageUrl.trim(),
           buttonLabel: slide.buttonLabel?.trim() || 'Начать тест',
+          buttonHref: slide.buttonHref?.trim() || '/login',
+          showButton: slide.showButton !== false,
+          isActive: slide.isActive !== false,
         })) ?? current.heroSlides,
     };
     await this.prisma.siteSetting.upsert({

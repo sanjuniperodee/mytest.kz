@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Image, Input, Space, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Form, Image, Input, Space, Switch, Typography, Upload, message } from 'antd';
 import { PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
@@ -17,6 +17,9 @@ type LandingSettingsDto = {
     tabletImageUrl: string;
     mobileImageUrl: string;
     buttonLabel?: string;
+    buttonHref?: string;
+    showButton?: boolean;
+    isActive?: boolean;
   }>;
 };
 
@@ -88,12 +91,30 @@ export function LandingSettingsPage() {
   });
 
   useEffect(() => {
-    if (data) form.setFieldsValue(data);
+    if (!data) return;
+    form.setFieldsValue({
+      ...data,
+      heroSlides: (data.heroSlides || []).map((slide) => ({
+        ...slide,
+        showButton: slide.showButton !== false,
+        isActive: slide.isActive !== false,
+        buttonHref: slide.buttonHref || '/login',
+      })),
+    });
   }, [data, form]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: LandingSettingsDto) => {
-      const { data } = await api.patch<LandingSettingsDto>('/admin/settings/landing', values);
+      const payload: LandingSettingsDto = {
+        ...values,
+        heroSlides: (values.heroSlides || []).map((slide) => ({
+          ...slide,
+          buttonHref: (slide.buttonHref || '/login').trim(),
+          showButton: slide.showButton !== false,
+          isActive: slide.isActive !== false,
+        })),
+      };
+      const { data } = await api.patch<LandingSettingsDto>('/admin/settings/landing', payload);
       return data;
     },
     onSuccess: (saved) => {
@@ -192,11 +213,22 @@ export function LandingSettingsPage() {
                     >
                       <Input />
                     </Form.Item>
+                    <div style={{ display: 'flex', gap: 20, marginBottom: 8 }}>
+                      <Form.Item name={[field.name, 'isActive']} label="Показывать слайд" valuePropName="checked">
+                        <Switch />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'showButton']} label="Показывать кнопку" valuePropName="checked">
+                        <Switch />
+                      </Form.Item>
+                    </div>
                     <Form.Item name={[field.name, 'subtitle']} label="Подзаголовок">
                       <Input.TextArea rows={2} />
                     </Form.Item>
                     <Form.Item name={[field.name, 'buttonLabel']} label="Текст кнопки">
                       <Input placeholder="Начать тест" />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'buttonHref']} label="Ссылка кнопки">
+                      <Input placeholder="/login или https://..." />
                     </Form.Item>
                     <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
                       <Form.Item
@@ -227,6 +259,9 @@ export function LandingSettingsPage() {
                       title: '',
                       subtitle: '',
                       buttonLabel: 'Начать тест',
+                      buttonHref: '/login',
+                      showButton: true,
+                      isActive: true,
                       desktopImageUrl: '',
                       tabletImageUrl: '',
                       mobileImageUrl: '',

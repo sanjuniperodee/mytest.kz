@@ -333,7 +333,10 @@
         "desktopImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=80",
         "tabletImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1200&q=80",
         "mobileImageUrl": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=800&q=80",
-        "buttonLabel": "Начать тест"
+        "buttonLabel": "Начать тест",
+        "buttonHref": "/login",
+        "showButton": true,
+        "isActive": true
       }
     ],
     "marqueeLine": "ЕНТ · НИШ · НУЭТ · КТЛ · Telegram · таймер · ошибки · прогресс · қазақша · русский · English",

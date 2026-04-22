@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsBoolean,
   IsArray,
   IsOptional,
   IsString,
@@ -35,6 +36,19 @@ class HeroSlideDto {
   @IsString()
   @MaxLength(60)
   buttonLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  buttonHref?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  showButton?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class UpdateLandingSettingsDto {

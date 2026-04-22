@@ -30,6 +30,9 @@ type HeroSlide = {
   tabletImageUrl: string;
   mobileImageUrl: string;
   buttonLabel?: string;
+  buttonHref?: string;
+  showButton?: boolean;
+  isActive?: boolean;
 };
 type LandingRuntimeSettings = {
   instructionVideoUrl: string;
@@ -57,6 +60,7 @@ export function LandingPage() {
   const [runtimeSettingsLoaded, setRuntimeSettingsLoaded] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   const [landingTheme, setLandingTheme] = useState<'light' | 'dark'>(() => getEffectiveTheme());
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
   const benefits = useMemo(
     () => t('landing.benefits', { returnObjects: true }) as Benefit[],
@@ -123,7 +127,9 @@ export function LandingPage() {
   const whatsappHref = runtimeSettingsLoaded
     ? runtimeSettings?.whatsappUrl || fallbackWhatsAppHref
     : waUrl || fallbackWhatsAppHref;
-  const heroSlides = runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides;
+  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
+    (slide) => slide.isActive !== false,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -146,12 +152,22 @@ export function LandingPage() {
   }, [landingTheme]);
 
   useEffect(() => {
-    if (heroSlides.length <= 1) return;
+    if (heroSlides.length <= 1 || isCarouselPaused) return;
     const timer = window.setInterval(() => {
       setHeroIndex((prev) => (prev + 1) % heroSlides.length);
     }, 6000);
     return () => window.clearInterval(timer);
-  }, [heroSlides]);
+  }, [heroSlides, isCarouselPaused]);
+
+  useEffect(() => {
+    if (heroSlides.length === 0) {
+      setHeroIndex(0);
+      return;
+    }
+    if (heroIndex >= heroSlides.length) {
+      setHeroIndex(0);
+    }
+  }, [heroSlides, heroIndex]);
 
   if (isLoading) {
     return <Spinner fullScreen />;
@@ -265,14 +281,57 @@ export function LandingPage() {
                     <div className="ld-carousel-overlay">
                       <h1 className="ld-carousel-title">{slide.title}</h1>
                       {slide.subtitle ? <p className="ld-carousel-subtitle">{slide.subtitle}</p> : null}
-                      <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
-                        {slide.buttonLabel || t('landing.ctaTrial')}
-                      </Link>
+                      {slide.showButton !== false ? (
+                        isExternalHref(slide.buttonHref) ? (
+                          <a
+                            href={slide.buttonHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ld-btn ld-btn-primary ld-btn-lg"
+                          >
+                            {slide.buttonLabel || t('landing.ctaTrial')}
+                          </a>
+                        ) : (
+                          <Link to={slide.buttonHref || '/login'} className="ld-btn ld-btn-primary ld-btn-lg">
+                            {slide.buttonLabel || t('landing.ctaTrial')}
+                          </Link>
+                        )
+                      ) : null}
                     </div>
                   </article>
                 ))}
                 {heroSlides.length > 1 ? (
-                  <div className="ld-carousel-dots" role="tablist" aria-label={t('landing.heroCarouselDotsAria')}>
+                  <>
+                    <button
+                      type="button"
+                      className="ld-carousel-nav is-prev"
+                      aria-label={t('landing.heroCarouselPrev')}
+                      onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
+                      onMouseEnter={() => setIsCarouselPaused(true)}
+                      onMouseLeave={() => setIsCarouselPaused(false)}
+                    >
+                      <span aria-hidden>‹</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="ld-carousel-nav is-next"
+                      aria-label={t('landing.heroCarouselNext')}
+                      onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
+                      onMouseEnter={() => setIsCarouselPaused(true)}
+                      onMouseLeave={() => setIsCarouselPaused(false)}
+                    >
+                      <span aria-hidden>›</span>
+                    </button>
+                  </>
+                ) : null}
+                {heroSlides.length > 1 ? (
+                  <div
+                    className="ld-carousel-dots"
+                    role="tablist"
+                    aria-label={t('landing.heroCarouselDotsAria')}
+                    onMouseEnter={() => setIsCarouselPaused(true)}
+                    onMouseLeave={() => setIsCarouselPaused(false)}
+                  >
                     {heroSlides.map((slide, idx) => (
                       <button
                         key={`${slide.title}-dot-${idx}`}
@@ -640,6 +699,11 @@ function toYoutubeEmbedUrl(rawUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+function isExternalHref(href: string | undefined): boolean {
+  if (!href) return false;
+  return /^https?:\/\//i.test(href);
 }
 
 function IconLogin() {

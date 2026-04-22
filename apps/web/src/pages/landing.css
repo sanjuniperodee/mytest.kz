@@ -1722,6 +1722,86 @@ html:has(.landing-root.is-light) body {
   color: var(--ld-dim);
 }
 
+/* Light-theme polish */
+.landing-root.is-light .ld-aurora {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(46, 231, 216, 0.16), transparent 55%),
+    radial-gradient(ellipse 60% 45% at 85% 15%, rgba(99, 102, 241, 0.13), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(251, 113, 133, 0.1), transparent 45%);
+}
+
+.landing-root.is-light .ld-grid {
+  opacity: 0.35;
+}
+
+.landing-root.is-light .ld-noise {
+  opacity: 0.025;
+}
+
+.landing-root.is-light .ld-btn-glass {
+  background: rgba(255, 255, 255, 0.68);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.landing-root.is-light .ld-carousel-overlay {
+  background: linear-gradient(to top, rgba(2, 6, 23, 0.62) 8%, rgba(2, 6, 23, 0.24) 48%, transparent 100%);
+}
+
+.landing-root.is-light .ld-carousel-title,
+.landing-root.is-light .ld-carousel-subtitle {
+  color: #f8fafc;
+}
+
+.landing-root.is-light .ld-carousel-dots button {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.landing-root.is-light .ld-glass,
+.landing-root.is-light .ld-pricing-preview,
+.landing-root.is-light .ld-grant-panel,
+.landing-root.is-light .chance-widget {
+  box-shadow:
+    0 10px 26px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+.landing-root.is-light .ld-pricing-card {
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.landing-root.is-light .ld-marquee-track {
+  color: #64748b;
+}
+
+.landing-root.is-light .ld-grant-select,
+.landing-root.is-light .ld-lead-field input,
+.landing-root.is-light .ld-lead-field textarea,
+.landing-root.is-light .landing-root .chance-select {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #0f172a;
+}
+
+.landing-root.is-light .ld-grant-cutoff,
+.landing-root.is-light .ld-grant-tier,
+.landing-root.is-light .ld-grant-sum-value,
+.landing-root.is-light .ld-stat-value,
+.landing-root.is-light .ld-pricing-card-head h4,
+.landing-root.is-light .ld-platform-title,
+.landing-root.is-light .ld-testimonial-quote,
+.landing-root.is-light .ld-about-lead,
+.landing-root.is-light .ld-about-fact h4,
+.landing-root.is-light .ld-trial-item h4,
+.landing-root.is-light .ld-test-type-card h3 {
+  color: #0f172a;
+}
+
+.landing-root.is-light .ld-lead-field input::placeholder,
+.landing-root.is-light .ld-lead-field textarea::placeholder,
+.landing-root.is-light .ld-grant-select::placeholder {
+  color: #94a3b8;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ld-btn:hover,
   .ld-tile:hover {
