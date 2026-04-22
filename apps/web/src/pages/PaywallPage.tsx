@@ -72,7 +72,7 @@ export function PaywallPage() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => {
-                  const WA_NUMBER = '77088431748';
+                  const WA_NUMBER = '77775932124';
                   const message = `Здравствуйте! Хочу приобрести тариф "${plan.name}" за ${plan.priceKzt}₸`;
                   window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
                 }}
