@@ -326,6 +326,8 @@
     "heroCarouselAria": "Main hero carousel",
     "heroCarouselDotsAria": "Slide navigation",
     "heroCarouselDot": "Slide",
+    "heroCarouselPrev": "Previous slide",
+    "heroCarouselNext": "Next slide",
     "heroSlides": [
       {
         "title": "Exam preparation in one place",
