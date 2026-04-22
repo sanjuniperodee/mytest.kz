@@ -7,6 +7,8 @@ import { renderMathInTextWithLineBreaks } from '../../lib/questionStem';
 interface Props {
   content: unknown;
   imageUrls?: string[];
+  /** Тексты вариантов (для исключения дублей картинок из блока вопроса). */
+  answerOptionContents?: string[];
   /** Для «Оқу сауаттылығы»: `passage` + `text` из JSON; без `passage` — цельный `text` (без эвристического сплита). */
   subjectSlug?: string;
   hideTopicBlock?: boolean;
@@ -31,7 +33,13 @@ const labelStyle: CSSProperties = {
 
 const PASSAGE_COLLAPSE_LEN = 360;
 
-export function QuestionDisplay({ content, imageUrls, subjectSlug, hideTopicBlock }: Props) {
+export function QuestionDisplay({
+  content,
+  imageUrls,
+  answerOptionContents,
+  subjectSlug,
+  hideTopicBlock,
+}: Props) {
   const { t, i18n } = useTranslation();
   const { passage, topicLine, stem } = useMemo(
     () => getQuestionContentDisplayParts(content, i18n.language),
@@ -65,7 +73,7 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug, hideTopicBloc
     const all = Array.isArray(imageUrls) ? imageUrls.filter((u) => typeof u === 'string' && u.trim()) : [];
     if (all.length === 0) return all;
 
-    const source = [topicLine || '', passage || '', stem || ''].join('\n');
+    const source = [topicLine || '', passage || '', stem || '', ...(answerOptionContents || [])].join('\n');
     const usedByToken = new Set<number>();
     const tokenRe = /\[\[img:(\d+)\]\]/gi;
     let tokenMatch: RegExpExecArray | null;
@@ -86,7 +94,7 @@ export function QuestionDisplay({ content, imageUrls, subjectSlug, hideTopicBloc
       if (usedByToken.has(idx)) return false;
       return !usedByUrl.has(resolveMediaUrl(url));
     });
-  }, [imageUrls, topicLine, passage, stem]);
+  }, [imageUrls, topicLine, passage, stem, answerOptionContents]);
 
   return (
     <div style={{ marginBottom: 20 }}>

@@ -258,6 +258,7 @@ export function ReviewPage() {
                     <QuestionDisplay
                       content={answer.question.content}
                       imageUrls={answer.question.imageUrls}
+                      answerOptionContents={answer.question.answerOptions.map((o) => o.content)}
                       subjectSlug={answer.question?.subject?.slug}
                     />
                     <AnswerOptions

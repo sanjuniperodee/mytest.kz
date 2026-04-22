@@ -380,6 +380,7 @@ export function TestPage() {
               <QuestionDisplay
           content={currentQuestion.content}
           imageUrls={currentQuestion.imageUrls}
+          answerOptionContents={currentQuestion.answerOptions.map((o) => o.content)}
           subjectSlug={currentAnswer.question?.subject?.slug}
           hideTopicBlock={true}
         />
