@@ -11,7 +11,10 @@ export function renderMathInText(text: string): string {
   if (!text) return text;
   
   // Handle Markdown images first: ![alt](url)
-  let result = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
+  // Also support legacy/admin typo format: [!alt](url)
+  let result = text.replace(/!\[([^\]]*)\]\(([^)]+)\)|\[!([^\]]*)\]\(([^)]+)\)/g, (_match, alt1, url1, alt2, url2) => {
+    const alt = (alt1 ?? alt2 ?? '').trim();
+    const url = (url1 ?? url2 ?? '').trim();
     return `<img src="${url}" alt="${alt}" style="max-width: 100%; border-radius: 8px; margin: 8px 0; border: 1px solid var(--border);" />`;
   });
 

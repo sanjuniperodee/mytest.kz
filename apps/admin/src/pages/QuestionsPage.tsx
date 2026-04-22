@@ -220,6 +220,20 @@ function answersToFormList(q: Question) {
 function MarkdownTextArea(props: any) {
   const { value, onChange, ...rest } = props;
   const inputRef = useRef<any>(null);
+  const textValue = typeof value === 'string' ? value : '';
+
+  const markdownImages = useMemo(() => {
+    const out: Array<{ alt: string; url: string }> = [];
+    const re = /!\[([^\]]*)\]\(([^)]+)\)|\[!([^\]]*)\]\(([^)]+)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(textValue)) !== null) {
+      const alt = String(m[1] ?? m[3] ?? '').trim();
+      const url = String(m[2] ?? m[4] ?? '').trim();
+      if (!url) continue;
+      out.push({ alt, url });
+    }
+    return out;
+  }, [textValue]);
   
   const handleInsertImage = (url: string) => {
     const textarea = inputRef.current?.resizableTextArea?.textArea;
@@ -279,6 +293,34 @@ function MarkdownTextArea(props: any) {
           />
         </Tooltip>
       </Upload>
+      {markdownImages.length > 0 && (
+        <div
+          style={{
+            marginTop: 8,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+            gap: 8,
+          }}
+        >
+          {markdownImages.map((img, idx) => (
+            <div
+              key={`${img.url}-${idx}`}
+              style={{
+                border: '1px solid var(--ant-color-border)',
+                borderRadius: 8,
+                padding: 6,
+                background: 'var(--ant-color-fill-quaternary)',
+              }}
+            >
+              <Image
+                src={resolveMediaUrl(img.url)}
+                alt={img.alt || `image-${idx + 1}`}
+                style={{ width: '100%', maxHeight: 120, objectFit: 'contain' }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1681,7 +1723,10 @@ export function QuestionsPage() {
                         }),
                       ]}
                     >
-                      <Input placeholder={`Вариант ${index + 1} (RU)`} />
+                      <MarkdownTextArea
+                        placeholder={`Вариант ${index + 1} (RU)`}
+                        autoSize={{ minRows: 1, maxRows: 6 }}
+                      />
                     </Form.Item>
                   );
                   const kkField = (
@@ -1702,7 +1747,10 @@ export function QuestionsPage() {
                         }),
                       ]}
                     >
-                      <Input placeholder={`Нұсқа ${index + 1} (KK)`} />
+                      <MarkdownTextArea
+                        placeholder={`Нұсқа ${index + 1} (KK)`}
+                        autoSize={{ minRows: 1, maxRows: 6 }}
+                      />
                     </Form.Item>
                   );
                   return (
