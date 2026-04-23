@@ -130,6 +130,8 @@ export class TestSessionService {
         : undefined,
     );
 
+    await this.assertGeneratedQuestionsMatchSections(template.examTypeId, sections);
+
     // Flatten question IDs maintaining section order
     const allAnswerData: { questionId: string; sectionIndex: number }[] = [];
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
@@ -598,6 +600,70 @@ export class TestSessionService {
     }
     if (examSlug === 'nuet') return 15;
     return 10;
+  }
+
+  /**
+   * Гарантирует, что каждый выбранный вопрос относится к предмету своей секции
+   * (в т.ч. профиль ЕНТ: математика — только вопросы с subject математики).
+   * Ловит рассинхрон question.subjectId / topic.subjectId / examTypeId в данных.
+   */
+  private async assertGeneratedQuestionsMatchSections(
+    examTypeId: string,
+    sections: Array<{ subjectId: string; questionIds: string[] }>,
+  ): Promise<void> {
+    const flatIds = sections.flatMap((s) => s.questionIds);
+    if (flatIds.length === 0) return;
+
+    const uniqueIds = new Set(flatIds);
+    if (uniqueIds.size !== flatIds.length) {
+      throw new BadRequestException(
+        'Test generation integrity: duplicate question ids in generated test',
+      );
+    }
+
+    const rows = await this.prisma.question.findMany({
+      where: { id: { in: flatIds } },
+      select: {
+        id: true,
+        subjectId: true,
+        examTypeId: true,
+        topic: { select: { subjectId: true } },
+      },
+    });
+
+    if (rows.length !== flatIds.length) {
+      throw new BadRequestException(
+        'Test generation integrity: some selected questions are missing from the database',
+      );
+    }
+
+    const byId = new Map(rows.map((r) => [r.id, r]));
+
+    for (const sec of sections) {
+      for (const qId of sec.questionIds) {
+        const q = byId.get(qId);
+        if (!q) {
+          throw new BadRequestException(
+            `Test generation integrity: question ${qId} not found`,
+          );
+        }
+        if (q.examTypeId !== examTypeId) {
+          throw new BadRequestException(
+            `Test generation integrity: question ${qId} belongs to another exam type`,
+          );
+        }
+        if (q.subjectId !== sec.subjectId) {
+          throw new BadRequestException(
+            `Test generation integrity: question ${qId} is not for this section subject`,
+          );
+        }
+        if (q.topic.subjectId !== q.subjectId) {
+          throw new BadRequestException(
+            `Test generation integrity: question ${qId} topic does not match question subject`,
+          );
+        }
+      }
+    }
   }
 
   private validateEntFullTemplate(

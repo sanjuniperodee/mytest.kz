@@ -11,7 +11,7 @@ type LandingSettingsDto = {
   tiktokUrl: string;
   whatsappUrl: string;
   heroSlides: Array<{
-    title: string;
+    title?: string;
     subtitle?: string;
     desktopImageUrl: string;
     tabletImageUrl: string;
@@ -98,7 +98,6 @@ export function LandingSettingsPage() {
         ...slide,
         showButton: slide.showButton !== false,
         isActive: slide.isActive !== false,
-        buttonHref: slide.buttonHref || '/login',
       })),
     });
   }, [data, form]);
@@ -109,7 +108,10 @@ export function LandingSettingsPage() {
         ...values,
         heroSlides: (values.heroSlides || []).map((slide) => ({
           ...slide,
-          buttonHref: (slide.buttonHref || '/login').trim(),
+          title: slide.title?.trim() ?? '',
+          subtitle: slide.subtitle?.trim() ?? '',
+          buttonLabel: slide.buttonLabel?.trim() ?? '',
+          buttonHref: slide.buttonHref?.trim() ?? '',
           showButton: slide.showButton !== false,
           isActive: slide.isActive !== false,
         })),
@@ -206,12 +208,8 @@ export function LandingSettingsPage() {
                       </Button>
                     }
                   >
-                    <Form.Item
-                      name={[field.name, 'title']}
-                      label="Заголовок"
-                      rules={[{ required: true, message: 'Введите заголовок' }]}
-                    >
-                      <Input />
+                    <Form.Item name={[field.name, 'title']} label="Заголовок">
+                      <Input placeholder="Необязательно" />
                     </Form.Item>
                     <div style={{ display: 'flex', gap: 20, marginBottom: 8 }}>
                       <Form.Item name={[field.name, 'isActive']} label="Показывать слайд" valuePropName="checked">
@@ -258,8 +256,8 @@ export function LandingSettingsPage() {
                     add({
                       title: '',
                       subtitle: '',
-                      buttonLabel: 'Начать тест',
-                      buttonHref: '/login',
+                      buttonLabel: '',
+                      buttonHref: '',
                       showButton: true,
                       isActive: true,
                       desktopImageUrl: '',

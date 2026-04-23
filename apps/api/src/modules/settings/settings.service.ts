@@ -59,12 +59,12 @@ export class SettingsService {
               desktopImageUrl: String(x.desktopImageUrl || '').trim(),
               tabletImageUrl: String(x.tabletImageUrl || '').trim(),
               mobileImageUrl: String(x.mobileImageUrl || '').trim(),
-              buttonLabel: String(x.buttonLabel || '').trim() || 'Начать тест',
-              buttonHref: String(x.buttonHref || '').trim() || '/login',
+              buttonLabel: String(x.buttonLabel || '').trim(),
+              buttonHref: String(x.buttonHref || '').trim(),
               showButton: Boolean(x.showButton ?? true),
               isActive: Boolean(x.isActive ?? true),
             }))
-            .filter((x) => x.title && x.desktopImageUrl && x.tabletImageUrl && x.mobileImageUrl)
+            .filter((x) => x.desktopImageUrl && x.tabletImageUrl && x.mobileImageUrl)
         : DEFAULT_LANDING_SETTINGS.heroSlides,
     };
   }
@@ -78,13 +78,13 @@ export class SettingsService {
       whatsappUrl: dto.whatsappUrl ?? current.whatsappUrl,
       heroSlides:
         dto.heroSlides?.map((slide) => ({
-          title: slide.title.trim(),
-          subtitle: slide.subtitle?.trim() || '',
+          title: slide.title?.trim() ?? '',
+          subtitle: slide.subtitle?.trim() ?? '',
           desktopImageUrl: slide.desktopImageUrl.trim(),
           tabletImageUrl: slide.tabletImageUrl.trim(),
           mobileImageUrl: slide.mobileImageUrl.trim(),
-          buttonLabel: slide.buttonLabel?.trim() || 'Начать тест',
-          buttonHref: slide.buttonHref?.trim() || '/login',
+          buttonLabel: slide.buttonLabel?.trim() ?? '',
+          buttonHref: slide.buttonHref?.trim() ?? '',
           showButton: slide.showButton !== false,
           isActive: slide.isActive !== false,
         })) ?? current.heroSlides,

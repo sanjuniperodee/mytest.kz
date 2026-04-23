@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsBoolean,
   IsArray,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
@@ -11,9 +12,10 @@ import {
 } from 'class-validator';
 
 class HeroSlideDto {
+  @IsOptional()
   @IsString()
   @MaxLength(120)
-  title!: string;
+  title?: string;
 
   @IsOptional()
   @IsString()
@@ -21,14 +23,17 @@ class HeroSlideDto {
   subtitle?: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(1000)
   desktopImageUrl!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(1000)
   tabletImageUrl!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(1000)
   mobileImageUrl!: string;
 

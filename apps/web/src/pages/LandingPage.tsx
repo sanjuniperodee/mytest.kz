@@ -32,7 +32,7 @@ type PricingTier = {
 };
 type TestTypeCard = { title: string; items: string[]; cta: string };
 type HeroSlide = {
-  title: string;
+  title?: string;
   subtitle?: string;
   desktopImageUrl: string;
   tabletImageUrl: string;
@@ -42,6 +42,12 @@ type HeroSlide = {
   showButton?: boolean;
   isActive?: boolean;
 };
+
+function shouldShowHeroCta(slide: HeroSlide): boolean {
+  if (slide.showButton === false) return false;
+  return Boolean(slide.buttonLabel?.trim() && slide.buttonHref?.trim());
+}
+
 type LandingRuntimeSettings = {
   instructionVideoUrl: string;
   instagramUrl: string;
@@ -285,43 +291,50 @@ export function LandingPage() {
           <section className="ld-hero-carousel" aria-label={t('landing.heroCarouselAria')}>
             <div className="ld-max">
               <div className="ld-carousel-shell">
-                {heroSlides.map((slide, idx) => (
-                  <article
-                    key={`${slide.title}-${idx}`}
-                    className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
-                    aria-hidden={idx !== heroIndex}
-                  >
-                    <picture>
-                      <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
-                      <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
-                      <img
-                        src={resolveMediaUrl(slide.desktopImageUrl)}
-                        alt={slide.title}
-                        loading={idx === 0 ? 'eager' : 'lazy'}
-                      />
-                    </picture>
-                    <div className="ld-carousel-overlay">
-                      <h1 className="ld-carousel-title">{slide.title}</h1>
-                      {slide.subtitle ? <p className="ld-carousel-subtitle">{slide.subtitle}</p> : null}
-                      {slide.showButton !== false ? (
-                        isExternalHref(slide.buttonHref) ? (
-                          <a
-                            href={slide.buttonHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ld-btn ld-btn-primary ld-btn-lg"
-                          >
-                            {slide.buttonLabel || t('landing.ctaTrial')}
-                          </a>
-                        ) : (
-                          <Link to={slide.buttonHref || '/login'} className="ld-btn ld-btn-primary ld-btn-lg">
-                            {slide.buttonLabel || t('landing.ctaTrial')}
-                          </Link>
-                        )
+                {heroSlides.map((slide, idx) => {
+                  const titleText = slide.title?.trim() ?? '';
+                  const subtitleText = slide.subtitle?.trim() ?? '';
+                  const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
+                  return (
+                    <article
+                      key={`hero-slide-${idx}`}
+                      className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
+                      aria-hidden={idx !== heroIndex}
+                    >
+                      <picture>
+                        <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
+                        <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
+                        <img
+                          src={resolveMediaUrl(slide.desktopImageUrl)}
+                          alt={titleText}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                        />
+                      </picture>
+                      {showOverlay ? (
+                        <div className="ld-carousel-overlay">
+                          {titleText ? <h1 className="ld-carousel-title">{titleText}</h1> : null}
+                          {subtitleText ? <p className="ld-carousel-subtitle">{subtitleText}</p> : null}
+                          {shouldShowHeroCta(slide) ? (
+                            isExternalHref(slide.buttonHref) ? (
+                              <a
+                                href={slide.buttonHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ld-btn ld-btn-primary ld-btn-lg"
+                              >
+                                {slide.buttonLabel!.trim()}
+                              </a>
+                            ) : (
+                              <Link to={slide.buttonHref!.trim()} className="ld-btn ld-btn-primary ld-btn-lg">
+                                {slide.buttonLabel!.trim()}
+                              </Link>
+                            )
+                          ) : null}
+                        </div>
                       ) : null}
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
                 {heroSlides.length > 1 ? (
                   <>
                     <button
@@ -354,9 +367,9 @@ export function LandingPage() {
                     onMouseEnter={() => setIsCarouselPaused(true)}
                     onMouseLeave={() => setIsCarouselPaused(false)}
                   >
-                    {heroSlides.map((slide, idx) => (
+                    {heroSlides.map((_, idx) => (
                       <button
-                        key={`${slide.title}-dot-${idx}`}
+                        key={`hero-slide-dot-${idx}`}
                         type="button"
                         className={idx === heroIndex ? 'is-active' : ''}
                         onClick={() => setHeroIndex(idx)}

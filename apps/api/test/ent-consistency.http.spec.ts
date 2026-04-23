@@ -119,6 +119,35 @@ function buildGeneratedSections(profile2Count = ENT_CONFIG.profileQuestionsPerSu
   ];
 }
 
+function integrityQuestionRowsForSections(
+  sections: Array<{ subjectId: string; questionIds: string[] }>,
+  examTypeId: string,
+) {
+  return sections.flatMap((sec) =>
+    sec.questionIds.map((id) => ({
+      id,
+      subjectId: sec.subjectId,
+      examTypeId,
+      topic: { subjectId: sec.subjectId },
+    })),
+  );
+}
+
+function mockQuestionFindManyForIntegrity(
+  sections: Array<{ subjectId: string; questionIds: string[] }>,
+  examTypeId: string,
+) {
+  const byId = new Map(
+    integrityQuestionRowsForSections(sections, examTypeId).map((r) => [r.id, r]),
+  );
+  return jest.fn().mockImplementation((args: any) => {
+    const ids: string[] = args?.where?.id?.in ?? [];
+    return Promise.resolve(
+      ids.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => r != null),
+    );
+  });
+}
+
 describe('ENT 120/140 consistency', () => {
   it('scores ENT full with fixed 140 max and ignores custom scoreWeight', async () => {
     const prismaMock = {
@@ -230,6 +259,9 @@ describe('ENT 120/140 consistency', () => {
             name: subjectMetaById[id].slug,
           }),
         ),
+      },
+      question: {
+        findMany: mockQuestionFindManyForIntegrity(generatedSections, 'exam-ent'),
       },
       testSession: {
         create: jest.fn().mockImplementation(({ data }: any) =>
@@ -500,6 +532,9 @@ describe('ENT 120/140 consistency', () => {
             name: subjectMetaById[id].slug,
           }),
         ),
+      },
+      question: {
+        findMany: mockQuestionFindManyForIntegrity(generatedSections, 'exam-ent'),
       },
       testSession: {
         create: jest.fn(),
