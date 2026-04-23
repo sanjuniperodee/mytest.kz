@@ -46,19 +46,21 @@ export function getLocalizedText(value: unknown): string {
   return '';
 }
 
-/** Разбор поля { ru, kk, en } или legacy-строки для форм админки (не терять текст). */
+/**
+ * Разбор поля { ru, kk, en }, вложенных слотов (как у content) или legacy-строки для форм админки.
+ * Важно: JSON-поле в БД может быть одной строкой — тогда кладём в RU (как раньше), иначе форма была пустой.
+ */
 export function splitLocalizedSlot(value: unknown): { ru: string; kk: string; en: string } {
+  if (typeof value === 'string' && value.trim()) {
+    return { ru: value, kk: '', en: '' };
+  }
   if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const o = value as Record<string, unknown>;
-    const ru = typeof o.ru === 'string' ? o.ru : '';
-    const kk = typeof o.kk === 'string' ? o.kk : '';
-    const en = typeof o.en === 'string' ? o.en : '';
+    const ru = pickContentLang(value, 'ru');
+    const kk = pickContentLang(value, 'kk');
+    const en = pickContentLang(value, 'en');
     if (ru.trim() || kk.trim() || en.trim()) {
       return { ru, kk, en };
     }
-  }
-  if (typeof value === 'string' && value.trim()) {
-    return { ru: value, kk: '', en: '' };
   }
   return { ru: '', kk: '', en: '' };
 }

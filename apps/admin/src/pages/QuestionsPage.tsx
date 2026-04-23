@@ -43,6 +43,7 @@ import {
   parseQuestionFormSlots,
   buildQuestionContentJson,
   buildSimilarityNeedle,
+  splitLocalizedSlot,
   type AdminLocaleFilter,
 } from '../lib/questionContent';
 import { resolveApiBaseUrl } from '../lib/resolveApiBaseUrl';
@@ -190,22 +191,6 @@ function localeTag(locale: ReturnType<typeof getQuestionContentLocale>) {
   if (locale === 'kk') return <Tag color="gold">Қазақша</Tag>;
   if (locale === 'ru') return <Tag color="cyan">Русский</Tag>;
   return <Tag color="default">Нет метки</Tag>;
-}
-
-function explanationFromRecord(exp: unknown): {
-  explanation_ru: string;
-  explanation_kk: string;
-  explanation_en: string;
-} {
-  if (!exp || typeof exp !== 'object') {
-    return { explanation_ru: '', explanation_kk: '', explanation_en: '' };
-  }
-  const o = exp as Record<string, unknown>;
-  return {
-    explanation_ru: typeof o.ru === 'string' ? o.ru : '',
-    explanation_kk: typeof o.kk === 'string' ? o.kk : '',
-    explanation_en: typeof o.en === 'string' ? o.en : '',
-  };
 }
 
 function answersToFormList(q: Question) {
@@ -539,7 +524,7 @@ export function QuestionsPage() {
 
   useEffect(() => {
     if (!drawerOpen || editorMode !== 'edit' || !editingQuestion) return;
-    const exp = explanationFromRecord(editingQuestion.explanation);
+    const exp = splitLocalizedSlot(editingQuestion.explanation);
     const meta = editingQuestion.metadata as { contentLocale?: string } | undefined;
     form.setFieldsValue({
       examTypeId: editingQuestion.examTypeId,
@@ -550,7 +535,9 @@ export function QuestionsPage() {
       scoreWeight: editingQuestion.scoreWeight ?? undefined,
       type: editingQuestion.type,
       ...parseQuestionFormSlots(editingQuestion.content, getQuestionContentLocale(editingQuestion.metadata)),
-      ...exp,
+      explanation_ru: exp.ru,
+      explanation_kk: exp.kk,
+      explanation_en: exp.en,
       answers: answersToFormList(editingQuestion),
       imageUrls: normalizeImageUrls(editingQuestion.imageUrls),
     });
