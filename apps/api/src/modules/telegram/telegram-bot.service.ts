@@ -13,12 +13,17 @@ import { PrismaService } from '../../database/prisma.service';
 import { normalizeKzPhone } from '@bilimland/shared';
 import { AuthService } from '../auth/auth.service';
 
+/** `users.id` для личного уведомления админа о заявке с лендинга; пустой `LEAD_NOTIFY_USER_ID` отключает поиск в БД. */
+const DEFAULT_LEAD_NOTIFY_USER_ID = '22f36334-d7ac-435f-a834-a6bdb4349217';
+
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
   private bot: Telegraf | null = null;
   private channelId: string;
   private readonly leadAdminChatId: string;
   private readonly leadAdminUsername: string;
+  /** If non-empty: load `users.telegram_id` by this UUID and DM the lead there. */
+  private readonly leadNotifyUserId: string;
   /** HTTPS origin of the Mini App (Bot API WebAppInfo.url), same as public site. */
   private readonly webAppUrl: string;
   private readonly logger = new Logger(TelegramBotService.name);
@@ -39,9 +44,37 @@ export class TelegramBotService implements OnModuleInit {
     this.leadAdminChatId = (config.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '').trim();
     this.leadAdminUsername =
       (config.get<string>('TELEGRAM_ADMIN_USERNAME') || '@sanjuniperodee').trim();
+    const leadNotifyFromEnv = config.get<string>('LEAD_NOTIFY_USER_ID');
+    this.leadNotifyUserId =
+      leadNotifyFromEnv !== undefined && leadNotifyFromEnv !== null
+        ? leadNotifyFromEnv.trim()
+        : DEFAULT_LEAD_NOTIFY_USER_ID;
     const raw =
       config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://www.my-test.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
+  }
+
+  /** Chat id (numeric) or @username for lead notifications. */
+  private async resolveLeadNotificationTarget(): Promise<string | number> {
+    if (this.leadNotifyUserId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: this.leadNotifyUserId },
+        select: { telegramId: true },
+      });
+      if (user) {
+        return Number(user.telegramId);
+      }
+      this.logger.warn(
+        `LEAD_NOTIFY_USER_ID=${this.leadNotifyUserId}: пользователь не найден, используем TELEGRAM_ADMIN_*`,
+      );
+    }
+    const fallback = this.leadAdminChatId || this.leadAdminUsername;
+    if (!fallback) {
+      throw new BadRequestException(
+        'Не настроен получатель заявок: задайте LEAD_NOTIFY_USER_ID (users.id) или TELEGRAM_ADMIN_CHAT_ID / TELEGRAM_ADMIN_USERNAME.',
+      );
+    }
+    return fallback;
   }
 
   private escapeHtml(input: string): string {
@@ -458,11 +491,7 @@ export class TelegramBotService implements OnModuleInit {
       this.logger.warn('sendLeadNotificationToAdmin: бот не запущен');
       throw new BadRequestException('Telegram-бот недоступен.');
     }
-    const target = this.leadAdminChatId || this.leadAdminUsername;
-    if (!target) {
-      this.logger.error('TELEGRAM_ADMIN_CHAT_ID / TELEGRAM_ADMIN_USERNAME are not configured');
-      throw new BadRequestException('Не настроен получатель админ-уведомлений в Telegram.');
-    }
+    const target = await this.resolveLeadNotificationTarget();
     const body = [
       '📩 <b>Новая заявка с лендинга</b>',
       '',
