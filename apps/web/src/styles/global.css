@@ -2307,6 +2307,14 @@ html[data-theme="light"] .profile-hero-glow {
   color: #fff;
 }
 
+.profile-exam-icon--raster {
+  width: 52px;
+  min-width: 52px;
+  background: transparent !important;
+  color: inherit;
+  padding: 2px 4px;
+}
+
 .profile-exam-body {
   flex: 1;
   min-width: 0;
@@ -2486,6 +2494,13 @@ html[data-theme="light"] .profile-hero-glow {
   justify-content: center;
   flex-shrink: 0;
   color: #fff;
+}
+
+.profile-session-icon--raster {
+  width: 52px;
+  height: 52px;
+  background: transparent !important;
+  box-shadow: none;
 }
 
 .profile-session-info {
