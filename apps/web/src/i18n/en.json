@@ -124,7 +124,12 @@
     "answerSaved": "Answer saved",
     "navigatorTitle": "All questions",
     "navigatorAria": "Question number navigation",
-    "keyboardOptionsHint": "Keys 1–9 or A–H to select an answer"
+    "keyboardOptionsHint": "Keys 1–9 or A–H to select an answer",
+    "calculator": "Calculator",
+    "calculatorAria": "Calculator",
+    "calculatorClose": "Close calculator",
+    "calculatorClear": "Clear all",
+    "calculatorBackspace": "Backspace"
   },
   "review": {
     "title": "Result",
@@ -395,6 +400,7 @@
     "grantCutoffDisclaimer": "Figures reflect past competition; the current year may differ.",
     "grantCtaLogin": "Sign in and start tests",
     "whatsappCta": "Message on WhatsApp",
+    "whatsappFabAria": "Open WhatsApp chat",
     "sectionBenefits": "Why MyTest",
     "sectionTestTypes": "Catalog",
     "testTypesTitle": "Testing types",
@@ -537,26 +543,37 @@
       }
     ],
     "pricingTitle": "Plans after the free limit",
-    "pricingFootnote": "Prices may be adjusted by season. The final amount is always shown before Freedom Pay checkout.",
+    "pricingFootnote": "Prices and durations match the in-app paywall. You always see the final total before Freedom Pay checkout.",
     "pricingTiers": [
       {
-        "name": "Start",
-        "price": "5,900 ₸",
+        "id": "trial",
+        "name": "Trial",
+        "price": "750 ₸",
+        "period": "/ 1 day · 1 test",
+        "features": ["Access to one full test run", "Mistake review", "Stats for that attempt"]
+      },
+      {
+        "id": "week",
+        "name": "Week",
+        "price": "2,400 ₸",
+        "period": "/ 7 days",
+        "features": ["Full platform features", "Limits lifted for the access period"]
+      },
+      {
+        "id": "month",
+        "name": "Month",
+        "price": "3,900 ₸",
         "period": "/ 30 days",
-        "features": ["Unlimited UNT trials", "Review and analytics", "Phone + desktop access"]
+        "badge": "popular",
+        "features": ["Full progress tracking", "30-day access", "Analytics by subject and topic"]
       },
       {
-        "name": "Focus",
-        "price": "14,900 ₸",
-        "period": "/ 90 days",
-        "badge": "most chosen",
-        "features": ["Better monthly value", "Stable quarter prep", "Priority support"]
-      },
-      {
-        "name": "Maximum",
-        "price": "26,900 ₸",
-        "period": "/ 180 days",
-        "features": ["Full exam-season runway", "Best value per month", "Fits early preparation"]
+        "id": "annual",
+        "name": "Annual",
+        "price": "28,000 ₸",
+        "period": "/ 365 days",
+        "badge": "best value",
+        "features": ["Best price per day of access", "Long runway to exam day", "Catalog updates for the subscription term"]
       }
     ],
     "footerRights": "© MyTest 2026. All rights reserved.",

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { renderMathInText } from '../../lib/katex';
 import type { AnswerOption } from '../../api/types';
 
@@ -7,6 +8,8 @@ interface Props {
   selectedIds: string[];
   isMultiple: boolean;
   imageUrls?: string[];
+  /** Язык текста вариантов (сессия), иначе язык UI. */
+  contentLanguage?: string;
   disabled?: boolean;
   showCorrect?: boolean;
   onSelect: (optionId: string) => void;
@@ -17,10 +20,13 @@ export function AnswerOptions({
   selectedIds,
   isMultiple,
   imageUrls,
+  contentLanguage,
   disabled = false,
   showCorrect = false,
   onSelect,
 }: Props) {
+  const { i18n } = useTranslation();
+  const lang = contentLanguage ?? i18n.language;
   return (
     <div className="answer-options" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {options.map((option, index) => (
@@ -29,6 +35,7 @@ export function AnswerOptions({
           option={option}
           index={index}
           imageUrls={imageUrls}
+          contentLanguage={lang}
           isSelected={selectedIds.includes(option.id)}
           isMultiple={isMultiple}
           disabled={disabled}
@@ -40,14 +47,15 @@ export function AnswerOptions({
   );
 }
 
-function OptionItem({ option, index, imageUrls, isSelected, isMultiple, disabled, showCorrect, onSelect }: {
+function OptionItem({ option, index, imageUrls, contentLanguage, isSelected, isMultiple, disabled, showCorrect, onSelect }: {
   option: AnswerOption; index: number; isSelected: boolean; isMultiple: boolean;
   imageUrls?: string[];
+  contentLanguage: string;
   disabled: boolean; showCorrect: boolean; onSelect: (id: string) => void;
 }) {
   const renderedContent = useMemo(
-    () => renderMathInText(option.content, { imageUrls }),
-    [option.content, imageUrls],
+    () => renderMathInText(option.content, { imageUrls, language: contentLanguage }),
+    [option.content, imageUrls, contentLanguage],
   );
   const letter = 'ABCDEFGH'[index] || String(index + 1);
 

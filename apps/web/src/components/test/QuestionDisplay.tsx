@@ -7,6 +7,8 @@ import { renderMathInTextWithLineBreaks } from '../../lib/questionStem';
 interface Props {
   content: unknown;
   imageUrls?: string[];
+  /** Язык текста вопроса/вариантов (сессия), иначе берётся язык UI. */
+  contentLanguage?: string;
   /** Тексты вариантов (для исключения дублей картинок из блока вопроса). */
   answerOptionContents?: string[];
   /** Для «Оқу сауаттылығы»: `passage` + `text` из JSON; без `passage` — цельный `text` (без эвристического сплита). */
@@ -36,14 +38,16 @@ const PASSAGE_COLLAPSE_LEN = 360;
 export function QuestionDisplay({
   content,
   imageUrls,
+  contentLanguage,
   answerOptionContents,
   subjectSlug,
   hideTopicBlock,
 }: Props) {
   const { t, i18n } = useTranslation();
+  const lang = contentLanguage ?? i18n.language;
   const { passage, topicLine, stem } = useMemo(
-    () => getQuestionContentDisplayParts(content, i18n.language),
-    [content, i18n.language],
+    () => getQuestionContentDisplayParts(content, lang),
+    [content, lang],
   );
 
   const isReading = subjectSlug === 'reading_literacy';
@@ -56,16 +60,16 @@ export function QuestionDisplay({
   const passageNeedsToggle = (passage || '').length > PASSAGE_COLLAPSE_LEN;
 
   const renderedTopic = useMemo(
-    () => (topicLine ? renderMathInTextWithLineBreaks(topicLine, imageUrls) : ''),
-    [topicLine, imageUrls],
+    () => (topicLine ? renderMathInTextWithLineBreaks(topicLine, imageUrls, lang) : ''),
+    [topicLine, imageUrls, lang],
   );
   const renderedPassage = useMemo(
-    () => (passage ? renderMathInTextWithLineBreaks(passage, imageUrls) : ''),
-    [passage, imageUrls],
+    () => (passage ? renderMathInTextWithLineBreaks(passage, imageUrls, lang) : ''),
+    [passage, imageUrls, lang],
   );
   const renderedStem = useMemo(
-    () => renderMathInTextWithLineBreaks(stem, imageUrls),
-    [stem, imageUrls],
+    () => renderMathInTextWithLineBreaks(stem, imageUrls, lang),
+    [stem, imageUrls, lang],
   );
   const readingExplicitPassage = isReading && !!passage;
   const showPlainStem = stem.trim().length > 0 && !readingExplicitPassage;

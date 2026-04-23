@@ -93,7 +93,8 @@ export interface TestTemplateSection {
 
 export interface AnswerOption {
   id: string;
-  content: string;
+  /** Строка или Json { kk, ru, en } с бэка. */
+  content: unknown;
   sortOrder: number;
   isCorrect?: boolean;
 }

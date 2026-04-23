@@ -8,6 +8,8 @@ interface Props {
   totalQuestions: number;
   onFinish: () => void;
   finishDisabled?: boolean;
+  calculatorOpen?: boolean;
+  onToggleCalculator?: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -24,6 +26,8 @@ export function TestHeader({
   totalQuestions,
   onFinish,
   finishDisabled,
+  calculatorOpen,
+  onToggleCalculator,
 }: Props) {
   const { t } = useTranslation();
   const { timeRemaining, tick, isTimerRunning } = useTestSessionStore();
@@ -44,6 +48,24 @@ export function TestHeader({
           {examName?.trim() || t('test.defaultExamTitle')}
         </div>
         <div className="test-header-actions">
+          {onToggleCalculator && (
+            <button
+              type="button"
+              className={`test-header-calculator${calculatorOpen ? ' test-header-calculator-active' : ''}`}
+              onClick={onToggleCalculator}
+              aria-expanded={calculatorOpen ?? false}
+              aria-label={t('test.calculator')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <rect x="4" y="3" width="16" height="18" rx="2" />
+                <line x1="8" y1="7" x2="16" y2="7" />
+                <rect x="7" y="10" width="4" height="3" rx="0.5" fill="currentColor" stroke="none" />
+                <rect x="13" y="10" width="4" height="3" rx="0.5" fill="currentColor" stroke="none" />
+                <rect x="7" y="15" width="4" height="3" rx="0.5" fill="currentColor" stroke="none" />
+                <rect x="13" y="15" width="4" height="3" rx="0.5" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+          )}
           <div
             className={`test-header-timer ${isLowTime ? 'test-header-timer-urgent' : ''}`}
             aria-live="polite"

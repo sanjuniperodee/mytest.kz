@@ -137,7 +137,8 @@ export class QuestionsController {
       data &&
       (data.content !== undefined ||
         Array.isArray(data.answerOptions) ||
-        data.imageUrls !== undefined)
+        data.imageUrls !== undefined ||
+        data.explanation !== undefined)
     ) {
       return this.questionsService.updateFull(id, data);
     }

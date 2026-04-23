@@ -120,7 +120,7 @@ export function useTestReview(sessionId: string | undefined) {
 }
 
 export function useExplanation(sessionId: string, questionId: string, enabled: boolean) {
-  return useQuery<{ questionId: string; explanation: string; imageUrls?: string[] }>({
+  return useQuery<{ questionId: string; explanation: unknown; imageUrls?: string[] }>({
     queryKey: ['explanation', sessionId, questionId],
     queryFn: async () => {
       const { data } = await api.get(
@@ -129,5 +129,7 @@ export function useExplanation(sessionId: string, questionId: string, enabled: b
       return data;
     },
     enabled,
+    /** Объяснение для вопроса не меняется в рамках сессии; кэш убирает мигание при повторном открытии. */
+    staleTime: 30 * 60_000,
   });
 }

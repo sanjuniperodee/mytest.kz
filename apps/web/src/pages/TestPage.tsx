@@ -9,6 +9,7 @@ import { AnswerOptions } from '../components/test/AnswerOptions';
 import { QuestionNavigator } from '../components/test/QuestionNavigator';
 import { SubjectTabs } from '../components/test/SubjectTabs';
 import { TestSectionProgress } from '../components/test/TestSectionProgress';
+import { TestCalculator } from '../components/test/TestCalculator';
 import { Spinner } from '../components/common/Spinner';
 import { safeShowAlert, safeShowConfirm, useTelegram } from '../lib/telegram';
 import { localizedText } from '../lib/localizedText';
@@ -34,6 +35,7 @@ export function TestPage() {
   } = useTestSessionStore();
 
   const [showNavigator, setShowNavigator] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const testRailLayout = useMediaQuery('(min-width: 1280px)');
@@ -219,6 +221,34 @@ export function TestPage() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (showCalculator) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowCalculator(false);
+          return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          return;
+        }
+        const calcTarget = e.target as HTMLElement | null;
+        const calcTag = calcTarget?.tagName?.toLowerCase();
+        if (calcTag !== 'input' && calcTag !== 'textarea' && !calcTarget?.isContentEditable) {
+          if (/^[1-9]$/.test(e.key)) {
+            e.preventDefault();
+            return;
+          }
+          const ck = e.key.toLowerCase();
+          if (ck >= 'a' && ck <= 'h') {
+            e.preventDefault();
+            return;
+          }
+          if (ck === 'f') {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
@@ -250,7 +280,7 @@ export function TestPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleNext, handlePrev, currentAnswer, currentQuestion, toggleFlag, handleSelectOption]);
+  }, [showCalculator, handleNext, handlePrev, currentAnswer, currentQuestion, toggleFlag, handleSelectOption]);
 
   if (isLoading || !session || !currentQuestion) return <Spinner fullScreen />;
 
@@ -269,7 +299,11 @@ export function TestPage() {
         totalQuestions={answers.length}
         onFinish={handleFinishClick}
         finishDisabled={isSubmitting}
+        calculatorOpen={showCalculator}
+        onToggleCalculator={() => setShowCalculator((v) => !v)}
       />
+
+      {showCalculator && <TestCalculator onClose={() => setShowCalculator(false)} />}
 
       <SubjectTabs
         sections={subjectTabSections}
@@ -378,12 +412,15 @@ export function TestPage() {
           <div className="animate-fadeIn test-question-layout" key={currentAnswer.questionId}>
             <div className="test-question-stem">
               <QuestionDisplay
-          content={currentQuestion.content}
-          imageUrls={currentQuestion.imageUrls}
-          answerOptionContents={currentQuestion.answerOptions.map((o) => o.content)}
-          subjectSlug={currentAnswer.question?.subject?.slug}
-          hideTopicBlock={true}
-        />
+                content={currentQuestion.content}
+                contentLanguage={subjectContentLang}
+                imageUrls={currentQuestion.imageUrls}
+                answerOptionContents={currentQuestion.answerOptions.map((o) =>
+                  localizedText(o.content, subjectContentLang),
+                )}
+                subjectSlug={currentAnswer.question?.subject?.slug}
+                hideTopicBlock={true}
+              />
             </div>
             <div className="test-question-answers">
               <div className="test-answer-options-label">{t('test.answerOptionsLabel')}</div>
@@ -392,6 +429,7 @@ export function TestPage() {
                 selectedIds={getSelectedForQuestion(currentAnswer.questionId)}
                 isMultiple={currentQuestion.type === 'multiple_choice'}
                 imageUrls={currentQuestion.imageUrls}
+                contentLanguage={subjectContentLang}
                 onSelect={handleSelectOption}
               />
               <div style={{ marginTop: 8, minHeight: 18 }}>

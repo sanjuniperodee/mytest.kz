@@ -15,10 +15,14 @@ export function splitQuestionStemLine(full: string): { topic: string | null; bod
 }
 
 /** Каждую строку прогоняем через KaTeX, между строками — <br />. */
-export function renderMathInTextWithLineBreaks(text: string, imageUrls?: string[]): string {
+export function renderMathInTextWithLineBreaks(
+  text: string,
+  imageUrls?: string[],
+  language?: string,
+): string {
   const normalized = text.replace(/\r\n/g, '\n');
   return normalized
     .split('\n')
-    .map((line) => renderMathInText(line.trim(), { imageUrls }))
+    .map((line) => renderMathInText(line.trim(), { imageUrls, language }))
     .join('<br />');
 }

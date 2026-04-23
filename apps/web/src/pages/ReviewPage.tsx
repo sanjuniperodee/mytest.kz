@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTestReview, useExplanation } from '../api/hooks/useTests';
@@ -18,6 +18,19 @@ function BackArrow() {
   );
 }
 
+function readExplanationOpenMap(sessionId: string | undefined): Record<string, boolean> {
+  if (typeof window === 'undefined' || !sessionId) return {};
+  try {
+    const raw = sessionStorage.getItem(`review:explanOpen:${sessionId}`);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
 export function ReviewPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { t, i18n } = useTranslation();
@@ -28,7 +41,16 @@ export function ReviewPage() {
   const { data: session, isLoading } = useTestReview(sessionId);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
+  /** Не сбрасывать раскрытие блока «Объяснение» при сворачивании карточки вопроса (дочерний стейт жил в размонтируемом компоненте). */
+  const [explanationOpenByQuestion, setExplanationOpenByQuestion] = useState<Record<string, boolean>>(() =>
+    readExplanationOpenMap(sessionId),
+  );
   const subjectContentLang = session?.language ?? i18n.language;
+
+  useEffect(() => {
+    if (!sessionId) return;
+    setExplanationOpenByQuestion(readExplanationOpenMap(sessionId));
+  }, [sessionId]);
 
   const orderedAnswers = useMemo(() => {
     const list = [...(session?.answers || [])];
@@ -257,8 +279,11 @@ export function ReviewPage() {
                     <div style={{ height: 1, background: 'var(--border)', marginBottom: 16 }} />
                     <QuestionDisplay
                       content={answer.question.content}
+                      contentLanguage={subjectContentLang}
                       imageUrls={answer.question.imageUrls}
-                      answerOptionContents={answer.question.answerOptions.map((o) => o.content)}
+                      answerOptionContents={answer.question.answerOptions.map((o) =>
+                        localizedText(o.content, subjectContentLang),
+                      )}
                       subjectSlug={answer.question?.subject?.slug}
                     />
                     <AnswerOptions
@@ -266,13 +291,29 @@ export function ReviewPage() {
                       selectedIds={answer.selectedIds}
                       isMultiple={answer.question.type === 'multiple_choice'}
                       imageUrls={answer.question.imageUrls}
+                      contentLanguage={subjectContentLang}
                       disabled showCorrect onSelect={() => {}}
                     />
                     <ExplanationSection
                       sessionId={sessionId!}
                       questionId={answer.questionId}
                       questionImageUrls={answer.question.imageUrls}
+                      contentLanguage={subjectContentLang}
                       hasSubscription={user?.hasActiveSubscription || false}
+                      explanationExpanded={explanationOpenByQuestion[answer.questionId] ?? false}
+                      onExplanationExpandedChange={(open) => {
+                        setExplanationOpenByQuestion((prev) => {
+                          const next = { ...prev, [answer.questionId]: open };
+                          try {
+                            if (sessionId) {
+                              sessionStorage.setItem(`review:explanOpen:${sessionId}`, JSON.stringify(next));
+                            }
+                          } catch {
+                            /* ignore quota */
+                          }
+                          return next;
+                        });
+                      }}
                     />
                   </div>
                 )}
@@ -285,12 +326,14 @@ export function ReviewPage() {
   );
 }
 
-function ExplanationSection({ sessionId, questionId, questionImageUrls, hasSubscription }: {
-  sessionId: string; questionId: string; questionImageUrls?: string[]; hasSubscription: boolean;
+function ExplanationSection({ sessionId, questionId, questionImageUrls, contentLanguage, hasSubscription, explanationExpanded, onExplanationExpandedChange }: {
+  sessionId: string; questionId: string; questionImageUrls?: string[]; contentLanguage: string;
+  hasSubscription: boolean;
+  explanationExpanded: boolean;
+  onExplanationExpandedChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const [show, setShow] = useState(false);
-  const { data, isLoading } = useExplanation(sessionId, questionId, show && hasSubscription);
+  const { data, isLoading } = useExplanation(sessionId, questionId, explanationExpanded && hasSubscription);
 
   if (!hasSubscription) {
     return (
@@ -321,17 +364,17 @@ function ExplanationSection({ sessionId, questionId, questionImageUrls, hasSubsc
 
   return (
     <div style={{ marginTop: 16 }}>
-      <button onClick={() => setShow(!show)} className="chip" style={{ gap: 6 }}>
+      <button onClick={() => onExplanationExpandedChange(!explanationExpanded)} className="chip" style={{ gap: 6 }}>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.8.6 1.5 1.4 1.8 2.3h3.4c.3-.9 1-1.7 1.8-2.3A6 6 0 0 0 12 3Z" />
         </svg>
         {t('review.explanation')}
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"
-          style={{ transform: show ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
+          style={{ transform: explanationExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {show && (
+      {explanationExpanded && (
         <div style={{
           marginTop: 10, padding: 16, background: 'var(--success-surface)',
           borderRadius: 'var(--r-md)', border: '1px solid rgba(16, 185, 129, 0.15)',
@@ -341,6 +384,7 @@ function ExplanationSection({ sessionId, questionId, questionImageUrls, hasSubsc
               dangerouslySetInnerHTML={{
                 __html: renderMathInText(data.explanation, {
                   imageUrls: data.imageUrls ?? questionImageUrls ?? [],
+                  language: contentLanguage,
                 }),
               }}
               style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-primary)' }} />

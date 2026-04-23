@@ -1,5 +1,6 @@
 import katex from 'katex';
 import { resolveMediaUrl } from './resolveMediaUrl';
+import { localizedText } from './localizedText';
 
 type RenderMathOptions = {
   /**
@@ -7,6 +8,8 @@ type RenderMathOptions = {
    * [[img:1]] -> imageUrls[0]
    */
   imageUrls?: string[];
+  /** Язык контента сессии / UI — для Json-полей { kk, ru, en } у вариантов ответа. */
+  language?: string;
 };
 
 /**
@@ -16,12 +19,13 @@ type RenderMathOptions = {
  * $...$ for inline math
  * $$...$$ for display math
  */
-export function renderMathInText(text: string, options?: RenderMathOptions): string {
-  if (!text) return text;
-  
+export function renderMathInText(text: unknown, options?: RenderMathOptions): string {
+  const raw = typeof text === 'string' ? text : localizedText(text, options?.language);
+  if (!raw) return '';
+
   // Handle tokenized images first: [[img:N]]
   const pool = Array.isArray(options?.imageUrls) ? options!.imageUrls : [];
-  let result = text.replace(/\[\[img:(\d+)\]\]/gi, (_match, nRaw: string) => {
+  let result = raw.replace(/\[\[img:(\d+)\]\]/gi, (_match, nRaw: string) => {
     const idx = Number.parseInt(nRaw, 10) - 1;
     if (!Number.isFinite(idx) || idx < 0 || idx >= pool.length) return '';
     const url = resolveMediaUrl(pool[idx]);

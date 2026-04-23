@@ -1074,6 +1074,183 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   cursor: not-allowed;
 }
 
+.test-header-calculator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.test-header-calculator:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, var(--border));
+}
+
+.test-header-calculator-active {
+  border-color: var(--accent);
+  color: var(--accent-light);
+  background: var(--accent-surface);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.test-calculator-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-theme="light"] .test-calculator-backdrop {
+  background: rgba(15, 23, 42, 0.25);
+}
+
+.test-calculator-panel {
+  position: fixed;
+  z-index: 56;
+  left: 12px;
+  right: 12px;
+  bottom: calc(104px + env(safe-area-inset-bottom));
+  max-width: 300px;
+  margin-inline: auto;
+  padding: 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+@media (min-width: 480px) {
+  .test-calculator-panel {
+    left: auto;
+    margin-inline: 0;
+    margin-right: max(12px, env(safe-area-inset-right));
+  }
+}
+
+.test-calculator-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.test-calculator-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.test-calculator-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 150ms var(--ease), color 150ms var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.test-calculator-close:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.test-calculator-display {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  text-align: right;
+  padding: 12px 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  min-height: 48px;
+  line-height: 1.2;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.test-calculator-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.test-calculator-key {
+  min-height: 44px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 120ms var(--ease), transform 80ms var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.test-calculator-key:hover {
+  background: var(--bg-elevated);
+}
+
+.test-calculator-key:active {
+  transform: scale(0.97);
+}
+
+.test-calculator-key--muted {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.test-calculator-key--op {
+  color: var(--accent-light);
+  background: var(--accent-surface);
+  border-color: rgba(99, 102, 241, 0.28);
+}
+
+html[data-theme="light"] .test-calculator-key--op {
+  border-color: rgba(79, 70, 229, 0.22);
+}
+
+.test-calculator-key--eq {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.test-calculator-key--eq:hover {
+  filter: brightness(1.05);
+}
+
+.test-calculator-key--zero {
+  grid-column: span 2;
+}
+
 .test-header-progress {
   margin-bottom: 6px;
 }
