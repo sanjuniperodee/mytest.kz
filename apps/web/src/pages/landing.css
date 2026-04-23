@@ -1463,54 +1463,6 @@ html:has(.landing-root.is-light) body {
   }
 }
 
-/* Floating WhatsApp (bottom-left, EduTest-style) */
-.ld-wa-fab {
-  position: fixed;
-  left: max(16px, env(safe-area-inset-left, 0px));
-  bottom: max(20px, env(safe-area-inset-bottom, 0px));
-  z-index: 100;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #25d366;
-  color: #fff;
-  text-decoration: none;
-  box-shadow:
-    0 4px 18px rgba(37, 211, 102, 0.45),
-    0 2px 6px rgba(0, 0, 0, 0.18);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ld-wa-fab:hover {
-  transform: scale(1.06);
-  box-shadow:
-    0 6px 24px rgba(37, 211, 102, 0.55),
-    0 2px 8px rgba(0, 0, 0, 0.22);
-}
-
-.ld-wa-fab:active {
-  transform: scale(0.98);
-}
-
-.landing-root.is-light .ld-wa-fab {
-  box-shadow:
-    0 4px 18px rgba(37, 211, 102, 0.4),
-    0 2px 8px rgba(15, 23, 42, 0.12);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ld-wa-fab,
-  .ld-wa-fab:hover,
-  .ld-wa-fab:active {
-    transition: none;
-    transform: none;
-  }
-}
-
 /* Stats strip (EduTest-style highlights) */
 .ld-section-stats {
   padding-top: clamp(40px, 8vw, 72px);

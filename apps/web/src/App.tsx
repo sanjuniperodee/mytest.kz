@@ -16,6 +16,7 @@ import { ChannelGatePage } from './pages/ChannelGatePage';
 import { PaywallPage } from './pages/PaywallPage';
 import { Spinner } from './components/common/Spinner';
 import { NavBar } from './components/common/NavBar';
+import { WhatsAppFab } from './components/common/WhatsAppFab';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,7 +34,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!user) return <Navigate to="/login" replace />;
   if (!user.isChannelMember) return <Navigate to="/channel-gate" replace />;
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <WhatsAppFab />
+    </>
+  );
 }
 
 function AppRoutes() {
