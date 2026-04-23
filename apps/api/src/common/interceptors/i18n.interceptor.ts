@@ -21,6 +21,11 @@ export class I18nInterceptor implements NestInterceptor {
     if (path.includes('/bulk')) {
       return next.handle();
     }
+    // Админка редактирует все локали сырьём: иначе resolveI18n схлопывает { kk, ru, en } в одну строку
+    // (поле explanation вопроса, тексты вариантов ответа) — после сохранения и GET форма «теряет» текст на других языках.
+    if (path.includes('/admin/')) {
+      return next.handle();
+    }
     // Catalog responses must stay { kk, ru, en } so web can pick by UI / ENT question lang
     // and admin forms can edit all locales without losing fields to a single resolved string.
     if (path.includes('/exams/')) {
