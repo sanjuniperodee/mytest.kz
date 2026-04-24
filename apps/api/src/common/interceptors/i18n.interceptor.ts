@@ -17,13 +17,16 @@ import { Observable, map } from 'rxjs';
 export class I18nInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    const path = String(request.path ?? request.url ?? '');
-    if (path.includes('/bulk')) {
+    const path = String(request.path ?? '');
+    const url = String(request.originalUrl ?? request.url ?? path);
+    // Nest/Express: path иногда без префикса; originalUrl надёжнее для матчинга маршрута.
+    const routeHint = `${path}\n${url}`;
+    if (routeHint.includes('/bulk')) {
       return next.handle();
     }
     // Админка редактирует все локали сырьём: иначе resolveI18n схлопывает { kk, ru, en } в одну строку
     // (поле explanation вопроса, тексты вариантов ответа) — после сохранения и GET форма «теряет» текст на других языках.
-    if (path.includes('/admin/')) {
+    if (/\/admin(\/|\?|$)/i.test(path) || /\/admin(\/|\?|$)/i.test(url) || /admin\/questions/i.test(url)) {
       return next.handle();
     }
     // Catalog responses must stay { kk, ru, en } so web can pick by UI / ENT question lang

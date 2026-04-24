@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import {
@@ -203,12 +203,18 @@ function answersToFormList(q: Question) {
 }
 
 function MarkdownTextArea(props: any) {
-  const { value, onChange, ...rest } = props;
+  const { value, onChange, useQuestionImagePool = true, ...rest } = props;
   const inputRef = useRef<any>(null);
+  /** Form может отдать undefined до гидратации — иначе TextArea остаётся «неконтролируемым» и не подхватывает setFieldsValue. */
   const textValue = typeof value === 'string' ? value : '';
+  const controlledValue = textValue;
   const form = Form.useFormInstance();
   const watchedImageUrls = Form.useWatch('imageUrls', form);
-  const imagePool = useMemo(() => normalizeImageUrls(watchedImageUrls), [watchedImageUrls]);
+  /** Пул условия вопроса: в объяснении загрузка не должна попадать сюда — иначе картинка в «отдельном» блоке на клиенте до разбора. */
+  const imagePool = useMemo(
+    () => (useQuestionImagePool ? normalizeImageUrls(watchedImageUrls) : []),
+    [useQuestionImagePool, watchedImageUrls],
+  );
 
   const markdownImages = useMemo(() => {
     const out: Array<{ alt: string; url: string }> = [];
@@ -236,7 +242,7 @@ function MarkdownTextArea(props: any) {
     const textarea = inputRef.current?.resizableTextArea?.textArea;
     const start = textarea?.selectionStart || 0;
     const end = textarea?.selectionEnd || 0;
-    const currentVal = typeof value === 'string' ? value : '';
+    const currentVal = controlledValue;
     const newVal = currentVal.substring(0, start) + snippet + currentVal.substring(end);
     onChange?.(newVal);
     setTimeout(() => {
@@ -248,7 +254,7 @@ function MarkdownTextArea(props: any) {
   };
   
   const handleInsertImage = (url: string) => {
-    if (!form) {
+    if (!form || !useQuestionImagePool) {
       insertAtCursor(`\n\n![image](${url})\n\n`);
       return;
     }
@@ -266,7 +272,7 @@ function MarkdownTextArea(props: any) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <TextArea ref={inputRef} value={value} onChange={onChange} {...rest} />
+      <TextArea ref={inputRef} value={controlledValue} onChange={onChange} {...rest} />
       <Upload
         accept="image/jpeg,image/png,image/gif,image/webp"
         showUploadList={false}
@@ -294,7 +300,13 @@ function MarkdownTextArea(props: any) {
           }
         }}
       >
-        <Tooltip title="Вставить изображение в текст">
+        <Tooltip
+          title={
+            useQuestionImagePool
+              ? 'Вставить изображение в текст'
+              : 'В объяснение: вставка только в этот текст (не в общий пул иллюстраций к условию)'
+          }
+        >
           <Button 
             icon={<PictureOutlined />} 
             size="small" 
@@ -522,7 +534,7 @@ export function QuestionsPage() {
     }
   }, [drawerOpen, editorMode, topicsForSubject, form]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!drawerOpen || editorMode !== 'edit' || !editingQuestion) return;
     const exp = splitLocalizedSlot(editingQuestion.explanation);
     const meta = editingQuestion.metadata as { contentLocale?: string } | undefined;
@@ -1660,57 +1672,15 @@ export function QuestionsPage() {
           )}
 
           <Divider orientation="left">Объяснение (Premium)</Divider>
-          {contentLocaleWatch === 'kk' ? (
-            <>
-              <Form.Item name="explanation_kk" label="Объяснение (KK)">
-                <MarkdownTextArea rows={2} />
-              </Form.Item>
-              <Collapse
-                bordered={false}
-                items={[
-                  {
-                    key: 'exp-ru-en',
-                    label: 'Объяснение RU / EN (қосымша)',
-                    children: (
-                      <>
-                        <Form.Item name="explanation_ru" label="Объяснение (RU)">
-                          <MarkdownTextArea rows={2} />
-                        </Form.Item>
-                        <Form.Item name="explanation_en" label="Объяснение (EN)">
-                          <MarkdownTextArea rows={2} />
-                        </Form.Item>
-                      </>
-                    ),
-                  },
-                ]}
-              />
-            </>
-          ) : (
-            <>
-              <Form.Item name="explanation_ru" label="Объяснение (RU)">
-                <MarkdownTextArea rows={2} />
-              </Form.Item>
-              <Collapse
-                bordered={false}
-                items={[
-                  {
-                    key: 'exp-kk-en',
-                    label: 'Объяснение KK / EN (дополнительно)',
-                    children: (
-                      <>
-                        <Form.Item name="explanation_kk" label="Объяснение (KK)">
-                          <MarkdownTextArea rows={2} />
-                        </Form.Item>
-                        <Form.Item name="explanation_en" label="Объяснение (EN)">
-                          <MarkdownTextArea rows={2} />
-                        </Form.Item>
-                      </>
-                    ),
-                  },
-                ]}
-              />
-            </>
-          )}
+          <Form.Item name="explanation_ru" label="Объяснение (RU)" preserve>
+            <MarkdownTextArea rows={2} useQuestionImagePool={false} />
+          </Form.Item>
+          <Form.Item name="explanation_kk" label="Объяснение (KK)" preserve>
+            <MarkdownTextArea rows={2} useQuestionImagePool={false} />
+          </Form.Item>
+          <Form.Item name="explanation_en" label="Объяснение (EN)" preserve>
+            <MarkdownTextArea rows={2} useQuestionImagePool={false} />
+          </Form.Item>
 
           <Typography.Title level={5}>Варианты ответов</Typography.Title>
           <Form.List name="answers" initialValue={[{}, {}, {}, {}]}>

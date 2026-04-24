@@ -51,8 +51,21 @@ export function getLocalizedText(value: unknown): string {
  * Важно: JSON-поле в БД может быть одной строкой — тогда кладём в RU (как раньше), иначе форма была пустой.
  */
 export function splitLocalizedSlot(value: unknown): { ru: string; kk: string; en: string } {
-  if (typeof value === 'string' && value.trim()) {
-    return { ru: value, kk: '', en: '' };
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (!t) return { ru: '', kk: '', en: '' };
+    if (t.startsWith('{') && t.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(t) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const inner = splitLocalizedSlot(parsed);
+          if (inner.ru.trim() || inner.kk.trim() || inner.en.trim()) return inner;
+        }
+      } catch {
+        /* не JSON — обычный текст */
+      }
+    }
+    return { ru: t, kk: '', en: '' };
   }
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const ru = pickContentLang(value, 'ru');
