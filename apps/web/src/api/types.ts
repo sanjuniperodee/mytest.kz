@@ -105,6 +105,8 @@ export interface Question {
   type: string;
   /** JSON: строка или { ru: { passage?, topicLine?, text }, ... } — passage = текст для чтения, topicLine = подпись ЕНТ, text = вопрос */
   content: unknown;
+  /** Текст(ы) объяснения; на клиенте может быть схлопнут i18n-интерсептором. Для рендера вне формулировки, но для слотов картинок `[[img]]`. */
+  explanation?: unknown;
   imageUrls?: string[];
   answerOptions: AnswerOption[];
   subject?: { id: string; name: unknown; slug: string };

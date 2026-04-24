@@ -415,6 +415,7 @@ export function TestPage() {
                 content={currentQuestion.content}
                 contentLanguage={subjectContentLang}
                 imageUrls={currentQuestion.imageUrls}
+                explanation={currentQuestion.explanation}
                 answerOptionContents={currentQuestion.answerOptions.map((o) =>
                   localizedText(o.content, subjectContentLang),
                 )}

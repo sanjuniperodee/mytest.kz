@@ -11,9 +11,25 @@ interface Props {
   contentLanguage?: string;
   /** Тексты вариантов (для исключения дублей картинок из блока вопроса). */
   answerOptionContents?: string[];
+  /**
+   * Текст объяснения (после теста / в premium) не показываем в формулировке, но `[[img:n]]` и markdown-картинки
+   * из него должны учитываться, иначе они ошибочно попадают в «отдельный» список картинок при прохождении.
+   */
+  explanation?: unknown;
   /** Для «Оқу сауаттылығы»: `passage` + `text` из JSON; без `passage` — цельный `text` (без эвристического сплита). */
   subjectSlug?: string;
   hideTopicBlock?: boolean;
+}
+
+function explanationTextForImageSlots(explanation: unknown): string {
+  if (explanation == null) return '';
+  if (typeof explanation === 'string') return explanation;
+  if (typeof explanation === 'object') {
+    return Object.values(explanation as Record<string, unknown>)
+      .filter((v): v is string => typeof v === 'string')
+      .join('\n');
+  }
+  return '';
 }
 
 const stemBodyStyle: CSSProperties = {
@@ -40,6 +56,7 @@ export function QuestionDisplay({
   imageUrls,
   contentLanguage,
   answerOptionContents,
+  explanation,
   subjectSlug,
   hideTopicBlock,
 }: Props) {
@@ -77,7 +94,13 @@ export function QuestionDisplay({
     const all = Array.isArray(imageUrls) ? imageUrls.filter((u) => typeof u === 'string' && u.trim()) : [];
     if (all.length === 0) return all;
 
-    const source = [topicLine || '', passage || '', stem || '', ...(answerOptionContents || [])].join('\n');
+    const source = [
+      topicLine || '',
+      passage || '',
+      stem || '',
+      ...(answerOptionContents || []),
+      explanationTextForImageSlots(explanation),
+    ].join('\n');
     const usedByToken = new Set<number>();
     const tokenRe = /\[\[img:(\d+)\]\]/gi;
     let tokenMatch: RegExpExecArray | null;
@@ -98,7 +121,7 @@ export function QuestionDisplay({
       if (usedByToken.has(idx)) return false;
       return !usedByUrl.has(resolveMediaUrl(url));
     });
-  }, [imageUrls, topicLine, passage, stem, answerOptionContents]);
+  }, [imageUrls, topicLine, passage, stem, answerOptionContents, explanation]);
 
   return (
     <div style={{ marginBottom: 20 }}>

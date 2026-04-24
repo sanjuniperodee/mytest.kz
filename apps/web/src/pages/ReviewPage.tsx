@@ -281,6 +281,7 @@ export function ReviewPage() {
                       content={answer.question.content}
                       contentLanguage={subjectContentLang}
                       imageUrls={answer.question.imageUrls}
+                      explanation={answer.question.explanation}
                       answerOptionContents={answer.question.answerOptions.map((o) =>
                         localizedText(o.content, subjectContentLang),
                       )}
