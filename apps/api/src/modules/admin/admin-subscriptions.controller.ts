@@ -39,6 +39,21 @@ export class AdminSubscriptionsController {
     return this.adminService.grantSubscription(adminId, data);
   }
 
+  @Post('apply-plan-template')
+  async applyPlanTemplateToUser(
+    @CurrentUser('id') adminId: string,
+    @Body()
+    data: {
+      userId: string;
+      planTemplateId: string;
+      windowStartsAt: string;
+      windowEndsAt?: string | null;
+      paymentNote?: string | null;
+    },
+  ) {
+    return this.adminService.applyPlanTemplateToUser(adminId, data);
+  }
+
   @Delete(':id')
   async revokeSubscription(@Param('id') id: string) {
     return this.adminService.revokeSubscription(id);

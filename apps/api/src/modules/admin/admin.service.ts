@@ -34,7 +34,6 @@ export class AdminService {
           subscriptions: {
             where: { isActive: true },
             orderBy: { expiresAt: 'desc' },
-            take: 1,
           },
           entitlements: {
             where: {
@@ -231,6 +230,99 @@ export class AdminService {
         },
         include: { examRules: true },
       });
+    });
+  }
+
+  /**
+   * Создаёт entitlements v2 по всем examRules шаблона (источник plan_template).
+   * Шаблон сам по себе доступ не открывает — только после применения к пользователю.
+   */
+  async applyPlanTemplateToUser(
+    adminId: string,
+    data: {
+      userId: string;
+      planTemplateId: string;
+      windowStartsAt: string;
+      windowEndsAt?: string | null;
+      paymentNote?: string | null;
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: data.userId },
+      select: { id: true, timezone: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const tpl = await this.prisma.subscriptionPlanTemplate.findFirst({
+      where: { id: data.planTemplateId, isActive: true },
+      include: {
+        examRules: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+    if (!tpl) {
+      throw new NotFoundException('PLAN_TEMPLATE_NOT_FOUND');
+    }
+    if (tpl.examRules.length === 0) {
+      throw new BadRequestException(
+        'PLAN_TEMPLATE_HAS_NO_EXAM_RULES: add at least one exam rule to the template, or use legacy subscription',
+      );
+    }
+
+    const start = new Date(data.windowStartsAt);
+    if (Number.isNaN(start.getTime())) {
+      throw new BadRequestException('INVALID_WINDOW_START');
+    }
+
+    let end: Date | null = null;
+    if (data.windowEndsAt != null && String(data.windowEndsAt).trim() !== '') {
+      end = new Date(data.windowEndsAt);
+      if (Number.isNaN(end.getTime())) {
+        throw new BadRequestException('INVALID_WINDOW_END');
+      }
+    } else if (tpl.durationDays != null) {
+      end = new Date(start.getTime() + tpl.durationDays * 86400000);
+    }
+
+    const tz = user.timezone || 'Asia/Almaty';
+
+    return this.prisma.$transaction(async (tx) => {
+      const entitlements: { id: string; examTypeId: string }[] = [];
+      for (const rule of tpl.examRules) {
+        const totalLimit = rule.isUnlimited
+          ? null
+          : (rule.totalAttemptsLimit ?? tpl.totalAttemptsLimit);
+        const dailyLimit = rule.dailyAttemptsLimit ?? tpl.dailyAttemptsLimit;
+        const row = await tx.userExamEntitlement.create({
+          data: {
+            userId: data.userId,
+            examTypeId: rule.examTypeId,
+            tier: tpl.isPremium ? EntitlementTier.paid : EntitlementTier.trial,
+            status: EntitlementStatus.active,
+            sourceType: EntitlementSourceType.plan_template,
+            sourceRef: `plan_template:${tpl.id}:exam:${rule.examTypeId}:${Date.now()}`,
+            planTemplateId: tpl.id,
+            subscriptionId: null,
+            totalAttemptsLimit: totalLimit,
+            dailyAttemptsLimit: dailyLimit,
+            usedAttemptsTotal: 0,
+            timezone: tz,
+            windowStartsAt: start,
+            windowEndsAt: end,
+            createdBy: adminId,
+            metadata: {
+              ...(data.paymentNote != null && String(data.paymentNote).trim() !== ''
+                ? { paymentNote: String(data.paymentNote).trim() }
+                : {}),
+              planTemplateCode: tpl.code,
+            },
+          },
+        });
+        entitlements.push({ id: row.id, examTypeId: rule.examTypeId });
+      }
+      return {
+        template: { id: tpl.id, code: tpl.code, name: tpl.name },
+        entitlements,
+      };
     });
   }
 
