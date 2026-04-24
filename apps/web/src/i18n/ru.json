@@ -262,7 +262,10 @@
     "statusSuccess": "Оплата прошла успешно. Доступ активируется в течение минуты.",
     "statusFail": "Оплата не завершена. Можно выбрать тариф и повторить попытку.",
     "payButton": "Перейти к оплате",
-    "activeButton": "Перейти к экзаменам"
+    "activeButton": "Перейти к экзаменам",
+    "whatsappIntro": "Здравствуйте! Хочу приобрести тариф \"{{planName}}\" за {{price}}₸",
+    "whatsappLinePhone": "Мой номер: {{phone}}",
+    "whatsappLineTelegram": "Telegram: @{{username}}"
   },
   "common": {
     "loading": "Загрузка...",

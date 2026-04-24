@@ -295,6 +295,40 @@ html:has(.landing-root.is-light) body {
   object-fit: cover;
 }
 
+/* Мобилка: картинки на всю ширину, пропорции без обрезки (hero и любые прочие img) */
+@media (max-width: 767px) {
+  .ld-carousel-shell {
+    min-height: 0;
+  }
+
+  .ld-carousel-slide {
+    position: relative;
+    inset: auto;
+    min-height: 0;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ld-carousel-slide:not(.is-active) {
+    display: none;
+  }
+
+  .ld-carousel-slide picture,
+  .ld-carousel-slide img {
+    width: 100%;
+    height: auto;
+  }
+
+  .ld-carousel-slide img {
+    object-fit: unset;
+  }
+
+  .landing-root img {
+    width: 100%;
+    height: auto;
+  }
+}
+
 .ld-carousel-overlay {
   position: absolute;
   inset: 0;

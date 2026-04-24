@@ -262,7 +262,10 @@
     "statusSuccess": "Payment was successful. Access will be activated within a minute.",
     "statusFail": "Payment was not completed. You can choose a plan and retry.",
     "payButton": "Proceed to payment",
-    "activeButton": "Go to exams"
+    "activeButton": "Go to exams",
+    "whatsappIntro": "Hello! I would like to buy the \"{{planName}}\" plan for {{price}} KZT",
+    "whatsappLinePhone": "My phone: {{phone}}",
+    "whatsappLineTelegram": "Telegram: @{{username}}"
   },
   "common": {
     "loading": "Loading...",

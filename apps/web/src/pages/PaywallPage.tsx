@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBillingPlans } from '../api/hooks/useBilling';
 import { useProfile } from '../api/hooks/useProfile';
 import { Spinner } from '../components/common/Spinner';
+import { openWhatsAppWithText } from '../lib/whatsapp';
 
 function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
   if (!targetIso) return null;
@@ -18,7 +19,7 @@ function formatCountdown(targetIso: string | null | undefined, nowMs: number): s
 }
 
 export function PaywallPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data: plans, isLoading } = useBillingPlans();
@@ -120,9 +121,23 @@ export function PaywallPage() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => {
-                  const WA_NUMBER = '77775932124';
-                  const message = `Здравствуйте! Хочу приобрести тариф "${plan.name}" за ${plan.priceKzt}₸`;
-                  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+                  const priceStr = new Intl.NumberFormat(
+                    i18n.language === 'kk' ? 'kk-KZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU',
+                  ).format(plan.priceKzt);
+                  let message = t('paywall.whatsappIntro', {
+                    planName: plan.name,
+                    price: priceStr,
+                  });
+                  const phone = profile?.phone?.trim();
+                  if (phone) {
+                    message += `\n\n${t('paywall.whatsappLinePhone', { phone })}`;
+                  }
+                  const rawUser = profile?.telegramUsername?.trim();
+                  if (rawUser) {
+                    const username = rawUser.replace(/^@/, '');
+                    message += `\n${t('paywall.whatsappLineTelegram', { username })}`;
+                  }
+                  openWhatsAppWithText(message);
                 }}
               >
                 {t('paywall.payButton')}
