@@ -5,6 +5,7 @@
   "nav": {
     "home": "Home",
     "chance": "Chance",
+    "subscriptions": "Subscriptions",
     "profile": "Profile",
     "settings": "Settings",
     "ariaLabel": "Main navigation"

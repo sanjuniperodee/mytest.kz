@@ -560,6 +560,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: var(--accent-light);
 }
 
+/* Paywall: только в боковой панели (desktop), в нижней — через профиль и др. */
+@media (max-width: 1023.98px) {
+  .nav-bar-item--desktop-only {
+    display: none;
+  }
+}
+
 /* ── Grid ── */
 .grid { display: grid; gap: var(--sp-3); }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }

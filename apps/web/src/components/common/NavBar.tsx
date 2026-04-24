@@ -31,6 +31,14 @@ const AdmissionIcon = ({ active }: { active: boolean }) => (
   </svg>
 );
 
+const SubscriptionIcon = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M2 10h20" />
+    <path d="M6 15h4" />
+  </svg>
+);
+
 export function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +47,7 @@ export function NavBar() {
   const items = [
     { path: '/app', Icon: HomeIcon, label: t('nav.home') },
     { path: '/admission-chance', Icon: AdmissionIcon, label: t('nav.chance') },
+    { path: '/paywall', Icon: SubscriptionIcon, label: t('nav.subscriptions'), desktopOnly: true },
     { path: '/profile', Icon: ProfileIcon, label: t('nav.profile') },
     { path: '/settings', Icon: SettingsIcon, label: t('nav.settings') },
   ];
@@ -55,7 +64,7 @@ export function NavBar() {
         </span>
         <span className="nav-bar-title">{t('app.name')}</span>
       </button>
-      {items.map(({ path, Icon, label }) => {
+      {items.map(({ path, Icon, label, desktopOnly }) => {
         const active = path === '/app'
           ? location.pathname === '/app'
           : location.pathname.startsWith(path);
@@ -63,7 +72,7 @@ export function NavBar() {
           <button
             key={path}
             type="button"
-            className={`nav-bar-item ${active ? 'active' : ''}`}
+            className={`nav-bar-item ${active ? 'active' : ''}${desktopOnly ? ' nav-bar-item--desktop-only' : ''}`}
             onClick={() => navigate(path)}
           >
             <Icon active={active} />
