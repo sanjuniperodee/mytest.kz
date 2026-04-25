@@ -28,13 +28,20 @@ import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 
+function humanizeApiMessage(raw: string): string {
+  if (raw.includes('PLAN_TEMPLATE_HAS_NO_EXAM_RULES')) {
+    return 'У выбранного тарифа нет правил по экзаменам. Во вкладке «Шаблоны» нажмите «Правила экзаменов», добавьте хотя бы один экзамен и сохраните — затем снова «Выдать подписку». Либо используйте Legacy во вкладке «Проверка и редкие сценарии», если подходит planType-выдача.';
+  }
+  return raw;
+}
+
 function apiErr(e: unknown, fallback: string): string {
   if (isAxiosError(e) && e.response?.data) {
     const d = e.response.data as { message?: string | string[] };
-    if (typeof d.message === 'string') return d.message;
-    if (Array.isArray(d.message) && d.message[0]) return d.message[0];
+    if (typeof d.message === 'string') return humanizeApiMessage(d.message);
+    if (Array.isArray(d.message) && d.message[0]) return humanizeApiMessage(d.message[0]);
   }
-  return fallback;
+  return humanizeApiMessage(fallback);
 }
 
 const LEGACY_PLAN_TYPES = [
@@ -56,14 +63,25 @@ const LEGACY_PLAN_DAYS: Record<string, number> = {
   annual: 365,
 };
 
+type PlanTemplateExamRule = {
+  id?: string;
+  examTypeId: string;
+  isUnlimited: boolean;
+  totalAttemptsLimit?: number | null;
+  dailyAttemptsLimit?: number | null;
+  examType?: { slug: string };
+};
+
 type PlanTemplateRow = {
   id: string;
   code: string;
   name: string;
   description?: string | null;
   durationDays?: number | null;
+  totalAttemptsLimit?: number | null;
+  dailyAttemptsLimit?: number | null;
   isPremium?: boolean;
-  examRules?: unknown[];
+  examRules?: PlanTemplateExamRule[];
 };
 
 const ENTITLEMENT_TIERS = [
@@ -88,12 +106,15 @@ export function SubscriptionsPage() {
   const [selectedEntitlementsUserId, setSelectedEntitlementsUserId] = useState<string | null>(null);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [editTemplateOpen, setEditTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<PlanTemplateRow | null>(null);
   const [entitlementModalOpen, setEntitlementModalOpen] = useState(false);
   const [applyTemplateIdPrefill, setApplyTemplateIdPrefill] = useState<string | null>(null);
   const [subscriptionTab, setSubscriptionTab] = useState('grant');
 
   const [applyForm] = Form.useForm();
   const [templateForm] = Form.useForm();
+  const [editTemplateForm] = Form.useForm();
   const [subscriptionForm] = Form.useForm();
   const [entitlementForm] = Form.useForm();
 
@@ -245,6 +266,61 @@ export function SubscriptionsPage() {
     onError: (e) => message.error(apiErr(e, 'Ошибка при создании шаблона')),
   });
 
+  const updatePlanTemplate = useMutation({
+    mutationFn: async (values: {
+      id: string;
+      name: string;
+      description?: string;
+      isPremium: boolean;
+      durationDays?: number | null;
+      totalAttemptsLimit?: number | null;
+      dailyAttemptsLimit?: number | null;
+      rules?: Array<{
+        examTypeId: string;
+        totalAttemptsLimit?: number | null;
+        dailyAttemptsLimit?: number | null;
+        isUnlimited?: boolean;
+        sortOrder?: number;
+      }>;
+    }) => {
+      const rules = (values.rules ?? [])
+        .filter((r) => r.examTypeId)
+        .map((r, i) => ({
+          examTypeId: r.examTypeId,
+          totalAttemptsLimit: r.isUnlimited ? null : (r.totalAttemptsLimit ?? null),
+          dailyAttemptsLimit: r.dailyAttemptsLimit ?? null,
+          isUnlimited: !!r.isUnlimited,
+          sortOrder: r.sortOrder ?? i,
+        }));
+      if (rules.length === 0) {
+        throw new Error('Добавьте хотя бы одно правило: выберите экзамен');
+      }
+      await api.patch(`/admin/subscriptions/plan-templates/${values.id}`, {
+        name: values.name,
+        description: values.description || null,
+        isPremium: !!values.isPremium,
+        durationDays: values.durationDays ?? null,
+        totalAttemptsLimit: values.totalAttemptsLimit ?? null,
+        dailyAttemptsLimit: values.dailyAttemptsLimit ?? null,
+        replaceRules: rules,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-plan-templates'] });
+      setEditTemplateOpen(false);
+      setEditingTemplate(null);
+      editTemplateForm.resetFields();
+      message.success('Шаблон и правила сохранены');
+    },
+    onError: (e) => {
+      if (e instanceof Error && !isAxiosError(e)) {
+        message.error(e.message);
+        return;
+      }
+      message.error(apiErr(e, 'Не удалось сохранить шаблон'));
+    },
+  });
+
   const grantEntitlement = useMutation({
     mutationFn: async (values: {
       userId: string;
@@ -378,7 +454,36 @@ export function SubscriptionsPage() {
     },
   ];
 
-  const templateColumns: ColumnsType<any> = [
+  const openTemplateRulesEditor = (row: PlanTemplateRow) => {
+    setEditingTemplate(row);
+    setEditTemplateOpen(true);
+    setSubscriptionTab('templates');
+    const rules: Array<{
+      examTypeId: string;
+      isUnlimited: boolean;
+      totalAttemptsLimit?: number | null;
+      dailyAttemptsLimit?: number | null;
+    }> =
+      (row.examRules?.length ?? 0) > 0
+        ? (row.examRules ?? []).map((r) => ({
+            examTypeId: r.examTypeId,
+            isUnlimited: !!r.isUnlimited,
+            totalAttemptsLimit: r.totalAttemptsLimit ?? undefined,
+            dailyAttemptsLimit: r.dailyAttemptsLimit ?? undefined,
+          }))
+        : [{ isUnlimited: false, examTypeId: '' }];
+    editTemplateForm.setFieldsValue({
+      name: row.name,
+      description: row.description ?? '',
+      durationDays: row.durationDays ?? undefined,
+      totalAttemptsLimit: row.totalAttemptsLimit ?? undefined,
+      dailyAttemptsLimit: row.dailyAttemptsLimit ?? undefined,
+      isPremium: !!row.isPremium,
+      rules,
+    });
+  };
+
+  const templateColumns: ColumnsType<PlanTemplateRow> = [
     { title: 'Code', dataIndex: 'code', width: 200 },
     { title: 'Название', dataIndex: 'name' },
     {
@@ -400,21 +505,26 @@ export function SubscriptionsPage() {
     },
     {
       title: 'Действия',
-      width: 200,
+      width: 280,
       fixed: 'right',
-      render: (_: unknown, row: any) => (
-        <Button
-          type="link"
-          size="small"
-          onClick={() => {
-            setApplyTemplateIdPrefill(row.id);
-            setSubscriptionTab('grant');
-            applyForm.setFieldsValue({ planTemplateId: row.id, userId: applyForm.getFieldValue('userId') });
-            document.getElementById('apply-plan-template-form')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        >
-          Применить к пользователю
-        </Button>
+      render: (_: unknown, row: PlanTemplateRow) => (
+        <Space size={0} wrap>
+          <Button type="link" size="small" onClick={() => openTemplateRulesEditor(row)}>
+            Правила экзаменов
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => {
+              setApplyTemplateIdPrefill(row.id);
+              setSubscriptionTab('grant');
+              applyForm.setFieldsValue({ planTemplateId: row.id, userId: applyForm.getFieldValue('userId') });
+              document.getElementById('apply-plan-template-form')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            К выдаче
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -697,7 +807,7 @@ export function SubscriptionsPage() {
                             />
                           ) : (
                             <Typography.Text type="danger">
-                              Нет правил — задайте в API (PATCH) или создайте шаблон с правилами.
+                              Нет правил — в таблице нажмите «Правила экзаменов» и сохраните хотя бы один экзамен.
                             </Typography.Text>
                           ),
                       }}
@@ -939,6 +1049,113 @@ export function SubscriptionsPage() {
                       </Col>
                       <Col>
                         <Button type="text" danger onClick={() => remove(field.name)} disabled={fields.length <= 0}>
+                          Удалить
+                        </Button>
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
+                <Button type="dashed" onClick={() => add({ isUnlimited: false })} block icon={<PlusOutlined />}>
+                  Добавить экзамен
+                </Button>
+              </Space>
+            )}
+          </Form.List>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={
+          editingTemplate
+            ? `Правила экзаменов: ${editingTemplate.code}`
+            : 'Правила экзаменов'
+        }
+        open={editTemplateOpen}
+        width={720}
+        onCancel={() => {
+          setEditTemplateOpen(false);
+          setEditingTemplate(null);
+          editTemplateForm.resetFields();
+        }}
+        onOk={() => editTemplateForm.submit()}
+        confirmLoading={updatePlanTemplate.isPending}
+        destroyOnClose
+      >
+        {editingTemplate ? (
+          <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+            Code <code>{editingTemplate.code}</code> менять нельзя. «Сохранить» перезаписывает список правил (
+            <code>replaceRules</code>).
+          </Typography.Paragraph>
+        ) : null}
+        <Form
+          form={editTemplateForm}
+          layout="vertical"
+          onFinish={(v) => {
+            if (!editingTemplate) return;
+            updatePlanTemplate.mutate({ id: editingTemplate.id, ...v });
+          }}
+        >
+          <Form.Item name="name" label="Название" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="description" label="Описание (для админов)">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Space align="start" wrap>
+            <Form.Item name="durationDays" label="Срок, дней (для auto end)">
+              <InputNumber min={1} style={{ width: 140 }} />
+            </Form.Item>
+            <Form.Item name="totalAttemptsLimit" label="Total default">
+              <InputNumber min={0} style={{ width: 120 }} />
+            </Form.Item>
+            <Form.Item name="dailyAttemptsLimit" label="Daily default">
+              <InputNumber min={0} style={{ width: 120 }} />
+            </Form.Item>
+            <Form.Item name="isPremium" label="Premium" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </Space>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+            Правила по экзаменам (нужна минимум одна строка с выбранным экзаменом)
+          </Typography.Text>
+          <Form.List name="rules">
+            {(fields, { add, remove }) => (
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                {fields.map((field) => (
+                  <Card key={field.key} size="small" type="inner">
+                    <Row gutter={8} align="middle">
+                      <Col flex="1 1 200px">
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'examTypeId']}
+                          label="Экзамен"
+                          rules={[{ required: true, message: 'Выберите экзамен' }]}
+                        >
+                          <Select options={examOptions} placeholder="slug" showSearch optionFilterProp="label" />
+                        </Form.Item>
+                      </Col>
+                      <Col>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'isUnlimited']}
+                          valuePropName="checked"
+                          label="Без лим. total"
+                        >
+                          <Switch />
+                        </Form.Item>
+                      </Col>
+                      <Col>
+                        <Form.Item {...field} name={[field.name, 'totalAttemptsLimit']} label="Total">
+                          <InputNumber min={0} style={{ width: 90 }} placeholder="при лимите" />
+                        </Form.Item>
+                      </Col>
+                      <Col>
+                        <Form.Item {...field} name={[field.name, 'dailyAttemptsLimit']} label="Day">
+                          <InputNumber min={0} style={{ width: 80 }} />
+                        </Form.Item>
+                      </Col>
+                      <Col>
+                        <Button type="text" danger onClick={() => remove(field.name)} disabled={fields.length <= 1}>
                           Удалить
                         </Button>
                       </Col>
