@@ -782,7 +782,7 @@ export function SubscriptionsPage() {
                       У шаблона должны быть <strong>правила по экзаменам</strong>. Глобальные лимиты на карточке
                       подставляются в правила, если в строке не переопределили.
                     </Typography.Paragraph>
-                    <Table
+                    <Table<PlanTemplateRow>
                       columns={templateColumns}
                       dataSource={planTemplates ?? []}
                       rowKey="id"
@@ -790,19 +790,21 @@ export function SubscriptionsPage() {
                       pagination={{ pageSize: 8 }}
                       scroll={{ x: 900 }}
                       expandable={{
-                        expandedRowRender: (row: {
-                          examRules?: Array<Record<string, unknown> & { examType?: { slug: string } }>;
-                        }) =>
+                        expandedRowRender: (row) =>
                           (row.examRules?.length ?? 0) > 0 ? (
                             <Table
                               size="small"
                               pagination={false}
                               rowKey="id"
-                              dataSource={row.examRules}
+                              dataSource={row.examRules as PlanTemplateExamRule[]}
                               columns={[
-                                { title: 'Экзамен', render: (r) => r.examType?.slug },
-                                { title: 'Total', render: (r) => (r.isUnlimited ? '∞' : (r.totalAttemptsLimit ?? '—')) },
-                                { title: 'Day', render: (r) => r.dailyAttemptsLimit ?? '—' },
+                                { title: 'Экзамен', render: (r: PlanTemplateExamRule) => r.examType?.slug },
+                                {
+                                  title: 'Total',
+                                  render: (r: PlanTemplateExamRule) =>
+                                    r.isUnlimited ? '∞' : (r.totalAttemptsLimit ?? '—'),
+                                },
+                                { title: 'Day', render: (r: PlanTemplateExamRule) => r.dailyAttemptsLimit ?? '—' },
                               ]}
                             />
                           ) : (
