@@ -341,15 +341,15 @@
     "heroQuickNavAria": "Быстрые ссылки по разделам страницы",
     "heroSlides": [
       {
-        "title": "Подготовка к экзаменам в одном месте",
-        "subtitle": "Таймер, аналитика ошибок и прогресс по предметам в удобном формате.",
+        "title": "",
+        "subtitle": "",
         "desktopImageUrl": "",
         "tabletImageUrl": "",
         "mobileImageUrl": "",
-        "buttonLabel": "Начать тест",
-        "buttonHref": "/login",
-        "showButton": true,
-        "isActive": true
+        "buttonLabel": "",
+        "buttonHref": "",
+        "showButton": false,
+        "isActive": false
       }
     ],
     "marqueeLine": "ЕНТ · НИШ · НУЭТ · КТЛ · Telegram · таймер · ошибки · прогресс · қазақша · русский · English",
