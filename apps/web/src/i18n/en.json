@@ -266,7 +266,8 @@
     "activeButton": "Go to exams",
     "whatsappIntro": "Hello! I would like to buy the \"{{planName}}\" plan for {{price}} KZT",
     "whatsappLinePhone": "My phone: {{phone}}",
-    "whatsappLineTelegram": "Telegram: @{{username}}"
+    "whatsappLineTelegram": "Telegram: @{{username}}",
+    "whatsappLineInvoice": "Number for the invoice: please send your phone number in the next message so we know where to issue it."
   },
   "common": {
     "loading": "Loading...",

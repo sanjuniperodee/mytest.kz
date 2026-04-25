@@ -137,6 +137,7 @@ export function PaywallPage() {
                     const username = rawUser.replace(/^@/, '');
                     message += `\n${t('paywall.whatsappLineTelegram', { username })}`;
                   }
+                  message += `\n\n${t('paywall.whatsappLineInvoice')}`;
                   openWhatsAppWithText(message);
                 }}
               >

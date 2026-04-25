@@ -266,7 +266,8 @@
     "activeButton": "Перейти к экзаменам",
     "whatsappIntro": "Здравствуйте! Хочу приобрести тариф \"{{planName}}\" за {{price}}₸",
     "whatsappLinePhone": "Мой номер: {{phone}}",
-    "whatsappLineTelegram": "Telegram: @{{username}}"
+    "whatsappLineTelegram": "Telegram: @{{username}}",
+    "whatsappLineInvoice": "Номер для выставления счёта: пожалуйста, в следующем сообщении напишите телефон, на который выставить счёт."
   },
   "common": {
     "loading": "Загрузка...",

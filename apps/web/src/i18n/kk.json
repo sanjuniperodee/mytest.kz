@@ -266,7 +266,8 @@
     "activeButton": "Емтихандарға өту",
     "whatsappIntro": "Сәлеметсіз бе! \"{{planName}}\" тарифін {{price}}₸-ға сатып алғым келеді",
     "whatsappLinePhone": "Нөмірім: {{phone}}",
-    "whatsappLineTelegram": "Telegram: @{{username}}"
+    "whatsappLineTelegram": "Telegram: @{{username}}",
+    "whatsappLineInvoice": "Шот тапсыруға нөмір: келесі хабарламада шот тапсыру үшін нөміріңізді жазыңыз."
   },
   "common": {
     "loading": "Жүктелуде...",
