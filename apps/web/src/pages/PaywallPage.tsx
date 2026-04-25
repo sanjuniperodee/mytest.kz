@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useBillingPlans } from '../api/hooks/useBilling';
 import { useProfile } from '../api/hooks/useProfile';
+import type { BillingPlan } from '../api/types';
 import { Spinner } from '../components/common/Spinner';
 import { openWhatsAppWithText } from '../lib/whatsapp';
 
@@ -25,11 +26,70 @@ export function PaywallPage() {
   const { data: plans, isLoading } = useBillingPlans();
   const { data: profile } = useProfile();
   const [nowMs, setNowMs] = useState(Date.now());
+  const [planForWhatsapp, setPlanForWhatsapp] = useState<BillingPlan | null>(null);
+  const [invoicePhone, setInvoicePhone] = useState('');
+  const [invoiceError, setInvoiceError] = useState(false);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!planForWhatsapp) return;
+    const t = window.setTimeout(() => invoiceInputRef.current?.focus(), 50);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPlanForWhatsapp(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [planForWhatsapp]);
+
+  const buildWhatsappMessage = (plan: BillingPlan, invoice: string) => {
+    const priceStr = new Intl.NumberFormat(
+      i18n.language === 'kk' ? 'kk-KZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU',
+    ).format(plan.priceKzt);
+    let message = t('paywall.whatsappIntro', {
+      planName: plan.name,
+      price: priceStr,
+    });
+    const phone = profile?.phone?.trim();
+    if (phone) {
+      message += `\n\n${t('paywall.whatsappLinePhone', { phone })}`;
+    }
+    const rawUser = profile?.telegramUsername?.trim();
+    if (rawUser) {
+      const username = rawUser.replace(/^@/, '');
+      message += `\n${t('paywall.whatsappLineTelegram', { username })}`;
+    }
+    message += `\n\n${t('paywall.whatsappLineInvoice', { phone: invoice })}`;
+    return message;
+  };
+
+  const openInvoiceModal = (plan: BillingPlan) => {
+    setPlanForWhatsapp(plan);
+    setInvoicePhone((profile?.phone ?? '').trim());
+    setInvoiceError(false);
+  };
+
+  const confirmWhatsapp = () => {
+    if (!planForWhatsapp) return;
+    const trimmed = invoicePhone.trim();
+    if (!trimmed) {
+      setInvoiceError(true);
+      return;
+    }
+    setInvoiceError(false);
+    openWhatsAppWithText(buildWhatsappMessage(planForWhatsapp, trimmed));
+    setPlanForWhatsapp(null);
+  };
 
   const paymentStatus = searchParams.get('payment');
   const entAccess = profile?.accessByExam?.find((x) => x.examSlug === 'ent');
@@ -117,36 +177,73 @@ export function PaywallPage() {
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  const priceStr = new Intl.NumberFormat(
-                    i18n.language === 'kk' ? 'kk-KZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU',
-                  ).format(plan.priceKzt);
-                  let message = t('paywall.whatsappIntro', {
-                    planName: plan.name,
-                    price: priceStr,
-                  });
-                  const phone = profile?.phone?.trim();
-                  if (phone) {
-                    message += `\n\n${t('paywall.whatsappLinePhone', { phone })}`;
-                  }
-                  const rawUser = profile?.telegramUsername?.trim();
-                  if (rawUser) {
-                    const username = rawUser.replace(/^@/, '');
-                    message += `\n${t('paywall.whatsappLineTelegram', { username })}`;
-                  }
-                  message += `\n\n${t('paywall.whatsappLineInvoice')}`;
-                  openWhatsAppWithText(message);
-                }}
-              >
+              <button type="button" className="btn btn-primary" onClick={() => openInvoiceModal(plan)}>
                 {t('paywall.payButton')}
               </button>
             </article>
           ))}
         </div>
       )}
+
+      {planForWhatsapp ? (
+        <>
+          <button
+            type="button"
+            className="paywall-invoice-modal-backdrop"
+            aria-label={t('common.cancel')}
+            onClick={() => setPlanForWhatsapp(null)}
+          />
+          <div
+            className="paywall-invoice-modal surface"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paywall-invoice-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="paywall-invoice-title" className="paywall-invoice-modal-title">
+              {t('paywall.invoiceModalTitle')}
+            </h2>
+            <p className="paywall-invoice-modal-desc">{t('paywall.invoiceModalDescription')}</p>
+            <label className="input-label" htmlFor="paywall-invoice-phone">
+              {t('paywall.invoiceModalLabel')}
+            </label>
+            <input
+              id="paywall-invoice-phone"
+              ref={invoiceInputRef}
+              className="input"
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              value={invoicePhone}
+              onChange={(e) => {
+                setInvoicePhone(e.target.value);
+                if (invoiceError) setInvoiceError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  confirmWhatsapp();
+                }
+              }}
+              placeholder={t('paywall.invoiceModalPlaceholder')}
+              aria-invalid={invoiceError}
+            />
+            {invoiceError ? (
+              <p className="paywall-invoice-modal-error" role="alert">
+                {t('paywall.invoiceModalError')}
+              </p>
+            ) : null}
+            <div className="paywall-invoice-modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setPlanForWhatsapp(null)}>
+                {t('common.cancel')}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={confirmWhatsapp}>
+                {t('paywall.invoiceModalOpen')}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

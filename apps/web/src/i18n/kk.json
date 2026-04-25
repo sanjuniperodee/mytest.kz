@@ -267,7 +267,13 @@
     "whatsappIntro": "Сәлеметсіз бе! \"{{planName}}\" тарифін {{price}}₸-ға сатып алғым келеді",
     "whatsappLinePhone": "Нөмірім: {{phone}}",
     "whatsappLineTelegram": "Telegram: @{{username}}",
-    "whatsappLineInvoice": "Шот тапсыруға нөмір: келесі хабарламада шот тапсыру үшін нөміріңізді жазыңыз."
+    "whatsappLineInvoice": "Шот тапсыру нөмірі: {{phone}}",
+    "invoiceModalTitle": "Шот тапсыру нөмірі",
+    "invoiceModalDescription": "Шот тапсыратын нөмірді енгізіңіз — ол WhatsApp хабарламасына қосылады.",
+    "invoiceModalLabel": "Телефон",
+    "invoiceModalPlaceholder": "Мысалы, +7 700 000 00 00",
+    "invoiceModalOpen": "WhatsApp-қа өту",
+    "invoiceModalError": "Нөмірді енгізіңіз"
   },
   "common": {
     "loading": "Жүктелуде...",

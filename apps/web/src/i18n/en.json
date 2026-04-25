@@ -267,7 +267,13 @@
     "whatsappIntro": "Hello! I would like to buy the \"{{planName}}\" plan for {{price}} KZT",
     "whatsappLinePhone": "My phone: {{phone}}",
     "whatsappLineTelegram": "Telegram: @{{username}}",
-    "whatsappLineInvoice": "Number for the invoice: please send your phone number in the next message so we know where to issue it."
+    "whatsappLineInvoice": "Number for the invoice: {{phone}}",
+    "invoiceModalTitle": "Number for the invoice",
+    "invoiceModalDescription": "Enter the phone number to issue the invoice to — it will be included in the WhatsApp message.",
+    "invoiceModalLabel": "Phone",
+    "invoiceModalPlaceholder": "E.g. +7 700 000 00 00",
+    "invoiceModalOpen": "Open WhatsApp",
+    "invoiceModalError": "Enter a phone number"
   },
   "common": {
     "loading": "Loading...",

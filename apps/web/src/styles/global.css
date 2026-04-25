@@ -1959,6 +1959,65 @@ html[data-theme="light"] .profile-hero-glow {
   line-height: 1.5;
 }
 
+.paywall-invoice-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-theme="light"] .paywall-invoice-modal-backdrop {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.paywall-invoice-modal {
+  position: fixed;
+  z-index: 71;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100% - 32px, 380px);
+  max-height: min(90dvh, 420px);
+  padding: 20px !important;
+  border-radius: var(--r-lg) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.paywall-invoice-modal-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.paywall-invoice-modal-desc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.paywall-invoice-modal-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--error-light);
+}
+
+.paywall-invoice-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .mistakes-home-banner {
   display: flex;
   align-items: center;

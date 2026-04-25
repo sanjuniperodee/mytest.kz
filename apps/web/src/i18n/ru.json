@@ -267,7 +267,13 @@
     "whatsappIntro": "Здравствуйте! Хочу приобрести тариф \"{{planName}}\" за {{price}}₸",
     "whatsappLinePhone": "Мой номер: {{phone}}",
     "whatsappLineTelegram": "Telegram: @{{username}}",
-    "whatsappLineInvoice": "Номер для выставления счёта: пожалуйста, в следующем сообщении напишите телефон, на который выставить счёт."
+    "whatsappLineInvoice": "Номер для выставления счёта: {{phone}}",
+    "invoiceModalTitle": "Номер для выставления счёта",
+    "invoiceModalDescription": "Введите телефон, на который выставить счёт — он попадёт в сообщение в WhatsApp.",
+    "invoiceModalLabel": "Телефон",
+    "invoiceModalPlaceholder": "Например, +7 700 000 00 00",
+    "invoiceModalOpen": "Перейти в WhatsApp",
+    "invoiceModalError": "Введите номер"
   },
   "common": {
     "loading": "Загрузка...",
