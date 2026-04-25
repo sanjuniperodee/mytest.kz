@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert,
   Button,
   Card,
   Col,
@@ -18,6 +17,7 @@ import {
   Space,
   Switch,
   Table,
+  Tabs,
   Tag,
   Typography,
   message,
@@ -48,6 +48,24 @@ const LEGACY_PLAN_TYPES = [
   { value: 'annual', label: 'annual', hint: 'Как «год».' },
 ];
 
+/** Длительность по умолчанию для дат в legacy-модалке (календарные дни с «сейчас»). */
+const LEGACY_PLAN_DAYS: Record<string, number> = {
+  trial: 14,
+  week: 7,
+  month: 30,
+  annual: 365,
+};
+
+type PlanTemplateRow = {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  durationDays?: number | null;
+  isPremium?: boolean;
+  examRules?: unknown[];
+};
+
 const ENTITLEMENT_TIERS = [
   { value: 'free', label: 'free' },
   { value: 'trial', label: 'trial' },
@@ -72,6 +90,7 @@ export function SubscriptionsPage() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [entitlementModalOpen, setEntitlementModalOpen] = useState(false);
   const [applyTemplateIdPrefill, setApplyTemplateIdPrefill] = useState<string | null>(null);
+  const [subscriptionTab, setSubscriptionTab] = useState('grant');
 
   const [applyForm] = Form.useForm();
   const [templateForm] = Form.useForm();
@@ -122,6 +141,7 @@ export function SubscriptionsPage() {
   useEffect(() => {
     if (applyTemplateIdPrefill) {
       applyForm.setFieldValue('planTemplateId', applyTemplateIdPrefill);
+      setSubscriptionTab('grant');
     }
   }, [applyTemplateIdPrefill, applyForm]);
 
@@ -388,6 +408,7 @@ export function SubscriptionsPage() {
           size="small"
           onClick={() => {
             setApplyTemplateIdPrefill(row.id);
+            setSubscriptionTab('grant');
             applyForm.setFieldsValue({ planTemplateId: row.id, userId: applyForm.getFieldValue('userId') });
             document.getElementById('apply-plan-template-form')?.scrollIntoView({ behavior: 'smooth' });
           }}
@@ -470,230 +491,321 @@ export function SubscriptionsPage() {
     },
   ];
 
+  const planTemplateOptions = (planTemplates ?? []).map((p: PlanTemplateRow) => {
+    const n = (p.examRules?.length ?? 0) as number;
+    const disabled = n === 0;
+    return {
+      value: p.id,
+      label: `${p.code} — ${p.name}${n ? ` · ${n} экз.` : ' · нет правил'}`,
+      disabled,
+      title: disabled ? 'Добавьте правила экзаменов в шаблон (вкладка «Шаблоны»)' : p.description ?? p.name,
+    };
+  });
+
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <div>
           <Typography.Title level={2} style={{ marginBottom: 4 }}>
-            Подписки и доступ
+            Подписки
           </Typography.Title>
           <Typography.Text type="secondary">
-            Каталог шаблонов ≠ доступ пользователя, пока шаблон не применён. Legacy Subscription — отдельная
-            ветка, как у оплаты через кассу.
+            Оплата подтверждена: выберите пользователя и тариф — даты и доступ подставляются сами, затем «Выдать
+            подписку».
           </Typography.Text>
         </div>
 
-        <Collapse
-          defaultActiveKey={['how']}
+        <Tabs
+          activeKey={subscriptionTab}
+          onChange={setSubscriptionTab}
           items={[
             {
-              key: 'how',
-              label: 'Как этим пользоваться (прочитать один раз)',
+              key: 'grant',
+              label: 'Выдача',
               children: (
-                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                  <Typography.Paragraph>
-                    <strong>Шаблон тарифа (каталог)</strong> — это описание: какие экзамены, лимиты попыток, срок. Запись
-                    в БД <strong>сама по себе ничего не открывает</strong> в приложении: её нужно{' '}
-                    <strong>привязать к пользователю</strong> — через блок «Применить шаблон» (создаются entitlements) или
-                    через «точечный» entitlement.
-                  </Typography.Paragraph>
-                  <Typography.Paragraph>
-                    <strong>«Применить шаблон к пользователю»</strong> — рекомендуемый путь: по каждой строке
-                    &quot;правил экзамена&quot; в шаблоне создаётся готовая запись v2 (источник{' '}
-                    <Tag>plan_template</Tag>). Сначала в шаблоне должны быть <strong>правила по экзаменам</strong>.
-                  </Typography.Paragraph>
-                  <Typography.Paragraph>
-                    <strong>Legacy-подписка</strong> — создаётся строка <code>Subscription</code> (как после теста
-                    Freedom Pay), движок синхронизирует entitlements. Нужна для согласованности с planType
-                    (trial/week/month/annual) и сценариями «как в биллинге».
-                  </Typography.Paragraph>
-                  <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                    <strong>Ручной entitlement</strong> — «хирургия»: одна запись, один экзамен, свои лимиты. Без
-                    привязки к шаблону (если не указали) — <Tag>admin_override</Tag>.
-                  </Typography.Paragraph>
+                <Card
+                  id="apply-plan-template-form"
+                  title="Оплата — выдать доступ"
+                  extra={<QuestionCircleOutlined title="Создаёт записи v2 (entitlements) по всем правилам шаблона" />}
+                >
+                  <Form
+                    form={applyForm}
+                    layout="vertical"
+                    onFinish={(values) => applyPlanTemplate.mutate(values)}
+                    initialValues={{ startsAt: dayjs() }}
+                    onValuesChange={(changed) => {
+                      if (Object.prototype.hasOwnProperty.call(changed, 'planTemplateId')) {
+                        applyForm.setFieldValue('endsAt', null);
+                      }
+                    }}
+                  >
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          name="userId"
+                          label="Пользователь"
+                          rules={[{ required: true, message: 'Выберите пользователя' }]}
+                        >
+                          <Select
+                            showSearch
+                            allowClear
+                            placeholder="Поиск: @username, имя, телефон"
+                            onSearch={setUserSearch}
+                            filterOption={false}
+                            options={userOptions}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          name="planTemplateId"
+                          label="Тариф (шаблон)"
+                          rules={[{ required: true, message: 'Выберите тариф' }]}
+                        >
+                          <Select
+                            showSearch
+                            allowClear
+                            loading={templatesLoading}
+                            placeholder="Код или название"
+                            optionFilterProp="label"
+                            options={planTemplateOptions}
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Form.Item
+                      noStyle
+                      shouldUpdate={(prev, cur) =>
+                        prev.planTemplateId !== cur.planTemplateId || prev.startsAt !== cur.startsAt
+                      }
+                    >
+                      {() => {
+                        const tid = applyForm.getFieldValue('planTemplateId') as string | undefined;
+                        const st = applyForm.getFieldValue('startsAt') as dayjs.Dayjs | undefined;
+                        const tpl = (planTemplates ?? []).find((p: PlanTemplateRow) => p.id === tid);
+                        if (!tpl || !st) {
+                          return (
+                            <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                              После выбора тарифа здесь отобразятся сроки доступа.
+                            </Typography.Paragraph>
+                          );
+                        }
+                        const rulesCount = (tpl.examRules?.length ?? 0) as number;
+                        if (rulesCount === 0) {
+                          return (
+                            <Typography.Paragraph type="warning" style={{ marginBottom: 16 }}>
+                              У этого тарифа нет правил по экзаменам — выдача будет отклонена. Настройте шаблон на
+                              вкладке «Шаблоны».
+                            </Typography.Paragraph>
+                          );
+                        }
+                        if (tpl.durationDays != null) {
+                          const end = st.add(tpl.durationDays, 'day');
+                          return (
+                            <Typography.Paragraph style={{ marginBottom: 16 }}>
+                              <strong>Период:</strong> с {st.format('DD.MM.YYYY HH:mm')} по{' '}
+                              {end.format('DD.MM.YYYY HH:mm')}{' '}
+                              <Typography.Text type="secondary">({tpl.durationDays} дн. по тарифу)</Typography.Text>
+                            </Typography.Paragraph>
+                          );
+                        }
+                        return (
+                          <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                            В шаблоне не задан срок (дни). Укажите дату окончания ниже или оставьте пустой — окно
+                            будет без даты окончания.
+                          </Typography.Paragraph>
+                        );
+                      }}
+                    </Form.Item>
+                    <Row gutter={16} align="bottom">
+                      <Col xs={24} sm={12} md={10}>
+                        <Form.Item name="startsAt" label="Старт" rules={[{ required: true, message: 'Укажите' }]}>
+                          <DatePicker showTime style={{ width: '100%' }} format="DD.MM.YYYY HH:mm" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} sm={12} md={10}>
+                        <Form.Item
+                          name="endsAt"
+                          label="Конец (необязательно)"
+                          extra="Если пусто: при наличии «дней в тарифе» срок на сервере; иначе без даты окончания. Заполните, чтобы вручную сократить или продлить срок."
+                        >
+                          <DatePicker
+                            showTime
+                            allowClear
+                            style={{ width: '100%' }}
+                            format="DD.MM.YYYY HH:mm"
+                            placeholder="По умолчанию от тарифа"
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Form.Item name="paymentNote" label="Комментарий (аудит, по желанию)">
+                      <Input.TextArea rows={1} placeholder="№ оплаты, касса, куратор" autoSize={{ minRows: 1, maxRows: 3 }} />
+                    </Form.Item>
+                    <Button
+                      type="primary"
+                      size="large"
+                      htmlType="submit"
+                      loading={applyPlanTemplate.isPending}
+                      block
+                    >
+                      Выдать подписку
+                    </Button>
+                  </Form>
+                </Card>
+              ),
+            },
+            {
+              key: 'templates',
+              label: 'Шаблоны',
+              children: (
+                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                  <Card
+                    title="Каталог тарифов (шаблоны v2)"
+                    extra={
+                      <Button type="primary" icon={<PlusOutlined />} onClick={() => setTemplateModalOpen(true)}>
+                        Новый шаблон
+                      </Button>
+                    }
+                  >
+                    <Typography.Paragraph type="secondary">
+                      У шаблона должны быть <strong>правила по экзаменам</strong>. Глобальные лимиты на карточке
+                      подставляются в правила, если в строке не переопределили.
+                    </Typography.Paragraph>
+                    <Table
+                      columns={templateColumns}
+                      dataSource={planTemplates ?? []}
+                      rowKey="id"
+                      loading={templatesLoading}
+                      pagination={{ pageSize: 8 }}
+                      scroll={{ x: 900 }}
+                      expandable={{
+                        expandedRowRender: (row: {
+                          examRules?: Array<Record<string, unknown> & { examType?: { slug: string } }>;
+                        }) =>
+                          (row.examRules?.length ?? 0) > 0 ? (
+                            <Table
+                              size="small"
+                              pagination={false}
+                              rowKey="id"
+                              dataSource={row.examRules}
+                              columns={[
+                                { title: 'Экзамен', render: (r) => r.examType?.slug },
+                                { title: 'Total', render: (r) => (r.isUnlimited ? '∞' : (r.totalAttemptsLimit ?? '—')) },
+                                { title: 'Day', render: (r) => r.dailyAttemptsLimit ?? '—' },
+                              ]}
+                            />
+                          ) : (
+                            <Typography.Text type="danger">
+                              Нет правил — задайте в API (PATCH) или создайте шаблон с правилами.
+                            </Typography.Text>
+                          ),
+                      }}
+                    />
+                  </Card>
+                </Space>
+              ),
+            },
+            {
+              key: 'more',
+              label: 'Проверка и редкие сценарии',
+              children: (
+                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                  <Collapse
+                    items={[
+                      {
+                        key: 'how',
+                        label: 'Как устроены подписки (документация для админа)',
+                        children: (
+                          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                            <Typography.Paragraph>
+                              <strong>Тариф (шаблон)</strong> в каталоге — это описание экзаменов и лимитов. Пока
+                              шаблон не выдан пользователю, доступ не меняется.
+                            </Typography.Paragraph>
+                            <Typography.Paragraph>
+                              <strong>Выдача</strong> создаёт записи v2, источник <Tag>plan_template</Tag>, по
+                              количеству правил в шаблоне.
+                            </Typography.Paragraph>
+                            <Typography.Paragraph>
+                              <strong>Legacy Subscription</strong> — строка как после оплаты (planType);
+                              движок синхронизирует entitlements. Нужна для согласованности с биллингом.
+                            </Typography.Paragraph>
+                            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                              <strong>Ручной entitlement</strong> — одна запись, один экзамен, без шаблона:{' '}
+                              <Tag>admin_override</Tag>.
+                            </Typography.Paragraph>
+                          </Space>
+                        ),
+                      },
+                    ]}
+                  />
+                  <Card title="Legacy (как в биллинге, planType)">
+                    <Typography.Paragraph type="secondary">
+                      Создаётся <code>Subscription</code> + синхронизация, если нужен именно legacy-поведение.
+                    </Typography.Paragraph>
+                    <Button type="default" onClick={() => setSubscriptionModalOpen(true)}>
+                      Форма legacy
+                    </Button>
+                  </Card>
+                  <Card title="Точечный entitlement (поддержка)">
+                    <Button onClick={() => setEntitlementModalOpen(true)}>Создать вручную</Button>
+                  </Card>
+                  <Card title="Активные legacy-подписки">
+                    <Table
+                      columns={userSubscriptionColumns}
+                      dataSource={usersWithSubs}
+                      rowKey="id"
+                      loading={usersLoading}
+                      pagination={{ pageSize: 8 }}
+                      expandable={{
+                        rowExpandable: (r: { subscriptions?: unknown[] }) => (r.subscriptions?.length ?? 0) > 0,
+                        expandedRowRender: (r: any) => (
+                          <Table
+                            size="small"
+                            rowKey="id"
+                            columns={subscriptionListColumns}
+                            dataSource={r.subscriptions}
+                            pagination={false}
+                          />
+                        ),
+                      }}
+                      locale={{ emptyText: <Empty description="Нет legacy-подписок" /> }}
+                    />
+                  </Card>
+                  <Card title="Entitlements выбранного пользователя (v2)">
+                    <Select
+                      showSearch
+                      allowClear
+                      style={{ maxWidth: 480, width: '100%', marginBottom: 12 }}
+                      placeholder="Пользователь"
+                      onSearch={setUserSearch}
+                      filterOption={false}
+                      options={userOptions}
+                      value={selectedEntitlementsUserId || undefined}
+                      onChange={(v) => setSelectedEntitlementsUserId(v ?? null)}
+                    />
+                    <Table
+                      columns={entitlementColumns}
+                      dataSource={entitlements ?? []}
+                      rowKey="id"
+                      loading={entitlementsLoading}
+                      pagination={{ pageSize: 10 }}
+                      scroll={{ x: 1100 }}
+                      locale={{ emptyText: <Empty description="Выберите пользователя" /> }}
+                    />
+                  </Card>
                 </Space>
               ),
             },
           ]}
         />
-
-        <Card
-          id="apply-plan-template-form"
-          title="1. Применить шаблон к пользователю (основной сценарий)"
-          extra={<QuestionCircleOutlined title="Создаёт entitlements v2 по правилам шаблона" />}
-        >
-          <Alert
-            type="success"
-            showIcon
-            style={{ marginBottom: 16 }}
-            message="Почему нельзя было «просто выдать» шаблон раньше"
-            description="В API не хватало одного шага: массового создания entitlements по examRules. Кнопка «Применить к пользователю» в таблице и эта форма вызывают /admin/subscriptions/apply-plan-template — все правила шаблона применяются за один раз."
-          />
-          <Form
-            form={applyForm}
-            layout="vertical"
-            onFinish={(values) => applyPlanTemplate.mutate(values)}
-            initialValues={{ startsAt: dayjs() }}
-          >
-            <Row gutter={16}>
-              <Col xs={24} md={10}>
-                <Form.Item name="userId" label="Пользователь" rules={[{ required: true, message: 'Выберите' }]}>
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Поиск по @username, имени, телефону"
-                    onSearch={setUserSearch}
-                    filterOption={false}
-                    options={userOptions}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={14}>
-                <Form.Item name="planTemplateId" label="Шаблон" rules={[{ required: true, message: 'Выберите шаблон' }]}>
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Код или название"
-                    optionFilterProp="label"
-                    options={(planTemplates ?? []).map(
-                      (p: { id: string; code: string; name: string; examRules?: unknown[] }) => ({
-                        value: p.id,
-                        label: `${p.code} — ${p.name} (${(p.examRules?.length ?? 0)} прав.)`,
-                      }),
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item name="startsAt" label="Начало доступа" rules={[{ required: true }]}>
-                  <DatePicker showTime style={{ width: '100%' }} format="DD.MM.YYYY HH:mm" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="endsAt"
-                  label="Конец (пусто = по duration дней шаблона, если задан; иначе бессрочно в окне)"
-                >
-                  <DatePicker showTime style={{ width: '100%' }} format="DD.MM.YYYY HH:mm" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item name="paymentNote" label="Комментарий в аудит (необязательно)">
-              <Input.TextArea rows={2} placeholder="Счёт, договор, «по просьбе куратора»" />
-            </Form.Item>
-            <Button type="primary" htmlType="submit" loading={applyPlanTemplate.isPending}>
-              Применить шаблон
-            </Button>
-          </Form>
-        </Card>
-
-        <Card
-          title="2. Каталог шаблонов v2"
-          extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setTemplateModalOpen(true)}>
-              Новый шаблон
-            </Button>
-          }
-        >
-          <Typography.Paragraph type="secondary">
-            У каждого шаблона должны быть <strong>правила по экзаменам</strong>, иначе применение вернёт ошибку. Глобальные
-            лимиты на карточке — запас, если в правиле не переопределили.
-          </Typography.Paragraph>
-          <Table
-            columns={templateColumns}
-            dataSource={planTemplates ?? []}
-            rowKey="id"
-            loading={templatesLoading}
-            pagination={{ pageSize: 8 }}
-            scroll={{ x: 900 }}
-            expandable={{
-              expandedRowRender: (row: { examRules?: Array<Record<string, unknown> & { examType?: { slug: string } }> }) =>
-                (row.examRules?.length ?? 0) > 0 ? (
-                  <Table
-                    size="small"
-                    pagination={false}
-                    rowKey="id"
-                    dataSource={row.examRules}
-                    columns={[
-                      { title: 'Экзамен', render: (r) => r.examType?.slug },
-                      { title: 'Total', render: (r) => (r.isUnlimited ? '∞' : (r.totalAttemptsLimit ?? '—')) },
-                      { title: 'Day', render: (r) => r.dailyAttemptsLimit ?? '—' },
-                    ]}
-                  />
-                ) : (
-                  <Typography.Text type="danger">Нет правил — добавьте при редактировании (API Patch) или создайте шаблон заново с правилами.</Typography.Text>
-                ),
-            }}
-          />
-        </Card>
-
-        <Card title="3. Legacy-подписка (как в биллинге после оплаты)">
-          <Typography.Paragraph>
-            Создаётся сущность <code>Subscription</code> + синхронизация entitlements. Используйте, если нужно
-            повторить поведение оплаченного тарифа (planType) без ручного подбора лимитов.
-          </Typography.Paragraph>
-          <Button type="default" onClick={() => setSubscriptionModalOpen(true)}>
-            Открыть форму legacy
-          </Button>
-        </Card>
-
-        <Card title="4. Точечный entitlement (поддержка)">
-          <Button onClick={() => setEntitlementModalOpen(true)}>Создать вручную</Button>
-        </Card>
-
-        <Card title="5. Активные legacy-подписки у пользователей">
-          <Table
-            columns={userSubscriptionColumns}
-            dataSource={usersWithSubs}
-            rowKey="id"
-            loading={usersLoading}
-            pagination={{ pageSize: 8 }}
-            expandable={{
-              rowExpandable: (r: { subscriptions?: unknown[] }) => (r.subscriptions?.length ?? 0) > 0,
-              expandedRowRender: (r: any) => (
-                <Table
-                  size="small"
-                  rowKey="id"
-                  columns={subscriptionListColumns}
-                  dataSource={r.subscriptions}
-                  pagination={false}
-                />
-              ),
-            }}
-            locale={{ emptyText: <Empty description="Нет пользователей с активными legacy-подписками" /> }}
-          />
-        </Card>
-
-        <Card title="6. Entitlements выбранного пользователя (v2)">
-          <Select
-            showSearch
-            allowClear
-            style={{ maxWidth: 480, width: '100%', marginBottom: 12 }}
-            placeholder="Пользователь"
-            onSearch={setUserSearch}
-            filterOption={false}
-            options={userOptions}
-            value={selectedEntitlementsUserId || undefined}
-            onChange={(v) => setSelectedEntitlementsUserId(v ?? null)}
-          />
-          <Table
-            columns={entitlementColumns}
-            dataSource={entitlements ?? []}
-            rowKey="id"
-            loading={entitlementsLoading}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1100 }}
-            locale={{ emptyText: <Empty description="Выберите пользователя" /> }}
-          />
-        </Card>
       </Space>
 
       <Modal
         title="Legacy: выдать подписку (Subscription)"
         open={subscriptionModalOpen}
         width={640}
+        destroyOnClose
         onCancel={() => {
           setSubscriptionModalOpen(false);
           subscriptionForm.resetFields();
@@ -705,7 +817,14 @@ export function SubscriptionsPage() {
           form={subscriptionForm}
           layout="vertical"
           onFinish={(v) => grantSubscription.mutate(v)}
-          initialValues={{ planType: 'month', dateRange: [dayjs(), dayjs().add(30, 'day')] }}
+          initialValues={{ planType: 'month', dateRange: [dayjs(), dayjs().add(LEGACY_PLAN_DAYS.month, 'day')] }}
+          onValuesChange={(changed) => {
+            if (Object.prototype.hasOwnProperty.call(changed, 'planType')) {
+              const pt = String(changed.planType);
+              const days = LEGACY_PLAN_DAYS[pt] ?? 30;
+              subscriptionForm.setFieldValue('dateRange', [dayjs(), dayjs().add(days, 'day')]);
+            }
+          }}
         >
           <Form.Item name="userId" label="Пользователь" rules={[{ required: true }]}>
             <Select showSearch onSearch={setUserSearch} filterOption={false} options={userOptions} />
@@ -714,9 +833,9 @@ export function SubscriptionsPage() {
             name="planType"
             label={
               <Space>
-                Plan type
+                Тариф (plan type)
                 <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
-                  (см. подсказки)
+                  даты подставятся под срок
                 </Typography.Text>
               </Space>
             }
