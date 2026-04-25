@@ -5,14 +5,18 @@ export function GrantEstimator() {
   const { t } = useTranslation();
 
   return (
-    <section id="grant" className="ld-section ld-section-grant" aria-labelledby="ld-grant-title">
-      <div className="ld-max">
-        <p className="ld-eyebrow">{t('landing.sectionGrant')}</p>
-        <h2 id="ld-grant-title" className="ld-grant-title">
-          {t('landing.grantTitle')}
-        </h2>
-        <p className="ld-grant-lead">{t('landing.grantLead')}</p>
-        <AdmissionChanceWidget variant="landing" />
+    <section id="grant" className="lv2-section lv2-section--rule" aria-labelledby="lv2-grant-heading">
+      <div className="lv2-wrap">
+        <header className="lv2-section__head">
+          <p className="lv2-kicker">{t('landing.sectionGrant')}</p>
+          <h2 id="lv2-grant-heading" className="lv2-heading lv2-heading--section">
+            {t('landing.grantTitle')}
+          </h2>
+          <p className="lv2-lead">{t('landing.grantLead')}</p>
+        </header>
+        <div className="lv2-widget-shell">
+          <AdmissionChanceWidget variant="landing" />
+        </div>
       </div>
     </section>
   );

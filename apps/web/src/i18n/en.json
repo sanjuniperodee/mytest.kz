@@ -337,8 +337,14 @@
     "ctaLogin": "Sign in",
     "ctaTrial": "Start free UNT trial",
     "ctaScroll": "How it works",
-    "ctaGrant": "Estimate profile sum",
-    "heroBadge": "Learning platform for students",
+    "ctaGrant": "Score calculator",
+    "navAnchorsAria": "Page sections",
+    "navGrant": "Scores",
+    "navBenefits": "Why us",
+    "navHow": "Start",
+    "navFormats": "Tests",
+    "navPricing": "Plans",
+    "heroBadge": "Online practice exams · Kazakhstan",
     "heroCarouselAria": "Main hero carousel",
     "heroCarouselDotsAria": "Slide navigation",
     "heroCarouselDot": "Slide",
@@ -360,9 +366,9 @@
     ],
     "marqueeLine": "ENT · NIS · NUET · KTL · Telegram · timer · mistakes · progress · kk · ru · en",
     "heroKicker": "MyTest · Kazakhstan",
-    "heroTitle": "Exam prep —",
-    "heroTitleEm": "in one system",
-    "heroLead": "Clear, structured preparation: UNT-style practice tests and more, analytics by topic and subject, progress over time and mistake review. Sign in with Telegram — no separate password.",
+    "heroTitle": "UNT prep —",
+    "heroTitleEm": "with numbers, not guesswork",
+    "heroLead": "Full mock flow: timer, mandatory and profile blocks, question navigation. After each run — mistake review, stats by subject and topic, and score-sum context. Sign in with Telegram via phone; no standalone password.",
     "ticketAria": "Session snapshot",
     "ticketLabel": "What a run feels like",
     "ticketRow1L": "Timer & navigation",
@@ -371,9 +377,11 @@
     "ticketRow2R": "until you close them",
     "ticketRow3L": "Languages",
     "ticketRow3R": "kk · ru · en",
-    "ticketFoot": "Not “yet another question bank” — practice for staying calm under time pressure.",
-    "stripeQuote": "MyTest is not just a set of tests. It is a system that brings together diagnostics, analysis and growth in one learning space.",
-    "sectionStats": "Social proof",
+    "ticketFoot": "The goal is exam rhythm, not only scrolling questions.",
+    "stripeQuote": "You learn the exam format by running the format: timer, fatigue, switching blocks — that is part of the score.",
+    "quoteKicker": "Bottom line",
+    "quoteSectionAria": "Note on how we think about prep",
+    "sectionStats": "At a glance",
     "stats": [
       { "value": "1000+", "label": "trial sessions" },
       { "value": "108", "label": "average user score" },
@@ -412,9 +420,12 @@
     "grantCtaLogin": "Sign in and start tests",
     "whatsappCta": "Message on WhatsApp",
     "whatsappFabAria": "Open WhatsApp chat",
-    "sectionBenefits": "Why MyTest",
+    "sectionBenefits": "What you get",
+    "benefitsHeadline": "From mock run to review — one loop, not a loose pile of PDFs",
+    "benefitsLead": "Take a practice test → see weak spots → come back through the dedicated mistake flow. Fewer scattered files, clearer next steps.",
     "sectionTestTypes": "Catalog",
-    "testTypesTitle": "Testing types",
+    "testTypesTitle": "Available formats",
+    "testTypesLead": "Same UI pattern: pick an exam and template, then timer and layout follow that format.",
     "testTypes": [
       {
         "title": "UNT trial test",
@@ -433,34 +444,38 @@
       }
     ],
     "sectionHow": "Three steps",
-    "sectionAbout": "About us",
-    "sectionPlatform": "Features",
-    "platformHeading": "Platform capabilities",
-    "platformLead": "Tools that help you see the full picture — from one attempt to topics and dynamics over time.",
+    "howHeadline": "Start without extra bureaucracy",
+    "howLead": "Sign-in is tied to Telegram: the code lands in chat; you do not maintain a separate password.",
+    "sectionAbout": "About",
+    "aboutHeadline": "For students and schools",
+    "sectionPlatform": "In the app",
+    "platformHeading": "What you see after a test",
+    "platformLead": "Not only the score — also where it was lost across subjects, topics, and past attempts.",
     "platformFeatures": [
       {
         "icon": "progress",
-        "title": "Student progress",
-        "body": "Track progress across exams, subjects and topics; compare results with classmates, your district and national peers."
+        "title": "History and trends",
+        "body": "Average score, best attempt, recent tests — in one profile without a manual log."
       },
       {
         "icon": "mistakes",
-        "title": "Mistake review",
-        "body": "After each test, review every mistake: correct answers, explanations and linked topics."
+        "title": "Mistakes until fixed",
+        "body": "Questions where the latest answer was wrong; optional dedicated review session."
       },
       {
         "icon": "topics",
-        "title": "Topic analytics",
-        "body": "Detailed breakdown by topic to spot weak areas and learning trends."
+        "title": "Topic breakdown",
+        "body": "See which blocks drag the total down — easier to plan repeats."
       },
       {
         "icon": "thresholds",
-        "title": "Cut-off scores",
-        "body": "Analytics on cut-off scores by field over recent years — context for exam requirements and how they change."
+        "title": "University context",
+        "body": "Calculator and past cut-offs as context for your sum — not an admission promise."
       }
     ],
-    "sectionDirections": "Popular profile combinations",
-    "directionsLead": "Share of profile combinations among platform users (indicative).",
+    "sectionDirections": "User profiles",
+    "directionsHeadline": "Most common profile subject pairs",
+    "directionsLead": "Internal stats on MyTest only — not representative of the whole country. Shows how our users distribute choices.",
     "directionShares": [
       { "label": "Physics / Mathematics", "pct": 50 },
       { "label": "Mathematics / Informatics", "pct": 15 },
@@ -474,6 +489,7 @@
       { "label": "Geography / Foreign language", "pct": 2 }
     ],
     "sectionTestimonials": "Reviews",
+    "testimonialsHeadline": "Teachers and alumni",
     "testimonials": [
       {
         "quote": "March and January UNT questions were very different from our school mocks, but here the difficulty is as close as possible to the real exam.",
@@ -484,16 +500,20 @@
         "author": "Narbek Orazbek"
       }
     ],
-    "sectionTrial": "Free access and plans",
-    "sectionInstruction": "Instruction",
-    "instructionTitle": "Testing instruction",
-    "instructionLead": "A short walkthrough of the essentials: starting a practice test, what to keep in mind during the session, and where to review your analytics and mistakes afterward.",
+    "sectionTrial": "Access and billing",
+    "trialSectionHeadline": "Try first, decide later",
+    "trialSectionLead": "Two full runs without a card. After that you see term and price before checkout.",
+    "sectionInstruction": "Video",
+    "instructionTitle": "Your first practice test",
+    "instructionLead": "Two minutes, step by step: sign-in, picking an exam, what to open after you finish.",
+    "instructionTip": "Prefer text: after sign-in open the exam, choose a template (full UNT or shorter), then open results and Mistakes at the end.",
     "instructionVideoTitle": "MyTest testing instruction",
     "instructionOpenVideo": "Open video",
     "instructionVideoUrl": "https://youtu.be/xsfHraWRMQ0?si=L3vYe1tIRvOU2XpJ",
-    "leadSection": "Leave a request",
-    "leadTitle": "Leave a request — we'll contact you",
-    "leadSubtitle": "Send your contact details and an admin will get back to you shortly.",
+    "leadSection": "Contact",
+    "leadTitle": "Message the team",
+    "leadSubtitle": "Name and phone for a callback or message during business hours.",
+    "leadHint": "Billing or urgent topics are often faster on WhatsApp — button below and in the footer.",
     "leadNameLabel": "Name",
     "leadNamePlaceholder": "Your name",
     "leadPhoneLabel": "Phone",
@@ -516,45 +536,45 @@
     "contactEmail": "mytest.info.kz@gmail.com",
     "contactSiteLabel": "my-test.kz",
     "contactSiteHref": "https://my-test.kz/",
-    "aboutLead": "MyTest is an educational platform for school students: exam preparation and systematic improvement of learning outcomes. We make preparation clearer, more transparent and more structured.",
-    "aboutBody": "Preparation often means many disconnected tests — it is hard to see your real level and progress. MyTest brings this into one system.",
-    "aboutClosing": "After each test you get analytics by topic, subject and mastery; plus progress over time, mistake review and cut-off analytics for recent years.",
+    "aboutLead": "MyTest keeps prep in one place: mocks, results, mistakes, and score context.",
+    "aboutBody": "Schools and students spend less time merging attempts from different sources — everything stays in the profile after sign-in.",
+    "aboutClosing": "We do not replace official admissions rules or ranking lists: training and self-check tools; the enrolment decision stays yours.",
     "aboutFacts": [
       {
-        "title": "Mission",
-        "body": "We turn preparation into a clear growth system: help students learn more effectively, understand their level and unlock their potential."
+        "title": "Who it is for",
+        "body": "Grades 10–11, prep courses, and solo study — anyone who wants to measure level under exam-like conditions."
       },
       {
-        "title": "Who we are",
-        "body": "We are an educational platform that turns preparation into a clear growth system and helps students prepare for exams effectively, conveniently and mindfully."
+        "title": "What is inside",
+        "body": "A catalog of formats (UNT, NIS, NUET, KTL, …), multilingual UI, attempt limits, and plans with clear access windows."
       },
       {
-        "title": "What sets us apart",
-        "body": "We don’t just offer tests — we turn preparation into a system with deep analytics where students see their real level, progress and weak spots."
+        "title": "Transparency",
+        "body": "Cut-offs and calculators use public past-year data as orientation; the real outcome always depends on the year and pool."
       }
     ],
-    "trialTitle": "2 UNT trial attempts are free",
-    "trialLead": "After Telegram sign-in you can pass two full UNT trial sessions. On the third attempt, pricing and payment are shown.",
+    "trialTitle": "Two launches free",
+    "trialLead": "No card: two full sessions after sign-in. Further attempts follow the plan or a one-day trial purchase.",
     "trialFeatures": [
       {
         "title": "Two launches without card",
-        "body": "No payment required for the first two trial attempts."
+        "body": "Check the UI and reports before any payment."
       },
       {
-        "title": "Full mock flow",
-        "body": "Timer, section logic, mandatory and profile blocks — not a simplified demo."
+        "title": "Same flow as paid access",
+        "body": "Timer and template structure are not dumbed down for free entry."
       },
       {
-        "title": "Clear paywall after limit",
-        "body": "When free attempts are exhausted, pricing is transparent and plan-based."
+        "title": "Paywall after the limit",
+        "body": "When free runs end, we show term and price before you pay."
       },
       {
-        "title": "Single account history",
-        "body": "Your attempts, mistakes and progress stay in one profile after Telegram sign-in."
+        "title": "History in the profile",
+        "body": "Attempts and mistakes persist across visits — tied to phone via Telegram."
       }
     ],
-    "pricingTitle": "Plans after the free limit",
-    "pricingFootnote": "Prices and durations match the in-app paywall. You always see the final total before Freedom Pay checkout.",
+    "pricingTitle": "Plans",
+    "pricingFootnote": "Checkout via Freedom Pay; final amount on the payment screen.",
     "pricingTiers": [
       {
         "id": "trial",
@@ -588,7 +608,7 @@
       }
     ],
     "footerRights": "© MyTest 2026. All rights reserved.",
-    "footerTagline": "Focused prep — without the chaos.",
+    "footerTagline": "Mocks and analytics in one account.",
     "footerCta": "Go to tests",
     "seoTitle": "MyTest — UNT, NIS, NUET practice tests online | Kazakhstan",
     "seoDescription": "MyTest for school students: UNT and other exam prep, analytics by topic and subject, progress, mistake review and cut-off score context. Sign in with Telegram.",
@@ -620,43 +640,43 @@
     ],
     "benefits": [
       {
-        "tag": "System",
-        "title": "One trajectory",
-        "body": "Instead of scattered tests — one connected flow: you see level, progress and what to focus on next."
+        "tag": "Format",
+        "title": "Exam rhythm",
+        "body": "Timer and navigation — fewer points lost to an unfamiliar UI."
       },
       {
-        "tag": "Analytics",
-        "title": "Breakdown after each test",
-        "body": "Detailed analysis by topic, subject and mastery — so you know strengths and weaknesses."
+        "tag": "Report",
+        "title": "Snapshot after every run",
+        "body": "By subject and topic you see what currently pulls the total down."
       },
       {
         "tag": "Dynamics",
-        "title": "Progress over time",
-        "body": "Track how your results change: how you move toward your goal and where to push harder."
+        "title": "More than one-off attempts",
+        "body": "History and averages make it easier to see if prep is plateauing."
       },
       {
         "tag": "Mistakes",
-        "title": "Mistake review",
-        "body": "Every wrong answer can be unpacked: the right solution and the related topic."
+        "title": "Repeat until fixed",
+        "body": "Dedicated flow for items where the latest answer was wrong."
       },
       {
-        "tag": "Benchmarks",
-        "title": "Cut-offs and trends",
-        "body": "Cut-off score data from recent years — context for exam requirements."
+        "tag": "Context",
+        "title": "Scores and universities",
+        "body": "Sum calculator and past cut-offs help set a realistic numeric target."
       }
     ],
     "steps": [
       {
-        "title": "Sign in with Telegram",
-        "body": "Open the bot from the site link, enter your phone in the bot — the code arrives in Telegram right away, then enter phone and code on the site."
+        "title": "Telegram and code",
+        "body": "Open the bot from the site, confirm the number in chat, enter the code on the site — no separate password."
       },
       {
-        "title": "Pick exam & template",
-        "body": "Add profile subjects if needed and launch a timed session."
+        "title": "Exam and template",
+        "body": "Choose the test type and variant (full UNT, express, …); add profile subjects if required."
       },
       {
-        "title": "Finish and review mistakes",
-        "body": "Read the breakdown and return to weak spots in a dedicated practice flow."
+        "title": "Results and mistakes",
+        "body": "Scores and review at the end; open Mistakes from the profile for a focused pass."
       }
     ]
   }

@@ -11,20 +11,18 @@ export function LandingStatsStrip() {
   );
 
   return (
-    <section className="ld-section ld-section-stats" aria-labelledby="ld-stats-title">
-      <div className="ld-max">
-        <p className="ld-eyebrow" id="ld-stats-title">
-          {t('landing.sectionStats')}
-        </p>
-        <div className="ld-stats-grid">
-          {stats.map((s) => (
-            <div key={s.label} className="ld-stat-card">
-              <p className="ld-stat-value">{s.value}</p>
-              <p className="ld-stat-label">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
+    <div className="lv2-stats" aria-labelledby="lv2-stats-heading">
+      <p className="lv2-stats__label" id="lv2-stats-heading">
+        {t('landing.sectionStats')}
+      </p>
+      <ul className="lv2-stats__list">
+        {stats.map((s) => (
+          <li key={s.label} className="lv2-stats__item">
+            <span className="lv2-stats__value">{s.value}</span>
+            <span className="lv2-stats__meta">{s.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

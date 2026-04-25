@@ -44,9 +44,35 @@ type HeroSlide = {
   isActive?: boolean;
 };
 
+const FALLBACK_SLIDE: HeroSlide = {
+  desktopImageUrl:
+    'https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=80',
+  tabletImageUrl:
+    'https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1200&q=80',
+  mobileImageUrl:
+    'https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=800&q=80',
+  showButton: false,
+};
+
 function shouldShowHeroCta(slide: HeroSlide): boolean {
   if (slide.showButton === false) return false;
   return Boolean(slide.buttonLabel?.trim() && slide.buttonHref?.trim());
+}
+
+function resolveCarouselSlides(
+  runtimeLoaded: boolean,
+  runtime: { heroSlides?: HeroSlide[] } | null,
+  defaults: HeroSlide[],
+): HeroSlide[] {
+  const fromApi = runtimeLoaded && runtime?.heroSlides && runtime.heroSlides.length > 0 ? runtime.heroSlides : null;
+  const base = fromApi ?? defaults;
+  const active = base.filter(
+    (s) => s.isActive !== false && (s.desktopImageUrl?.trim() || s.mobileImageUrl?.trim()),
+  );
+  if (active.length > 0) return active;
+  const anyUrl = base.filter((s) => s.desktopImageUrl?.trim() || s.mobileImageUrl?.trim());
+  if (anyUrl.length > 0) return anyUrl;
+  return [FALLBACK_SLIDE];
 }
 
 type LandingRuntimeSettings = {
@@ -56,12 +82,6 @@ type LandingRuntimeSettings = {
   whatsappUrl: string;
   heroSlides?: HeroSlide[];
 };
-
-const STEP_ICONS = [
-  <IconLogin key="i0" />,
-  <IconLayers key="i1" />,
-  <IconTarget key="i2" />,
-];
 
 function formatLandingPriceKzt(amount: number, language: string): string {
   const locale = language === 'en' ? 'en-US' : 'ru-RU';
@@ -79,7 +99,9 @@ export function LandingPage() {
   const [runtimeSettings, setRuntimeSettings] = useState<LandingRuntimeSettings | null>(null);
   const [runtimeSettingsLoaded, setRuntimeSettingsLoaded] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
-  const [landingTheme, setLandingTheme] = useState<'light' | 'dark'>(() => getEffectiveTheme());
+  const [landingTheme, setLandingTheme] = useState<'light' | 'dark'>(() =>
+    getEffectiveTheme() === 'dark' ? 'dark' : 'light',
+  );
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
   const benefits = useMemo(
@@ -156,9 +178,13 @@ export function LandingPage() {
   const whatsappHref = runtimeSettingsLoaded
     ? runtimeSettings?.whatsappUrl || fallbackWhatsAppHref
     : waUrl || fallbackWhatsAppHref;
-  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
-    (slide) => slide.isActive !== false,
+
+  const carouselSlides = useMemo(
+    () => resolveCarouselSlides(runtimeSettingsLoaded, runtimeSettings, defaultHeroSlides),
+    [runtimeSettingsLoaded, runtimeSettings, defaultHeroSlides],
   );
+
+  const progressPct = carouselSlides.length ? ((heroIndex + 1) / carouselSlides.length) * 100 : 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -177,26 +203,26 @@ export function LandingPage() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', landingTheme);
+    document.documentElement.setAttribute('data-theme', landingTheme === 'dark' ? 'dark' : 'light');
   }, [landingTheme]);
 
   useEffect(() => {
-    if (heroSlides.length <= 1 || isCarouselPaused) return;
+    if (carouselSlides.length <= 1 || isCarouselPaused) return;
     const timer = window.setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
-    }, 6000);
+      setHeroIndex((prev) => (prev + 1) % carouselSlides.length);
+    }, 7000);
     return () => window.clearInterval(timer);
-  }, [heroSlides, isCarouselPaused]);
+  }, [carouselSlides, isCarouselPaused]);
 
   useEffect(() => {
-    if (heroSlides.length === 0) {
+    if (carouselSlides.length === 0) {
       setHeroIndex(0);
       return;
     }
-    if (heroIndex >= heroSlides.length) {
+    if (heroIndex >= carouselSlides.length) {
       setHeroIndex(0);
     }
-  }, [heroSlides, heroIndex]);
+  }, [carouselSlides, heroIndex]);
 
   if (isLoading) {
     return <Spinner fullScreen />;
@@ -229,6 +255,8 @@ export function LandingPage() {
     }
   };
 
+  const focusPlanId = 'month';
+
   return (
     <>
       <AdvancedSEO
@@ -240,23 +268,24 @@ export function LandingPage() {
         jsonLd={jsonLd}
         ogImageAlt={t('landing.seoOgImageAlt')}
       />
-      <div className={`landing-root ${landingTheme === 'light' ? 'is-light' : ''}`}>
-        <div className="ld-aurora" aria-hidden />
-        <div className="ld-grid" aria-hidden />
-        <div className="ld-noise" aria-hidden />
-
-        <header className="ld-nav">
-          <div className="ld-max ld-nav-inner">
-            <div className="ld-logo" aria-label={t('app.name')}>
-              <span className="ld-logo-mark">M</span>
-              <span className="ld-logo-text">
-                My<span>Test</span>
-              </span>
-            </div>
-            <div className="ld-nav-actions">
+      <div className={`landing-root lv2 ${landingTheme === 'dark' ? 'is-dark' : ''}`}>
+        <header className="lv2-bar">
+          <div className="lv2-bar__inner">
+            <Link to="/" className="lv2-mark">
+              <span className="lv2-mark__sigil" aria-hidden />
+              <span className="lv2-mark__word">MyTest</span>
+            </Link>
+            <nav className="lv2-nav" aria-label={t('landing.navAnchorsAria')}>
+              <a href="#grant">{t('landing.navGrant')}</a>
+              <a href="#benefits">{t('landing.navBenefits')}</a>
+              <a href="#path">{t('landing.navHow')}</a>
+              <a href="#catalog">{t('landing.navFormats')}</a>
+              <a href="#pricing">{t('landing.navPricing')}</a>
+            </nav>
+            <div className="lv2-bar__tools">
               <button
                 type="button"
-                className="ld-theme-toggle"
+                className="lv2-ghost"
                 onClick={() => {
                   const next = landingTheme === 'dark' ? 'light' : 'dark';
                   setLandingTheme(next);
@@ -266,12 +295,12 @@ export function LandingPage() {
               >
                 {landingTheme === 'dark' ? t('landing.themeLight') : t('landing.themeDark')}
               </button>
-              <div className="ld-lang" role="group" aria-label={t('landing.langLabel')}>
+              <div className="lv2-lang" role="group" aria-label={t('landing.langLabel')}>
                 {langs.map((lng) => (
                   <button
                     key={lng}
                     type="button"
-                    className={i18n.language === lng ? 'is-active' : ''}
+                    className={i18n.language === lng ? 'is-on' : ''}
                     onClick={() => {
                       i18n.changeLanguage(lng);
                       localStorage.setItem('language', lng);
@@ -281,140 +310,260 @@ export function LandingPage() {
                   </button>
                 ))}
               </div>
-              <Link to="/login" className="ld-btn ld-btn-primary">
+              <Link to="/login" className="lv2-btn lv2-btn--solid">
                 {t('landing.ctaTrial')}
               </Link>
             </div>
           </div>
         </header>
 
-        {heroSlides.length > 0 ? (
-          <section className="ld-hero-carousel" aria-label={t('landing.heroCarouselAria')}>
-            <div className="ld-max">
-              <div className="ld-carousel-shell">
-                {heroSlides.map((slide, idx) => {
-                  const titleText = slide.title?.trim() ?? '';
-                  const subtitleText = slide.subtitle?.trim() ?? '';
-                  const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
-                  return (
-                    <article
-                      key={`hero-slide-${idx}`}
-                      className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
-                      aria-hidden={idx !== heroIndex}
-                    >
-                      <picture>
-                        <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
-                        <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
-                        <img
-                          src={resolveMediaUrl(slide.desktopImageUrl)}
-                          alt={titleText}
-                          loading={idx === 0 ? 'eager' : 'lazy'}
-                        />
-                      </picture>
-                      {showOverlay ? (
-                        <div className="ld-carousel-overlay">
-                          {titleText ? <h1 className="ld-carousel-title">{titleText}</h1> : null}
-                          {subtitleText ? <p className="ld-carousel-subtitle">{subtitleText}</p> : null}
+        <section className="lv2-hero" aria-label={t('landing.heroCarouselAria')}>
+          <div className="lv2-hero__stage">
+            {carouselSlides.map((slide, idx) => {
+              const titleText = slide.title?.trim() ?? '';
+              const subtitleText = slide.subtitle?.trim() ?? '';
+              const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
+              const slideAlt = titleText || subtitleText || t('landing.heroCarouselAria');
+              return (
+                <article
+                  key={`hero-${idx}`}
+                  className={`lv2-hero__slide ${idx === heroIndex ? 'is-on' : ''}`}
+                  aria-hidden={idx !== heroIndex}
+                >
+                  <picture>
+                    <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
+                    <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
+                    <img
+                      src={resolveMediaUrl(slide.desktopImageUrl)}
+                      alt={slideAlt}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                    />
+                  </picture>
+                  {showOverlay ? (
+                    <>
+                      <div className="lv2-hero__veil" aria-hidden />
+                      <div className="lv2-hero__caption">
+                        <div className="lv2-hero__caption-inner">
+                          {titleText ? <p className="lv2-hero__slide-title">{titleText}</p> : null}
+                          {subtitleText ? <p className="lv2-hero__slide-sub">{subtitleText}</p> : null}
                           {shouldShowHeroCta(slide) ? (
                             isExternalHref(slide.buttonHref) ? (
                               <a
                                 href={slide.buttonHref}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="ld-btn ld-btn-primary ld-btn-lg"
+                                className="lv2-btn lv2-btn--solid lv2-btn--lg"
                               >
                                 {slide.buttonLabel!.trim()}
                               </a>
                             ) : (
-                              <Link to={slide.buttonHref!.trim()} className="ld-btn ld-btn-primary ld-btn-lg">
+                              <Link to={slide.buttonHref!.trim()} className="lv2-btn lv2-btn--solid lv2-btn--lg">
                                 {slide.buttonLabel!.trim()}
                               </Link>
                             )
                           ) : null}
                         </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-                {heroSlides.length > 1 ? (
-                  <>
-                    <button
-                      type="button"
-                      className="ld-carousel-nav is-prev"
-                      aria-label={t('landing.heroCarouselPrev')}
-                      onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
-                      onMouseEnter={() => setIsCarouselPaused(true)}
-                      onMouseLeave={() => setIsCarouselPaused(false)}
-                    >
-                      <span aria-hidden>‹</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="ld-carousel-nav is-next"
-                      aria-label={t('landing.heroCarouselNext')}
-                      onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
-                      onMouseEnter={() => setIsCarouselPaused(true)}
-                      onMouseLeave={() => setIsCarouselPaused(false)}
-                    >
-                      <span aria-hidden>›</span>
-                    </button>
-                  </>
-                ) : null}
-                {heroSlides.length > 1 ? (
-                  <div
-                    className="ld-carousel-dots"
-                    role="tablist"
-                    aria-label={t('landing.heroCarouselDotsAria')}
-                    onMouseEnter={() => setIsCarouselPaused(true)}
-                    onMouseLeave={() => setIsCarouselPaused(false)}
-                  >
-                    {heroSlides.map((_, idx) => (
-                      <button
-                        key={`hero-slide-dot-${idx}`}
-                        type="button"
-                        className={idx === heroIndex ? 'is-active' : ''}
-                        onClick={() => setHeroIndex(idx)}
-                        aria-label={`${t('landing.heroCarouselDot')} ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="ld-hero-meta" aria-label={t('landing.heroQuickNavAria')}>
-          <div className="ld-max">
-            <div className="ld-hero-pills">
-              <a href="#grant" className="ld-hero-pill">
-                {t('landing.sectionGrant')}
-              </a>
-              <a href="#test-types" className="ld-hero-pill">
-                {t('landing.sectionTestTypes')}
-              </a>
-              <a href="#instruction" className="ld-hero-pill">
-                {t('landing.sectionInstruction')}
-              </a>
-              <a href="#lead" className="ld-hero-pill">
-                {t('landing.leadSection')}
-              </a>
+                      </div>
+                    </>
+                  ) : null}
+                </article>
+              );
+            })}
+            {carouselSlides.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  className="lv2-hero__arrow lv2-hero__arrow--prev"
+                  aria-label={t('landing.heroCarouselPrev')}
+                  onClick={() => setHeroIndex((p) => (p - 1 + carouselSlides.length) % carouselSlides.length)}
+                  onMouseEnter={() => setIsCarouselPaused(true)}
+                  onMouseLeave={() => setIsCarouselPaused(false)}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="lv2-hero__arrow lv2-hero__arrow--next"
+                  aria-label={t('landing.heroCarouselNext')}
+                  onClick={() => setHeroIndex((p) => (p + 1) % carouselSlides.length)}
+                  onMouseEnter={() => setIsCarouselPaused(true)}
+                  onMouseLeave={() => setIsCarouselPaused(false)}
+                >
+                  ›
+                </button>
+              </>
+            ) : null}
+            <div className="lv2-hero__progress" aria-hidden>
+              <div className="lv2-hero__progress-fill" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         </section>
 
-        <LandingStatsStrip />
+        <section className="lv2-intro" aria-labelledby="lv2-page-title">
+          <div className="lv2-wrap">
+            <div className="lv2-intro__grid">
+              <div>
+                <p className="lv2-kicker">{t('landing.heroKicker')}</p>
+                <h1 id="lv2-page-title" className="lv2-display">
+                  {t('landing.heroTitle')}
+                  <br />
+                  {t('landing.heroTitleEm')}
+                </h1>
+                <p className="lv2-intro__lede">{t('landing.heroLead')}</p>
+                <div className="lv2-intro__actions">
+                  <Link to="/login" className="lv2-btn lv2-btn--solid lv2-btn--lg">
+                    {t('landing.ctaTrial')}
+                  </Link>
+                  <a href="#grant" className="lv2-btn lv2-btn--line lv2-btn--lg">
+                    {t('landing.ctaGrant')}
+                  </a>
+                </div>
+              </div>
+              <aside className="lv2-aside" aria-label={t('landing.ticketAria')}>
+                <p className="lv2-aside__label">{t('landing.ticketLabel')}</p>
+                <ul className="lv2-aside__list">
+                  <li>
+                    <span>{t('landing.ticketRow1L')}</span>
+                    <span className="lv2-aside__meta">{t('landing.ticketRow1R')}</span>
+                  </li>
+                  <li>
+                    <span>{t('landing.ticketRow2L')}</span>
+                    <span className="lv2-aside__meta">{t('landing.ticketRow2R')}</span>
+                  </li>
+                  <li>
+                    <span>{t('landing.ticketRow3L')}</span>
+                    <span className="lv2-aside__meta">{t('landing.ticketRow3R')}</span>
+                  </li>
+                </ul>
+                <p className="lv2-aside__note">{t('landing.ticketFoot')}</p>
+              </aside>
+            </div>
+            <nav className="lv2-jump" aria-label={t('landing.heroQuickNavAria')}>
+              <a href="#grant">{t('landing.sectionGrant')}</a>
+              <a href="#benefits">{t('landing.sectionBenefits')}</a>
+              <a href="#path">{t('landing.sectionHow')}</a>
+              <a href="#catalog">{t('landing.sectionTestTypes')}</a>
+              <a href="#pricing">{t('landing.navPricing')}</a>
+              <a href="#contact">{t('landing.leadSection')}</a>
+            </nav>
+          </div>
+        </section>
+
+        <div className="lv2-wrap">
+          <LandingStatsStrip />
+        </div>
+
+        <section id="benefits" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionBenefits')}</p>
+              <h2 className="lv2-heading--section">{t('landing.benefitsHeadline')}</h2>
+              <p className="lv2-lead">{t('landing.benefitsLead')}</p>
+            </header>
+            <ul className="lv2-listing">
+              {benefits.map((b) => (
+                <li key={b.title} className="lv2-listing__item">
+                  <span className="lv2-listing__tag">{b.tag}</span>
+                  <div className="lv2-listing__main">
+                    <h3 className="lv2-listing__title">{b.title}</h3>
+                    <p className="lv2-listing__body">{b.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section id="path" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionHow')}</p>
+              <h2 className="lv2-heading--section">{t('landing.howHeadline')}</h2>
+              <p className="lv2-lead">{t('landing.howLead')}</p>
+            </header>
+            <div className="lv2-path">
+              {steps.map((step, i) => (
+                <div key={step.title} className="lv2-path__step">
+                  <span className="lv2-path__num" aria-hidden>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div>
+                    <h3 className="lv2-path__title">{step.title}</h3>
+                    <p className="lv2-path__text">{step.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="catalog" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionTestTypes')}</p>
+              <h2 className="lv2-heading--section">{t('landing.testTypesTitle')}</h2>
+              <p className="lv2-lead">{t('landing.testTypesLead')}</p>
+            </header>
+            <div className="lv2-row">
+              {testTypes.map((card) => (
+                <article key={card.title} className="lv2-panel">
+                  <h3>{card.title}</h3>
+                  <ul>
+                    {card.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <Link to="/login" className="lv2-btn lv2-btn--solid">
+                    {card.cta}
+                  </Link>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <div className="lv2-pull">
+          <div className="lv2-wrap">
+            <blockquote>
+              <p className="lv2-pull__k">{t('landing.quoteKicker')}</p>
+              <p className="lv2-pull__q">{t('landing.stripeQuote')}</p>
+            </blockquote>
+          </div>
+        </div>
+
+        <section id="platform" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionPlatform')}</p>
+              <h2 className="lv2-heading--section">{t('landing.platformHeading')}</h2>
+              <p className="lv2-lead">{t('landing.platformLead')}</p>
+            </header>
+            <div className="lv2-grid-2">
+              {platformFeatures.map((f) => (
+                <div key={f.title} className="lv2-cell">
+                  <div className="lv2-cell__icon" aria-hidden>
+                    <PlatformIcon name={f.icon} />
+                  </div>
+                  <h3>{f.title}</h3>
+                  <p>{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <GrantEstimator />
 
-        <section className="ld-section ld-section-instruction" id="instruction">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionInstruction')}</p>
-            <div className="ld-instruction-wrap">
-              <div>
-                <h2 className="ld-trial-title">{t('landing.instructionTitle')}</h2>
-                <p className="ld-trial-lead">{t('landing.instructionLead')}</p>
-              </div>
-              <div className="ld-instruction-video">
+        <section id="instruction" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionInstruction')}</p>
+              <h2 className="lv2-heading--section">{t('landing.instructionTitle')}</h2>
+              <p className="lv2-lead">{t('landing.instructionLead')}</p>
+            </header>
+            <div className="lv2-split">
+              <p className="lv2-video-tip">{t('landing.instructionTip')}</p>
+              <div className="lv2-video">
                 {instructionVideoEmbedUrl ? (
                   <iframe
                     src={instructionVideoEmbedUrl}
@@ -424,7 +573,7 @@ export function LandingPage() {
                     allowFullScreen
                   />
                 ) : (
-                  <a href={instructionVideoUrl} target="_blank" rel="noopener noreferrer" className="ld-btn ld-btn-glass">
+                  <a href={instructionVideoUrl} target="_blank" rel="noopener noreferrer" className="lv2-btn lv2-btn--line">
                     {t('landing.instructionOpenVideo')}
                   </a>
                 )}
@@ -433,127 +582,55 @@ export function LandingPage() {
           </div>
         </section>
 
-        <div className="ld-marquee-outer" aria-hidden>
-          <div className="ld-marquee-track">
+        <div className="lv2-ticker" aria-hidden>
+          <div className="lv2-ticker__inner">
             <span>{marquee}</span>
             <span>{marquee}</span>
           </div>
         </div>
 
-        <section id="benefits" className="ld-section">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionBenefits')}</p>
-            <div className="ld-bento">
-              {benefits.map((b, i) => (
-                <article key={b.title} className={`ld-tile ld-tile-${i}`}>
-                  <span className="ld-tile-tag">{b.tag}</span>
-                  <h3 className="ld-tile-title">{b.title}</h3>
-                  <p className="ld-tile-body">{b.body}</p>
-                </article>
-              ))}
+        <section id="about" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionAbout')}</p>
+              <h2 className="lv2-heading--section">{t('landing.aboutHeadline')}</h2>
+            </header>
+            <div className="lv2-about">
+              <div className="lv2-about__text">
+                <p>{t('landing.aboutLead')}</p>
+                <p>{t('landing.aboutBody')}</p>
+                <p>{t('landing.aboutClosing')}</p>
+              </div>
+              <div className="lv2-facts">
+                {aboutFacts.map((fact) => (
+                  <article key={fact.title} className="lv2-fact">
+                    <h4>{fact.title}</h4>
+                    <p>{fact.body}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="test-types" className="ld-section ld-section-test-types">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionTestTypes')}</p>
-            <h2 className="ld-trial-title">{t('landing.testTypesTitle')}</h2>
-            <div className="ld-test-types-grid">
-              {testTypes.map((card) => (
-                <article key={card.title} className="ld-test-type-card">
-                  <h3>{card.title}</h3>
-                  <ul>
-                    {card.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <Link to="/login" className="ld-btn ld-btn-primary">
-                    {card.cta}
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="ld-pullquote">
-          <div className="ld-max">
-            <div className="ld-quote-card">
-              <blockquote className="ld-quote-text">{t('landing.stripeQuote')}</blockquote>
-            </div>
-          </div>
-        </section>
-
-        <section id="how" className="ld-section ld-section-how">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionHow')}</p>
-            <div className="ld-steps">
-              {steps.map((step, i) => (
-                <div key={step.title} className="ld-step-card">
-                  <div className="ld-step-icon" aria-hidden>
-                    {STEP_ICONS[i] ?? <IconTarget />}
-                  </div>
-                  <span className="ld-step-num">{String(i + 1).padStart(2, '0')}</span>
-                  <h4 className="ld-step-title">{step.title}</h4>
-                  <p className="ld-step-body">{step.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="about" className="ld-section ld-about">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionAbout')}</p>
-            <p className="ld-about-lead">{t('landing.aboutLead')}</p>
-            <p className="ld-about-body">{t('landing.aboutBody')}</p>
-            <p className="ld-about-body ld-about-body-secondary">{t('landing.aboutClosing')}</p>
-            <div className="ld-about-facts">
-              {aboutFacts.map((fact) => (
-                <article key={fact.title} className="ld-about-fact">
-                  <h4>{fact.title}</h4>
-                  <p>{fact.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="platform" className="ld-section ld-section-platform">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionPlatform')}</p>
-            <h2 className="ld-platform-heading">{t('landing.platformHeading')}</h2>
-            <p className="ld-platform-lead">{t('landing.platformLead')}</p>
-            <div className="ld-platform-grid">
-              {platformFeatures.map((feature) => (
-                <article key={feature.title} className="ld-platform-card">
-                  <div className="ld-platform-icon" aria-hidden>
-                    <PlatformIcon name={feature.icon} />
-                  </div>
-                  <h3 className="ld-platform-title">{feature.title}</h3>
-                  <p className="ld-platform-body">{feature.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="directions" className="ld-section ld-section-directions" aria-labelledby="ld-directions-title">
-          <div className="ld-max">
-            <p className="ld-eyebrow" id="ld-directions-title">
-              {t('landing.sectionDirections')}
-            </p>
-            <p className="ld-directions-lead">{t('landing.directionsLead')}</p>
-            <ul className="ld-directions-list">
+        <section id="directions" className="lv2-section lv2-section--rule" aria-labelledby="lv2-dir-h">
+          <div className="lv2-wrap lv2-split">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker" id="lv2-dir-h">
+                {t('landing.sectionDirections')}
+              </p>
+              <h2 className="lv2-heading--section">{t('landing.directionsHeadline')}</h2>
+              <p className="lv2-lead">{t('landing.directionsLead')}</p>
+            </header>
+            <ul className="lv2-meter">
               {directionShares.map((row) => (
-                <li key={row.label} className="ld-directions-row">
-                  <div className="ld-directions-row-head">
-                    <span className="ld-directions-label">{row.label}</span>
-                    <span className="ld-directions-pct">{row.pct}%</span>
+                <li key={row.label}>
+                  <div className="lv2-meter__row">
+                    <span>{row.label}</span>
+                    <span className="lv2-meter__pct">{row.pct}%</span>
                   </div>
-                  <div className="ld-directions-track" aria-hidden>
-                    <div className="ld-directions-fill" style={{ width: `${Math.min(100, row.pct)}%` }} />
+                  <div className="lv2-meter__bar" aria-hidden>
+                    <div className="lv2-meter__fill" style={{ width: `${Math.min(100, row.pct)}%` }} />
                   </div>
                 </li>
               ))}
@@ -561,174 +638,194 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="reviews" className="ld-section ld-section-testimonials" aria-labelledby="ld-reviews-title">
-          <div className="ld-max">
-            <p className="ld-eyebrow" id="ld-reviews-title">
-              {t('landing.sectionTestimonials')}
-            </p>
-            <div className="ld-testimonials-grid">
+        <section id="reviews" className="lv2-section lv2-section--rule" aria-labelledby="lv2-rev-h">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker" id="lv2-rev-h">
+                {t('landing.sectionTestimonials')}
+              </p>
+              <h2 className="lv2-heading--section">{t('landing.testimonialsHeadline')}</h2>
+            </header>
+            <div className="lv2-voices">
               {testimonials.map((item) => (
-                <blockquote key={item.author} className="ld-testimonial">
-                  <p className="ld-testimonial-quote">«{item.quote}»</p>
-                  <footer className="ld-testimonial-author">— {item.author}</footer>
+                <blockquote key={item.author}>
+                  <p>«{item.quote}»</p>
+                  <footer>— {item.author}</footer>
                 </blockquote>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="ld-section ld-section-trial">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionTrial')}</p>
-            <div className="ld-trial-wrap">
-              <div>
-                <h2 className="ld-trial-title">{t('landing.trialTitle')}</h2>
-                <p className="ld-trial-lead">{t('landing.trialLead')}</p>
-                <div className="ld-trial-grid">
-                  {trialFeatures.map((feature) => (
-                    <article key={feature.title} className="ld-trial-item">
-                      <h4>{feature.title}</h4>
-                      <p>{feature.body}</p>
-                    </article>
+        <section id="pricing" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.sectionTrial')}</p>
+              <h2 className="lv2-heading--section">{t('landing.trialSectionHeadline')}</h2>
+              <p className="lv2-lead">{t('landing.trialSectionLead')}</p>
+            </header>
+            <div className="lv2-price-layout">
+              <div className="lv2-price-aside">
+                <h3>{t('landing.trialTitle')}</h3>
+                <p className="lv2-lead">{t('landing.trialLead')}</p>
+                <ul className="lv2-check">
+                  {trialFeatures.map((f) => (
+                    <li key={f.title}>
+                      <strong>{f.title}</strong>
+                      <span>{f.body}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
-              <aside className="ld-pricing-preview">
-                <p className="ld-pricing-title">{t('landing.pricingTitle')}</p>
-                <div className="ld-pricing-list">
+              <div>
+                <div className="lv2-plans">
                   {displayPricingTiers.map((tier) => (
-                    <article key={tier.id} className="ld-pricing-card">
-                      <div className="ld-pricing-card-head">
+                    <div
+                      key={tier.id}
+                      className={`lv2-plan${tier.id === focusPlanId ? ' lv2-plan--focus' : ''}`}
+                    >
+                      <div className="lv2-plan__head">
                         <h4>{tier.name}</h4>
-                        {tier.badge ? <span>{tier.badge}</span> : null}
+                        {tier.badge ? <span className="lv2-plan__badge">{tier.badge}</span> : null}
                       </div>
-                      <p className="ld-pricing-price">
+                      <p className="lv2-plan__price">
                         {tier.price} <small>{tier.period}</small>
                       </p>
                       <ul>
-                        {tier.features.map((feature) => (
-                          <li key={feature}>{feature}</li>
+                        {tier.features.map((feat) => (
+                          <li key={feat}>{feat}</li>
                         ))}
                       </ul>
-                    </article>
+                    </div>
                   ))}
+                  <p className="lv2-plan-note">{t('landing.pricingFootnote')}</p>
+                  <div className="lv2-plan-cta">
+                    <Link to="/login" className="lv2-btn lv2-btn--solid lv2-btn--lg">
+                      {t('landing.ctaTrial')}
+                    </Link>
+                  </div>
                 </div>
-                <p className="ld-pricing-footnote">{t('landing.pricingFootnote')}</p>
-                <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
-                  {t('landing.ctaTrial')}
-                </Link>
-              </aside>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="ld-section ld-section-lead" id="lead">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.leadSection')}</p>
-            <div className="ld-lead-wrap">
-              <div>
-                <h2 className="ld-trial-title">{t('landing.leadTitle')}</h2>
-                <p className="ld-trial-lead">{t('landing.leadSubtitle')}</p>
-              </div>
-              <form className="ld-lead-form" onSubmit={handleLeadSubmit}>
-                <label className="ld-lead-field">
-                  <span>{t('landing.leadNameLabel')}</span>
-                  <input
-                    type="text"
-                    value={leadName}
-                    onChange={(e) => setLeadName(e.target.value)}
-                    placeholder={t('landing.leadNamePlaceholder')}
-                    autoComplete="name"
-                    minLength={2}
-                    maxLength={100}
-                    required
-                  />
-                </label>
-                <label className="ld-lead-field">
-                  <span>{t('landing.leadPhoneLabel')}</span>
-                  <input
-                    type="tel"
-                    value={leadPhone}
-                    onChange={(e) => setLeadPhone(e.target.value)}
-                    placeholder={t('landing.leadPhonePlaceholder')}
-                    autoComplete="tel"
-                    minLength={5}
-                    maxLength={30}
-                    required
-                  />
-                </label>
-                <label className="ld-lead-field">
-                  <span>{t('landing.leadMessageLabel')}</span>
-                  <textarea
-                    value={leadMessage}
-                    onChange={(e) => setLeadMessage(e.target.value)}
-                    placeholder={t('landing.leadMessagePlaceholder')}
-                    maxLength={1000}
-                    rows={4}
-                  />
-                </label>
-                <button type="submit" className="ld-btn ld-btn-primary ld-btn-lg" disabled={leadLoading}>
+        <section id="contact" className="lv2-section lv2-section--rule">
+          <div className="lv2-wrap">
+            <header className="lv2-section__head">
+              <p className="lv2-kicker">{t('landing.leadSection')}</p>
+              <h2 className="lv2-heading--section">{t('landing.leadTitle')}</h2>
+              <p className="lv2-lead">{t('landing.leadSubtitle')}</p>
+            </header>
+            <div className="lv2-form-grid">
+              <p className="lv2-form-hint">{t('landing.leadHint')}</p>
+              <form className="lv2-form" onSubmit={handleLeadSubmit}>
+                <div className="lv2-field">
+                  <label>
+                    <span>{t('landing.leadNameLabel')}</span>
+                    <input
+                      type="text"
+                      value={leadName}
+                      onChange={(e) => setLeadName(e.target.value)}
+                      placeholder={t('landing.leadNamePlaceholder')}
+                      autoComplete="name"
+                      minLength={2}
+                      maxLength={100}
+                      required
+                    />
+                  </label>
+                </div>
+                <div className="lv2-field">
+                  <label>
+                    <span>{t('landing.leadPhoneLabel')}</span>
+                    <input
+                      type="tel"
+                      value={leadPhone}
+                      onChange={(e) => setLeadPhone(e.target.value)}
+                      placeholder={t('landing.leadPhonePlaceholder')}
+                      autoComplete="tel"
+                      minLength={5}
+                      maxLength={30}
+                      required
+                    />
+                  </label>
+                </div>
+                <div className="lv2-field">
+                  <label>
+                    <span>{t('landing.leadMessageLabel')}</span>
+                    <textarea
+                      value={leadMessage}
+                      onChange={(e) => setLeadMessage(e.target.value)}
+                      placeholder={t('landing.leadMessagePlaceholder')}
+                      maxLength={1000}
+                      rows={4}
+                    />
+                  </label>
+                </div>
+                <button type="submit" className="lv2-btn lv2-btn--solid lv2-btn--lg" disabled={leadLoading}>
                   {leadLoading ? t('landing.leadSubmitting') : t('landing.leadSubmit')}
                 </button>
                 {leadResult === 'success' ? (
-                  <p className="ld-lead-status ld-lead-status-success">{t('landing.leadSuccess')}</p>
+                  <p className="lv2-form-msg lv2-form-msg--ok">{t('landing.leadSuccess')}</p>
                 ) : null}
                 {leadResult === 'error' ? (
-                  <p className="ld-lead-status ld-lead-status-error">{t('landing.leadError')}</p>
+                  <p className="lv2-form-msg lv2-form-msg--err">{t('landing.leadError')}</p>
                 ) : null}
               </form>
             </div>
           </div>
         </section>
 
-        <footer className="ld-footer">
-          <div className="ld-max ld-footer-inner">
-            <div className="ld-footer-brand">
-              <p className="ld-footer-copy">
-                <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
-              </p>
-              <ul className="ld-footer-socials" aria-label={t('landing.footerSocialsAria')}>
-                <li>
-                  <a href={instagramHref} target="_blank" rel="noopener noreferrer">
-                    {t('landing.contactInstagramLabel')}
-                  </a>
-                </li>
-                <li>
-                  <a href={tiktokHref} target="_blank" rel="noopener noreferrer">
-                    {t('landing.contactTiktokLabel')}
-                  </a>
-                </li>
-              </ul>
-              <div className="ld-footer-contact" aria-label={t('landing.footerContactAria')}>
-                <p className="ld-footer-contact-title">{t('landing.footerContactTitle')}</p>
-                <ul className="ld-footer-contact-list">
+        <footer className="lv2-foot">
+          <div className="lv2-wrap">
+            <div className="lv2-foot__grid">
+              <div>
+                <p className="lv2-foot__tag">
+                  <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
+                </p>
+                <ul aria-label={t('landing.footerSocialsAria')}>
                   <li>
-                    <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-                      {t('landing.contactWhatsappLabel')}
+                    <a href={instagramHref} target="_blank" rel="noopener noreferrer">
+                      {t('landing.contactInstagramLabel')}
                     </a>
                   </li>
                   <li>
-                    <a href={`mailto:${t('landing.contactEmail')}`}>{t('landing.contactEmail')}</a>
-                  </li>
-                  <li>
-                    <a href={t('landing.contactSiteHref')} target="_blank" rel="noopener noreferrer">
-                      {t('landing.contactSiteLabel')}
+                    <a href={tiktokHref} target="_blank" rel="noopener noreferrer">
+                      {t('landing.contactTiktokLabel')}
                     </a>
                   </li>
                 </ul>
+                <div aria-label={t('landing.footerContactAria')}>
+                  <p className="lv2-kicker" style={{ marginBottom: 8 }}>
+                    {t('landing.footerContactTitle')}
+                  </p>
+                  <ul>
+                    <li>
+                      <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+                        {t('landing.contactWhatsappLabel')}
+                      </a>
+                    </li>
+                    <li>
+                      <a href={`mailto:${t('landing.contactEmail')}`}>{t('landing.contactEmail')}</a>
+                    </li>
+                    <li>
+                      <a href={t('landing.contactSiteHref')} target="_blank" rel="noopener noreferrer">
+                        {t('landing.contactSiteLabel')}
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div className="lv2-foot__cta">
+                <a href={whatsappHref} className="lv2-btn lv2-btn--line" target="_blank" rel="noopener noreferrer">
+                  {t('landing.whatsappCta')}
+                </a>
+                <Link to="/login" className="lv2-btn lv2-btn--solid">
+                  {t('landing.ctaTrial')}
+                </Link>
               </div>
             </div>
-            <div className="ld-footer-actions">
-              <a href={whatsappHref} className="ld-btn ld-btn-glass" target="_blank" rel="noopener noreferrer">
-                {t('landing.whatsappCta')}
-              </a>
-              <Link to="/login" className="ld-btn ld-btn-primary">
-                {t('landing.ctaTrial')}
-              </Link>
-            </div>
-          </div>
-          <div className="ld-max">
-            <p className="ld-footer-rights">{t('landing.footerRights')}</p>
+            <p className="lv2-foot__legal">{t('landing.footerRights')}</p>
           </div>
         </footer>
 
@@ -763,64 +860,41 @@ function isExternalHref(href: string | undefined): boolean {
   return /^https?:\/\//i.test(href);
 }
 
-function IconLogin() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
-    </svg>
-  );
-}
-
-function IconLayers() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path d="M12 2 2 7l10 5 10-5-10-5Z" />
-      <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
-    </svg>
-  );
-}
-
-function IconTarget() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="2" />
-    </svg>
-  );
-}
-
 function PlatformIcon({ name }: { name: PlatformFeature['icon'] }) {
-  const common = { width: 26, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 } as const;
+  const c = { width: 28, height: 28, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 } as const;
   switch (name) {
     case 'progress':
       return (
-        <svg {...common}>
+        <svg {...c}>
           <path d="M4 19V5M8 19V11M12 19V8M16 19v-5M20 19V4" strokeLinecap="round" />
         </svg>
       );
     case 'mistakes':
       return (
-        <svg {...common}>
+        <svg {...c}>
           <path d="M12 3a6 6 0 0 1 6 6c0 4-6 12-6 12S6 13 6 9a6 6 0 0 1 6-6Z" />
           <path d="M12 10v3M12 16h.01" strokeLinecap="round" />
         </svg>
       );
     case 'topics':
       return (
-        <svg {...common}>
+        <svg {...c}>
           <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round" />
           <circle cx="18" cy="12" r="2" />
         </svg>
       );
     case 'thresholds':
       return (
-        <svg {...common}>
+        <svg {...c}>
           <path d="M4 20V4M4 20h16" strokeLinecap="round" />
           <path d="m7 16 4-5 4 3 5-7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     default:
-      return <IconTarget />;
+      return (
+        <svg {...c}>
+          <circle cx="12" cy="12" r="9" />
+        </svg>
+      );
   }
 }
