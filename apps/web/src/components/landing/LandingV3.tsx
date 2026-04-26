@@ -50,6 +50,8 @@ function isModernSlide(slide: HeroSlide): slide is ModernHeroSlide {
   return 'desktopImageUrl' in slide;
 }
 
+type HeroSlide = ModernHeroSlide | LegacyHeroSlide;
+
 type LandingRuntimeSettings = {
   instructionVideoUrl: string;
   instagramUrl: string;
@@ -474,10 +476,10 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                 }`}
               >
                 <picture>
-                  <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl || (slide as any).image)} />
-                  <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl || (slide as any).image)} />
+                  <source media="(max-width: 767px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.mobileImageUrl : slide.image)} />
+                  <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.tabletImageUrl : slide.image)} />
                   <img
-                    src={resolveMediaUrl(slide.desktopImageUrl || (slide as any).image)}
+                    src={resolveMediaUrl(isModernSlide(slide) ? slide.desktopImageUrl : slide.image)}
                     alt={slide.title || ''}
                     className="h-full w-full object-cover"
                     loading={i === 0 ? 'eager' : 'lazy'}
@@ -508,7 +510,7 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                         <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-200">
                           {slide.subtitle}
                         </p>
-                        {slide.showButton !== false && slide.buttonLabel && (
+                        {isModernSlide(slide) && slide.showButton !== false && slide.buttonLabel && (
                           <div className="mt-10">
                             <a
                               href={slide.buttonHref || '/login'}
