@@ -10,6 +10,7 @@ import {
   Avatar,
   Button,
   Typography,
+  Drawer,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -24,6 +25,8 @@ import {
   FundProjectionScreenOutlined,
   AppstoreOutlined,
   SettingOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
 import { UsersPage } from './pages/UsersPage';
@@ -78,6 +81,7 @@ function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [openKeys, setOpenKeys] = useState<string[]>([]);
@@ -146,15 +150,21 @@ function AdminLayout() {
 
   return (
     <Layout className="admin-shell">
+      {/* Desktop sidebar */}
       <Sider
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
         width={240}
+        breakpoint="lg"
+        onBreakpoint={(broken) => {
+          if (broken) setCollapsed(true);
+        }}
         style={{
           background: 'linear-gradient(180deg, #0c1324 0%, #111827 100%)',
           boxShadow: '4px 0 24px rgba(15, 23, 42, 0.12)',
         }}
+        className="admin-desktop-sider"
       >
         <div className="admin-sider-brand">
           <div className="admin-sider-brand-title">{collapsed ? 'MT' : 'MyTest Admin'}</div>
@@ -174,6 +184,36 @@ function AdminLayout() {
           items={menuItems}
         />
       </Sider>
+
+      {/* Mobile drawer sidebar */}
+      <Drawer
+        placement="left"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        width={240}
+        closable={false}
+        styles={{ body: { padding: 0, background: 'linear-gradient(180deg, #0c1324 0%, #111827 100%)' } }}
+      >
+        <div className="admin-sider-brand">
+          <div className="admin-sider-brand-title">MyTest Admin</div>
+          <div className="admin-sider-brand-sub">Анализ · контент · доступ</div>
+        </div>
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          openKeys={openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys as string[])}
+          onClick={({ key }) => {
+            const path = MENU_NAV[key];
+            if (path) navigate(path);
+            setMobileOpen(false);
+          }}
+          style={{ background: 'transparent', border: 'none' }}
+          items={menuItems}
+        />
+      </Drawer>
+
       <Layout>
         <Header
           style={{
@@ -185,6 +225,14 @@ function AdminLayout() {
             borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
           }}
         >
+          {/* Hamburger — visible only on mobile */}
+          <Button
+            type="text"
+            icon={mobileOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="admin-header-hamburger"
+            aria-label="Меню"
+          />
           <Typography.Text strong style={{ fontSize: 15, color: '#0f172a' }}>
             Панель администратора
           </Typography.Text>
@@ -192,7 +240,7 @@ function AdminLayout() {
             <Avatar size="small" style={{ backgroundColor: '#3b5bdb' }}>
               {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
             </Avatar>
-            <span>
+            <span className="admin-header-username">
               {user.firstName} {user.lastName}
             </span>
             <Button

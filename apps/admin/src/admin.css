@@ -155,3 +155,129 @@ body {
   border-color: rgba(59, 91, 219, 0.7) !important;
   box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.12) !important;
 }
+
+/* ── Mobile navigation ─────────────────────────────── */
+.admin-header-hamburger {
+  display: none;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px;
+}
+
+@media (max-width: 768px) {
+  .admin-header-hamburger {
+    display: flex;
+  }
+}
+
+/* ── Responsive layout ─────────────────────────────── */
+@media (max-width: 768px) {
+  .admin-shell .ant-layout-sider {
+    position: fixed !important;
+    z-index: 100;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+  }
+
+  .admin-shell .ant-layout-sider.ant-layout-sider-collapsed {
+    transform: translateX(-100%);
+  }
+
+  .admin-shell .ant-layout-sider.ant-layout-sider-open {
+    transform: translateX(0) !important;
+  }
+
+  /* Collapsed sidebar is always hidden; open is visible */
+  .admin-shell .ant-layout-sider:not(.ant-layout-sider-collapsed):not(.ant-layout-sider-open) {
+    transform: translateX(-100%) !important;
+  }
+
+  .admin-shell .ant-layout-sider .ant-layout-sider-children {
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  /* Push content to full width */
+  .admin-shell > .ant-layout {
+    transition: margin-left 0.28s ease;
+  }
+
+  .admin-shell.content-shifted > .ant-layout {
+    margin-left: 0 !important;
+  }
+
+  /* Content area */
+  .admin-content-wrap {
+    margin: 12px !important;
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Mobile sidebar overlay backdrop */
+  .admin-sider-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 99;
+    backdrop-filter: blur(2px);
+  }
+
+  /* Hamburger button in header */
+  .admin-header-title {
+    flex: 1;
+  }
+}
+
+@media (min-width: 769px) {
+  .admin-sider-mask {
+    display: none !important;
+  }
+}
+
+/* Desktop sider — hidden on mobile */
+@media (max-width: 768px) {
+  .admin-desktop-sider {
+    display: none !important;
+  }
+}
+
+/* Header — compact on mobile */
+@media (max-width: 768px) {
+  .admin-header-username {
+    display: none;
+  }
+
+  .admin-shell .ant-layout-header {
+    padding: 0 16px !important;
+    gap: 8px;
+  }
+
+  /* Drawer menu item text */
+  .admin-shell .ant-drawer .ant-menu-item {
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
+/* Login page responsive */
+@media (max-width: 540px) {
+  .admin-login-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .admin-login-card .ant-card-body {
+    padding: 32px 24px;
+  }
+}

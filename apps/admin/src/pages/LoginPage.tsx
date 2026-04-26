@@ -77,7 +77,7 @@ export function LoginPage() {
         background: 'linear-gradient(180deg,#f5f7fb,#eef3fb)',
       }}
     >
-      <Card style={{ width: 420, borderRadius: 12, boxShadow: '0 10px 30px rgba(15,23,42,0.08)' }}>
+      <Card className="admin-login-card" style={{ width: 420, maxWidth: 'calc(100vw - 32px)', borderRadius: 12, boxShadow: '0 10px 30px rgba(15,23,42,0.08)' }}>
         <Title level={3} style={{ textAlign: 'center' }}>
           MyTest Admin
         </Title>
