@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { analyticsApi, type Visitor } from '../../api/analytics';
+import { analyticsApi, type Visitor } from '../../../api/analytics';
 
 export function useVisitors(params?: {
   page?: number;

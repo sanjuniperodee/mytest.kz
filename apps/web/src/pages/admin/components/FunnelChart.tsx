@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
-import type { FunnelData } from '../../api/analytics';
+import type { FunnelData } from '@/api/analytics';
 
 interface FunnelChartProps {
   data: FunnelData;
@@ -16,7 +16,7 @@ export function FunnelChart({ data }: FunnelChartProps) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout={{ type: 'category', height: 200 }}>
+        <BarChart data={chartData} layout="vertical">
           <XAxis type="category" dataKey="name" tick={{ fontSize: 12 }} />
           <YAxis type="number" tick={{ fontSize: 12 }} />
           <Tooltip

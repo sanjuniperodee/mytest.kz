@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { analyticsApi, type TestTaker } from '../../api/analytics';
+import { analyticsApi, type TestTaker } from '@/api/analytics';
 
 export function useTestTakers(params?: {
   page?: number;

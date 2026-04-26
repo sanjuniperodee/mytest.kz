@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { analyticsApi, type FunnelData } from '../../api/analytics';
+import { analyticsApi, type FunnelData } from '@/api/analytics';
 
 export function useFunnel(params?: { from?: string; to?: string; examTypeId?: string }) {
   return useQuery({
