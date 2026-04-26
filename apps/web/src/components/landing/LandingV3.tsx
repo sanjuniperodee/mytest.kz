@@ -48,21 +48,10 @@ function GridPattern({ className = '' }: { className?: string }) {
   );
 }
 
-function DecorativeCircles() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full border border-violet-200/30 dark:border-violet-800/20" />
-      <div className="absolute -top-16 -right-16 w-80 h-80 rounded-full border border-fuchsia-200/20 dark:border-fuchsia-800/15" />
-      <div className="absolute top-1/2 -left-24 w-48 h-48 rounded-full bg-gradient-to-br from-violet-100/40 to-transparent dark:from-violet-900/20" />
-    </div>
-  );
-}
-
 export function LandingV3({ whatsappHref }: LandingV3Props) {
   const { t, i18n } = useTranslation();
   const [isDark, setIsDark] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [heroLoaded, setHeroLoaded] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [heroCarouselIndex, setHeroCarouselIndex] = useState(0);

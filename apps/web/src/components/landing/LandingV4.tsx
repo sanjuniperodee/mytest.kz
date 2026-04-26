@@ -159,7 +159,7 @@ function SecondaryButton({ href, children, className = '' }: { href?: string; ch
 }
 
 // Section Wrapper with fade-in animation
-function Section({ children, className = '', id = '' }: { children: React.ReactNode; className?: string; id?: string }) {
+function Section({ children, className = '', id = '', onMouseEnter, onMouseLeave }: { children: React.ReactNode; className?: string; id?: string; onMouseEnter?: () => void; onMouseLeave?: () => void }) {
   const { ref, isInView } = useInView();
   
   return (
@@ -273,7 +273,6 @@ export function LandingV4({ whatsappHref }: LandingV4Props) {
   ], [i18n.language]);
 
   // Data from translations
-  const proof = useMemo(() => t('landingV4.proofItems', { returnObjects: true }) as Proof[], [t]);
   const steps = useMemo(() => t('landingV4.pipelineSteps', { returnObjects: true }) as Step[], [t]);
   const bento = useMemo(() => t('landingV4.bentoItems', { returnObjects: true }) as Bento[], [t]);
   const faq = useMemo(() => t('landingV4.faqItems', { returnObjects: true }) as Faq[], [t]);
