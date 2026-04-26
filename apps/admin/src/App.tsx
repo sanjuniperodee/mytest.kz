@@ -171,7 +171,7 @@ function AdminLayout() {
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        width={240}
+        width={256}
         breakpoint="lg"
         onBreakpoint={(broken) => {
           if (broken) setCollapsed(true);
@@ -188,7 +188,7 @@ function AdminLayout() {
           )}
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={({ key }) => {
@@ -218,7 +218,7 @@ function AdminLayout() {
           </div>
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={({ key }) => {
@@ -301,47 +301,71 @@ export function App() {
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
-          borderRadius: 8,
-          colorPrimary: '#4f46e5',
-          colorInfo: '#4f46e5',
-          colorSuccess: '#059669',
-          colorWarning: '#d97706',
-          colorError: '#dc2626',
-          colorText: '#18181b',
-          colorTextSecondary: '#52525b',
-          colorTextTertiary: '#71717a',
-          colorTextQuaternary: '#a1a1aa',
-          colorBorder: '#e4e4e7',
-          colorBorderSecondary: '#f4f4f5',
-          colorSplit: 'rgba(24, 24, 27, 0.06)',
+          borderRadius: 10,
+          colorPrimary: '#007aff',
+          colorInfo: '#007aff',
+          colorSuccess: '#34c759',
+          colorWarning: '#ff9f0a',
+          colorError: '#ff3b30',
+          colorText: '#1d1d1f',
+          colorTextSecondary: 'rgba(60, 60, 67, 0.72)',
+          colorTextTertiary: 'rgba(60, 60, 67, 0.55)',
+          colorTextQuaternary: 'rgba(60, 60, 67, 0.4)',
+          colorBorder: 'rgba(60, 60, 67, 0.12)',
+          colorBorderSecondary: 'rgba(60, 60, 67, 0.06)',
+          colorSplit: 'rgba(60, 60, 67, 0.12)',
           colorBgContainer: '#ffffff',
           colorBgLayout: 'transparent',
           colorFillAlter: '#fafafa',
-          colorFillSecondary: '#f4f4f5',
+          colorFillSecondary: '#e5e5ea',
           fontSize: 13,
           fontSizeSM: 12,
           fontSizeLG: 15,
-          lineHeight: 1.5,
+          lineHeight: 1.45,
           controlHeight: 32,
           controlHeightSM: 28,
-          fontFamily:
-            'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Cyrillic", sans-serif',
-          boxShadow: '0 1px 2px rgba(24, 24, 27, 0.04)',
-          boxShadowSecondary: '0 4px 12px rgba(24, 24, 27, 0.06)',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+          boxShadowSecondary: '0 4px 16px rgba(0, 0, 0, 0.1)',
         },
         components: {
-          Menu: { itemHeight: 36, itemBorderRadius: 8, subMenuItemBorderRadius: 8, iconSize: 15, collapsedIconSize: 15, groupTitleFontSize: 10 },
+          Menu: {
+            itemHeight: 40,
+            itemBorderRadius: 8,
+            subMenuItemBorderRadius: 8,
+            iconSize: 16,
+            collapsedIconSize: 16,
+            groupTitleFontSize: 11,
+            itemColor: 'rgba(29, 29, 31, 0.9)',
+            itemSelectedColor: '#007aff',
+            itemActiveBg: 'rgba(0, 122, 255, 0.12)',
+            itemHoverBg: 'rgba(0, 0, 0, 0.04)',
+            itemSelectedBg: 'rgba(0, 122, 255, 0.12)',
+            groupTitleColor: 'rgba(60, 60, 67, 0.55)',
+          },
           Card: { paddingLG: 16, boxShadow: 'none' },
-          Table: { cellPaddingBlock: 8, cellPaddingInline: 12, fontSize: 13, headerColor: 'rgba(82, 82, 91, 0.95)', rowHoverBg: '#fafafa' },
-          Tabs: { cardHeight: 36, itemColor: 'rgba(24, 24, 27, 0.55)', itemSelectedColor: '#4f46e5', titleFontSize: 13, inkBarColor: '#4f46e5' },
-          Button: { controlHeight: 32, fontWeight: 500, borderRadius: 8, primaryShadow: 'none' },
-          Input: { activeBorderColor: '#4f46e5', hoverBorderColor: '#a5a4d6' },
-          Select: { optionSelectedBg: 'rgba(79, 70, 229, 0.08)' },
-          Form: { labelFontSize: 12, labelColor: 'rgba(82, 82, 91, 0.95)' },
+          Table: {
+            cellPaddingBlock: 8,
+            cellPaddingInline: 12,
+            fontSize: 13,
+            headerColor: 'rgba(60, 60, 67, 0.55)',
+            rowHoverBg: 'rgba(0, 0, 0, 0.02)',
+          },
+          Tabs: {
+            cardHeight: 36,
+            itemColor: 'rgba(60, 60, 67, 0.55)',
+            itemSelectedColor: '#007aff',
+            titleFontSize: 13,
+            inkBarColor: '#007aff',
+          },
+          Button: { controlHeight: 32, fontWeight: 500, borderRadius: 10, primaryShadow: 'none' },
+          Input: { activeBorderColor: '#007aff', hoverBorderColor: 'rgba(60, 60, 67, 0.28)' },
+          Select: { optionSelectedBg: 'rgba(0, 122, 255, 0.1)' },
+          Form: { labelFontSize: 12, labelColor: 'rgba(60, 60, 67, 0.75)' },
           Modal: { contentBg: '#ffffff', titleFontSize: 15, titleLineHeight: 1.4 },
-          Drawer: { colorBgElevated: '#ffffff' },
-          Tag: { defaultBg: '#f4f4f5', defaultColor: '#3f3f46', borderRadiusSM: 4 },
-          Alert: { borderRadiusLG: 8 },
+          Drawer: { colorBgElevated: '#e8e8ed' },
+          Tag: { defaultBg: '#e5e5ea', defaultColor: 'rgba(60, 60, 67, 0.85)', borderRadiusSM: 6 },
+          Alert: { borderRadiusLG: 12 },
         },
       }}
     >

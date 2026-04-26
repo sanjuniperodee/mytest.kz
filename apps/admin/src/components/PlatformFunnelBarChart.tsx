@@ -3,12 +3,12 @@ import type { FunnelData } from '../api/platformAnalytics';
 
 type Props = { data: FunnelData };
 
-/* Палитра в тон indigo-акценту админки */
+/* Системные оттенки синего (Apple HIG) */
 const CHART = [
-  { name: 'Визит', key: 'visits' as const, fill: '#4f46e5' },
-  { name: 'Регистрация', key: 'registered' as const, fill: '#6366f1' },
-  { name: 'Старт теста', key: 'started' as const, fill: '#818cf8' },
-  { name: 'Завершили', key: 'completed' as const, fill: '#a5b4fc' },
+  { name: 'Визит', key: 'visits' as const, fill: '#007aff' },
+  { name: 'Регистрация', key: 'registered' as const, fill: '#0a84ff' },
+  { name: 'Старт теста', key: 'started' as const, fill: '#40a0ff' },
+  { name: 'Завершили', key: 'completed' as const, fill: '#5ac8fa' },
 ];
 
 export function PlatformFunnelBarChart({ data }: Props) {
@@ -26,9 +26,9 @@ export function PlatformFunnelBarChart({ data }: Props) {
           <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} />
           <Tooltip
             formatter={(v: number) => [v.toLocaleString('ru-RU'), '']}
-            contentStyle={{ borderRadius: 8, border: '1px solid #e4e4e7', boxShadow: '0 4px 12px rgba(24, 24, 27, 0.08)' }}
+            contentStyle={{ borderRadius: 12, border: '0.5px solid rgba(60, 60, 67, 0.12)', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)' }}
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+          <Bar dataKey="value" radius={[0, 8, 8, 0]}>
             {chartData.map((e, i) => (
               <Cell key={i} fill={e.fill} />
             ))}

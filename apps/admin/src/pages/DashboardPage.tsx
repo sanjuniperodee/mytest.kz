@@ -72,7 +72,7 @@ export function DashboardPage() {
               title="Подписки"
               value={overview?.activeSubscriptions ?? 0}
               prefix={<CrownOutlined />}
-              valueStyle={{ color: '#ca8a04' }}
+              valueStyle={{ color: '#ff9f0a' }}
             />
           </Card>
         </Col>

@@ -324,7 +324,7 @@ export function AnalyticsPage() {
                               title={x.label}
                               value={x.v}
                               suffix="%"
-                              valueStyle={{ color: '#4f46e5' }}
+                              valueStyle={{ color: '#007aff' }}
                             />
                           </Card>
                         </Col>
@@ -348,14 +348,14 @@ export function AnalyticsPage() {
                               <Line
                                 type="monotone"
                                 dataKey="visits"
-                                stroke="#4f46e5"
+                                stroke="#007aff"
                                 dot={false}
                                 name="Визиты"
                               />
                               <Line
                                 type="monotone"
                                 dataKey="completed"
-                                stroke="#818cf8"
+                                stroke="#5ac8fa"
                                 dot={false}
                                 name="Завершения"
                               />
