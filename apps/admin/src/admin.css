@@ -25,6 +25,7 @@
   --admin-text: #1d1d1f;
   --admin-text-secondary: rgba(60, 60, 67, 0.72);
   --admin-muted: rgba(60, 60, 67, 0.55);
+  --admin-text-tertiary: rgba(60, 60, 67, 0.42);
   --admin-border: rgba(60, 60, 67, 0.12);
   --admin-border-subtle: #e5e5ea;
   --admin-separator: rgba(60, 60, 67, 0.12);
@@ -754,4 +755,219 @@ body {
   .admin-login-card .ant-card-body {
     padding: 32px 20px;
   }
+}
+
+/* —— Глубокий HIG: группы страниц, таблицы, табы —— */
+.hig-page-lead {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--admin-text-secondary);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.hig-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hig-group__head {
+  padding: 0 2px;
+}
+
+.hig-group__label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+  line-height: 1.25;
+}
+
+.hig-group__desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--admin-muted);
+  max-width: 40rem;
+  font-weight: 400;
+}
+
+.hig-group__body {
+  min-width: 0;
+}
+
+.hig-table-card .ant-card-head {
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.hig-table-card .ant-card-head-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hig-table-card .ant-table-wrapper .ant-table {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.hig-table-card .ant-table-wrapper {
+  border-radius: 0 0 var(--admin-radius) var(--admin-radius);
+  overflow: hidden;
+}
+
+.hig-table-card:not(.ant-card-bordered) .ant-card-body {
+  border-radius: inherit;
+}
+
+.hig-page-tabs > .ant-tabs-nav {
+  margin-bottom: 16px;
+  padding: 0 2px;
+}
+
+.hig-page-tabs .ant-tabs-tab {
+  padding: 10px 0 !important;
+}
+
+.hig-page-tabs .ant-tabs-nav::before {
+  border-color: var(--admin-separator);
+}
+
+.hig-filter-card .ant-card-body {
+  padding: 12px 14px;
+}
+
+.hig-ent-block.ant-card {
+  border-radius: var(--admin-radius);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.hig-ent-block .ant-card-body {
+  padding: 12px 14px;
+}
+
+.hig-metric-xl {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-text);
+  font-family: var(--admin-font);
+}
+
+.hig-metric-suffix {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--admin-text-tertiary);
+  margin-left: 4px;
+}
+
+.hig-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .hig-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hig-action-grid .ant-btn {
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: var(--admin-radius-sm);
+  font-weight: 500;
+  border: 0.5px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  color: var(--hig-tint) !important;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.04);
+}
+
+.hig-action-grid .ant-btn:hover {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-color: var(--hig-tint) !important;
+  color: var(--hig-tint-pressed) !important;
+}
+
+.hig-landing-separator {
+  margin: 20px 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+  padding: 4px 0 8px;
+  border-bottom: 0.5px solid var(--admin-separator);
+}
+
+.hig-landing-slide.ant-card {
+  border-radius: var(--admin-radius) !important;
+  border: 0.5px solid var(--admin-border) !important;
+  box-shadow: var(--admin-shadow-card);
+  background: #fafafa;
+}
+
+.hig-signin-hero.ant-typography {
+  text-align: center;
+  margin-bottom: 2px !important;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--admin-text) !important;
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+}
+
+.hig-code-hint {
+  margin-bottom: 16px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.hig-catalog-collapse .ant-collapse {
+  background: transparent;
+  border: none;
+}
+
+.hig-catalog-collapse .ant-collapse-item {
+  border: 0.5px solid var(--admin-border) !important;
+  border-radius: var(--admin-radius) !important;
+  margin-bottom: 10px;
+  overflow: hidden;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-card);
+}
+
+.hig-catalog-collapse .ant-collapse-header {
+  font-weight: 600 !important;
+  padding: 12px 14px !important;
+  align-items: center !important;
+}
+
+.hig-catalog-collapse .ant-collapse-content-box {
+  padding: 0 14px 12px !important;
+}
+
+.hig-questions-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 0;
+  padding: 0 2px 4px;
+}
+
+.hig-cell-muted {
+  color: var(--admin-text-tertiary);
 }

@@ -31,6 +31,7 @@ import {
 } from '../api/platformAnalytics';
 import { PlatformFunnelBarChart } from '../components/PlatformFunnelBarChart';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
 
 const df = 'YYYY-MM-DD';
 const PAGE_SIZE = 50;
@@ -120,10 +121,10 @@ export function AnalyticsPage() {
         v.user ? (
           <span>
             {v.user.firstName} {v.user.lastName}
-            <span style={{ color: '#a1a1aa' }}> @{v.user.telegramUsername || '—'}</span>
+            <span className="hig-cell-muted"> @{v.user.telegramUsername || '—'}</span>
           </span>
         ) : (
-          <span style={{ color: '#a1a1aa' }}>Не зарегистрирован</span>
+          <span className="hig-cell-muted">Не зарегистрирован</span>
         ),
     },
     {
@@ -173,7 +174,7 @@ export function AnalyticsPage() {
         <span>
           {u.firstName} {u.lastName}
           {u.telegramUsername && (
-            <span style={{ color: '#a1a1aa' }}> @{u.telegramUsername}</span>
+            <span className="hig-cell-muted"> @{u.telegramUsername}</span>
           )}
         </span>
       ),
@@ -222,58 +223,71 @@ export function AnalyticsPage() {
 
   return (
     <AdminPageShell>
-      <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-        <Col xs={12} sm={6}>
-          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-            <Statistic title="Пользователи" value={overview?.totalUsers ?? 0} prefix={<UserOutlined />} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-            <Statistic title="Тесты" value={overview?.totalTests ?? 0} prefix={<FileTextOutlined />} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-            <Statistic title="Вопросы" value={overview?.totalQuestions ?? 0} prefix={<QuestionCircleOutlined />} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-            <Statistic
-              title="Подписки"
-              value={overview?.activeSubscriptions ?? 0}
-              prefix={<CrownOutlined />}
-              valueStyle={{ color: '#ca8a04' }}
+      <HigPageLead>
+        Платформенные метрики, воронка по шагам, динамика и таблицы посетителей / тестирующих за выбранный период.
+      </HigPageLead>
+
+      <HigGroup label="Сводка" description="Состояние каталога и аккаунтов.">
+        <Row gutter={[12, 12]}>
+          <Col xs={12} sm={6}>
+            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+              <Statistic title="Пользователи" value={overview?.totalUsers ?? 0} prefix={<UserOutlined />} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+              <Statistic title="Тесты" value={overview?.totalTests ?? 0} prefix={<FileTextOutlined />} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+              <Statistic title="Вопросы" value={overview?.totalQuestions ?? 0} prefix={<QuestionCircleOutlined />} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+              <Statistic
+                title="Подписки"
+                value={overview?.activeSubscriptions ?? 0}
+                prefix={<CrownOutlined />}
+                valueStyle={{ color: '#ff9f0a' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      </HigGroup>
+
+      <HigGroup
+        label="Период"
+        description="Воронка, посетители и «Тесты» учитывают даты от и до. Текущий диапазон отображается снизу."
+      >
+        <Card className="hig-filter-card" size="small" title="Диапазон дат">
+          <Space wrap align="center">
+            <DatePicker
+              value={draftFrom}
+              onChange={(d) => d && setDraftFrom(d)}
+              format={df}
+              allowClear={false}
             />
-          </Card>
-        </Col>
-      </Row>
+            <span>—</span>
+            <DatePicker
+              value={draftTo}
+              onChange={(d) => d && setDraftTo(d)}
+              format={df}
+              allowClear={false}
+            />
+            <Button type="primary" onClick={applyDateFilters}>
+              Применить
+            </Button>
+            <Button onClick={resetDateFilters}>30 дней</Button>
+          </Space>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--admin-muted)' }}>{from} — {to}</div>
+        </Card>
+      </HigGroup>
 
-      <Card size="small" style={{ marginBottom: 12 }} title="Период (воронка и таблицы)">
-        <Space wrap align="center">
-          <DatePicker
-            value={draftFrom}
-            onChange={(d) => d && setDraftFrom(d)}
-            format={df}
-            allowClear={false}
-          />
-          <span>—</span>
-          <DatePicker
-            value={draftTo}
-            onChange={(d) => d && setDraftTo(d)}
-            format={df}
-            allowClear={false}
-          />
-          <Button type="primary" onClick={applyDateFilters}>
-            Применить
-          </Button>
-          <Button onClick={resetDateFilters}>30 дней</Button>
-        </Space>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--admin-muted)' }}>{from} — {to}</div>
-      </Card>
-
-      <Tabs
+      <HigGroup label="Детализация">
+        <Tabs
+        className="hig-page-tabs"
         size="middle"
         items={[
           {
@@ -373,34 +387,39 @@ export function AnalyticsPage() {
             key: 'visitors',
             label: 'Посетители',
             children: (
-              <Table<Visitor>
-                size="small"
-                rowKey="visitorId"
-                loading={visitorsLoading}
-                dataSource={visitors?.items}
-                columns={visitorColumns}
-                pagination={visitorPagination}
-                scroll={{ x: 900 }}
-              />
+              <HigTableCard>
+                <Table<Visitor>
+                  size="small"
+                  rowKey="visitorId"
+                  loading={visitorsLoading}
+                  dataSource={visitors?.items}
+                  columns={visitorColumns}
+                  pagination={visitorPagination}
+                  scroll={{ x: 900 }}
+                />
+              </HigTableCard>
             ),
           },
           {
             key: 'takers',
             label: 'Тесты',
             children: (
-              <Table<TestTaker>
-                size="small"
-                rowKey="userId"
-                loading={takersLoading}
-                dataSource={takers?.items}
-                columns={takerColumns}
-                pagination={takerPagination}
-                scroll={{ x: 1000 }}
-              />
+              <HigTableCard>
+                <Table<TestTaker>
+                  size="small"
+                  rowKey="userId"
+                  loading={takersLoading}
+                  dataSource={takers?.items}
+                  columns={takerColumns}
+                  pagination={takerPagination}
+                  scroll={{ x: 1000 }}
+                />
+              </HigTableCard>
             ),
           },
         ]}
-      />
+        />
+      </HigGroup>
     </AdminPageShell>
   );
 }

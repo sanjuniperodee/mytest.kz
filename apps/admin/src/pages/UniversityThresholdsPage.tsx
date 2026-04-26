@@ -8,6 +8,7 @@ import {
   fetchAdmissionUniversities,
 } from '../api/admission';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
 
 type Row = {
   key: string;
@@ -79,6 +80,9 @@ export function UniversityThresholdsPage() {
 
   return (
     <AdminPageShell>
+      <HigPageLead>
+        Минимальные проходные баллы по программам вуза из выгрузки приёма: грант или сельская квота.
+      </HigPageLead>
       {cyclesQ.isLoading || unisQ.isLoading ? (
         <div className="admin-boot" style={{ minHeight: 200 }}>
           <Spin />
@@ -86,7 +90,8 @@ export function UniversityThresholdsPage() {
       ) : cyclesQ.isError ? (
         <Typography.Text type="danger">Не удалось загрузить циклы приёма.</Typography.Text>
       ) : (
-        <Card size="small" style={{ marginBottom: 12 }}>
+        <HigGroup label="Справочник" description="Цикл, вуз и тип квоты определяют набор порогов в таблице.">
+        <Card className="hig-filter-card" size="small">
           <Space wrap size="large">
             <div>
               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
@@ -132,17 +137,22 @@ export function UniversityThresholdsPage() {
             </div>
           </Space>
         </Card>
+        </HigGroup>
       )}
 
-      <Table<Row>
-        rowKey={(r) => r.key}
-        columns={columns}
-        dataSource={dataSource}
-        loading={cutoffsQ.isFetching}
-        pagination={{ pageSize: 25 }}
-        size="small"
-        scroll={{ x: 800 }}
-      />
+      <HigGroup label="Программы и пороги">
+        <HigTableCard>
+          <Table<Row>
+            rowKey={(r) => r.key}
+            columns={columns}
+            dataSource={dataSource}
+            loading={cutoffsQ.isFetching}
+            pagination={{ pageSize: 25 }}
+            size="small"
+            scroll={{ x: 800 }}
+          />
+        </HigTableCard>
+      </HigGroup>
     </AdminPageShell>
   );
 }

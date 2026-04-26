@@ -28,6 +28,7 @@ import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigPageLead } from '../components/HigBlocks';
 
 function humanizeApiMessage(raw: string): string {
   if (raw.includes('PLAN_TEMPLATE_HAS_NO_EXAM_RULES')) {
@@ -615,8 +616,13 @@ export function SubscriptionsPage() {
 
   return (
     <AdminPageShell className="admin-subscriptions-page">
+      <HigPageLead>
+        Выдача v2-энтитлментов по шаблонам, редактирование тарифов, проверка и редкие сценарии (legacy). Данные
+        пользователей — через поиск.
+      </HigPageLead>
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         <Tabs
+          className="hig-page-tabs"
           activeKey={subscriptionTab}
           onChange={setSubscriptionTab}
           items={[

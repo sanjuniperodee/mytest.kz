@@ -17,6 +17,7 @@ import {
   fetchAdmissionUniversities,
 } from '../api/admission';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead } from '../components/HigBlocks';
 
 const tierRu: Record<ReturnType<typeof grantTierHint>, { label: string; color: string }> = {
   Blocked: { label: 'Не проходите пороги', color: 'red' },
@@ -40,7 +41,7 @@ function EntBlock({
   threshold: number;
 }) {
   return (
-    <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 16px' } }}>
+    <Card size="small" className="hig-ent-block" styles={{ body: { padding: '12px 16px' } }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <Typography.Text strong>{label}</Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -152,6 +153,9 @@ export function AdmissionChancePage() {
 
   return (
     <AdminPageShell>
+      <HigPageLead>
+        Интерактивные баллы ЕНТ, проходные пороги и сравнение с прошлым конкурсом по выбранной программе.
+      </HigPageLead>
       {cyclesQ.isLoading || unisQ.isLoading ? (
         <div className="admin-boot" style={{ minHeight: 200 }}>
           <Spin />
@@ -159,7 +163,11 @@ export function AdmissionChancePage() {
       ) : cyclesQ.isError ? (
         <Typography.Text type="danger">Не удалось загрузить справочник приёма (нужен API и сид данных).</Typography.Text>
       ) : (
-        <Card size="small" style={{ marginBottom: 16 }} title={`Справочник · до ${ENT_TOTAL_MAX} баллов`}>
+        <HigGroup
+          label="Параметры приёма"
+          description={`Цикл, вуз, квота и программа. Максимум суммарного балла: ${ENT_TOTAL_MAX}.`}
+        >
+        <Card className="hig-filter-card" size="small" title={`Справочник · до ${ENT_TOTAL_MAX} баллов`}>
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
             <div>
               <Typography.Text type="secondary">Цикл приёма</Typography.Text>
@@ -215,10 +223,12 @@ export function AdmissionChancePage() {
             </div>
           </Space>
         </Card>
+        </HigGroup>
       )}
 
-      <Row gutter={[24, 24]}>
+      <Row gutter={[20, 20]}>
         <Col xs={24} lg={14}>
+          <HigGroup label="Баллы по субтестам" description="Сдвиньте ползунки — сумма и ориентиры пересчитываются сразу.">
           <EntBlock
             label="Математическая грамотность"
             value={scores.mathLit}
@@ -254,18 +264,17 @@ export function AdmissionChancePage() {
             max={ENT_MAX.profile2}
             threshold={ENT_THRESHOLD_2026.profile2}
           />
+          </HigGroup>
         </Col>
         <Col xs={24} lg={10}>
+          <HigGroup label="Сводка">
           <Card className="admin-stat-card" title="Итог">
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div>
                 <Typography.Text type="secondary">Суммарный балл</Typography.Text>
-                <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.1 }}>
+                <div className="hig-metric-xl">
                   {total.toFixed(0)}
-                  <span style={{ fontSize: 16, fontWeight: 600, color: '#71717a' }}>
-                    {' '}
-                    / {ENT_TOTAL_MAX}
-                  </span>
+                  <span className="hig-metric-suffix">/ {ENT_TOTAL_MAX}</span>
                 </div>
               </div>
               <div>
@@ -297,6 +306,7 @@ export function AdmissionChancePage() {
               )}
             </Space>
           </Card>
+          </HigGroup>
         </Col>
       </Row>
     </AdminPageShell>

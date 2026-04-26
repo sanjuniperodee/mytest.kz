@@ -31,6 +31,7 @@ import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutl
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigPageLead } from '../components/HigBlocks';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import {
   getLocalizedText,
@@ -1011,8 +1012,13 @@ export function QuestionsPage() {
 
   return (
     <AdminPageShell>
-      <div className="admin-page-toolbar" style={{ marginBottom: 12 }}>
-        <div className="admin-page-toolbar-end" style={{ width: '100%', justifyContent: 'flex-end' }}>
+      <HigPageLead>
+        Редактор банка вопросов: языковые вкладки, фильтр по экзамену и предмету, поиск похожих и полная форма вопроса.
+      </HigPageLead>
+
+      <div className="hig-questions-toolbar-row">
+        <div />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Tooltip
             title={
               <>
@@ -1031,6 +1037,7 @@ export function QuestionsPage() {
       </div>
 
       <Tabs
+        className="hig-page-tabs"
         activeKey={localeFilterToTabKey(localeFilter)}
         onChange={(key) => {
           setLocaleFilter(tabKeyToLocaleFilter(key));
@@ -1082,7 +1089,7 @@ export function QuestionsPage() {
         ]}
       />
 
-      <Card size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
+      <Card className="hig-filter-card" size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
         <Space wrap size={[12, 12]} align="center">
           <Select
             placeholder="Тип экзамена"

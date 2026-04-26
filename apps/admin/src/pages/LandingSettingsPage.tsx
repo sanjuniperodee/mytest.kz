@@ -4,6 +4,7 @@ import { Button, Card, Form, Image, Input, Space, Switch, Typography, Upload, me
 import { PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead } from '../components/HigBlocks';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
 
 type LandingSettingsDto = {
@@ -134,6 +135,9 @@ export function LandingSettingsPage() {
 
   return (
     <AdminPageShell wide>
+      <HigPageLead>
+        Публичные ссылки и слайды главной страницы: после сохранения подхватываются лендингом через API.
+      </HigPageLead>
       <Card loading={isLoading}>
         <Form<LandingSettingsDto>
           form={form}
@@ -147,6 +151,7 @@ export function LandingSettingsPage() {
             heroSlides: [],
           }}
         >
+          <HigGroup label="Контент и соцсети">
           <Form.Item
             name="instructionVideoUrl"
             label="Ссылка на видео-инструкцию"
@@ -179,16 +184,16 @@ export function LandingSettingsPage() {
           >
             <Input placeholder="https://wa.me/7777..." />
           </Form.Item>
+          </HigGroup>
 
-          <Typography.Title level={5} style={{ marginTop: 8 }}>
-            Карусель на главной (desktop / tablet / mobile)
-          </Typography.Title>
+          <div className="hig-landing-separator">Карусель на главной (desktop / tablet / mobile)</div>
           <Form.List name="heroSlides">
             {(fields, { add, remove }) => (
               <Space direction="vertical" size={14} style={{ width: '100%' }}>
                 {fields.map((field, idx) => (
                   <Card
                     key={field.key}
+                    className="hig-landing-slide"
                     size="small"
                     title={`Слайд ${idx + 1}`}
                     extra={

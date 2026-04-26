@@ -70,7 +70,7 @@ export function LoginPage() {
   return (
     <div className="admin-login-page">
       <Card className="admin-login-card">
-        <Title level={3} style={{ textAlign: 'center', marginBottom: 4 }}>
+        <Title level={3} className="hig-signin-hero">
           MyTest · admin
         </Title>
         <p className="admin-login-kicker">Код в Telegram, номер как в боте.</p>
@@ -95,7 +95,7 @@ export function LoginPage() {
           </Form>
         ) : (
           <Form onFinish={handleVerifyCode} layout="vertical">
-            <p style={{ marginBottom: 16, color: '#71717a', fontSize: 13 }}>
+            <p className="hig-code-hint">
               Код отправлен в Telegram для номера{' '}
               <strong>{phoneNormalized ? `+${phoneNormalized}` : phone}</strong>
             </p>

@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageToolbar } from '../components/AdminPageToolbar';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
 
 interface User {
   id: string;
@@ -145,33 +146,41 @@ export function UsersPage() {
 
   return (
     <AdminPageShell>
-      <AdminPageToolbar
-        end={<Tag>Записей: {data?.total ?? 0}</Tag>}
-      >
-        <Input.Search
-          placeholder="Поиск: @username, имя"
-          allowClear
-          onSearch={(v) => { setSearch(v); setPage(1); }}
-          style={{ width: 280, maxWidth: '100%' }}
-        />
-      </AdminPageToolbar>
+      <HigPageLead>Реестр пользователей, права admin и v2-энтитлменты. Поиск по Telegram и имени.</HigPageLead>
 
-      <Table
-        columns={columns}
-        dataSource={data?.items || []}
-        rowKey="id"
-        loading={isLoading}
-        pagination={{
-          current: page,
-          total: data?.total || 0,
-          pageSize: 20,
-          onChange: setPage,
-          showTotal: (total) => `${total} записей`,
-        }}
-        size="small"
-        scroll={{ x: 800 }}
-        locale={{ emptyText: <Empty description="Нет данных" /> }}
-      />
+      <HigGroup label="Поиск">
+        <AdminPageToolbar
+          end={<Tag>Записей: {data?.total ?? 0}</Tag>}
+        >
+          <Input.Search
+            placeholder="Поиск: @username, имя"
+            allowClear
+            onSearch={(v) => { setSearch(v); setPage(1); }}
+            style={{ width: 280, maxWidth: '100%' }}
+          />
+        </AdminPageToolbar>
+      </HigGroup>
+
+      <HigGroup label="Список">
+        <HigTableCard>
+          <Table
+            columns={columns}
+            dataSource={data?.items || []}
+            rowKey="id"
+            loading={isLoading}
+            pagination={{
+              current: page,
+              total: data?.total || 0,
+              pageSize: 20,
+              onChange: setPage,
+              showTotal: (total) => `${total} записей`,
+            }}
+            size="small"
+            scroll={{ x: 800 }}
+            locale={{ emptyText: <Empty description="Нет данных" /> }}
+          />
+        </HigTableCard>
+      </HigGroup>
     </AdminPageShell>
   );
 }

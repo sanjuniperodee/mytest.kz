@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
 import {
   getLocalizedText,
   getQuestionContentLocale,
@@ -89,7 +90,7 @@ export function ExplanationsPage() {
           const text = getLocalizedText(record.explanation) || '—';
           const s = String(text);
           return (
-            <span style={{ color: '#71717a' }}>
+            <span className="hig-cell-muted">
               {s.slice(0, 90)}
               {s.length > 90 ? '…' : ''}
             </span>
@@ -122,7 +123,13 @@ export function ExplanationsPage() {
 
   return (
     <AdminPageShell>
+      <HigPageLead>
+        Вопросы, у которых заполнено объяснение: превью текста, язык метаданных и быстрый переход к редактору.
+      </HigPageLead>
+
+      <HigGroup label="Фильтр по языку контента">
       <Tabs
+        className="hig-page-tabs"
         activeKey={localeFilterToTabKey(localeFilter)}
         onChange={(key) => {
           setLocaleFilter(tabKeyToLocaleFilter(key));
@@ -173,11 +180,13 @@ export function ExplanationsPage() {
           },
         ]}
       />
+      </HigGroup>
 
-      <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: '10px 14px' } }}>
+      <HigGroup label="Превью текста вопроса">
+      <Card className="hig-filter-card" size="small" styles={{ body: { padding: '10px 14px' } }}>
         <Space wrap align="center">
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Превью условия
+            Язык превью условия в таблице
           </Typography.Text>
           <Segmented
             value={previewLang}
@@ -189,25 +198,30 @@ export function ExplanationsPage() {
           />
         </Space>
       </Card>
+      </HigGroup>
 
-      <Table<Row>
-        size="small"
-        rowKey="id"
-        columns={columns}
-        dataSource={data?.items ?? []}
-        loading={isLoading}
-        pagination={{
-          current: page,
-          total: data?.total ?? 0,
-          pageSize: 15,
-          onChange: setPage,
-          showTotal: (t) => `${t} шт.`,
-        }}
-        locale={{
-          emptyText: <Empty description="Пусто" />,
-        }}
-        scroll={{ x: 960 }}
-      />
+      <HigGroup label="Список">
+        <HigTableCard>
+          <Table<Row>
+            size="small"
+            rowKey="id"
+            columns={columns}
+            dataSource={data?.items ?? []}
+            loading={isLoading}
+            pagination={{
+              current: page,
+              total: data?.total ?? 0,
+              pageSize: 15,
+              onChange: setPage,
+              showTotal: (t) => `${t} шт.`,
+            }}
+            locale={{
+              emptyText: <Empty description="Пусто" />,
+            }}
+            scroll={{ x: 960 }}
+          />
+        </HigTableCard>
+      </HigGroup>
     </AdminPageShell>
   );
 }

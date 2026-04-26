@@ -25,6 +25,7 @@ import { PlusOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigPageLead } from '../components/HigBlocks';
 import { getLocalizedText, pickContentLang, splitLocalizedSlot } from '../lib/questionContent';
 
 type CatalogListLang = 'ru' | 'kk' | 'en';
@@ -496,18 +497,20 @@ export function ExamCatalogPage() {
 
   return (
     <AdminPageShell>
-      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 10 }}>
-        Не меняйте slug экзамена без причины. Сущности с вопросами не удаляются.
-      </Typography.Text>
+      <HigPageLead>
+        Каталог типов экзаменов, предметов, тем и шаблонов тестов. Не меняйте slug без причины — с вопросами сущности
+        не удаляются.
+      </HigPageLead>
 
-      <Card size="small" style={{ marginBottom: 12 }}>
+      <HigGroup label="Список и превью">
+      <Card className="hig-filter-card" size="small">
         <Space wrap align="center">
           <Space>
             <span>Показать скрытые экзамены</span>
             <Switch checked={includeInactive} onChange={setIncludeInactive} />
           </Space>
           <Space direction="vertical" size={4}>
-            <span style={{ fontSize: 12, color: '#71717a' }}>Превью названий в списках</span>
+            <span style={{ fontSize: 12, color: 'var(--admin-muted)' }}>Превью названий в списках</span>
             <Segmented<CatalogListLang>
               size="small"
               value={catalogListLang}
@@ -532,10 +535,15 @@ export function ExamCatalogPage() {
           </Button>
         </Space>
       </Card>
+      </HigGroup>
 
+      <HigGroup label="Экзамены" description="Разворачивайте карточку — предметы, темы и действия.">
       <Spin spinning={isLoading}>
-        <Collapse items={collapseItems} defaultActiveKey={catalog?.[0]?.id} />
+        <div className="hig-catalog-collapse">
+          <Collapse items={collapseItems} defaultActiveKey={catalog?.[0]?.id} />
+        </div>
       </Spin>
+      </HigGroup>
 
       <Drawer
         title={examDrawer.mode === 'create' ? 'Новый экзамен' : 'Редактировать экзамен'}
