@@ -16,6 +16,7 @@ import {
   fetchAdmissionCycles,
   fetchAdmissionUniversities,
 } from '../api/admission';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 const tierRu: Record<ReturnType<typeof grantTierHint>, { label: string; color: string }> = {
   Blocked: { label: 'Не проходите пороги', color: 'red' },
@@ -150,17 +151,15 @@ export function AdmissionChancePage() {
   });
 
   return (
-    <div>
-      <p className="admin-hint" style={{ marginTop: 0 }}>
-        Модель {ENT_TOTAL_MAX} баллов, сравнение с выборкой порогов. Ориентир, не офер.
-      </p>
-
+    <AdminPageShell>
       {cyclesQ.isLoading || unisQ.isLoading ? (
-        <Spin />
+        <div className="admin-boot" style={{ minHeight: 200 }}>
+          <Spin />
+        </div>
       ) : cyclesQ.isError ? (
         <Typography.Text type="danger">Не удалось загрузить справочник приёма (нужен API и сид данных).</Typography.Text>
       ) : (
-        <Card size="small" style={{ marginBottom: 20 }} title="Справочник гранта">
+        <Card size="small" style={{ marginBottom: 16 }} title={`Справочник · до ${ENT_TOTAL_MAX} баллов`}>
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
             <div>
               <Typography.Text type="secondary">Цикл приёма</Typography.Text>
@@ -300,6 +299,6 @@ export function AdmissionChancePage() {
           </Card>
         </Col>
       </Row>
-    </div>
+    </AdminPageShell>
   );
 }

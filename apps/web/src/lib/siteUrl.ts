@@ -17,3 +17,10 @@ export function getOgImageUrl(): string {
   }
   return `${getSiteUrl()}/og-cover.svg`;
 }
+
+/** Primary og:locale for the active UI language (SPA). */
+export function getOgLocaleForI18n(lng: string): 'ru_RU' | 'kk_KZ' | 'en_US' {
+  if (lng === 'kk') return 'kk_KZ';
+  if (lng === 'en') return 'en_US';
+  return 'ru_RU';
+}

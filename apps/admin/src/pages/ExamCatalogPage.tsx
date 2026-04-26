@@ -24,6 +24,7 @@ import {
 import { PlusOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 import { getLocalizedText, pickContentLang, splitLocalizedSlot } from '../lib/questionContent';
 
 type CatalogListLang = 'ru' | 'kk' | 'en';
@@ -494,12 +495,12 @@ export function ExamCatalogPage() {
   });
 
   return (
-    <div>
-      <p className="admin-hint" style={{ marginTop: 0 }}>
-        Slug экзамена не переименовывайте без нужды. Предмет/тему с вопросами нельзя удалить.
-      </p>
+    <AdminPageShell>
+      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 10 }}>
+        Не меняйте slug экзамена без причины. Сущности с вопросами не удаляются.
+      </Typography.Text>
 
-      <Card size="small" style={{ marginBottom: 16 }}>
+      <Card size="small" style={{ marginBottom: 12 }}>
         <Space wrap align="center">
           <Space>
             <span>Показать скрытые экзамены</span>
@@ -936,6 +937,6 @@ export function ExamCatalogPage() {
           </Form.List>
         </Form>
       </Drawer>
-    </div>
+    </AdminPageShell>
   );
 }

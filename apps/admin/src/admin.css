@@ -1,15 +1,15 @@
 :root {
-  --admin-bg: #f4f4f5;
+  --admin-bg: #ececef;
   --admin-surface: #ffffff;
-  --admin-sider-bg: #18181b;
-  --admin-sider-elevated: #27272a;
+  --admin-sider-bg: #0f0f12;
   --admin-accent: #4f46e5;
   --admin-accent-hover: #6366f1;
-  --admin-accent-soft: rgba(79, 70, 229, 0.1);
+  --admin-accent-soft: rgba(79, 70, 229, 0.12);
   --admin-text: #18181b;
   --admin-muted: #71717a;
-  --admin-border: rgba(24, 24, 27, 0.08);
-  --admin-header-h: 56px;
+  --admin-border: rgba(24, 24, 27, 0.09);
+  --admin-header-h: 48px;
+  --admin-content-max: 1480px;
 }
 
 body {
@@ -23,10 +23,39 @@ body {
   background: var(--admin-bg);
 }
 
+.admin-boot {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--admin-bg);
+}
+
+/* —— Main column —— */
+.admin-content-wrap {
+  margin: 0;
+  min-height: calc(100vh - var(--admin-header-h));
+  padding: 12px 16px 32px;
+  background: var(--admin-bg);
+}
+
+.admin-page {
+  max-width: var(--admin-content-max);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.admin-page--wide {
+  max-width: 1040px;
+}
+
+.admin-page.admin-subscriptions-page {
+  max-width: 960px;
+}
+
 /* —— Sidebar —— */
 .admin-sider.admin-desktop-sider {
   background: var(--admin-sider-bg) !important;
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .admin-sider .ant-layout-sider-children {
@@ -38,23 +67,22 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 14px 18px;
+  padding: 12px 12px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  min-height: 56px;
+  min-height: 52px;
 }
 
 .admin-sider-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--admin-accent) 0%, #7c3aed 100%);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--admin-accent) 0%, #6366f1 100%);
   color: #fff;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 14px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  letter-spacing: -0.03em;
 }
 
 .admin-sider-brand-text {
@@ -65,48 +93,48 @@ body {
 .admin-sider-brand-title {
   color: #fafafa;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
 
 .admin-sider-brand-sub {
-  margin-top: 2px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  margin-top: 1px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.38);
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .admin-sider-menu {
   background: transparent !important;
   border: none !important;
   flex: 1;
-  padding: 8px 0 20px;
+  padding: 4px 0 20px;
   overflow-y: auto;
 }
 
 .admin-sider-menu .ant-menu-item-group-title {
-  padding: 16px 16px 6px !important;
-  font-size: 10px;
+  padding: 12px 14px 4px !important;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35) !important;
+  color: rgba(255, 255, 255, 0.32) !important;
   line-height: 1.2 !important;
 }
 
-.admin-sider-menu .ant-menu-item,
-.admin-sider-menu .ant-menu-submenu-title {
-  margin-inline: 8px;
-  width: calc(100% - 16px) !important;
-  border-radius: 8px !important;
+.admin-sider-menu .ant-menu-item {
+  margin-inline: 6px;
+  width: calc(100% - 12px) !important;
+  border-radius: 6px !important;
   color: rgba(255, 255, 255, 0.78) !important;
+  height: 36px;
+  line-height: 36px;
 }
 
-.admin-sider-menu .ant-menu-item:hover,
-.admin-sider-menu .ant-menu-submenu-title:hover {
+.admin-sider-menu .ant-menu-item:hover {
   background: rgba(255, 255, 255, 0.06) !important;
   color: #fff !important;
 }
@@ -116,106 +144,83 @@ body {
   color: #fff !important;
 }
 
-.admin-sider-menu .ant-menu-item-selected::after,
-.admin-sider-menu .ant-menu-submenu-selected::after {
+.admin-sider-menu .ant-menu-item-selected::after {
   display: none;
 }
 
 .admin-sider-menu .anticon {
-  font-size: 16px;
+  font-size: 15px;
 }
 
-/* Collapsed: center logo */
 .ant-layout-sider-collapsed .admin-sider-brand {
   justify-content: center;
-  padding-inline: 8px;
+  padding-inline: 6px;
 }
 
 .ant-layout-sider-collapsed .admin-sider-logo {
-  width: 40px;
+  width: 36px;
   font-size: 11px;
 }
 
-/* —— Top header —— */
+/* —— Top header: один заголовок —— */
 .admin-top-header {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #fff !important;
   height: var(--admin-header-h) !important;
   line-height: unset !important;
-  padding: 0 20px 0 16px !important;
+  padding: 0 16px 0 12px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   border-bottom: 1px solid var(--admin-border) !important;
-  gap: 12px;
+  gap: 10px;
+  box-shadow: 0 1px 0 rgba(24, 24, 27, 0.04);
 }
 
 .admin-header-titles {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0;
-}
-
-.admin-header-section {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--admin-muted);
-  line-height: 1.2;
 }
 
 .admin-header-title {
   margin: 0 !important;
-  font-size: 16px !important;
+  font-size: 15px !important;
   font-weight: 600 !important;
   letter-spacing: -0.02em !important;
   color: var(--admin-text) !important;
-  line-height: 1.25 !important;
-}
-
-.admin-header-user {
-  flex-shrink: 0;
+  line-height: 1.2 !important;
 }
 
 .admin-header-user-btn {
   display: inline-flex !important;
   align-items: center;
-  gap: 10px;
-  height: 40px;
-  padding: 0 6px 0 4px !important;
-  border-radius: 8px !important;
+  gap: 8px;
+  height: 36px;
+  padding: 0 4px 0 2px !important;
+  border-radius: 6px !important;
+  font-size: 13px;
 }
 
 .admin-header-user-btn:hover {
-  background: var(--admin-bg) !important;
+  background: #f4f4f5 !important;
 }
 
 .admin-header-avatar {
   background: var(--admin-accent) !important;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: 12px;
 }
 
-/* —— Main content area —— */
-.admin-content-wrap {
-  margin: 0;
-  min-height: calc(100vh - var(--admin-header-h));
-  padding: 20px 22px 28px;
-  background: var(--admin-bg);
-}
-
-/* —— Page toolbar (filters + actions) —— */
+/* —— Toolbars, hints —— */
 .admin-page-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .admin-page-toolbar-start,
@@ -226,103 +231,94 @@ body {
   gap: 8px;
 }
 
-/* —— Legacy page title (inline sections only) —— */
-.admin-page-title {
-  margin: 0 0 6px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--admin-text);
-  letter-spacing: -0.02em;
-}
-
-.admin-page-lead,
 .admin-hint {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: var(--admin-muted);
-  font-size: 13px;
-  max-width: 52rem;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 42rem;
 }
 
-.admin-hint {
-  margin-bottom: 12px;
-}
-
-/* —— Stat cards & dashboard —— */
+/* —— KPI / stat cards —— */
 .admin-stat-card.ant-card {
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--admin-border);
-  overflow: hidden;
+  box-shadow: none;
 }
 
 .admin-stat-card .ant-card-body {
-  padding: 16px 18px;
+  padding: 12px 14px;
 }
 
 .admin-stat-card .ant-statistic-title {
   color: var(--admin-muted);
-  font-size: 12px;
-  margin-bottom: 6px;
+  font-size: 11px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
 }
 
-.admin-dash-hero {
-  border-radius: 12px;
-  padding: 18px 20px;
-  background: linear-gradient(125deg, #1e1b4b 0%, #4f46e5 45%, #7c3aed 100%);
-  color: #fff;
-  margin-bottom: 20px;
-  box-shadow: 0 12px 40px rgba(79, 70, 229, 0.2);
+.admin-stat-card .ant-statistic-content-value {
+  font-size: 22px;
 }
 
-.admin-dash-hero h1 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+/* —— Dashboard: компакт —— */
+.admin-dash-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
 }
 
-.admin-dash-hero p {
-  margin: 0;
-  opacity: 0.9;
-  font-size: 13px;
-  max-width: 36rem;
-  line-height: 1.45;
+.admin-dash-link {
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
 .admin-row-highlight td {
   background: var(--admin-accent-soft) !important;
 }
 
-/* —— Ant Design polish —— */
+/* —— Ant Design —— */
 .admin-shell .ant-layout {
   background: transparent;
 }
 
 .admin-shell .ant-card {
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--admin-border);
-  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04);
+  box-shadow: none;
 }
 
 .admin-shell .ant-card-head {
   border-bottom-color: var(--admin-border);
-  font-weight: 600;
+  font-size: 13px;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.admin-shell .ant-card-head-title {
+  padding: 10px 0;
 }
 
 .admin-shell .ant-table-wrapper .ant-table {
-  border-radius: 10px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 .admin-shell .ant-table-wrapper .ant-table-thead > tr > th {
-  background: #fafafa;
-  color: #3f3f46;
-  border-bottom: 1px solid var(--admin-border);
+  background: #f4f4f5;
+  color: #52525b;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-block: 8px !important;
 }
 
 .admin-shell .ant-table-wrapper .ant-table-tbody > tr > td {
-  border-bottom: 1px solid rgba(228, 228, 231, 0.9);
+  border-bottom: 1px solid #e4e4e7;
 }
 
 .admin-shell .ant-input,
@@ -331,7 +327,8 @@ body {
 .admin-shell .ant-select-selector,
 .admin-shell .ant-picker,
 .admin-shell .ant-input-textarea textarea {
-  border-radius: 8px !important;
+  border-radius: 6px !important;
+  font-size: 13px;
 }
 
 .admin-shell .ant-input:focus,
@@ -344,15 +341,19 @@ body {
   box-shadow: 0 0 0 2px var(--admin-accent-soft) !important;
 }
 
-.admin-shell .ant-tabs .ant-tabs-tab {
-  font-weight: 500;
+.admin-shell .ant-tabs-top > .ant-tabs-nav {
+  margin-bottom: 12px;
+}
+
+.admin-shell .ant-tabs-tab {
+  padding: 8px 0 !important;
+  font-size: 13px;
 }
 
 /* —— Mobile —— */
 .admin-header-hamburger {
   display: none;
-  align-items: center;
-  margin-right: 4px;
+  margin-right: 2px;
   flex-shrink: 0;
 }
 
@@ -392,16 +393,7 @@ body {
   }
 
   .admin-content-wrap {
-    padding: 14px 14px 24px !important;
-  }
-
-  .admin-sider-mask {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(24, 24, 27, 0.5);
-    z-index: 99;
-    backdrop-filter: blur(2px);
+    padding: 10px 10px 24px !important;
   }
 }
 
@@ -421,24 +413,20 @@ body {
   .admin-header-username {
     display: none;
   }
+}
 
+@media (max-width: 768px) {
   .admin-top-header {
-    padding-inline: 12px !important;
+    padding-inline: 8px !important;
   }
 }
 
-/* Drawer (mobile menu) */
 .admin-mobile-drawer .ant-drawer-body {
   padding: 0 !important;
 }
 
 .admin-mobile-drawer .admin-sider-menu {
-  padding-bottom: 32px;
-}
-
-.admin-subscriptions-page {
-  max-width: 960px;
-  margin: 0 auto;
+  padding-bottom: 28px;
 }
 
 /* Login */
@@ -447,32 +435,31 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 20px;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 70, 229, 0.18), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 70, 229, 0.14), transparent),
     var(--admin-bg);
 }
 
 .admin-login-card {
-  width: 400px;
+  width: 380px;
   max-width: 100%;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--admin-border) !important;
-  box-shadow: 0 16px 48px rgba(24, 24, 27, 0.08) !important;
+  box-shadow: 0 12px 40px rgba(24, 24, 27, 0.06) !important;
 }
 
 .admin-login-kicker {
   text-align: center;
   color: var(--admin-muted);
-  font-size: 13px;
-  margin: -4px 0 20px;
+  font-size: 12px;
+  margin: -2px 0 16px;
   line-height: 1.45;
 }
 
 @media (max-width: 540px) {
   .admin-login-card {
     width: 100% !important;
-    max-width: 100% !important;
     border-radius: 0 !important;
     min-height: 100vh;
     display: flex;
@@ -486,6 +473,6 @@ body {
   }
 
   .admin-login-card .ant-card-body {
-    padding: 32px 24px;
+    padding: 28px 20px;
   }
 }

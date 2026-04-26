@@ -193,8 +193,13 @@ export function LandingPageV2() {
   const jsonLd = useMemo(
     () =>
       buildLandingJsonLd(t, getSiteUrl(), steps, faqForLd, {
-        keyPrefix: 'landingV2',
         pagePath: '/v2',
+        seo: {
+          pageTitle: t('landingV2.seoTitle', { defaultValue: t('landing.seoTitle') }),
+          pageDescription: t('landingV2.seoDescription', { defaultValue: t('landing.seoDescription') }),
+          howToName: t('landing.seoHowToName'),
+          howToDescription: t('landing.seoHowToDescription'),
+        },
       }),
     [t, steps, faqForLd],
   );
@@ -293,6 +298,7 @@ export function LandingPageV2() {
         keywords={t2('seoKeywords')}
         canonicalPath="/v2"
         htmlLang={htmlLang}
+        i18nLanguage={i18n.language}
         jsonLd={jsonLd}
         ogImageAlt={t2('seoOgImageAlt')}
       />

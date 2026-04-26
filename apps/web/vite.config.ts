@@ -17,18 +17,21 @@ function seoEmitPlugin(siteUrl: string): Plugin {
       const outDir = opts.dir;
       if (!outDir) return;
 
-      const robots = `# MyTest — advanced crawl hints
+      const robots = `# MyTest
 User-agent: *
 Allow: /
 Disallow: /app
+Disallow: /admin
 Disallow: /profile
 Disallow: /settings
 Disallow: /mistakes
+Disallow: /paywall
 Disallow: /exam/
 Disallow: /test/
 Disallow: /channel-gate
 
-# AI / research crawlers (optional — remove lines to disallow)
+# /login: noindex via meta, still crawlable
+# Optional: allow AI crawlers on public landings
 User-agent: GPTBot
 Allow: /
 
@@ -56,6 +59,16 @@ Sitemap: ${base}/sitemap.xml
     <xhtml:link rel="alternate" hreflang="kk-KZ" href="${base}/"/>
     <xhtml:link rel="alternate" hreflang="en" href="${base}/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="${base}/"/>
+  </url>
+  <url>
+    <loc>${base}/v3</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="ru-KZ" href="${base}/v3"/>
+    <xhtml:link rel="alternate" hreflang="kk-KZ" href="${base}/v3"/>
+    <xhtml:link rel="alternate" hreflang="en" href="${base}/v3"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="${base}/v3"/>
   </url>
 </urlset>`;
 

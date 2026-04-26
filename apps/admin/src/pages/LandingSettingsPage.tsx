@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Card, Form, Image, Input, Space, Switch, Typography, Upload, message } from 'antd';
 import { PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
 
 type LandingSettingsDto = {
@@ -132,7 +133,7 @@ export function LandingSettingsPage() {
   });
 
   return (
-    <div>
+    <AdminPageShell wide>
       <Card loading={isLoading}>
         <Form<LandingSettingsDto>
           form={form}
@@ -267,6 +268,6 @@ export function LandingSettingsPage() {
           </Space>
         </Form>
       </Card>
-    </div>
+    </AdminPageShell>
   );
 }

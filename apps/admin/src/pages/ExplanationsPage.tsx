@@ -4,6 +4,7 @@ import { Table, Tag, Typography, Button, Space, Spin, Empty, Card, Segmented, Ta
 import type { ColumnsType } from 'antd/es/table';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 import {
   getLocalizedText,
   getQuestionContentLocale,
@@ -112,11 +113,15 @@ export function ExplanationsPage() {
   );
 
   if (isLoading) {
-    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+    return (
+      <div className="admin-boot">
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
-    <div>
+    <AdminPageShell>
       <Tabs
         activeKey={localeFilterToTabKey(localeFilter)}
         onChange={(key) => {
@@ -126,8 +131,8 @@ export function ExplanationsPage() {
           if (key === LOCALE_TAB_KEYS.ru) setPreviewLang('ru');
         }}
         type="line"
-        size="large"
-        style={{ marginBottom: 16 }}
+        size="middle"
+        style={{ marginBottom: 12 }}
         items={[
           {
             key: LOCALE_TAB_KEYS.all,
@@ -169,9 +174,11 @@ export function ExplanationsPage() {
         ]}
       />
 
-      <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
+      <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: '10px 14px' } }}>
         <Space wrap align="center">
-          <Typography.Text type="secondary">Превью текста вопроса:</Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Превью условия
+          </Typography.Text>
           <Segmented
             value={previewLang}
             onChange={(v) => setPreviewLang(v as 'kk' | 'ru')}
@@ -184,6 +191,7 @@ export function ExplanationsPage() {
       </Card>
 
       <Table<Row>
+        size="small"
         rowKey="id"
         columns={columns}
         dataSource={data?.items ?? []}
@@ -193,13 +201,13 @@ export function ExplanationsPage() {
           total: data?.total ?? 0,
           pageSize: 15,
           onChange: setPage,
-          showTotal: (t) => `Всего: ${t}`,
+          showTotal: (t) => `${t} шт.`,
         }}
         locale={{
-          emptyText: <Empty description="Нет вопросов с объяснениями" />,
+          emptyText: <Empty description="Пусто" />,
         }}
         scroll={{ x: 960 }}
       />
-    </div>
+    </AdminPageShell>
   );
 }

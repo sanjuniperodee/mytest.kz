@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, Statistic, Row, Col, Spin, Typography } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 export function EntTrialsAnalyticsPage() {
   const { data, isLoading } = useQuery({
@@ -10,15 +11,15 @@ export function EntTrialsAnalyticsPage() {
   });
 
   if (isLoading) {
-    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+    return (
+      <div className="admin-boot">
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
-    <div>
-      <p className="admin-hint" style={{ marginTop: 0 }}>
-        Только завершённые сессии, тип экзамена <Typography.Text code>ent</Typography.Text>.
-      </p>
-
+    <AdminPageShell>
       {!data?.entFound ? (
         <Card>
           <Typography.Text type="secondary">
@@ -64,6 +65,6 @@ export function EntTrialsAnalyticsPage() {
           </Col>
         </Row>
       )}
-    </div>
+    </AdminPageShell>
   );
 }

@@ -1,5 +1,5 @@
 import { Helmet } from 'react-helmet-async';
-import { absoluteUrl, getOgImageUrl } from '../../lib/siteUrl';
+import { absoluteUrl, getOgImageUrl, getOgLocaleForI18n } from '../../lib/siteUrl';
 
 export type AdvancedSEOProps = {
   title: string;
@@ -16,6 +16,13 @@ export type AdvancedSEOProps = {
   ogImageAlt?: string;
   /** html lang BCP 47 */
   htmlLang?: string;
+  /**
+   * Primary Open Graph locale. If omitted, derived from `i18nLanguage`, else ru_RU.
+   * Alternates: the other two of ru_RU, kk_KZ, en_US.
+   */
+  ogLocale?: 'ru_RU' | 'kk_KZ' | 'en_US';
+  /** i18next language (ru | kk | en) for default `ogLocale`. */
+  i18nLanguage?: string;
   /** JSON-LD object (single script tag) */
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   /** Additional hreflang same-URL alternates (SPA: language in client) */
@@ -39,12 +46,16 @@ export function AdvancedSEO({
   ogImage,
   ogImageAlt = 'MyTest',
   htmlLang = 'ru',
+  ogLocale: ogLocaleProp,
+  i18nLanguage: i18nLanguageProp,
   jsonLd,
   includeHreflang = true,
 }: AdvancedSEOProps) {
   const canonical = absoluteUrl(canonicalPath === '/' ? '/' : canonicalPath);
   const image = ogImage || getOgImageUrl();
   const robots = noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+  const primaryOgLocale = ogLocaleProp ?? (i18nLanguageProp != null ? getOgLocaleForI18n(i18nLanguageProp) : 'ru_RU');
+  const ogLocaleAlternates = (['ru_RU', 'kk_KZ', 'en_US'] as const).filter((l) => l !== primaryOgLocale);
 
   return (
     <Helmet prioritizeSeoTags>
@@ -74,9 +85,10 @@ export function AdvancedSEO({
       <meta property="og:url" content={canonical} />
       <meta property="og:image" content={image} />
       <meta property="og:image:alt" content={ogImageAlt} />
-      <meta property="og:locale" content="ru_RU" />
-      <meta property="og:locale:alternate" content="kk_KZ" />
-      <meta property="og:locale:alternate" content="en_US" />
+      <meta property="og:locale" content={primaryOgLocale} />
+      {ogLocaleAlternates.map((loc) => (
+        <meta key={loc} property="og:locale:alternate" content={loc} />
+      ))}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />

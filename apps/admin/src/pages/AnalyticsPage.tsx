@@ -30,6 +30,7 @@ import {
   type Visitor,
 } from '../api/platformAnalytics';
 import { PlatformFunnelBarChart } from '../components/PlatformFunnelBarChart';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 const df = 'YYYY-MM-DD';
 const PAGE_SIZE = 50;
@@ -220,52 +221,36 @@ export function AnalyticsPage() {
   ];
 
   return (
-    <div>
-      <p className="admin-hint" style={{ marginTop: 0 }}>
-        Сверху — накопительно по базе. Воронка и таблицы — за выбранный период.
-      </p>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card" loading={overviewLoading}>
-            <Statistic
-              title="Пользователей (всего)"
-              value={overview?.totalUsers ?? 0}
-              prefix={<UserOutlined />}
-            />
+    <AdminPageShell>
+      <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+            <Statistic title="Пользователи" value={overview?.totalUsers ?? 0} prefix={<UserOutlined />} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card" loading={overviewLoading}>
-            <Statistic
-              title="Завершённых тестов (всего)"
-              value={overview?.totalTests ?? 0}
-              prefix={<FileTextOutlined />}
-            />
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+            <Statistic title="Тесты" value={overview?.totalTests ?? 0} prefix={<FileTextOutlined />} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card" loading={overviewLoading}>
-            <Statistic
-              title="Вопросов в базе"
-              value={overview?.totalQuestions ?? 0}
-              prefix={<QuestionCircleOutlined />}
-            />
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
+            <Statistic title="Вопросы" value={overview?.totalQuestions ?? 0} prefix={<QuestionCircleOutlined />} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card" loading={overviewLoading}>
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small" loading={overviewLoading}>
             <Statistic
-              title="Активных подписок"
+              title="Подписки"
               value={overview?.activeSubscriptions ?? 0}
               prefix={<CrownOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: '#ca8a04' }}
             />
           </Card>
         </Col>
       </Row>
 
-      <Card size="small" style={{ marginBottom: 16 }} title="Период воронки и списков">
+      <Card size="small" style={{ marginBottom: 12 }} title="Период (воронка и таблицы)">
         <Space wrap align="center">
           <DatePicker
             value={draftFrom}
@@ -285,12 +270,11 @@ export function AnalyticsPage() {
           </Button>
           <Button onClick={resetDateFilters}>30 дней</Button>
         </Space>
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--admin-muted)' }}>
-          {from} — {to}
-        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--admin-muted)' }}>{from} — {to}</div>
       </Card>
 
       <Tabs
+        size="middle"
         items={[
           {
             key: 'summary',
@@ -390,6 +374,7 @@ export function AnalyticsPage() {
             label: 'Посетители',
             children: (
               <Table<Visitor>
+                size="small"
                 rowKey="visitorId"
                 loading={visitorsLoading}
                 dataSource={visitors?.items}
@@ -401,9 +386,10 @@ export function AnalyticsPage() {
           },
           {
             key: 'takers',
-            label: 'Тестирующие',
+            label: 'Тесты',
             children: (
               <Table<TestTaker>
+                size="small"
                 rowKey="userId"
                 loading={takersLoading}
                 dataSource={takers?.items}
@@ -415,6 +401,6 @@ export function AnalyticsPage() {
           },
         ]}
       />
-    </div>
+    </AdminPageShell>
   );
 }

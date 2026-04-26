@@ -96,44 +96,40 @@ function AdminLayout() {
     () => [
       {
         type: 'group',
-        label: 'Обзор',
+        label: 'Старт',
         children: [{ key: 'dashboard', icon: <DashboardOutlined />, label: 'Панель' }],
       },
       {
         type: 'group',
-        label: 'Аналитика',
+        label: 'Метрики',
         children: [
-          { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Платформа' },
-          { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'Пробные ЕНТ' },
-          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги в вузы' },
+          { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Воронка' },
+          { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'ЕНТ' },
+          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги' },
         ],
       },
       {
         type: 'group',
-        label: 'Контент',
+        label: 'Каталог',
         children: [
-          { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
           { key: 'questions', icon: <FormOutlined />, label: 'Вопросы' },
+          { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
           { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены' },
+          { key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' },
         ],
       },
       {
         type: 'group',
-        label: 'Сайт',
-        children: [{ key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' }],
-      },
-      {
-        type: 'group',
-        label: 'Пользователи',
+        label: 'Аккаунты',
         children: [
-          { key: 'users', icon: <UserOutlined />, label: 'Список' },
+          { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
           { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
         ],
       },
       {
         type: 'group',
-        label: 'Инструменты',
-        children: [{ key: 'admission', icon: <RocketOutlined />, label: 'Калькулятор шанса' }],
+        label: 'Сервис',
+        children: [{ key: 'admission', icon: <RocketOutlined />, label: 'Шанс' }],
       },
     ],
     [],
@@ -160,7 +156,7 @@ function AdminLayout() {
 
   if (loadingUser) {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+      <div className="admin-boot">
         <Spin size="large" />
       </div>
     );
@@ -245,7 +241,6 @@ function AdminLayout() {
             aria-label="Меню"
           />
           <div className="admin-header-titles">
-            <span className="admin-header-section">{pageMeta.section}</span>
             <Typography.Title level={4} className="admin-header-title">
               {pageMeta.title}
             </Typography.Title>
@@ -306,16 +301,19 @@ export function App() {
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
-          borderRadius: 8,
+          borderRadius: 6,
           colorPrimary: '#4f46e5',
           colorInfo: '#4f46e5',
+          fontSize: 13,
           fontFamily:
             'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif',
           colorBgLayout: 'transparent',
         },
         components: {
-          Menu: { itemBorderRadius: 6, subMenuItemBorderRadius: 6, iconSize: 16, collapsedIconSize: 16 },
-          Card: { paddingLG: 20 },
+          Menu: { itemHeight: 36, itemBorderRadius: 6, subMenuItemBorderRadius: 6, iconSize: 15, collapsedIconSize: 15 },
+          Card: { paddingLG: 16 },
+          Table: { cellPaddingBlock: 8, cellPaddingInline: 12, fontSize: 13 },
+          Tabs: { cardHeight: 36 },
         },
       }}
     >

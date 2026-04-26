@@ -237,6 +237,7 @@ export function LandingPage() {
         keywords={t('landing.seoKeywords')}
         canonicalPath="/"
         htmlLang={htmlLang}
+        i18nLanguage={i18n.language}
         jsonLd={jsonLd}
         ogImageAlt={t('landing.seoOgImageAlt')}
       />

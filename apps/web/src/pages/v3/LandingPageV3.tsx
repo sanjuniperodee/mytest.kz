@@ -32,8 +32,13 @@ export function LandingPageV3() {
   const jsonLd = useMemo(
     () =>
       buildLandingJsonLd(t, getSiteUrl(), steps, faqForLd, {
-        keyPrefix: 'landingV3',
         pagePath: '/v3',
+        seo: {
+          pageTitle: t('landingV3.seoTitle'),
+          pageDescription: t('landingV3.seoDescription'),
+          howToName: t('landingV3.pipelineTitle'),
+          howToDescription: t('landingV3.pipelineSub'),
+        },
       }),
     [t, steps, faqForLd],
   );
@@ -78,6 +83,8 @@ export function LandingPageV3() {
         canonicalPath="/v3"
         jsonLd={jsonLd}
         htmlLang={htmlLang}
+        i18nLanguage={i18n.language}
+        ogImageAlt={t('landing.seoOgImageAlt')}
       />
       <LandingV3 whatsappHref={whatsappHref} />
       <WhatsAppFab layout="landing" />

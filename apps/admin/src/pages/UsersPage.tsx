@@ -4,6 +4,7 @@ import { Table, Input, Tag, Switch, message, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageToolbar } from '../components/AdminPageToolbar';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 interface User {
   id: string;
@@ -143,7 +144,7 @@ export function UsersPage() {
   ];
 
   return (
-    <div>
+    <AdminPageShell>
       <AdminPageToolbar
         end={<Tag>Записей: {data?.total ?? 0}</Tag>}
       >
@@ -165,12 +166,12 @@ export function UsersPage() {
           total: data?.total || 0,
           pageSize: 20,
           onChange: setPage,
-          showTotal: (total) => `Всего: ${total}`,
+          showTotal: (total) => `${total} записей`,
         }}
-        size="middle"
+        size="small"
         scroll={{ x: 800 }}
-        locale={{ emptyText: <Empty description="Пользователи не найдены" /> }}
+        locale={{ emptyText: <Empty description="Нет данных" /> }}
       />
-    </div>
+    </AdminPageShell>
   );
 }

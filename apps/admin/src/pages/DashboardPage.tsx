@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, Statistic, Row, Col, Spin, Button, Space } from 'antd';
+import { Card, Statistic, Row, Col, Spin, Button, Typography, Divider } from 'antd';
 import {
   UserOutlined,
   FileTextOutlined,
@@ -9,9 +9,11 @@ import {
   RocketOutlined,
   LineChartOutlined,
   BookOutlined,
+  ReadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -27,116 +29,107 @@ export function DashboardPage() {
   });
 
   if (loadingOverview || loadingEnt) {
-    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+    return (
+      <div className="admin-boot">
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
-    <div>
-      <div className="admin-dash-hero">
-        <h1>Платформа</h1>
-        <p>Пользователи, тесты, подписки и быстрые переходы в разделы.</p>
-      </div>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card">
+    <AdminPageShell>
+      <Row gutter={[12, 12]}>
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small">
             <Statistic
-              title="Пользователей"
+              title="Пользователи"
               value={overview?.totalUsers ?? 0}
               prefix={<UserOutlined />}
             />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card">
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small">
             <Statistic
-              title="Завершённых тестов"
+              title="Тесты"
               value={overview?.totalTests ?? 0}
               prefix={<FileTextOutlined />}
             />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card">
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small">
             <Statistic
-              title="Вопросов в базе"
+              title="Вопросы"
               value={overview?.totalQuestions ?? 0}
               prefix={<QuestionCircleOutlined />}
             />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card className="admin-stat-card">
+        <Col xs={12} sm={6}>
+          <Card className="admin-stat-card" size="small">
             <Statistic
-              title="Активных подписок"
+              title="Подписки"
               value={overview?.activeSubscriptions ?? 0}
               prefix={<CrownOutlined />}
-              valueStyle={{ color: '#d48806' }}
+              valueStyle={{ color: '#ca8a04' }}
             />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} md={12}>
-          <Card className="admin-stat-card" title="Пробные ЕНТ (ENT)">
+      <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
+        <Col xs={24} lg={14}>
+          <Card size="small" title="Пробные ЕНТ">
             {!ent?.entFound ? (
-              <p style={{ margin: 0, color: '#64748b' }}>Тип экзамена ENT не найден в базе.</p>
+              <Typography.Text type="secondary">Нет типа экзамена ent в каталоге.</Typography.Text>
             ) : (
-              <Row gutter={16}>
+              <Row gutter={[12, 8]}>
                 <Col span={12}>
-                  <Statistic title="Завершено всего" value={ent.completedSessions} />
+                  <Statistic title="Завершено" value={ent.completedSessions} />
                 </Col>
                 <Col span={12}>
-                  <Statistic title="За 30 дней" value={ent.last30Completed} />
+                  <Statistic title="За 30 дн." value={ent.last30Completed} />
                 </Col>
-                <Col span={12} style={{ marginTop: 12 }}>
+                <Col span={12}>
                   <Statistic
-                    title="Средний балл"
+                    title="Ср. балл"
                     value={ent.avgScore != null ? Number(ent.avgScore).toFixed(1) : '—'}
                   />
                 </Col>
-                <Col span={12} style={{ marginTop: 12 }}>
+                <Col span={12}>
                   <Statistic
                     title="Ср. % верных"
-                    value={
-                      ent.avgCorrectPercent != null
-                        ? `${ent.avgCorrectPercent.toFixed(1)}%`
-                        : '—'
-                    }
+                    value={ent.avgCorrectPercent != null ? `${ent.avgCorrectPercent.toFixed(1)}%` : '—'}
                   />
                 </Col>
               </Row>
             )}
-            <Button
-              type="primary"
-              style={{ marginTop: 16 }}
-              icon={<LineChartOutlined />}
-              onClick={() => navigate('/analytics/ent')}
-            >
-              Подробная аналитика ЕНТ
+            <Divider style={{ margin: '12px 0' }} />
+            <Button type="primary" size="small" icon={<LineChartOutlined />} onClick={() => navigate('/analytics/ent')}>
+              Аналитика ЕНТ
             </Button>
           </Card>
         </Col>
-        <Col xs={24} md={12}>
-          <Card className="admin-stat-card" title="Переходы">
-            <Space direction="vertical" style={{ width: '100%' }} size="small">
-              <Button block type="default" icon={<BarChartOutlined />} onClick={() => navigate('/analytics')}>
-                Аналитика
+        <Col xs={24} lg={10}>
+          <Card size="small" title="Быстрый переход">
+            <div className="admin-dash-toolbar">
+              <Button className="admin-dash-link" icon={<BarChartOutlined />} onClick={() => navigate('/analytics')}>
+                Воронка
               </Button>
-              <Button block type="default" icon={<RocketOutlined />} onClick={() => navigate('/admission')}>
-                Калькулятор шанса
+              <Button className="admin-dash-link" icon={<RocketOutlined />} onClick={() => navigate('/admission')}>
+                Шанс
               </Button>
-              <Button block type="default" icon={<BookOutlined />} onClick={() => navigate('/analytics/thresholds')}>
-                Пороги в вузы
+              <Button className="admin-dash-link" icon={<BookOutlined />} onClick={() => navigate('/analytics/thresholds')}>
+                Пороги
               </Button>
-              <Button block type="default" icon={<QuestionCircleOutlined />} onClick={() => navigate('/explanations')}>
+              <Button className="admin-dash-link" icon={<ReadOutlined />} onClick={() => navigate('/explanations')}>
                 Объяснения
               </Button>
-            </Space>
+            </div>
           </Card>
         </Col>
       </Row>
-    </div>
+    </AdminPageShell>
   );
 }

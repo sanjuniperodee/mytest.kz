@@ -27,6 +27,7 @@ import { isAxiosError } from 'axios';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 function humanizeApiMessage(raw: string): string {
   if (raw.includes('PLAN_TEMPLATE_HAS_NO_EXAM_RULES')) {
@@ -613,11 +614,8 @@ export function SubscriptionsPage() {
   });
 
   return (
-    <div className="admin-subscriptions-page">
-      <p className="admin-hint" style={{ marginTop: 0 }}>
-        Выдача: пользователь + шаблон тарифа, затем «Выдать».
-      </p>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <AdminPageShell className="admin-subscriptions-page">
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         <Tabs
           activeKey={subscriptionTab}
           onChange={setSubscriptionTab}
@@ -1222,6 +1220,6 @@ export function SubscriptionsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </AdminPageShell>
   );
 }

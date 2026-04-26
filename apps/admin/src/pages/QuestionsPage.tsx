@@ -30,6 +30,7 @@ import {
 import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import {
   getLocalizedText,
@@ -1009,7 +1010,7 @@ export function QuestionsPage() {
   );
 
   return (
-    <div>
+    <AdminPageShell>
       <div className="admin-page-toolbar" style={{ marginBottom: 12 }}>
         <div className="admin-page-toolbar-end" style={{ width: '100%', justifyContent: 'flex-end' }}>
           <Tooltip
@@ -1777,6 +1778,6 @@ export function QuestionsPage() {
           </Form.List>
         </Form>
       </Drawer>
-    </div>
+    </AdminPageShell>
   );
 }

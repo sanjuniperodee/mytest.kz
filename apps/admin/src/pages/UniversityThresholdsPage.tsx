@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Select, Space, Spin, Table, Typography } from 'antd';
+import { Card, Select, Space, Spin, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   fetchAdmissionCutoffs,
   fetchAdmissionCycles,
   fetchAdmissionUniversities,
 } from '../api/admission';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 type Row = {
   key: string;
@@ -77,37 +78,35 @@ export function UniversityThresholdsPage() {
   ];
 
   return (
-    <div>
-      <p className="admin-hint" style={{ marginTop: 0 }}>
-        Справочник из API. Для зачисления ориентируйтесь на официальные источники приёма.
-      </p>
-
+    <AdminPageShell>
       {cyclesQ.isLoading || unisQ.isLoading ? (
-        <Spin />
+        <div className="admin-boot" style={{ minHeight: 200 }}>
+          <Spin />
+        </div>
       ) : cyclesQ.isError ? (
         <Typography.Text type="danger">Не удалось загрузить циклы приёма.</Typography.Text>
       ) : (
-        <Space direction="vertical" style={{ width: '100%', marginBottom: 20 }} size="middle">
-          <Space wrap>
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <Space wrap size="large">
             <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
+              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
                 Цикл
               </Typography.Text>
               <Select
-                style={{ minWidth: 160 }}
+                style={{ minWidth: 140 }}
                 value={cycleSlug}
                 onChange={setCycleSlug}
                 options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
               />
             </div>
             <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
+              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
                 Вуз
               </Typography.Text>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ minWidth: 320 }}
+                style={{ minWidth: 280 }}
                 placeholder="Вуз"
                 value={universityCode ?? undefined}
                 onChange={(v) => setUniversityCode(v)}
@@ -118,21 +117,21 @@ export function UniversityThresholdsPage() {
               />
             </div>
             <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
+              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
                 Квота
               </Typography.Text>
               <Select
-                style={{ minWidth: 200 }}
+                style={{ minWidth: 180 }}
                 value={quotaType}
                 onChange={(v) => setQuotaType(v)}
                 options={[
                   { value: 'GRANT', label: 'Грант' },
-                  { value: 'RURAL', label: 'Сельская квота' },
+                  { value: 'RURAL', label: 'Сельская' },
                 ]}
               />
             </div>
           </Space>
-        </Space>
+        </Card>
       )}
 
       <Table<Row>
@@ -141,12 +140,9 @@ export function UniversityThresholdsPage() {
         dataSource={dataSource}
         loading={cutoffsQ.isFetching}
         pagination={{ pageSize: 25 }}
-        size="middle"
+        size="small"
+        scroll={{ x: 800 }}
       />
-
-      <p className="admin-hint" style={{ marginBottom: 0 }}>
-        «—» — нет данных по программе в этом вузе.
-      </p>
-    </div>
+    </AdminPageShell>
   );
 }
