@@ -154,7 +154,7 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
     window.addEventListener('storage', read);
     
     // Trigger hero animation after mount
-    setTimeout(() => setHeroLoaded(true), 100);
+    setTimeout(() => {}, 100);
     
     return () => {
       m.disconnect();

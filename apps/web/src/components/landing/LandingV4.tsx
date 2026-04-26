@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setThemePreference, type ThemePreference } from '../../lib/theme';
 
-type Proof = { title: string; body: string };
 type Step = { title: string; body: string };
 type Bento = { title: string; body: string };
 type Faq = { question: string; answer: string };
@@ -166,6 +165,8 @@ function Section({ children, className = '', id = '', onMouseEnter, onMouseLeave
     <section
       id={id}
       ref={ref}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={`transition-all duration-700 ${isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${className}`}
     >
       {children}
