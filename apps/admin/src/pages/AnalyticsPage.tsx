@@ -120,10 +120,10 @@ export function AnalyticsPage() {
         v.user ? (
           <span>
             {v.user.firstName} {v.user.lastName}
-            <span style={{ color: '#94a3b8' }}> @{v.user.telegramUsername || '—'}</span>
+            <span style={{ color: '#a1a1aa' }}> @{v.user.telegramUsername || '—'}</span>
           </span>
         ) : (
-          <span style={{ color: '#94a3b8' }}>Не зарегистрирован</span>
+          <span style={{ color: '#a1a1aa' }}>Не зарегистрирован</span>
         ),
     },
     {
@@ -173,7 +173,7 @@ export function AnalyticsPage() {
         <span>
           {u.firstName} {u.lastName}
           {u.telegramUsername && (
-            <span style={{ color: '#94a3b8' }}> @{u.telegramUsername}</span>
+            <span style={{ color: '#a1a1aa' }}> @{u.telegramUsername}</span>
           )}
         </span>
       ),
@@ -324,7 +324,7 @@ export function AnalyticsPage() {
                               title={x.label}
                               value={x.v}
                               suffix="%"
-                              valueStyle={{ color: '#7c3aed' }}
+                              valueStyle={{ color: '#4f46e5' }}
                             />
                           </Card>
                         </Col>
@@ -348,14 +348,14 @@ export function AnalyticsPage() {
                               <Line
                                 type="monotone"
                                 dataKey="visits"
-                                stroke="#7c3aed"
+                                stroke="#4f46e5"
                                 dot={false}
                                 name="Визиты"
                               />
                               <Line
                                 type="monotone"
                                 dataKey="completed"
-                                stroke="#a78bfa"
+                                stroke="#818cf8"
                                 dot={false}
                                 name="Завершения"
                               />

@@ -95,7 +95,7 @@ export function LoginPage() {
           </Form>
         ) : (
           <Form onFinish={handleVerifyCode} layout="vertical">
-            <p style={{ marginBottom: 16, color: '#666' }}>
+            <p style={{ marginBottom: 16, color: '#71717a', fontSize: 13 }}>
               Код отправлен в Telegram для номера{' '}
               <strong>{phoneNormalized ? `+${phoneNormalized}` : phone}</strong>
             </p>

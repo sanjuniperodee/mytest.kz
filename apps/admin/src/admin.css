@@ -1,21 +1,37 @@
+/**
+ * MyTest Admin — единая визуальная система (согласована с ConfigProvider в App.tsx).
+ * Палитра: нейтральный фон, индиго акцент, спокойные границы без тяжёлых теней.
+ */
+
 :root {
-  --admin-bg: #ececef;
+  --admin-bg: #f1f0f5;
   --admin-surface: #ffffff;
-  --admin-sider-bg: #0f0f12;
+  --admin-sider-bg: #101014;
+  --admin-sider-border: rgba(255, 255, 255, 0.06);
   --admin-accent: #4f46e5;
   --admin-accent-hover: #6366f1;
-  --admin-accent-soft: rgba(79, 70, 229, 0.12);
+  --admin-accent-muted: #818cf8;
+  --admin-accent-soft: rgba(79, 70, 229, 0.1);
+  --admin-accent-soft-strong: rgba(79, 70, 229, 0.16);
   --admin-text: #18181b;
+  --admin-text-secondary: #52525b;
   --admin-muted: #71717a;
-  --admin-border: rgba(24, 24, 27, 0.09);
+  --admin-border: #e4e4e7;
+  --admin-border-subtle: #f4f4f5;
   --admin-header-h: 48px;
   --admin-content-max: 1480px;
+  --admin-radius: 8px;
+  --admin-radius-sm: 6px;
+  --admin-shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.04);
+  --admin-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Cyrillic', sans-serif;
 }
 
 body {
   margin: 0;
   background: var(--admin-bg);
+  font-family: var(--admin-font);
   -webkit-font-smoothing: antialiased;
+  color: var(--admin-text);
 }
 
 .admin-shell {
@@ -30,11 +46,11 @@ body {
   background: var(--admin-bg);
 }
 
-/* —— Main column —— */
+/* —— Область контента —— */
 .admin-content-wrap {
   margin: 0;
   min-height: calc(100vh - var(--admin-header-h));
-  padding: 12px 16px 32px;
+  padding: 16px 20px 32px;
   background: var(--admin-bg);
 }
 
@@ -52,10 +68,10 @@ body {
   max-width: 960px;
 }
 
-/* —— Sidebar —— */
+/* —— Сайдбар —— */
 .admin-sider.admin-desktop-sider {
   background: var(--admin-sider-bg) !important;
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.05);
+  border-inline-end: 1px solid var(--admin-sider-border) !important;
 }
 
 .admin-sider .ant-layout-sider-children {
@@ -67,22 +83,23 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--admin-sider-border);
   min-height: 52px;
 }
 
 .admin-sider-logo {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--admin-accent) 0%, #6366f1 100%);
+  border-radius: var(--admin-radius-sm);
+  background: linear-gradient(140deg, var(--admin-accent) 0%, var(--admin-accent-hover) 100%);
   color: #fff;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 13px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
 }
 
 .admin-sider-brand-text {
@@ -99,11 +116,11 @@ body {
 }
 
 .admin-sider-brand-sub {
-  margin-top: 1px;
+  margin-top: 2px;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.38);
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -111,37 +128,39 @@ body {
   background: transparent !important;
   border: none !important;
   flex: 1;
-  padding: 4px 0 20px;
+  padding: 6px 0 20px;
   overflow-y: auto;
 }
 
 .admin-sider-menu .ant-menu-item-group-title {
-  padding: 12px 14px 4px !important;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.32) !important;
+  padding: 14px 14px 6px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.34) !important;
   line-height: 1.2 !important;
 }
 
 .admin-sider-menu .ant-menu-item {
-  margin-inline: 6px;
-  width: calc(100% - 12px) !important;
-  border-radius: 6px !important;
-  color: rgba(255, 255, 255, 0.78) !important;
+  margin-inline: 8px;
+  width: calc(100% - 16px) !important;
+  border-radius: var(--admin-radius-sm) !important;
+  color: rgba(255, 255, 255, 0.82) !important;
   height: 36px;
   line-height: 36px;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .admin-sider-menu .ant-menu-item:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
   color: #fff !important;
 }
 
 .admin-sider-menu .ant-menu-item-selected {
-  background: var(--admin-accent-soft) !important;
+  background: var(--admin-accent-soft-strong) !important;
   color: #fff !important;
+  font-weight: 500;
 }
 
 .admin-sider-menu .ant-menu-item-selected::after {
@@ -150,11 +169,12 @@ body {
 
 .admin-sider-menu .anticon {
   font-size: 15px;
+  opacity: 0.9;
 }
 
 .ant-layout-sider-collapsed .admin-sider-brand {
   justify-content: center;
-  padding-inline: 6px;
+  padding-inline: 8px;
 }
 
 .ant-layout-sider-collapsed .admin-sider-logo {
@@ -162,9 +182,21 @@ body {
   font-size: 11px;
 }
 
-/* —— Top header: один заголовок —— */
+/* Свернуть панель (низ сайдбара) */
+.admin-shell .ant-layout-sider-trigger {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  border-top: 1px solid var(--admin-sider-border) !important;
+}
+
+.admin-shell .ant-layout-sider-trigger:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+/* —— Верхняя панель —— */
 .admin-top-header {
-  background: #fff !important;
+  background: var(--admin-surface) !important;
   height: var(--admin-header-h) !important;
   line-height: unset !important;
   padding: 0 16px 0 12px !important;
@@ -173,7 +205,7 @@ body {
   justify-content: space-between !important;
   border-bottom: 1px solid var(--admin-border) !important;
   gap: 10px;
-  box-shadow: 0 1px 0 rgba(24, 24, 27, 0.04);
+  box-shadow: var(--admin-shadow-sm);
 }
 
 .admin-header-titles {
@@ -187,7 +219,7 @@ body {
   font-weight: 600 !important;
   letter-spacing: -0.02em !important;
   color: var(--admin-text) !important;
-  line-height: 1.2 !important;
+  line-height: 1.25 !important;
 }
 
 .admin-header-user-btn {
@@ -195,13 +227,14 @@ body {
   align-items: center;
   gap: 8px;
   height: 36px;
-  padding: 0 4px 0 2px !important;
-  border-radius: 6px !important;
+  padding: 0 8px 0 4px !important;
+  border-radius: var(--admin-radius-sm) !important;
   font-size: 13px;
+  color: var(--admin-text) !important;
 }
 
 .admin-header-user-btn:hover {
-  background: #f4f4f5 !important;
+  background: var(--admin-border-subtle) !important;
 }
 
 .admin-header-avatar {
@@ -211,16 +244,17 @@ body {
   height: 28px;
   line-height: 28px;
   font-size: 12px;
+  font-weight: 600;
 }
 
-/* —— Toolbars, hints —— */
+/* —— Тулбары и подсказки —— */
 .admin-page-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .admin-page-toolbar-start,
@@ -235,15 +269,16 @@ body {
   margin: 0 0 12px;
   color: var(--admin-muted);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.5;
   max-width: 42rem;
 }
 
-/* —— KPI / stat cards —— */
+/* —— Карточки метрик (дашборд) —— */
 .admin-stat-card.ant-card {
-  border-radius: 8px;
+  border-radius: var(--admin-radius);
   border: 1px solid var(--admin-border);
-  box-shadow: none;
+  box-shadow: var(--admin-shadow-sm);
+  background: var(--admin-surface);
 }
 
 .admin-stat-card .ant-card-body {
@@ -251,24 +286,31 @@ body {
 }
 
 .admin-stat-card .ant-statistic-title {
-  color: var(--admin-muted);
-  font-size: 11px;
-  margin-bottom: 2px;
+  color: var(--admin-text-secondary) !important;
+  font-size: 11px !important;
+  margin-bottom: 4px !important;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-weight: 600 !important;
+}
+
+.admin-stat-card .ant-statistic-content {
+  line-height: 1.2;
 }
 
 .admin-stat-card .ant-statistic-content-value {
   font-size: 22px;
+  font-weight: 700;
+  color: var(--admin-text) !important;
+  letter-spacing: -0.02em;
 }
 
-/* —— Dashboard: компакт —— */
+/* —— Дашборд: ссылки —— */
 .admin-dash-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .admin-dash-link {
@@ -280,55 +322,92 @@ body {
   background: var(--admin-accent-soft) !important;
 }
 
-/* —— Ant Design —— */
+/* —— Ant Design: общий слой —— */
 .admin-shell .ant-layout {
   background: transparent;
 }
 
+/* Карточки */
 .admin-shell .ant-card {
-  border-radius: 8px;
+  border-radius: var(--admin-radius);
   border: 1px solid var(--admin-border);
-  box-shadow: none;
+  box-shadow: var(--admin-shadow-sm);
+  background: var(--admin-surface);
 }
 
 .admin-shell .ant-card-head {
-  border-bottom-color: var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
   font-size: 13px;
-  min-height: 40px;
-  padding: 0 12px;
+  font-weight: 600;
+  min-height: 42px;
+  padding: 0 14px;
+  color: var(--admin-text);
 }
 
 .admin-shell .ant-card-head-title {
-  padding: 10px 0;
+  padding: 12px 0;
 }
 
+.admin-shell .ant-card-extra {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-shell .ant-card-body {
+  color: var(--admin-text);
+}
+
+/* Таблицы */
 .admin-shell .ant-table-wrapper .ant-table {
-  border-radius: 8px;
+  border-radius: var(--admin-radius);
   font-size: 13px;
+  border: 1px solid var(--admin-border);
+  overflow: hidden;
 }
 
 .admin-shell .ant-table-wrapper .ant-table-thead > tr > th {
-  background: #f4f4f5;
-  color: #52525b;
+  background: var(--admin-border-subtle) !important;
+  color: var(--admin-text-secondary) !important;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding-block: 8px !important;
+  padding-block: 9px !important;
+  border-bottom: 1px solid var(--admin-border) !important;
 }
 
 .admin-shell .ant-table-wrapper .ant-table-tbody > tr > td {
-  border-bottom: 1px solid #e4e4e7;
+  border-bottom: 1px solid var(--admin-border) !important;
+  color: var(--admin-text);
 }
 
+.admin-shell .ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #fafafa !important;
+}
+
+.admin-shell .ant-table-pagination.ant-pagination {
+  margin: 12px 0 4px;
+}
+
+/* Поля */
 .admin-shell .ant-input,
 .admin-shell .ant-input-affix-wrapper,
 .admin-shell .ant-input-number,
+.admin-shell .ant-input-number-group-addon,
 .admin-shell .ant-select-selector,
 .admin-shell .ant-picker,
 .admin-shell .ant-input-textarea textarea {
-  border-radius: 6px !important;
+  border-radius: var(--admin-radius-sm) !important;
   font-size: 13px;
+  border-color: var(--admin-border) !important;
+}
+
+.admin-shell .ant-input:hover,
+.admin-shell .ant-input-affix-wrapper:hover,
+.admin-shell .ant-input-number:hover,
+.admin-shell .ant-select:hover .ant-select-selector,
+.admin-shell .ant-picker:hover {
+  border-color: #d4d4d8 !important;
 }
 
 .admin-shell .ant-input:focus,
@@ -341,16 +420,124 @@ body {
   box-shadow: 0 0 0 2px var(--admin-accent-soft) !important;
 }
 
-.admin-shell .ant-tabs-top > .ant-tabs-nav {
-  margin-bottom: 12px;
+/* Формы */
+.admin-shell .ant-form-item-label > label {
+  color: var(--admin-text-secondary) !important;
+  font-weight: 500;
+  font-size: 12px;
 }
 
-.admin-shell .ant-tabs-tab {
-  padding: 8px 0 !important;
+/* Вкладки */
+.admin-shell .ant-tabs .ant-tabs-tab {
+  font-weight: 500;
+}
+
+.admin-shell .ant-tabs .ant-tabs-tab-btn {
+  color: var(--admin-text-secondary);
+}
+
+.admin-shell .ant-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--admin-accent) !important;
+  font-weight: 600;
+}
+
+.admin-shell .ant-tabs-ink-bar {
+  height: 2px;
+  border-radius: 1px;
+}
+
+/* Кнопки: вторичные в одном стиле */
+.admin-shell .ant-btn-default {
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+  background: #fff;
+}
+
+.admin-shell .ant-btn-default:hover {
+  color: var(--admin-accent) !important;
+  border-color: var(--admin-accent-muted) !important;
+  background: #fff !important;
+}
+
+.admin-shell .ant-btn-primary {
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* Теги */
+.admin-shell .ant-tag {
+  border: 1px solid var(--admin-border);
+  line-height: 1.4;
+}
+
+/* Алерты */
+.admin-shell .ant-alert {
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+}
+
+/* Модалки и drawer */
+.admin-shell .ant-modal .ant-modal-content,
+.admin-shell .ant-drawer .ant-drawer-content {
+  border-radius: var(--admin-radius) !important;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  box-shadow: 0 12px 40px rgba(24, 24, 27, 0.1);
+}
+
+.admin-shell .ant-modal-header,
+.admin-shell .ant-drawer-header {
+  border-bottom: 1px solid var(--admin-border) !important;
+  padding: 14px 16px !important;
+}
+
+/* Segmented, Switch */
+.admin-shell .ant-segmented {
+  background: var(--admin-border-subtle) !important;
+  border-radius: var(--admin-radius-sm) !important;
+  padding: 2px;
+}
+
+.admin-shell .ant-segmented-item-selected {
+  border-radius: 6px !important;
+  font-weight: 500;
+  box-shadow: var(--admin-shadow-sm);
+}
+
+/* Collapse, Descriptions */
+.admin-shell .ant-collapse {
+  border-radius: var(--admin-radius) !important;
+  border: 1px solid var(--admin-border) !important;
+  background: #fff;
+}
+
+.admin-shell .ant-collapse > .ant-collapse-item {
+  border-color: var(--admin-border) !important;
+}
+
+.admin-shell .ant-descriptions-bordered .ant-descriptions-item-label {
+  background: var(--admin-border-subtle) !important;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--admin-text-secondary) !important;
+}
+
+/* Слайдер (шанс поступления) */
+.admin-shell .ant-slider .ant-slider-track {
+  background: linear-gradient(90deg, var(--admin-accent) 0%, var(--admin-accent-hover) 100%) !important;
+}
+
+.admin-shell .ant-slider .ant-slider-handle::after {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--admin-accent) !important;
+}
+
+/* Пустое состояние */
+.admin-shell .ant-empty-description {
+  color: var(--admin-muted);
   font-size: 13px;
 }
 
-/* —— Mobile —— */
+/* —— Мобайл —— */
 .admin-header-hamburger {
   display: none;
   margin-right: 2px;
@@ -361,9 +548,7 @@ body {
   .admin-header-hamburger {
     display: inline-flex;
   }
-}
 
-@media (max-width: 768px) {
   .admin-shell .ant-layout-sider {
     position: fixed !important;
     z-index: 100;
@@ -395,6 +580,18 @@ body {
   .admin-content-wrap {
     padding: 10px 10px 24px !important;
   }
+
+  .admin-desktop-sider {
+    display: none !important;
+  }
+
+  .admin-header-username {
+    display: none;
+  }
+
+  .admin-top-header {
+    padding-inline: 8px !important;
+  }
 }
 
 @media (min-width: 769px) {
@@ -403,33 +600,16 @@ body {
   }
 }
 
-@media (max-width: 768px) {
-  .admin-desktop-sider {
-    display: none !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .admin-header-username {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .admin-top-header {
-    padding-inline: 8px !important;
-  }
-}
-
 .admin-mobile-drawer .ant-drawer-body {
   padding: 0 !important;
+  background: var(--admin-sider-bg) !important;
 }
 
 .admin-mobile-drawer .admin-sider-menu {
   padding-bottom: 28px;
 }
 
-/* Login */
+/* Логин */
 .admin-login-page {
   min-height: 100vh;
   display: flex;
@@ -437,16 +617,17 @@ body {
   justify-content: center;
   padding: 20px;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 70, 229, 0.14), transparent),
+    radial-gradient(ellipse 80% 45% at 50% -15%, rgba(79, 70, 229, 0.16), transparent),
     var(--admin-bg);
 }
 
 .admin-login-card {
   width: 380px;
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: var(--admin-radius) !important;
   border: 1px solid var(--admin-border) !important;
-  box-shadow: 0 12px 40px rgba(24, 24, 27, 0.06) !important;
+  box-shadow: 0 16px 48px rgba(24, 24, 27, 0.08) !important;
+  background: var(--admin-surface) !important;
 }
 
 .admin-login-kicker {
@@ -454,7 +635,7 @@ body {
   color: var(--admin-muted);
   font-size: 12px;
   margin: -2px 0 16px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 @media (max-width: 540px) {

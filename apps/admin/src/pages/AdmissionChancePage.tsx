@@ -262,7 +262,7 @@ export function AdmissionChancePage() {
                 <Typography.Text type="secondary">Суммарный балл</Typography.Text>
                 <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.1 }}>
                   {total.toFixed(0)}
-                  <span style={{ fontSize: 16, fontWeight: 600, color: '#64748b' }}>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: '#71717a' }}>
                     {' '}
                     / {ENT_TOTAL_MAX}
                   </span>

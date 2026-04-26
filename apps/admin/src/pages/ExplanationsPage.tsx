@@ -89,7 +89,7 @@ export function ExplanationsPage() {
           const text = getLocalizedText(record.explanation) || '—';
           const s = String(text);
           return (
-            <span style={{ color: '#475569' }}>
+            <span style={{ color: '#71717a' }}>
               {s.slice(0, 90)}
               {s.length > 90 ? '…' : ''}
             </span>

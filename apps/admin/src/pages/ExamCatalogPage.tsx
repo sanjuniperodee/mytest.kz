@@ -507,7 +507,7 @@ export function ExamCatalogPage() {
             <Switch checked={includeInactive} onChange={setIncludeInactive} />
           </Space>
           <Space direction="vertical" size={4}>
-            <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>Превью названий в списках</span>
+            <span style={{ fontSize: 12, color: '#71717a' }}>Превью названий в списках</span>
             <Segmented<CatalogListLang>
               size="small"
               value={catalogListLang}
