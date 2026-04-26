@@ -798,6 +798,71 @@
     "seoTitle": "MyTest — Практикуйтесь как на реальном экзамене",
     "seoDescription": "Тренировочные тесты UNT с таймером, детальная аналитика, разбор ошибок. Вход через Telegram. 2 бесплатных попытки."
   },
+  "admin": {
+    "nav": {
+      "overview": "Обзор",
+      "funnel": "Воронка",
+      "visitors": "Посетители",
+      "testTakers": "Тестируемые",
+      "export": "Экспорт CSV"
+    },
+    "overview": {
+      "title": "Обзор аналитики",
+      "visitors": "Всего посетителей",
+      "registered": "Зарегистрированы",
+      "startedTest": "Начали тест",
+      "completedTest": "Завершили тест"
+    },
+    "funnel": {
+      "title": "Воронка конверсии",
+      "visitToRegistered": "Визит → Регистрация",
+      "registeredToStarted": "Регистрация → Старт",
+      "startedToCompleted": "Старт → Завершение",
+      "visitToCompleted": "Визит → Завершение"
+    },
+    "visitors": {
+      "title": "Журнал посещений",
+      "visitorId": "ID посетителя",
+      "user": "Пользователь",
+      "firstSeen": "Первый визит",
+      "lastSeen": "Последний визит",
+      "steps": "Шаги воронки",
+      "completedTests": "Завершено тестов",
+      "noUser": "(не зарегистрирован)",
+      "searchPlaceholder": "Поиск по имени или username..."
+    },
+    "testTakers": {
+      "title": "Тестируемые",
+      "telegramId": "Telegram ID",
+      "username": "Username",
+      "name": "Имя",
+      "testsCompleted": "Тестов",
+      "lastTest": "Последний тест",
+      "bestScore": "Лучший балл",
+      "avgScore": "Средний балл",
+      "avgDuration": "Среднее время"
+    },
+    "filters": {
+      "dateRange": "Диапазон дат",
+      "from": "От",
+      "to": "До",
+      "examType": "Тип экзамена",
+      "allExams": "Все экзамены",
+      "apply": "Применить",
+      "reset": "Сбросить"
+    },
+    "export": {
+      "button": "Экспорт CSV",
+      "success": "Загрузка началась",
+      "error": "Ошибка экспорта"
+    },
+    "table": {
+      "noData": "Нет данных для выбранных фильтров",
+      "loading": "Загрузка...",
+      "showing": "Показано {{from}}–{{to}} из {{total}}"
+    }
+  }
+}
   "landingV4": {
     "navFeatures": "Возможности",
     "navHowItWorks": "Как работает",

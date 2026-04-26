@@ -157,6 +157,7 @@ model User {
   entitlementsGranted  UserExamEntitlement[]      @relation("EntitlementsGrantedBy")
   usageLedger          AttemptUsageLedger[]
   dailyUsage           UserExamDailyUsage[]
+  visitEvents          VisitEvent[]
 
   @@map("users")
 }
@@ -361,14 +362,18 @@ model TestSession {
   rawScore       Int?      @map("raw_score")
   maxScore       Int?      @map("max_score")
   metadata       Json?     // sections info, profile subject ids
+  visitId        String?   @map("visit_id") @db.Uuid
 
-  user     User          @relation(fields: [userId], references: [id])
-  template TestTemplate? @relation(fields: [templateId], references: [id])
-  examType ExamType      @relation(fields: [examTypeId], references: [id])
-  answers  TestAnswer[]
-  usageLedger AttemptUsageLedger[]
+  user         User          @relation(fields: [userId], references: [id])
+  template     TestTemplate? @relation(fields: [templateId], references: [id])
+  examType     ExamType      @relation(fields: [examTypeId], references: [id])
+  visit        VisitEvent?   @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  answers      TestAnswer[]
+  usageLedger  AttemptUsageLedger[]
+  funnelSteps  FunnelStep[]
 
   @@index([userId, status])
+  @@index([visitId])
   @@map("test_sessions")
 }
 
@@ -479,6 +484,43 @@ model PaymentOrder {
 
   @@index([userId, status, createdAt])
   @@map("payment_orders")
+}
+
+model VisitEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  visitorId   String    @map("visitor_id") @db.VarChar(64)
+  userId      String?   @map("user_id") @db.Uuid
+  source      String?   @map("source") @db.VarChar(32)
+  medium      String?   @map("medium") @db.VarChar(32)
+  campaign    String?   @map("campaign") @db.VarChar(64)
+  referrer    String?   @map("referrer") @db.VarChar(500)
+  landingPath String    @map("landing_path") @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  funnelSteps  FunnelStep[]
+  testSessions TestSession[]
+
+  @@index([visitorId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("visit_events")
+}
+
+model FunnelStep {
+  id        String       @id @default(uuid()) @db.Uuid
+  visitId   String       @map("visit_id") @db.Uuid
+  step      String       @db.VarChar(32)
+  timestamp DateTime     @default(now()) @map("timestamp") @db.Timestamptz
+  metadata  Json?
+  sessionId String?      @map("session_id") @db.Uuid
+
+  visit   VisitEvent   @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  session TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([visitId])
+  @@index([step, timestamp])
+  @@map("funnel_steps")
 }
 
 model SiteSetting {

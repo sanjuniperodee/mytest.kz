@@ -1,4 +1,5 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -6,8 +7,12 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('telegram')
-  async authenticateTelegram(@Body('initData') initData: string) {
-    return this.authService.authenticateTelegram(initData);
+  async authenticateTelegram(
+    @Body('initData') initData: string,
+    @Req() req: Request,
+  ) {
+    const visitorId = req.cookies?.['blm_vid'];
+    return this.authService.authenticateTelegram(initData, visitorId);
   }
 
   @Post('web/request-code')
@@ -19,8 +24,10 @@ export class AuthController {
   async verifyWebCode(
     @Body('phone') phone: string,
     @Body('code') code: string,
+    @Req() req: Request,
   ) {
-    return this.authService.verifyWebCode(phone, code);
+    const visitorId = req.cookies?.['blm_vid'];
+    return this.authService.verifyWebCode(phone, code, visitorId);
   }
 
   @Post('refresh')

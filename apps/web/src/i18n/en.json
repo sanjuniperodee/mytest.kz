@@ -798,5 +798,69 @@
     "footerWa": "Contact on WhatsApp",
     "seoTitle": "MyTest — Practice like it's the real exam",
     "seoDescription": "Timed UNT trials, detailed analytics, mistake review. Sign in with Telegram in seconds. 2 free trials."
+  },
+  "admin": {
+    "nav": {
+      "overview": "Overview",
+      "funnel": "Funnel",
+      "visitors": "Visitors",
+      "testTakers": "Test Takers",
+      "export": "Export CSV"
+    },
+    "overview": {
+      "title": "Analytics Overview",
+      "visitors": "Total Visitors",
+      "registered": "Registered",
+      "startedTest": "Started Test",
+      "completedTest": "Completed Test"
+    },
+    "funnel": {
+      "title": "Conversion Funnel",
+      "visitToRegistered": "Visit → Register",
+      "registeredToStarted": "Register → Start",
+      "startedToCompleted": "Start → Complete",
+      "visitToCompleted": "Visit → Complete"
+    },
+    "visitors": {
+      "title": "Visitor Log",
+      "visitorId": "Visitor ID",
+      "user": "User",
+      "firstSeen": "First Seen",
+      "lastSeen": "Last Seen",
+      "steps": "Funnel Steps",
+      "completedTests": "Completed Tests",
+      "noUser": "(not registered)",
+      "searchPlaceholder": "Search by name or username..."
+    },
+    "testTakers": {
+      "title": "Test Takers",
+      "telegramId": "Telegram ID",
+      "username": "Username",
+      "name": "Name",
+      "testsCompleted": "Tests",
+      "lastTest": "Last Test",
+      "bestScore": "Best Score",
+      "avgScore": "Avg Score",
+      "avgDuration": "Avg Duration"
+    },
+    "filters": {
+      "dateRange": "Date Range",
+      "from": "From",
+      "to": "To",
+      "examType": "Exam Type",
+      "allExams": "All exams",
+      "apply": "Apply",
+      "reset": "Reset"
+    },
+    "export": {
+      "button": "Export CSV",
+      "success": "Download started",
+      "error": "Export failed"
+    },
+    "table": {
+      "noData": "No data for selected filters",
+      "loading": "Loading...",
+      "showing": "Showing {{from}}–{{to}} of {{total}}"
+    }
   }
 }

@@ -798,5 +798,69 @@
     "footerWa": "WhatsApp арқылы байланысу",
     "seoTitle": "MyTest — Нақты емтихан секілді жаттығыңыз",
     "seoDescription": "Таймерлі UNT жаттығулары, егжей-тегжейлі аналитика, қателерді талдау. Telegram арқылы кіру. 2 тегін жасау мүмкіндігі."
+  },
+  "admin": {
+    "nav": {
+      "overview": "Шолу",
+      "funnel": "Воронка",
+      "visitors": "Келушілер",
+      "testTakers": "Тест тапсырушылар",
+      "export": "CSV жүктеу"
+    },
+    "overview": {
+      "title": "Аналитика шолуы",
+      "visitors": "Барлық келушілер",
+      "registered": "Тіркелген",
+      "startedTest": "Тест бастаған",
+      "completedTest": "Тест аяқтаған"
+    },
+    "funnel": {
+      "title": "Конверсия воронкасы",
+      "visitToRegistered": "Келу → Тіркелу",
+      "registeredToStarted": "Тіркелу → Бастау",
+      "startedToCompleted": "Бастау → Аяқтау",
+      "visitToCompleted": "Келу → Аяқтау"
+    },
+    "visitors": {
+      "title": "Келуші журналы",
+      "visitorId": "Келуші ID",
+      "user": "Қолданушы",
+      "firstSeen": "Алғашқы келу",
+      "lastSeen": "Соңғы келу",
+      "steps": "Воронка қадамдары",
+      "completedTests": "Аяқталған тесттер",
+      "noUser": "(тіркелмеген)",
+      "searchPlaceholder": "Аты немесе username іздеу..."
+    },
+    "testTakers": {
+      "title": "Тест тапсырушылар",
+      "telegramId": "Telegram ID",
+      "username": "Username",
+      "name": "Аты",
+      "testsCompleted": "Тесттер",
+      "lastTest": "Соңғы тест",
+      "bestScore": "Ең жақсы ұпай",
+      "avgScore": "Орташа ұпай",
+      "avgDuration": "Орташа уақыт"
+    },
+    "filters": {
+      "dateRange": "Күн ауқымы",
+      "from": "Бастап",
+      "to": "Басқа",
+      "examType": "Емтихан түрі",
+      "allExams": "Барлық емтихандар",
+      "apply": "Қолдану",
+      "reset": "Қалпына келтіру"
+    },
+    "export": {
+      "button": "CSV жүктеу",
+      "success": "Жүктеу басталды",
+      "error": "Жүктеу сәтсіз"
+    },
+    "table": {
+      "noData": "Таңдалған сүзгілер үшін деректер жоқ",
+      "loading": "Жүктеу...",
+      "showing": "{{total}}-нан {{from}}–{{to}} көрсетіліп тұр"
+    }
   }
 }

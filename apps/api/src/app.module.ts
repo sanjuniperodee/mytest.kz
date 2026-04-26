@@ -18,6 +18,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { DbSnapshotModule } from './modules/db-snapshot/db-snapshot.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -39,6 +40,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     DbSnapshotModule,
     LeadsModule,
     SettingsModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

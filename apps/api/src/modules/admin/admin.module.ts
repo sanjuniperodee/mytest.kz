@@ -6,9 +6,10 @@ import { AdminExamsController } from './admin-exams.controller';
 import { AdminExamsService } from './admin-exams.service';
 import { AdminService } from './admin.service';
 import { PrismaModule } from '../../database/prisma.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AnalyticsModule],
   controllers: [
     AdminUsersController,
     AdminSubscriptionsController,

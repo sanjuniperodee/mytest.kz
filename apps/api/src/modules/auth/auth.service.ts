@@ -30,7 +30,7 @@ export class AuthService {
     @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
 
-  async authenticateTelegram(initDataRaw: string) {
+  async authenticateTelegram(initDataRaw: string, visitorId?: string) {
     const initData = this.telegramAuth.validateInitData(initDataRaw);
     if (!initData) {
       throw new UnauthorizedException('Invalid Telegram init data');
@@ -70,6 +70,11 @@ export class AuthService {
      */
     if (!user.phone) {
       throw new BadRequestException('PHONE_REQUIRED_IN_BOT');
+    }
+
+    // Attribution: link visitorId to user
+    if (visitorId) {
+      await this.attrributeVisit(visitorId, user.id);
     }
 
     return this.generateTokens({
@@ -118,7 +123,7 @@ export class AuthService {
     return { message: 'Code sent to your Telegram' };
   }
 
-  async verifyWebCode(rawPhone: string, code: string) {
+  async verifyWebCode(rawPhone: string, code: string, visitorId?: string) {
     const normalized = normalizeKzPhone(rawPhone || '');
     if (!normalized) {
       throw new BadRequestException('Введите корректный номер телефона');
@@ -152,6 +157,11 @@ export class AuthService {
         where: { id: user.id },
         data: { isChannelMember, channelCheckedAt: new Date() },
       });
+    }
+
+    // Attribution: link visitorId to user
+    if (visitorId) {
+      await this.attrributeVisit(visitorId, user.id);
     }
 
     return this.generateTokens({
@@ -220,5 +230,33 @@ export class AuthService {
         isAdmin: user.isAdmin,
       },
     };
+  }
+
+  private async attrributeVisit(visitorId: string, userId: string) {
+    // Update all unclaimed VisitEvents for this visitorId to link to userId
+    await this.prisma.visitEvent.updateMany({
+      where: { visitorId, userId: null },
+      data: { userId },
+    });
+
+    // Find the first visit event for this visitor to add 'registered' step
+    const firstVisit = await this.prisma.visitEvent.findFirst({
+      where: { visitorId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (firstVisit) {
+      const existingStep = await this.prisma.funnelStep.findFirst({
+        where: { visitId: firstVisit.id, step: 'registered' },
+      });
+      if (!existingStep) {
+        await this.prisma.funnelStep.create({
+          data: {
+            visitId: firstVisit.id,
+            step: 'registered',
+          },
+        });
+      }
+    }
   }
 }

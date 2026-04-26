@@ -179,6 +179,11 @@ export class TestSessionService {
     );
 
     // Create session
+    const visit = await this.prisma.visitEvent.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
     const session = await this.prisma.testSession.create({
       data: {
         userId,
@@ -187,6 +192,7 @@ export class TestSessionService {
         language,
         totalQuestions,
         timeRemaining: sessionDurationMins * 60,
+        visitId: visit?.id ?? null,
         metadata: {
           sections: sectionsMeta,
           profileSubjectIds: profileSubjectIds || [],
@@ -224,6 +230,23 @@ export class TestSessionService {
         },
       },
     });
+
+    // Record 'started_test' funnel step
+    if (visit) {
+      const existingStep = await this.prisma.funnelStep.findFirst({
+        where: { visitId: visit.id, step: 'started_test' },
+      });
+      if (!existingStep) {
+        await this.prisma.funnelStep.create({
+          data: {
+            visitId: visit.id,
+            step: 'started_test',
+            sessionId: session.id,
+            metadata: { examTypeId: template.examTypeId },
+          },
+        });
+      }
+    }
 
     return this.normalizeSessionScore(session);
   }
@@ -360,6 +383,28 @@ export class TestSessionService {
         score: scoreResult.score,
       },
     });
+
+    // Record 'completed_test' funnel step
+    if (session.visitId) {
+      const existingStep = await this.prisma.funnelStep.findFirst({
+        where: { visitId: session.visitId, step: 'completed_test' },
+      });
+      if (!existingStep) {
+        await this.prisma.funnelStep.create({
+          data: {
+            visitId: session.visitId,
+            step: 'completed_test',
+            sessionId,
+            metadata: {
+              examTypeId: session.examTypeId,
+              score: scoreResult.score,
+              durationSecs: elapsed,
+            },
+          },
+        });
+      }
+    }
+
     return this.normalizeSessionScore(updated);
   }
 
@@ -502,6 +547,11 @@ export class TestSessionService {
       sectionsMeta[sectionsMeta.length - 1].questionCount++;
     }
 
+    const visit = await this.prisma.visitEvent.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
     const session = await this.prisma.testSession.create({
       data: {
         userId,
@@ -510,6 +560,7 @@ export class TestSessionService {
         language,
         totalQuestions: ordered.length,
         timeRemaining: durationMins * 60,
+        visitId: visit?.id ?? null,
         metadata: {
           kind: 'remediation',
           remediationDurationMins: durationMins,
@@ -541,6 +592,23 @@ export class TestSessionService {
         },
       },
     });
+
+    // Record 'started_test' funnel step for remediation
+    if (visit) {
+      const existingStep = await this.prisma.funnelStep.findFirst({
+        where: { visitId: visit.id, step: 'started_test' },
+      });
+      if (!existingStep) {
+        await this.prisma.funnelStep.create({
+          data: {
+            visitId: visit.id,
+            step: 'started_test',
+            sessionId: session.id,
+            metadata: { examTypeId: resolvedExamTypeId, kind: 'remediation' },
+          },
+        });
+      }
+    }
 
     return this.normalizeSessionScore(session);
   }
