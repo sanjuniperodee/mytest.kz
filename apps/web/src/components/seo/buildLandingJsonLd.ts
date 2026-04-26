@@ -2,12 +2,17 @@ import type { TFunction } from 'i18next';
 
 export type Step = { title: string; body: string };
 export type FaqItem = { question: string; answer: string };
+export type LandingJsonLdOptions = {
+  keyPrefix?: string;
+  pagePath?: string;
+};
 
 export function buildLandingJsonLd(
   t: TFunction,
   siteUrl: string,
   steps: Step[],
   faq: FaqItem[],
+  _options?: LandingJsonLdOptions,
 ): Record<string, unknown> {
   const orgId = `${siteUrl}/#organization`;
   const webId = `${siteUrl}/#website`;

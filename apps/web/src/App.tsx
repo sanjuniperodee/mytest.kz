@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider, useAuth } from './api/hooks/useAuth';
 import { TelegramProvider } from './lib/telegram';
 import { LandingPage } from './pages/LandingPage';
+import { LandingPageV3 } from './pages/v3/LandingPageV3';
 import { HomePage } from './pages/HomePage';
 import { ExamPage } from './pages/ExamPage';
 import { TestPage } from './pages/TestPage';
@@ -57,6 +58,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/v3" element={<LandingPageV3 />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/channel-gate" element={<ChannelGatePage />} />
       <Route

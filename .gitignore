@@ -14,3 +14,5 @@ apps/api/prisma/extracted-pdf/
 
 # Загруженные картинки к вопросам (локально)
 apps/api/uploads/
+
+.minimax

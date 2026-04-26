@@ -659,5 +659,135 @@
         "body": "Read the breakdown and return to weak spots in a dedicated practice flow."
       }
     ]
+  },
+  "landingV3": {
+    "navBrand": "MyTest",
+    "navAria": "Main navigation",
+    "navSessions": "Sessions",
+    "navPipeline": "How it works",
+    "navBento": "Features",
+    "navFaq": "Questions",
+    "themeToggle": "Toggle theme",
+    "navCta": "Start now",
+
+    "heroKicker": "Kazakhstan's exam prep platform",
+    "heroH1": "Practice like it's the real exam — track your real progress.",
+    "heroLead": "Timed UNT trials, detailed analytics, mistake review. Sign in with Telegram in seconds. No passwords, no friction — just focused practice that moves the needle.",
+    "heroCtaPrimary": "Try for free",
+    "heroCtaSecondary": "Message on WhatsApp",
+    "heroMicro": "2 free trials · No credit card required",
+    "mockupLabel1": "Time left",
+    "mockupLabel2": "Questions answered",
+    "mockupLabel3": "Avg. score",
+    "mockupSub": "across all attempts",
+
+    "proofKicker": "By the numbers",
+    "proofTitle": "What students accomplish here",
+    "proofItems": [
+      {
+        "title": "Timed practice sessions",
+        "body": "Every test mirrors the real exam rhythm: timer, sections, navigation. Build stamina before the real day."
+      },
+      {
+        "title": "Mistakes become lessons",
+        "body": "Review every wrong answer with explanations. Return to weak spots until they're fixed — not just marked."
+      },
+      {
+        "title": "Progress over time",
+        "body": "See your trajectory across attempts. Know exactly which topics need more work and how far you've come."
+      }
+    ],
+
+    "pipelineKicker": "Three steps to start",
+    "pipelineTitle": "From sign-in to first insight in minutes",
+    "pipelineSub": "No lengthy setup. No confusing dashboards. Just open, practice, learn.",
+    "pipelineSteps": [
+      {
+        "title": "Sign in via Telegram",
+        "body": "Open the bot, share your phone, get the code. Enter it on the site. Done in under a minute."
+      },
+      {
+        "title": "Pick your exam format",
+        "body": "UNT, NIS, NUET, KTL — choose the format and variant. Add profile subjects if needed."
+      },
+      {
+        "title": "Review and repeat",
+        "body": "After each session: see scores, read explanations, practice mistakes. Track your growth over time."
+      }
+    ],
+
+    "bentoKicker": "Everything you need",
+    "bentoTitle": "Built for real preparation",
+    "bentoLead": "Not just a question bank — a complete system for tracking, analyzing, and improving.",
+    "bentoItems": [
+      {
+        "title": "Topic-by-topic breakdown",
+        "body": "After each test, see exactly which topics are your strongest and which need attention."
+      },
+      {
+        "title": "Real exam conditions",
+        "body": "Timer, section navigation, mandatory + profile blocks — practice in the format you'll face."
+      },
+      {
+        "title": "Personal best tracking",
+        "body": "Your highest scores, accuracy rates, and time spent — all visible in one place."
+      },
+      {
+        "title": "Mistake review sessions",
+        "body": "Dedicated practice flows focused only on what you got wrong. Close gaps systematically."
+      },
+      {
+        "title": "Multiple exam formats",
+        "body": "UNT-style, NIS, NUET, KTL — each with proper section logic and scoring rules."
+      },
+      {
+        "title": "Three interface languages",
+        "body": "Kazakh, Russian, English. Switch anytime. Question text follows your chosen language."
+      }
+    ],
+
+    "admitKicker": "Know where you stand",
+    "admitTitle": "Cut-off score context",
+    "admitBody": "Reference data on passing scores by program, university and quota from recent admission cycles — so you know what target to aim for.",
+    "admitCta": "Start practicing",
+    "admitNote": "Free for the first two attempts",
+
+    "faqTitle": "Common questions",
+    "faqLead": "Quick answers before you dive in.",
+    "faqItems": [
+      {
+        "question": "What's included in the free trial?",
+        "answer": "Two full UNT practice attempts — same format, timer and sections as the real exam. No payment required to start."
+      },
+      {
+        "question": "How do I sign in?",
+        "answer": "Open the Telegram bot, share your phone number, receive the code in the bot chat. Enter your phone and the code on the site. That's it — no separate password."
+      },
+      {
+        "question": "Which exam formats are available?",
+        "answer": "UNT-style (the main format for university admission), NIS (Nazarbayev Intellectual Schools), NUET, and KTL. Each has its own section structure and scoring."
+      },
+      {
+        "question": "Is there mistake review?",
+        "answer": "Yes. After each test you can review every wrong answer, read explanations, and practice those questions in a dedicated flow until you get them right."
+      },
+      {
+        "question": "What happens after the free limit?",
+        "answer": "You'll see transparent pricing for weekly, monthly, and annual plans. No hidden fees — the total is shown before any payment."
+      },
+      {
+        "question":"Can I track progress over time?",
+        "answer": "Absolutely. Your profile shows score trends, accuracy by subject and topic, personal bests, and total time spent practicing."
+      }
+    ],
+
+    "closingTitle": "Ready to see where you stand?",
+    "closingSub": "Two free attempts. Real exam conditions. Start today.",
+    "closingCta": "Sign in with Telegram",
+
+    "footerRights": "© MyTest 2026. All rights reserved.",
+    "footerWa": "Contact on WhatsApp",
+    "seoTitle": "MyTest — Practice like it's the real exam",
+    "seoDescription": "Timed UNT trials, detailed analytics, mistake review. Sign in with Telegram in seconds. 2 free trials."
   }
 }

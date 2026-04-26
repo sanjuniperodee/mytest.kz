@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { HelmetProvider } from 'react-helmet-async';
 import { App } from './App';
 import { initTheme } from './lib/theme';
+import './styles/tailwind.css';
 import './styles/global.css';
 import './i18n';
 
