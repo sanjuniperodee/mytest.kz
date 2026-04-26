@@ -24,7 +24,7 @@ export function FunnelChart({ data }: FunnelChartProps) {
             contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
           />
           <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-            {chartData.map((entry, index) => (
+            {chartData.map((_, index) => (
               <LabelList key={index} dataKey="value" position="top" style={{ fontSize: 12 }} />
             ))}
             {chartData.map((entry, index) => (

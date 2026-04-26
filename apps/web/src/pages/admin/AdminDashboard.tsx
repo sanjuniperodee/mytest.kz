@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFunnel } from './hooks/useFunnel';
 import { useVisitors } from './hooks/useVisitors';
@@ -117,7 +117,7 @@ export function AdminDashboard() {
                       <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={funnelData.byDate}>
-                            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.split('T')[0].slice(5)} />
+                            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.split('T')[0].slice(5)} />
                             <YAxis tick={{ fontSize: 11 }} />
                             <Tooltip />
                             <Line type="monotone" dataKey="visits" stroke="#7c3aed" dot={false} name="Visits" />
@@ -167,7 +167,7 @@ export function AdminDashboard() {
                           <td className="px-4 py-2.5 text-zinc-500">{new Date(v.firstSeen).toLocaleDateString()}</td>
                           <td className="px-4 py-2.5">
                             <div className="flex gap-1">
-                              {v.steps.map((step) => (
+                              {v.steps.map((step: string) => (
                                 <span key={step} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700 dark:bg-violet-900 dark:text-violet-300">
                                   {step}
                                 </span>
