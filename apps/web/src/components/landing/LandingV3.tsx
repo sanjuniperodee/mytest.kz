@@ -27,7 +27,7 @@ export type LandingV3Props = {
   whatsappHref: string;
 };
 
-type HeroSlide = {
+type ModernHeroSlide = {
   title?: string;
   subtitle?: string;
   desktopImageUrl: string;
@@ -37,15 +37,16 @@ type HeroSlide = {
   buttonHref?: string;
   showButton?: boolean;
   isActive?: boolean;
-} | {
-  // fallback shape used by defaultHeroSlides
+};
+
+type LegacyHeroSlide = {
   image: string;
   title: string;
   subtitle: string;
   cta: string;
 };
 
-function hasModernHeroSlide(slide: HeroSlide): slide is HeroSlide & Required<Pick<HeroSlide, 'desktopImageUrl'>> {
+function isModernSlide(slide: HeroSlide): slide is ModernHeroSlide {
   return 'desktopImageUrl' in slide;
 }
 
@@ -237,7 +238,7 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
   ], [i18n.language]);
 
   const apiHeroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
-    (slide) => slide.isActive !== false,
+    (slide) => (slide as ModernHeroSlide).isActive !== false,
   );
 
   const heroCarouselSlides = apiHeroSlides.length > 0 ? apiHeroSlides : defaultHeroSlides;
