@@ -741,30 +741,289 @@
   color: rgba(60, 60, 67, 0.65);
 }
 
-/* ——— Пользователи ——— */
+/* ——— Пользователи (hero + stat strip + поиск + таблица) ——— */
 .pg-users {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.pg-users__intro {
-  margin: 0;
-  max-width: 38rem;
-  font-size: 15px;
-  line-height: 1.5;
-  color: rgba(60, 60, 67, 0.88);
+.pg-users .pg-dash__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.pg-users__search-card {
+.pg-users__skeleton-hero {
+  min-height: 120px;
+  border-radius: 20px;
+}
+
+.pg-users__skeleton-search {
+  padding: 8px 0;
+  border-radius: 16px;
+}
+
+.pg-users__skeleton-table {
+  min-height: 320px;
+  border-radius: 16px;
+}
+
+/* Мини-KPI: как strip на дашборде, 4 тайла (users + exams) */
+.pg-users__stat-strip,
+.pg-exams__stat-strip {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 800px) {
+  .pg-users__stat-strip,
+  .pg-exams__stat-strip {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.pg-users__stat,
+.pg-exams__stat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 86px;
+  padding: 14px 14px 14px 16px;
+  background: #fff;
+  border-radius: 16px;
+  border: 0.5px solid rgba(60, 60, 67, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.pg-users__stat::before,
+.pg-exams__stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: #007aff;
+}
+
+.pg-users__stat--blue::before,
+.pg-exams__stat--blue::before {
+  background: #007aff;
+}
+.pg-users__stat--violet::before,
+.pg-exams__stat--violet::before {
+  background: #5856d6;
+}
+.pg-users__stat--teal::before,
+.pg-exams__stat--teal::before {
+  background: #32ade6;
+}
+.pg-users__stat--amber::before,
+.pg-exams__stat--amber::before {
+  background: #ff9f0a;
+}
+
+.pg-users__stat-icon,
+.pg-exams__stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  background: linear-gradient(145deg, rgba(0, 122, 255, 0.15), rgba(0, 122, 255, 0.05));
+  color: #0071e3;
+  flex-shrink: 0;
+}
+
+.pg-users__stat--violet .pg-users__stat-icon,
+.pg-exams__stat--violet .pg-exams__stat-icon {
+  background: linear-gradient(145deg, rgba(88, 86, 214, 0.18), rgba(88, 86, 214, 0.06));
+  color: #4846b0;
+}
+.pg-users__stat--teal .pg-users__stat-icon,
+.pg-exams__stat--teal .pg-exams__stat-icon {
+  background: linear-gradient(145deg, rgba(50, 173, 230, 0.2), rgba(50, 173, 230, 0.06));
+  color: #1e8cb8;
+}
+.pg-users__stat--amber .pg-users__stat-icon,
+.pg-exams__stat--amber .pg-exams__stat-icon {
+  background: linear-gradient(145deg, rgba(255, 159, 10, 0.22), rgba(255, 159, 10, 0.08));
+  color: #c77800;
+}
+
+.pg-users__stat-body,
+.pg-exams__stat-body {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pg-users__stat-k,
+.pg-exams__stat-k {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(60, 60, 67, 0.55);
+  letter-spacing: 0.02em;
+}
+
+.pg-users__stat-v,
+.pg-exams__stat-v {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: #0f0f12;
+  line-height: 1.1;
+}
+
+/* Каталог экзаменов: layout */
+.pg-exams {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pg-exams .pg-dash__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pg-exams__skeleton-hero {
+  min-height: 120px;
+  border-radius: 20px;
+}
+
+.pg-exams__skeleton-tools {
+  min-height: 100px;
+  border-radius: 16px;
+}
+
+.pg-exams__skeleton-catalog {
+  min-height: 400px;
+  border-radius: 16px;
+}
+
+.pg-exams__toolbar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 16px 18px 18px;
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 0.5px solid rgba(60, 60, 67, 0.12);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.pg-exams__toolbar--accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #5e5ce6, #0a84ff);
+  border-radius: 2px 2px 0 0;
+}
+
+.pg-exams__section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pg-exams__section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0f0f12;
+}
+
+.pg-exams__section-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(60, 60, 67, 0.6);
+  max-width: 42rem;
+}
+
+.pg-exams__catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-exams__catalog-surface {
+  min-height: 200px;
+  border-radius: 16px;
+  background: #fff;
+  border: 0.5px solid rgba(60, 60, 67, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  padding: 4px 4px 8px;
+}
+
+.pg-exams__catalog-surface .hig-catalog-collapse {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pg-exams__lang-hint {
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.55);
+}
+
+.pg-users__search-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 18px;
+  background: #fff;
+  border-radius: 16px;
+  border: 0.5px solid rgba(60, 60, 67, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.pg-users__search-card--accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #007aff, #5ac8fa);
+  border-radius: 2px 2px 0 0;
+}
+
+.pg-users__search-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pg-users__search-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(60, 60, 67, 0.6);
 }
 
 @media (min-width: 600px) {
@@ -786,6 +1045,13 @@
   font-size: 15px;
 }
 
+.pg-users__search .ant-btn-primary {
+  height: 44px;
+  min-width: 100px;
+  border-radius: 0 10px 10px 0;
+  font-weight: 600;
+}
+
 .pg-users__meta {
   display: flex;
   align-items: center;
@@ -795,6 +1061,9 @@
 }
 
 .pg-users__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -809,6 +1078,35 @@
   border-radius: 8px;
   background: #f2f2f7;
   color: #1d1d1f;
+}
+
+.pg-users__table-card.hig-table-card {
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  border: 0.5px solid rgba(60, 60, 67, 0.1) !important;
+  overflow: hidden;
+}
+
+.pg-users__ent-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pg-users__ent-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(60, 60, 67, 0.85);
+}
+
+.pg-users__cell-mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
 }
 
 /* ——— ЕНТ аналитика: полоса метрик ——— */

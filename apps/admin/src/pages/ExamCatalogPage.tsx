@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Alert,
   Button,
@@ -14,6 +14,7 @@ import {
   Segmented,
   Select,
   Space,
+  Skeleton,
   Spin,
   Switch,
   Table,
@@ -21,12 +22,29 @@ import {
   Typography,
   message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  EditOutlined,
+  FileTextOutlined,
+  AppstoreOutlined,
+  ThunderboltOutlined,
+  CheckCircleOutlined,
+  UnorderedListOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup } from '../components/HigBlocks';
 import { getLocalizedText, pickContentLang, splitLocalizedSlot } from '../lib/questionContent';
+
+function formatNowRu() {
+  return new Date().toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 type CatalogListLang = 'ru' | 'kk' | 'en';
 
@@ -98,7 +116,7 @@ export function ExamCatalogPage() {
   const [topicForm] = Form.useForm();
   const [templateForm] = Form.useForm();
 
-  const { data: catalog, isLoading } = useQuery({
+  const { data: catalog, isFetching, isPending } = useQuery({
     queryKey: ['admin-exams-catalog', includeInactive],
     queryFn: async () => {
       const { data } = await api.get<ExamRow[]>('/admin/exams/catalog', {
@@ -106,7 +124,18 @@ export function ExamCatalogPage() {
       });
       return data;
     },
+    placeholderData: keepPreviousData,
   });
+
+  const examStats = useMemo(() => {
+    const list = catalog ?? [];
+    const active = list.filter((e) => e.isActive).length;
+    const subjects = list.reduce((acc, e) => acc + (e.subjects?.length ?? 0), 0);
+    const questions = list.reduce((acc, e) => acc + (e._count?.questions ?? 0), 0);
+    return { total: list.length, active, subjects, questions };
+  }, [catalog]);
+
+  const showSkeleton = isPending && !catalog;
 
   const { data: templates, isLoading: tplLoading } = useQuery({
     queryKey: ['admin-exam-templates', templateDrawer.exam?.id, includeInactive],
@@ -495,60 +524,142 @@ export function ExamCatalogPage() {
     };
   });
 
+  if (showSkeleton) {
+    return (
+      <AdminPageShell>
+        <div className="pg-exams">
+          <Skeleton active className="pg-exams__skeleton-hero" paragraph={{ rows: 0 }} />
+          <div className="pg-exams__stat-strip">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton.Button key={i} active block style={{ height: 86, borderRadius: 16 }} />
+            ))}
+          </div>
+          <Skeleton active className="pg-exams__skeleton-tools" paragraph={{ rows: 1 }} />
+          <Skeleton active className="pg-exams__skeleton-catalog" paragraph={{ rows: 8 }} />
+        </div>
+      </AdminPageShell>
+    );
+  }
+
   return (
     <AdminPageShell>
-      <div className="pg-ex__hero" style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Каталог экзаменов</h2>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '40rem' }}>
-          Типы экзаменов, предметы, темы и шаблоны тестов. Slug меняйте только осознанно — связанные сущности не
-          удаляются автоматически.
-        </p>
-      </div>
+      <div className="pg-exams">
+        <div className="pg-exams__hero pg-dash__hero">
+          <div>
+            <p className="pg-dash__eyebrow">
+              <AppstoreOutlined /> Каталог
+            </p>
+            <h1 className="pg-dash__headline">Экзамены</h1>
+            <p className="pg-dash__lede">
+              Типы экзаменов, предметы, темы и шаблоны тестов. Slug меняйте только осознанно — связанные сущности не
+              удаляются автоматически.
+            </p>
+          </div>
+          <div className="pg-dash__hero-aside">
+            <span className="pg-dash__date">{formatNowRu()}</span>
+            <span className={isFetching ? 'pg-dash__pill pg-dash__pill--sync' : 'pg-dash__pill'}>
+              {isFetching ? (
+                <>
+                  <ThunderboltOutlined /> Обновление…
+                </>
+              ) : (
+                'Данные на момент загрузки'
+              )}
+            </span>
+          </div>
+        </div>
 
-      <HigGroup label="Панель списка">
-      <div className="pg-exam__bar">
-        <div className="pg-exam__bar-start">
-          <Space>
-            <span style={{ fontSize: 14 }}>Показать неактивные</span>
-            <Switch checked={includeInactive} onChange={setIncludeInactive} />
-          </Space>
-          <Space direction="vertical" size={4}>
-            <span style={{ fontSize: 12, color: 'var(--admin-muted)' }}>Язык названий в списке</span>
-            <Segmented<CatalogListLang>
-              size="small"
-              value={catalogListLang}
-              onChange={setCatalogListLang}
-              options={[
-                { label: 'RU', value: 'ru' },
-                { label: 'KK', value: 'kk' },
-                { label: 'EN', value: 'en' },
-              ]}
-            />
-          </Space>
+        <div className="pg-exams__stat-strip">
+          <div className="pg-exams__stat pg-exams__stat--blue">
+            <span className="pg-exams__stat-icon">
+              <AppstoreOutlined />
+            </span>
+            <div className="pg-exams__stat-body">
+              <span className="pg-exams__stat-k">Типов экзаменов</span>
+              <span className="pg-exams__stat-v">{examStats.total.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+          <div className="pg-exams__stat pg-exams__stat--violet">
+            <span className="pg-exams__stat-icon">
+              <CheckCircleOutlined />
+            </span>
+            <div className="pg-exams__stat-body">
+              <span className="pg-exams__stat-k">Активных</span>
+              <span className="pg-exams__stat-v">{examStats.active.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+          <div className="pg-exams__stat pg-exams__stat--teal">
+            <span className="pg-exams__stat-icon">
+              <UnorderedListOutlined />
+            </span>
+            <div className="pg-exams__stat-body">
+              <span className="pg-exams__stat-k">Предметов всего</span>
+              <span className="pg-exams__stat-v">{examStats.subjects.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+          <div className="pg-exams__stat pg-exams__stat--amber">
+            <span className="pg-exams__stat-icon">
+              <QuestionCircleOutlined />
+            </span>
+            <div className="pg-exams__stat-body">
+              <span className="pg-exams__stat-k">Вопросов в банке</span>
+              <span className="pg-exams__stat-v">{examStats.questions.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
         </div>
-        <div className="pg-exam__bar-end">
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setExamDrawer({ open: true, mode: 'create' });
-              examForm.resetFields();
-              examForm.setFieldsValue({ isActive: true });
-            }}
-          >
-            Новый экзамен
-          </Button>
-        </div>
-      </div>
-      </HigGroup>
 
-      <HigGroup label="Экзамены" description="Разворачивайте карточку — предметы, темы и действия.">
-      <Spin spinning={isLoading}>
-        <div className="hig-catalog-collapse">
-          <Collapse items={collapseItems} defaultActiveKey={catalog?.[0]?.id} />
+        <div className="pg-exams__toolbar pg-exams__toolbar--accent">
+          <div className="pg-exam__bar-start">
+            <Space>
+              <span style={{ fontSize: 14 }}>Показать неактивные</span>
+              <Switch checked={includeInactive} onChange={setIncludeInactive} />
+            </Space>
+            <Space direction="vertical" size={4}>
+              <span className="pg-exams__lang-hint">Язык названий в списке</span>
+              <Segmented<CatalogListLang>
+                size="small"
+                value={catalogListLang}
+                onChange={setCatalogListLang}
+                options={[
+                  { label: 'RU', value: 'ru' },
+                  { label: 'KK', value: 'kk' },
+                  { label: 'EN', value: 'en' },
+                ]}
+              />
+            </Space>
+          </div>
+          <div className="pg-exam__bar-end">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setExamDrawer({ open: true, mode: 'create' });
+                examForm.resetFields();
+                examForm.setFieldsValue({ isActive: true });
+              }}
+            >
+              Новый экзамен
+            </Button>
+          </div>
         </div>
-      </Spin>
-      </HigGroup>
+
+        <section className="pg-exams__catalog" aria-label="Список экзаменов">
+          <div className="pg-exams__section-head">
+            <h2 className="pg-exams__section-title">Структура</h2>
+            <p className="pg-exams__section-desc">
+              Разворачивайте карточку, чтобы увидеть предметы, темы и кнопки редактирования. Шаблоны тестов — отдельным
+              списком внутри экзамена.
+            </p>
+          </div>
+          <div className="pg-exams__catalog-surface">
+            <Spin spinning={isFetching}>
+              <div className="hig-catalog-collapse">
+                <Collapse items={collapseItems} defaultActiveKey={catalog?.[0]?.id} />
+              </div>
+            </Spin>
+          </div>
+        </section>
+      </div>
 
       <Drawer
         title={examDrawer.mode === 'create' ? 'Новый экзамен' : 'Редактировать экзамен'}
