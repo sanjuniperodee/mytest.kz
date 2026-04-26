@@ -753,6 +753,14 @@
     "admitCta": "Start practicing",
     "admitNote": "Free for the first two attempts",
 
+    "videoKicker": "Video Guide",
+    "videoTitle": "How to start practicing",
+    "videoLead": "In a couple of minutes we'll show you the essentials: how to start a practice test, what to watch during the session, and where to find your analytics and mistakes afterward.",
+    "videoUnavailable": "Video coming soon",
+
+    "scoresKicker": "Score Reference",
+    "scoresTitle": "Find out your grant chances",
+
     "faqTitle": "Common questions",
     "faqLead": "Quick answers before you dive in.",
     "faqItems": [

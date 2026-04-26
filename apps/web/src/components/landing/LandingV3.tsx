@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setThemePreference, type ThemePreference } from '../../lib/theme';
+import { api } from '../../api/client';
+import { resolveMediaUrl } from '../../lib/resolveMediaUrl';
+import { AdmissionChanceWidget } from '../admission/AdmissionChanceWidget';
 
 type Proof = { title: string; body: string };
 type Step = { title: string; body: string };
@@ -17,19 +20,40 @@ type PriceTier = {
   cta: string;
   highlighted: boolean;
 };
-type Testimonial = {
-  name: string;
-  city: string;
-  school: string;
-  score: string;
-  subject: string;
-  result: string;
-  quote: string;
-  initials: string;
-};
+type Testimonial = { quote: string; author: string };
 
 export type LandingV3Props = {
   whatsappHref: string;
+};
+
+type HeroSlide = {
+  title?: string;
+  subtitle?: string;
+  desktopImageUrl: string;
+  tabletImageUrl: string;
+  mobileImageUrl: string;
+  buttonLabel?: string;
+  buttonHref?: string;
+  showButton?: boolean;
+  isActive?: boolean;
+} | {
+  // fallback shape used by defaultHeroSlides
+  image: string;
+  title: string;
+  subtitle: string;
+  cta: string;
+};
+
+function hasModernHeroSlide(slide: HeroSlide): slide is HeroSlide & Required<Pick<HeroSlide, 'desktopImageUrl'>> {
+  return 'desktopImageUrl' in slide;
+}
+
+type LandingRuntimeSettings = {
+  instructionVideoUrl: string;
+  instagramUrl: string;
+  tiktokUrl: string;
+  whatsappUrl: string;
+  heroSlides?: HeroSlide[];
 };
 
 function trackThemeFromDoc(): { effective: 'light' | 'dark'; preference: ThemePreference } {
@@ -54,32 +78,23 @@ function cycleTheme() {
   setThemePreference(effective === 'dark' ? 'light' : 'dark');
 }
 
-// Intersection Observer Hook
 function useInView(options = {}) {
   const ref = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
-
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setIsInView(true);
-        observer.disconnect();
-      }
+      if (entry.isIntersecting) { setIsInView(true); observer.disconnect(); }
     }, { threshold: 0.1, ...options });
-
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
   }, []);
-
   return { ref, isInView };
 }
 
-// Animated Counter Component
 function AnimatedCounter({ target, suffix = '', duration = 2000 }: { target: number; suffix?: string; duration?: number }) {
   const [count, setCount] = useState(0);
   const { ref, isInView } = useInView();
   const hasAnimated = useRef(false);
-
   useEffect(() => {
     if (isInView && !hasAnimated.current) {
       hasAnimated.current = true;
@@ -88,30 +103,20 @@ function AnimatedCounter({ target, suffix = '', duration = 2000 }: { target: num
       let current = 0;
       const timer = setInterval(() => {
         current += increment;
-        if (current >= target) {
-          setCount(target);
-          clearInterval(timer);
-        } else {
-          setCount(Math.floor(current));
-        }
+        if (current >= target) { setCount(target); clearInterval(timer); }
+        else { setCount(Math.floor(current)); }
       }, duration / steps);
       return () => clearInterval(timer);
     }
   }, [isInView, target, duration]);
-
   return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
 }
 
-// Section Wrapper with fade-in animation
 function Section({ children, className = '', id = '', onMouseEnter, onMouseLeave }: { children: React.ReactNode; className?: string; id?: string; onMouseEnter?: () => void; onMouseLeave?: () => void }) {
   const { ref, isInView } = useInView();
-
   return (
     <section
-      id={id}
-      ref={ref}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      id={id} ref={ref} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
       className={`transition-all duration-700 ${isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${className}`}
     >
       {children}
@@ -119,7 +124,6 @@ function Section({ children, className = '', id = '', onMouseEnter, onMouseLeave
   );
 }
 
-// Decorative SVG components for visual interest
 function GridPattern({ className = '' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -133,6 +137,69 @@ function GridPattern({ className = '' }: { className?: string }) {
   );
 }
 
+function toYoutubeEmbedUrl(rawUrl: string): string | null {
+  const value = rawUrl.trim();
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.hostname.includes('youtu.be')) {
+      const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (parsed.hostname.includes('youtube.com')) {
+      if (parsed.pathname.startsWith('/embed/')) return value;
+      const id = parsed.searchParams.get('v');
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    return null;
+  } catch { return null; }
+}
+
+function EntCountdownTimer({ target, language }: { target: Date; language: string }) {
+  const [time, setTime] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
+  useEffect(() => {
+    const tick = () => {
+      const diff = Math.max(0, target.getTime() - Date.now());
+      setTime({
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        mins: Math.floor((diff % 3600000) / 60000),
+        secs: Math.floor((diff % 60000) / 1000),
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+
+  return (
+    <div className="mt-8 flex flex-col gap-1">
+      <p className="text-xs uppercase tracking-widest text-white/60">
+        {language === 'ru' ? 'До ЕНТ 2026' : language === 'kk' ? 'ЕНТ 2026-ға дейін' : 'Until ENT 2026'}
+      </p>
+      <div className="flex items-baseline gap-3">
+        {time.days > 0 && (
+          <div className="flex items-baseline gap-1">
+            <span className="font-mono text-4xl font-bold text-white">{time.days}</span>
+            <span className="text-sm text-white/60">{language === 'ru' ? 'дней' : 'күн'}</span>
+          </div>
+        )}
+        <div className="flex items-baseline gap-1">
+          <span className="font-mono text-4xl font-bold text-white">{String(time.hours).padStart(2, '0')}</span>
+          <span className="text-sm text-white/60">:</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="font-mono text-4xl font-bold text-white">{String(time.mins).padStart(2, '0')}</span>
+          <span className="text-sm text-white/60">:</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="font-mono text-4xl font-bold text-white">{String(time.secs).padStart(2, '0')}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LandingV3({ whatsappHref }: LandingV3Props) {
   const { t, i18n } = useTranslation();
   const [isDark, setIsDark] = useState(false);
@@ -141,9 +208,12 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
   const [isPaused, setIsPaused] = useState(false);
   const [heroCarouselIndex, setHeroCarouselIndex] = useState(0);
   const [heroCarouselPaused, setHeroCarouselPaused] = useState(false);
+  const [runtimeSettings, setRuntimeSettings] = useState<LandingRuntimeSettings | null>(null);
+  const [runtimeSettingsLoaded, setRuntimeSettingsLoaded] = useState(false);
 
-  // Hero image carousel slides
-  const heroCarouselSlides = [
+  const instructionVideoEmbedUrl = toYoutubeEmbedUrl(runtimeSettings?.instructionVideoUrl || t('landingV3.instructionVideoUrl'));
+
+  const defaultHeroSlides = useMemo(() => [
     {
       image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1600&h=900&fit=crop',
       title: i18n.language === 'ru' ? 'Готовься к ЕНТ \nс уверенностью' : i18n.language === 'kk' ? 'Сеніммен ЕНТ-ке \nдайындал' : 'Prepare for UNT \nwith confidence',
@@ -162,47 +232,17 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
       subtitle: i18n.language === 'ru' ? 'Тысячи учеников уже достигли своих целей' : i18n.language === 'kk' ? 'Мыңдаған оқушылар өз мақсаттарына жетті' : 'Thousands of students have already achieved their goals',
       cta: i18n.language === 'ru' ? 'Присоединиться' : i18n.language === 'kk' ? 'Қатысу' : 'Join now',
     },
-  ];
-
-  // Testimonials data (V4 style)
-  const testimonials: Testimonial[] = useMemo(() => [
-    {
-      name: i18n.language === 'ru' ? 'Айгуль Молдабаева' : 'Айгүл Молдабаева',
-      city: i18n.language === 'ru' ? 'Алматы' : 'Алматы',
-      school: i18n.language === 'ru' ? 'Школа-лицей №126' : '№126 лицей мектебі',
-      score: '128/140',
-      subject: 'UNT',
-      result: i18n.language === 'ru' ? 'Грант, КБТУ' : 'грант, КБТУ',
-      initials: 'АМ',
-      quote: i18n.language === 'ru'
-        ? 'Готовилась 3 месяца. Платформа точно показала, над какими темами работать. После разбора ошибок стало намного понятнее.'
-        : '3 ай дайындалдым. Платформа қай тақырыптармен жұмыс істеу керек екенін дәл көрсетті.',
-    },
-    {
-      name: i18n.language === 'ru' ? 'Дамир Каримов' : 'Дәмір Кәрімов',
-      city: i18n.language === 'ru' ? 'Астана' : 'Астана',
-      school: i18n.language === 'ru' ? 'НИШ ФМН' : 'NIS FMH',
-      score: '135/140',
-      subject: i18n.language === 'ru' ? 'Математика' : 'Математика',
-      result: i18n.language === 'ru' ? 'Бюджет, МГУ' : 'бюджет, МГУ',
-      initials: 'ДК',
-      quote: i18n.language === 'ru'
-        ? 'Прошёл все пробники за месяц до экзамена. Сначала набирал 100-110, потом стабильно 130+.'
-        : 'Емтиханға бір ай қалғанша барлық сынақ тесттерін өткіздім.',
-    },
-    {
-      name: i18n.language === 'ru' ? 'Сауле Баяхова' : 'Сәуле Баяхова',
-      city: i18n.language === 'ru' ? 'Шымкент' : 'Шымкент',
-      school: i18n.language === 'ru' ? 'Гимназия №8' : '№8 гимназия',
-      score: '131/140',
-      subject: i18n.language === 'ru' ? 'Физика' : 'Физика',
-      result: i18n.language === 'ru' ? 'Грант, КазНУ' : 'грант, ҚазҰУ',
-      initials: 'СБ',
-      quote: i18n.language === 'ru'
-        ? 'Занималась вечерами после школы. Удобно, что не привязана к расписанию репетитора.'
-        : 'Мектептен кейін кешке жаттықтым. Репетитор кестесіне байланысты емес, ыңғайлы.',
-    },
   ], [i18n.language]);
+
+  const apiHeroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
+    (slide) => slide.isActive !== false,
+  );
+
+  const heroCarouselSlides = apiHeroSlides.length > 0 ? apiHeroSlides : defaultHeroSlides;
+  const testimonials = useMemo(
+    () => t('landing.testimonials', { returnObjects: true }) as Testimonial[],
+    [t, i18n.language],
+  );
 
   // Pricing data
   const pricingTiers: PriceTier[] = useMemo(() => [
@@ -280,6 +320,17 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
     };
   }, []);
 
+  // Fetch landing settings (hero slides + video URL) from API
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<LandingRuntimeSettings>('/public/landing-settings')
+      .then(({ data }) => { if (!cancelled) setRuntimeSettings(data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setRuntimeSettingsLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Auto-play testimonials
   useEffect(() => {
     if (isPaused) return;
@@ -329,6 +380,15 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
               <a href="#v3-pipeline" className="rounded-lg px-3 py-2 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100">
                 {t('landingV3.navPipeline')}
               </a>
+              <a href="#v3-instructions" className="rounded-lg px-3 py-2 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100">
+                {t('landingV3.navInstructions')}
+              </a>
+              <a href="#v3-scores" className="rounded-lg px-3 py-2 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100">
+                {t('landingV3.navScores')}
+              </a>
+              <a href="#v3-video" className="rounded-lg px-3 py-2 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100">
+                {i18n.language === 'ru' ? 'Видео' : i18n.language === 'kk' ? 'Бейне' : 'Video'}
+              </a>
               <a href="#v3-bento" className="rounded-lg px-3 py-2 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100">
                 {t('landingV3.navBento')}
               </a>
@@ -377,12 +437,16 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                   i === heroCarouselIndex ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                <img
-                  src={slide.image}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  loading={i === 0 ? 'eager' : 'lazy'}
-                />
+                <picture>
+                  <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl || (slide as any).image)} />
+                  <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl || (slide as any).image)} />
+                  <img
+                    src={resolveMediaUrl(slide.desktopImageUrl || (slide as any).image)}
+                    alt={slide.title || ''}
+                    className="h-full w-full object-cover"
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                  />
+                </picture>
                 <div className="absolute inset-0 bg-gradient-to-r from-zinc-900/80 via-zinc-900/40 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-transparent to-transparent" />
               </div>
@@ -408,62 +472,66 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                         <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-200">
                           {slide.subtitle}
                         </p>
-                        <div className="mt-10">
-                          <Link
-                            to="/login"
-                            className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-white px-10 text-base font-semibold text-zinc-900 shadow-xl transition-all hover:bg-zinc-100 active:scale-[0.99]"
-                          >
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            {slide.cta}
-                          </Link>
-                        </div>
+                        {slide.showButton !== false && slide.buttonLabel && (
+                          <div className="mt-10">
+                            <a
+                              href={slide.buttonHref || '/login'}
+                              className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-white px-10 text-base font-semibold text-zinc-900 shadow-xl transition-all hover:bg-zinc-100 active:scale-[0.99]"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                              {slide.buttonLabel}
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
+
+                  <EntCountdownTimer target={new Date('2026-06-20T08:00:00+06:00')} language={i18n.language} />
                 </div>
+
+                {/* Navigation dots */}
+                <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 gap-3">
+                  {heroCarouselSlides.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setHeroCarouselIndex(i)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        i === heroCarouselIndex
+                          ? 'w-10 bg-white shadow-lg'
+                          : 'w-2 bg-white/40 hover:bg-white/60'
+                      }`}
+                      aria-label={`Go to slide ${i + 1}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Navigation arrows */}
+                <button
+                  type="button"
+                  onClick={() => setHeroCarouselIndex((prev) => (prev - 1 + heroCarouselSlides.length) % heroCarouselSlides.length)}
+                  className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:left-8"
+                  aria-label="Previous slide"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHeroCarouselIndex((prev) => (prev + 1) % heroCarouselSlides.length)}
+                  className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:right-8"
+                  aria-label="Next slide"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
             </div>
-
-            {/* Navigation dots */}
-            <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 gap-3">
-              {heroCarouselSlides.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setHeroCarouselIndex(i)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    i === heroCarouselIndex
-                      ? 'w-10 bg-white shadow-lg'
-                      : 'w-2 bg-white/40 hover:bg-white/60'
-                  }`}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
-            </div>
-
-            {/* Navigation arrows */}
-            <button
-              type="button"
-              onClick={() => setHeroCarouselIndex((prev) => (prev - 1 + heroCarouselSlides.length) % heroCarouselSlides.length)}
-              className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:left-8"
-              aria-label="Previous slide"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => setHeroCarouselIndex((prev) => (prev + 1) % heroCarouselSlides.length)}
-              className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:right-8"
-              aria-label="Next slide"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
           </section>
 
           {/* Stats Bar — animated */}
@@ -528,32 +596,10 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                       "{testimonials[activeSlide].quote}"
                     </blockquote>
 
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-lg font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                          {testimonials[activeSlide].initials}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-zinc-900 dark:text-white">
-                            {testimonials[activeSlide].name}
-                          </p>
-                          <p className="text-sm text-zinc-500">
-                            {testimonials[activeSlide].city} · {testimonials[activeSlide].school}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <p className="text-3xl font-bold text-emerald-600">{testimonials[activeSlide].score}</p>
-                          <p className="text-sm text-zinc-500">{testimonials[activeSlide].subject}</p>
-                        </div>
-                        <div className="rounded-xl bg-emerald-50 px-4 py-2 dark:bg-emerald-900/20">
-                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                            {testimonials[activeSlide].result}
-                          </p>
-                        </div>
-                      </div>
+                    <div className="mt-8">
+                      <p className="text-sm text-zinc-500">
+                        — {testimonials[activeSlide].author}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -573,6 +619,44 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                       aria-label={`Go to slide ${i + 1}`}
                     />
                   ))}
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* Instruction Video */}
+          <Section
+            id="v3-video"
+            className="relative border-y border-zinc-200/90 bg-white/50 py-20 dark:border-zinc-800/80 dark:bg-zinc-900/20"
+          >
+            <div className="mx-auto max-w-7xl px-5 lg:px-8">
+              <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+                <div>
+                  <span className="text-sm font-medium uppercase tracking-widest text-violet-600 dark:text-violet-400">
+                    {t('landingV3.videoKicker')}
+                  </span>
+                  <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-4xl">
+                    {t('landingV3.videoTitle')}
+                  </h2>
+                  <p className="mt-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    {t('landingV3.videoLead')}
+                  </p>
+                </div>
+                <div className="aspect-video overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 shadow-xl dark:border-zinc-800">
+                  {instructionVideoEmbedUrl ? (
+                    <iframe
+                      src={instructionVideoEmbedUrl}
+                      title={t('landingV3.videoTitle')}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                      className="h-full w-full"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-white/50">
+                      {t('landingV3.videoUnavailable')}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -861,131 +945,21 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
             </div>
           </Section>
 
-          {/* Passing Scores (Проходные баллы) Section */}
+          {/* Passing Scores — GrantEstimator Widget */}
           <Section
             id="v3-scores"
             className="relative px-5 py-20 lg:px-8 lg:py-28"
           >
             <div className="mx-auto max-w-7xl">
-              <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-                {/* Left — info */}
-                <div>
-                  <span className="text-sm font-medium uppercase tracking-widest text-violet-600 dark:text-violet-400">
-                    {i18n.language === 'ru' ? 'Проходные баллы' : i18n.language === 'kk' ? 'Проходной балл' : 'Passing scores'}
-                  </span>
-                  <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-4xl">
-                    {i18n.language === 'ru' ? 'Узнайте, хватит ли ваших баллов для поступления' : i18n.language === 'kk' ? 'Баллдарыңыздың түсуге жеткіліктілігін біліңіз' : 'Find out if your score is enough to get in'}
-                  </h2>
-                  <p className="mt-5 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
-                    {i18n.language === 'ru'
-                      ? 'Каждый университет и специальность устанавливают минимальный порог баллов. Сравните свои результаты с проходными баллами ведущих вузов Казахстана.'
-                      : i18n.language === 'kk'
-                      ? 'Әрбір университет пен мамандық минималды балл шегін белгілейді. Өз нәтижелеріңізді Қазақстанның жетекші жоғары оқу орындарының проходной баллдарымен салыстырыңыз.'
-                      : 'Each university and major sets a minimum score threshold. Compare your results with passing scores of leading universities in Kazakhstan.'}
-                  </p>
-
-                  {/* Score comparison visual */}
-                  <div className="mt-8 space-y-4">
-                    <div>
-                      <div className="mb-1.5 flex items-center justify-between text-sm">
-                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                          {i18n.language === 'ru' ? 'Ваш результат' : i18n.language === 'kk' ? 'Сіздің нәтижеңіз' : 'Your result'}
-                        </span>
-                        <span className="font-mono font-semibold text-emerald-600">128/140</span>
-                      </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <div className="h-full w-[91%] rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="mb-1.5 flex items-center justify-between text-sm">
-                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                          {i18n.language === 'ru' ? 'Проходной балл (КБТУ, грант)' : i18n.language === 'kk' ? 'Проходной балл (КБТУ, грант)' : 'Passing score (KBTU, grant)'}
-                        </span>
-                        <span className="font-mono font-semibold text-violet-600">115/140</span>
-                      </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <div className="h-full w-[82%] rounded-full bg-gradient-to-r from-violet-400 to-violet-600" />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="mb-1.5 flex items-center justify-between text-sm">
-                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                          {i18n.language === 'ru' ? 'Проходной балл (МГУ, бюджет)' : i18n.language === 'kk' ? 'Проходной балл (МГУ, бюджет)' : 'Passing score (MSU, budget)'}
-                        </span>
-                        <span className="font-mono font-semibold text-fuchsia-600">122/140</span>
-                      </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <div className="h-full w-[87%] rounded-full bg-gradient-to-r from-fuchsia-400 to-fuchsia-600" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <Link
-                      to="/login"
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-                    >
-                      {i18n.language === 'ru' ? 'Узнать свои шансы' : i18n.language === 'kk' ? 'Мүмкіндіктерімді білу' : 'Check my chances'}
-                    </Link>
-                    <a
-                      href={whatsappHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-6 text-sm font-medium text-zinc-800 transition-all hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                      </svg>
-                      WhatsApp
-                    </a>
-                  </div>
-                </div>
-
-                {/* Right — table of passing scores */}
-                <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900">
-                  {/* Header */}
-                  <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {i18n.language === 'ru' ? 'Проходные баллы 2025' : i18n.language === 'kk' ? '2025 проходной баллдары' : 'Passing scores 2025'}
-                    </h3>
-                  </div>
-
-                  {/* Table */}
-                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {[
-                      { uni: 'КБТУ (Алматы)', spec: 'IT-инженерия', grant: '115', budget: '—' },
-                      { uni: 'МГУ (Москва)', spec: 'Математика', grant: '122', budget: '118' },
-                      { uni: 'КазНУ (Алматы)', spec: 'Физика', grant: '118', budget: '110' },
-                      { uni: 'НИШ ФМН (Астана)', spec: 'Химия', grant: '120', budget: '115' },
-                      { uni: 'AITU (Астана)', spec: 'Энергетика', grant: '105', budget: '—' },
-                    ].map((row, i) => (
-                      <div key={i} className="flex items-center justify-between px-6 py-4">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{row.uni}</p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{row.spec}</p>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <div className="text-center">
-                            <p className="font-mono text-sm font-semibold text-emerald-600">{row.grant}</p>
-                            <p className="text-xs text-zinc-400">{i18n.language === 'ru' ? 'грант' : i18n.language === 'kk' ? 'грант' : 'grant'}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-mono text-sm font-semibold text-violet-600">{row.budget}</p>
-                            <p className="text-xs text-zinc-400">{i18n.language === 'ru' ? 'бюджет' : i18n.language === 'kk' ? 'бюджет' : 'budget'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-zinc-100 bg-zinc-50/50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-                    <p className="text-xs text-zinc-400">
-                      {i18n.language === 'ru' ? '* Баллы могут изменяться. Войдите, чтобы увидеть актуальные.' : i18n.language === 'kk' ? '* Баллдар өзгеруі мүмкін. Актуалды көру үшін кіріңіз.' : '* Scores may change. Sign in to see current.'}
-                    </p>
-                  </div>
-                </div>
+              <div className="mb-8 text-center">
+                <span className="text-sm font-medium uppercase tracking-widest text-violet-600 dark:text-violet-400">
+                  {t('landingV3.scoresKicker')}
+                </span>
+                <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-4xl">
+                  {t('landingV3.scoresTitle')}
+                </h2>
               </div>
+              <AdmissionChanceWidget variant="landing" />
             </div>
           </Section>
 
