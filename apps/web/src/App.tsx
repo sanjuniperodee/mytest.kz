@@ -15,7 +15,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ChannelGatePage } from './pages/ChannelGatePage';
 import { PaywallPage } from './pages/PaywallPage';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminPanelRedirect } from './pages/AdminPanelRedirect';
 import { Spinner } from './components/common/Spinner';
 import { NavBar } from './components/common/NavBar';
 import { WhatsAppFab } from './components/common/WhatsAppFab';
@@ -75,7 +75,7 @@ function AppRoutes() {
         path="/admin"
         element={
           <AdminRoute>
-            <AdminDashboard />
+            <AdminPanelRedirect />
           </AdminRoute>
         }
       />
