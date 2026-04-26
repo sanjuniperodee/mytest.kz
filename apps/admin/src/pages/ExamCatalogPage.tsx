@@ -495,13 +495,9 @@ export function ExamCatalogPage() {
 
   return (
     <div>
-      <Typography.Title level={3} className="admin-page-title" style={{ marginTop: 0 }}>
-        Экзамены и предметы
-      </Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Редактирование типов экзаменов (ЕНТ и др.), предметов, тем и шаблонов тестов. Slug экзамена после создания
-        лучше не менять. Удаление предмета / темы блокируется, если есть вопросы.
-      </Typography.Paragraph>
+      <p className="admin-hint" style={{ marginTop: 0 }}>
+        Slug экзамена не переименовывайте без нужды. Предмет/тему с вопросами нельзя удалить.
+      </p>
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap align="center">

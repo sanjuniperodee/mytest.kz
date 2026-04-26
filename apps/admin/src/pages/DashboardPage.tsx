@@ -33,11 +33,8 @@ export function DashboardPage() {
   return (
     <div>
       <div className="admin-dash-hero">
-        <h1>Анализ и контроль платформы</h1>
-        <p>
-          Сводка по пользователям, тестам и подпискам, быстрый доступ к аналитике пробных ЕНТ, шансу
-          поступления и справочнику пороговых баллов.
-        </p>
+        <h1>Платформа</h1>
+        <p>Пользователи, тесты, подписки и быстрые переходы в разделы.</p>
       </div>
 
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
@@ -122,19 +119,19 @@ export function DashboardPage() {
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card className="admin-stat-card" title="Быстрые разделы">
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <Button block icon={<BarChartOutlined />} onClick={() => navigate('/analytics')}>
-                Аналитика платформы
+          <Card className="admin-stat-card" title="Переходы">
+            <Space direction="vertical" style={{ width: '100%' }} size="small">
+              <Button block type="default" icon={<BarChartOutlined />} onClick={() => navigate('/analytics')}>
+                Аналитика
               </Button>
-              <Button block icon={<RocketOutlined />} onClick={() => navigate('/admission')}>
-                Шанс поступления (калькулятор)
+              <Button block type="default" icon={<RocketOutlined />} onClick={() => navigate('/admission')}>
+                Калькулятор шанса
               </Button>
-              <Button block icon={<BookOutlined />} onClick={() => navigate('/analytics/thresholds')}>
-                Пороги в вузы (5 лет)
+              <Button block type="default" icon={<BookOutlined />} onClick={() => navigate('/analytics/thresholds')}>
+                Пороги в вузы
               </Button>
-              <Button block icon={<QuestionCircleOutlined />} onClick={() => navigate('/explanations')}>
-                Вопросы с объяснениями
+              <Button block type="default" icon={<QuestionCircleOutlined />} onClick={() => navigate('/explanations')}>
+                Объяснения
               </Button>
             </Space>
           </Card>

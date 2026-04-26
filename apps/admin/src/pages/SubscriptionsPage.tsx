@@ -613,18 +613,11 @@ export function SubscriptionsPage() {
   });
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <div className="admin-subscriptions-page">
+      <p className="admin-hint" style={{ marginTop: 0 }}>
+        Выдача: пользователь + шаблон тарифа, затем «Выдать».
+      </p>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <div>
-          <Typography.Title level={2} style={{ marginBottom: 4 }}>
-            Подписки
-          </Typography.Title>
-          <Typography.Text type="secondary">
-            Оплата подтверждена: выберите пользователя и тариф — даты и доступ подставляются сами, затем «Выдать
-            подписку».
-          </Typography.Text>
-        </div>
-
         <Tabs
           activeKey={subscriptionTab}
           onChange={setSubscriptionTab}

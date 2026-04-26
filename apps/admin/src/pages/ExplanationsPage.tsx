@@ -117,12 +117,6 @@ export function ExplanationsPage() {
 
   return (
     <div>
-      <h2 className="admin-page-title">Объяснения вопросов</h2>
-      <p className="admin-page-lead">
-        Записи с заполненным полем объяснения. Вкладки — тот же раздел по языку контента, что и в «Вопросах». Превью
-        текста вопроса переключается KK/RU.
-      </p>
-
       <Tabs
         activeKey={localeFilterToTabKey(localeFilter)}
         onChange={(key) => {
@@ -206,11 +200,6 @@ export function ExplanationsPage() {
         }}
         scroll={{ x: 960 }}
       />
-
-      <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>
-        API: <Typography.Text code>hasExplanation=true</Typography.Text> и опционально{' '}
-        <Typography.Text code>contentLocale</Typography.Text>.
-      </Typography.Paragraph>
     </div>
   );
 }

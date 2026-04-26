@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, Statistic, Row, Col, Spin, Alert, Typography } from 'antd';
+import { Card, Statistic, Row, Col, Spin, Typography } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
 
@@ -15,18 +15,9 @@ export function EntTrialsAnalyticsPage() {
 
   return (
     <div>
-      <h2 className="admin-page-title">Аналитика по пробным ЕНТ</h2>
-      <p className="admin-page-lead">
-        Статистика по завершённым сессиям с типом экзамена ENT: объём прохождений, средний балл и доля
-        верных ответов (агрегировано по завершённым попыткам).
+      <p className="admin-hint" style={{ marginTop: 0 }}>
+        Только завершённые сессии, тип экзамена <Typography.Text code>ent</Typography.Text>.
       </p>
-
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-        message="Данные строятся по полю статуса «completed» и привязке к exam_type.slug = ent."
-      />
 
       {!data?.entFound ? (
         <Card>

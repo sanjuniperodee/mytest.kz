@@ -11,24 +11,27 @@ import {
   Button,
   Typography,
   Drawer,
+  Dropdown,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   UserOutlined,
-  QuestionCircleOutlined,
   CrownOutlined,
-  BarChartOutlined,
   DashboardOutlined,
   LineChartOutlined,
   BookOutlined,
   RocketOutlined,
   FundProjectionScreenOutlined,
   AppstoreOutlined,
-  SettingOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  LogoutOutlined,
+  ReadOutlined,
+  FormOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
+import { getPageMeta } from './lib/pageMeta';
 import { UsersPage } from './pages/UsersPage';
 import { QuestionsPage } from './pages/QuestionsPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
@@ -84,37 +87,54 @@ function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const selectedKey = useMemo(() => menuKeyFromPath(location.pathname), [location.pathname]);
+  const pageMeta = useMemo(() => getPageMeta(location.pathname), [location.pathname]);
 
-  useEffect(() => {
-    if (location.pathname.startsWith('/analytics')) {
-      setOpenKeys((k) => (k.includes('analytics') ? k : [...k, 'analytics']));
-    }
-  }, [location.pathname]);
 
   const menuItems: MenuProps['items'] = useMemo(
     () => [
-      { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
       {
-        key: 'analytics',
-        icon: <BarChartOutlined />,
+        type: 'group',
+        label: 'Обзор',
+        children: [{ key: 'dashboard', icon: <DashboardOutlined />, label: 'Панель' }],
+      },
+      {
+        type: 'group',
         label: 'Аналитика',
         children: [
           { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Платформа' },
           { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'Пробные ЕНТ' },
-          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги в вузы (5 лет)' },
+          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги в вузы' },
         ],
       },
-      { key: 'admission', icon: <RocketOutlined />, label: 'Шанс поступления' },
-      { key: 'explanations', icon: <QuestionCircleOutlined />, label: 'Объяснения вопросов' },
-      { type: 'divider' },
-      { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
-      { key: 'questions', icon: <QuestionCircleOutlined />, label: 'Вопросы' },
-      { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены и шаблоны' },
-      { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
-      { key: 'landing-settings', icon: <SettingOutlined />, label: 'Настройки лендинга' },
+      {
+        type: 'group',
+        label: 'Контент',
+        children: [
+          { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
+          { key: 'questions', icon: <FormOutlined />, label: 'Вопросы' },
+          { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены' },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Сайт',
+        children: [{ key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' }],
+      },
+      {
+        type: 'group',
+        label: 'Пользователи',
+        children: [
+          { key: 'users', icon: <UserOutlined />, label: 'Список' },
+          { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Инструменты',
+        children: [{ key: 'admission', icon: <RocketOutlined />, label: 'Калькулятор шанса' }],
+      },
     ],
     [],
   );
@@ -160,27 +180,26 @@ function AdminLayout() {
         onBreakpoint={(broken) => {
           if (broken) setCollapsed(true);
         }}
-        style={{
-          background: 'linear-gradient(180deg, #0c1324 0%, #111827 100%)',
-          boxShadow: '4px 0 24px rgba(15, 23, 42, 0.12)',
-        }}
-        className="admin-desktop-sider"
+        className="admin-desktop-sider admin-sider"
       >
         <div className="admin-sider-brand">
-          <div className="admin-sider-brand-title">{collapsed ? 'MT' : 'MyTest Admin'}</div>
-          {!collapsed && <div className="admin-sider-brand-sub">Анализ · контент · доступ</div>}
+          <div className="admin-sider-logo">{collapsed ? 'MT' : 'M'}</div>
+          {!collapsed && (
+            <div className="admin-sider-brand-text">
+              <div className="admin-sider-brand-title">MyTest</div>
+              <div className="admin-sider-brand-sub">admin</div>
+            </div>
+          )}
         </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          openKeys={collapsed ? [] : openKeys}
-          onOpenChange={(keys) => setOpenKeys(keys as string[])}
           onClick={({ key }) => {
             const path = MENU_NAV[key];
             if (path) navigate(path);
           }}
-          style={{ background: 'transparent', border: 'none' }}
+          className="admin-sider-menu"
           items={menuItems}
         />
       </Sider>
@@ -190,42 +209,34 @@ function AdminLayout() {
         placement="left"
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        width={240}
+        width={260}
         closable={false}
-        styles={{ body: { padding: 0, background: 'linear-gradient(180deg, #0c1324 0%, #111827 100%)' } }}
+        rootClassName="admin-mobile-drawer"
+        styles={{ body: { padding: 0, background: 'var(--admin-sider-bg)' } }}
       >
         <div className="admin-sider-brand">
-          <div className="admin-sider-brand-title">MyTest Admin</div>
-          <div className="admin-sider-brand-sub">Анализ · контент · доступ</div>
+          <div className="admin-sider-logo">M</div>
+          <div className="admin-sider-brand-text">
+            <div className="admin-sider-brand-title">MyTest</div>
+            <div className="admin-sider-brand-sub">admin</div>
+          </div>
         </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          openKeys={openKeys}
-          onOpenChange={(keys) => setOpenKeys(keys as string[])}
           onClick={({ key }) => {
             const path = MENU_NAV[key];
             if (path) navigate(path);
             setMobileOpen(false);
           }}
-          style={{ background: 'transparent', border: 'none' }}
+          className="admin-sider-menu"
           items={menuItems}
         />
       </Drawer>
 
       <Layout>
-        <Header
-          style={{
-            background: '#fff',
-            padding: '0 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
-          }}
-        >
-          {/* Hamburger — visible only on mobile */}
+        <Header className="admin-top-header">
           <Button
             type="text"
             icon={mobileOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
@@ -233,25 +244,39 @@ function AdminLayout() {
             className="admin-header-hamburger"
             aria-label="Меню"
           />
-          <Typography.Text strong style={{ fontSize: 15, color: '#0f172a' }}>
-            Панель администратора
-          </Typography.Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Avatar size="small" style={{ backgroundColor: '#3b5bdb' }}>
-              {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
-            </Avatar>
-            <span className="admin-header-username">
-              {user.firstName} {user.lastName}
-            </span>
-            <Button
-              type="link"
-              onClick={() => {
-                clearTokens();
-                navigate('/login', { replace: true });
+          <div className="admin-header-titles">
+            <span className="admin-header-section">{pageMeta.section}</span>
+            <Typography.Title level={4} className="admin-header-title">
+              {pageMeta.title}
+            </Typography.Title>
+          </div>
+          <div className="admin-header-user">
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'logout',
+                    label: 'Выйти',
+                    icon: <LogoutOutlined />,
+                    onClick: () => {
+                      clearTokens();
+                      navigate('/login', { replace: true });
+                    },
+                  },
+                ],
               }}
+              trigger={['click']}
+              placement="bottomRight"
             >
-              Выйти
-            </Button>
+              <Button type="text" className="admin-header-user-btn">
+                <Avatar size="small" className="admin-header-avatar">
+                  {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
+                </Avatar>
+                <span className="admin-header-username">
+                  {user.firstName} {user.lastName}
+                </span>
+              </Button>
+            </Dropdown>
           </div>
         </Header>
         <Content className="admin-content-wrap">
@@ -281,10 +306,16 @@ export function App() {
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
-          borderRadius: 10,
-          colorPrimary: '#3b5bdb',
+          borderRadius: 8,
+          colorPrimary: '#4f46e5',
+          colorInfo: '#4f46e5',
           fontFamily:
-            'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif',
+          colorBgLayout: 'transparent',
+        },
+        components: {
+          Menu: { itemBorderRadius: 6, subMenuItemBorderRadius: 6, iconSize: 16, collapsedIconSize: 16 },
+          Card: { paddingLG: 20 },
         },
       }}
     >

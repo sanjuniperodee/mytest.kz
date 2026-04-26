@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Select, Space, Spin, Table, Typography } from 'antd';
+import { Select, Space, Spin, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   fetchAdmissionCutoffs,
@@ -78,19 +78,9 @@ export function UniversityThresholdsPage() {
 
   return (
     <div>
-      <h2 className="admin-page-title">Пороговые баллы в вузы</h2>
-      <p className="admin-page-lead">
-        Данные из загруженной аналитики конкурса (циклы 2023–2024 и 2025–2026). Для решений о подаче документов
-        ориентируйтесь на официальные источники приёма.
+      <p className="admin-hint" style={{ marginTop: 0 }}>
+        Справочник из API. Для зачисления ориентируйтесь на официальные источники приёма.
       </p>
-
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-        message="Источник данных"
-        description="Таблица строится из API по выбранному вузу и циклу. Если список пуст, выполните миграции и сид: npm run db:migrate и npm run seed:grant-admission -w @bilimland/api."
-      />
 
       {cyclesQ.isLoading || unisQ.isLoading ? (
         <Spin />
@@ -154,9 +144,9 @@ export function UniversityThresholdsPage() {
         size="middle"
       />
 
-      <Typography.Paragraph type="secondary" style={{ marginTop: 20, marginBottom: 0 }}>
-        Пустые ячейки в исходной матрице отображаются как «—» (данных нет или программа не ведётся в этом вузе).
-      </Typography.Paragraph>
+      <p className="admin-hint" style={{ marginBottom: 0 }}>
+        «—» — нет данных по программе в этом вузе.
+      </p>
     </div>
   );
 }

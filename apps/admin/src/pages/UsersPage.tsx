@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Table, Input, Tag, Switch, Space, message, Empty } from 'antd';
+import { Table, Input, Tag, Switch, message, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
+import { AdminPageToolbar } from '../components/AdminPageToolbar';
 
 interface User {
   id: string;
@@ -91,10 +92,10 @@ export function UsersPage() {
       title: 'Premium',
       dataIndex: 'hasActiveSubscription',
       width: 100,
-      render: (v: boolean) => v ? <Tag color="gold">Active</Tag> : <Tag>—</Tag>,
+      render: (v: boolean) => (v ? <Tag color="gold">Да</Tag> : <Tag>—</Tag>),
     },
     {
-      title: 'Access v2',
+      title: 'Доступ (v2)',
       width: 260,
       render: (_: unknown, record: User) => {
         if (!record.entitlements || record.entitlements.length === 0) return '—';
@@ -143,19 +144,16 @@ export function UsersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Пользователи</h2>
-        <Tag color="blue">Всего: {data?.total || 0}</Tag>
-      </div>
-
-      <Space style={{ marginBottom: 16 }}>
+      <AdminPageToolbar
+        end={<Tag>Записей: {data?.total ?? 0}</Tag>}
+      >
         <Input.Search
-          placeholder="Поиск по username или имени"
+          placeholder="Поиск: @username, имя"
           allowClear
           onSearch={(v) => { setSearch(v); setPage(1); }}
-          style={{ width: 300 }}
+          style={{ width: 280, maxWidth: '100%' }}
         />
-      </Space>
+      </AdminPageToolbar>
 
       <Table
         columns={columns}

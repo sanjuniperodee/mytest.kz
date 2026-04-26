@@ -68,26 +68,12 @@ export function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg,#f5f7fb,#eef3fb)',
-      }}
-    >
-      <Card className="admin-login-card" style={{ width: 420, maxWidth: 'calc(100vw - 32px)', borderRadius: 12, boxShadow: '0 10px 30px rgba(15,23,42,0.08)' }}>
-        <Title level={3} style={{ textAlign: 'center' }}>
-          MyTest Admin
+    <div className="admin-login-page">
+      <Card className="admin-login-card">
+        <Title level={3} style={{ textAlign: 'center', marginBottom: 4 }}>
+          MyTest · admin
         </Title>
-        <p style={{ textAlign: 'center', color: '#64748b', marginTop: -8, marginBottom: 20 }}>
-          Вход только для администраторов
-        </p>
-        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
-          Укажите тот же номер телефона, что привязан к аккаунту в Telegram (через бота). Код придёт в
-          Telegram.
-        </p>
+        <p className="admin-login-kicker">Код в Telegram, номер как в боте.</p>
 
         {step === 'phone' ? (
           <Form onFinish={handleRequestCode} layout="vertical">

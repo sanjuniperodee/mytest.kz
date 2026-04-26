@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Alert,
   Button,
   Card,
   Col,
@@ -222,10 +221,8 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <h2 className="admin-page-title">Аналитика платформы</h2>
-      <p className="admin-page-lead" style={{ marginBottom: 20 }}>
-        Общие показатели по базе, воронка и аудитория за выбранный период (события визитов и завершённых
-        тестов).
+      <p className="admin-hint" style={{ marginTop: 0 }}>
+        Сверху — накопительно по базе. Воронка и таблицы — за выбранный период.
       </p>
 
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
@@ -268,9 +265,8 @@ export function AnalyticsPage() {
         </Col>
       </Row>
 
-      <Card style={{ marginBottom: 20 }}>
+      <Card size="small" style={{ marginBottom: 16 }} title="Период воронки и списков">
         <Space wrap align="center">
-          <span>Период воронки:</span>
           <DatePicker
             value={draftFrom}
             onChange={(d) => d && setDraftFrom(d)}
@@ -289,17 +285,10 @@ export function AnalyticsPage() {
           </Button>
           <Button onClick={resetDateFilters}>30 дней</Button>
         </Space>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(15, 23, 42, 0.45)' }}>
-          Актуальный отбор: {from} — {to}
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--admin-muted)' }}>
+          {from} — {to}
         </div>
       </Card>
-
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-        message="Воронка и списки ниже строятся за выбранный период. Карточки сверху — накопительно по всей базе."
-      />
 
       <Tabs
         items={[

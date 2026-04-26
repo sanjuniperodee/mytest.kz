@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Image, Input, Space, Switch, Typography, Upload, message } from 'antd';
+import { Button, Card, Form, Image, Input, Space, Switch, Typography, Upload, message } from 'antd';
 import { PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
@@ -133,20 +133,7 @@ export function LandingSettingsPage() {
 
   return (
     <div>
-      <Typography.Title level={3} className="admin-page-title" style={{ marginTop: 0 }}>
-        Настройки лендинга
-      </Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Управляйте видео-инструкцией и ссылками на соцсети в футере без правок кода.
-      </Typography.Paragraph>
-
       <Card loading={isLoading}>
-        <Alert
-          showIcon
-          type="info"
-          style={{ marginBottom: 16 }}
-          message="Для YouTube вставляйте обычную ссылку (youtu.be или youtube.com/watch). На лендинге она автоматически встраивается."
-        />
         <Form<LandingSettingsDto>
           form={form}
           layout="vertical"
@@ -162,6 +149,7 @@ export function LandingSettingsPage() {
           <Form.Item
             name="instructionVideoUrl"
             label="Ссылка на видео-инструкцию"
+            extra="YouTube: обычная ссылка — встраивается на лендинге"
             rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
           >
             <Input placeholder="https://youtu.be/..." />

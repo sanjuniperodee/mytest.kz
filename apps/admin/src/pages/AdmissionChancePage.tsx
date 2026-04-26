@@ -151,11 +151,8 @@ export function AdmissionChancePage() {
 
   return (
     <div>
-      <h2 className="admin-page-title">Шанс поступления (модель ҰБТ 2026)</h2>
-      <p className="admin-page-lead">
-        Интерактивная оценка по порогам и суммарному баллу (максимум {ENT_TOTAL_MAX}). Ниже — сравнение с
-        прошлыми конкурсными баллами из загруженной аналитики. Категории — ориентир, не юридическая гарантия
-        зачисления.
+      <p className="admin-hint" style={{ marginTop: 0 }}>
+        Модель {ENT_TOTAL_MAX} баллов, сравнение с выборкой порогов. Ориентир, не офер.
       </p>
 
       {cyclesQ.isLoading || unisQ.isLoading ? (

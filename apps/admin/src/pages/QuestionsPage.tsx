@@ -27,7 +27,7 @@ import {
   Image,
   Collapse,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
@@ -1010,19 +1010,23 @@ export function QuestionsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div>
-          <h2 className="admin-page-title">Вопросы</h2>
-          <p className="admin-page-lead" style={{ marginBottom: 0 }}>
-            Заголовок (тема блока) и условие хранятся отдельно в JSON{' '}
-            <Typography.Text code>topicLine</Typography.Text> + <Typography.Text code>text</Typography.Text> — в
-            тесте как раньше склеивается для подписи к условию. При вводе условия показываются похожие вопросы того же
-            предмета (оценка по словам и биграммам; ≥0,85 — вероятный дубликат).
-          </p>
+      <div className="admin-page-toolbar" style={{ marginBottom: 12 }}>
+        <div className="admin-page-toolbar-end" style={{ width: '100%', justifyContent: 'flex-end' }}>
+          <Tooltip
+            title={
+              <>
+                Условие: JSON <Typography.Text code>topicLine</Typography.Text> +{' '}
+                <Typography.Text code>text</Typography.Text>. Похожие вопросы — по словам и биграммам (≥0,85 — возможный
+                дубликат).
+              </>
+            }
+          >
+            <Button type="text" icon={<InfoCircleOutlined />} size="small" style={{ color: 'var(--admin-muted)' }} />
+          </Tooltip>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            Добавить
+          </Button>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Добавить вопрос
-        </Button>
       </div>
 
       <Tabs
