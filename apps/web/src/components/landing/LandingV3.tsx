@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setThemePreference, type ThemePreference } from '../../lib/theme';
 import { api } from '../../api/client';
+import { useVisitTrack } from '../../hooks/useVisitTrack';
 import { resolveMediaUrl } from '../../lib/resolveMediaUrl';
 import { AdmissionChanceWidget } from '../admission/AdmissionChanceWidget';
 
@@ -202,6 +203,7 @@ function EntCountdownTimer({ target, language }: { target: Date; language: strin
 
 export function LandingV3({ whatsappHref }: LandingV3Props) {
   const { t, i18n } = useTranslation();
+  useVisitTrack();
   const [isDark, setIsDark] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -354,12 +356,45 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
   );
   const faq = useMemo(() => t('landingV3.faqItems', { returnObjects: true }) as Faq[], [t]);
 
+  // Cookie consent
+  const [showConsent, setShowConsent] = useState(false);
+  useEffect(() => {
+    if (!localStorage.getItem('blm_cookie_consent')) {
+      setShowConsent(true);
+    }
+  }, []);
+  const acceptCookies = () => {
+    localStorage.setItem('blm_cookie_consent', 'true');
+    setShowConsent(false);
+  };
+
   return (
     <div
       id="landing-v3-root"
       className={`${isDark ? 'dark' : ''} text-zinc-900 antialiased [font-feature-settings:"ss01","cv01"] selection:bg-violet-500/15 selection:text-inherit dark:text-zinc-100`}
     >
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+
+        {/* Cookie Consent Banner */}
+        {showConsent && (
+          <div className="sticky top-0 z-50 border-b border-violet-200 bg-violet-50/95 px-4 py-3 text-sm dark:border-violet-800 dark:bg-violet-950/95 lg:px-8">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+              <p className="text-zinc-600 dark:text-zinc-300">
+                {i18n.language === 'ru'
+                  ? 'Мы используем cookies для учёта посещений и улучшения опыта. Никакие персональные данные не отслеживаются.'
+                  : i18n.language === 'kk'
+                  ? 'Біз келулерді есептеу және тәжірибені жақсарту үшін cookie пайдаланамыз. Ешқандай жеке деректер бақыланбайды.'
+                  : 'We use cookies to count visits and improve your experience. No personal data is tracked.'}
+              </p>
+              <button
+                onClick={acceptCookies}
+                className="shrink-0 rounded-lg bg-violet-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-zinc-50/80 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/80">

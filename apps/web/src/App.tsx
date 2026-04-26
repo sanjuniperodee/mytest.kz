@@ -15,6 +15,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ChannelGatePage } from './pages/ChannelGatePage';
 import { PaywallPage } from './pages/PaywallPage';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { Spinner } from './components/common/Spinner';
 import { NavBar } from './components/common/NavBar';
 import { WhatsAppFab } from './components/common/WhatsAppFab';
@@ -43,6 +44,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <Spinner fullScreen />;
+  if (!user || !user.isAdmin) return <Navigate to="/app" replace />;
+
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   function TabsLayout() {
     return (
@@ -61,6 +71,14 @@ function AppRoutes() {
       <Route path="/v3" element={<LandingPageV3 />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/channel-gate" element={<ChannelGatePage />} />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
+      />
       <Route
         element={
           <ProtectedRoute>
