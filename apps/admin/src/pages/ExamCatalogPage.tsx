@@ -25,7 +25,7 @@ import { PlusOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead } from '../components/HigBlocks';
+import { HigGroup } from '../components/HigBlocks';
 import { getLocalizedText, pickContentLang, splitLocalizedSlot } from '../lib/questionContent';
 
 type CatalogListLang = 'ru' | 'kk' | 'en';
@@ -497,20 +497,23 @@ export function ExamCatalogPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Каталог типов экзаменов, предметов, тем и шаблонов тестов. Не меняйте slug без причины — с вопросами сущности
-        не удаляются.
-      </HigPageLead>
+      <div className="pg-ex__hero" style={{ marginBottom: 16 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Каталог экзаменов</h2>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '40rem' }}>
+          Типы экзаменов, предметы, темы и шаблоны тестов. Slug меняйте только осознанно — связанные сущности не
+          удаляются автоматически.
+        </p>
+      </div>
 
-      <HigGroup label="Список и превью">
-      <Card className="hig-filter-card" size="small">
-        <Space wrap align="center">
+      <HigGroup label="Панель списка">
+      <div className="pg-exam__bar">
+        <div className="pg-exam__bar-start">
           <Space>
-            <span>Показать скрытые экзамены</span>
+            <span style={{ fontSize: 14 }}>Показать неактивные</span>
             <Switch checked={includeInactive} onChange={setIncludeInactive} />
           </Space>
           <Space direction="vertical" size={4}>
-            <span style={{ fontSize: 12, color: 'var(--admin-muted)' }}>Превью названий в списках</span>
+            <span style={{ fontSize: 12, color: 'var(--admin-muted)' }}>Язык названий в списке</span>
             <Segmented<CatalogListLang>
               size="small"
               value={catalogListLang}
@@ -522,6 +525,8 @@ export function ExamCatalogPage() {
               ]}
             />
           </Space>
+        </div>
+        <div className="pg-exam__bar-end">
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -533,8 +538,8 @@ export function ExamCatalogPage() {
           >
             Новый экзамен
           </Button>
-        </Space>
-      </Card>
+        </div>
+      </div>
       </HigGroup>
 
       <HigGroup label="Экзамены" description="Разворачивайте карточку — предметы, темы и действия.">

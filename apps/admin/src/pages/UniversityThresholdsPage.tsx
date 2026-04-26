@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Select, Space, Spin, Table, Typography } from 'antd';
+import { Card, Select, Spin, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   fetchAdmissionCutoffs,
@@ -8,7 +8,7 @@ import {
   fetchAdmissionUniversities,
 } from '../api/admission';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
+import { HigGroup, HigTableCard } from '../components/HigBlocks';
 
 type Row = {
   key: string;
@@ -80,9 +80,13 @@ export function UniversityThresholdsPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Минимальные проходные баллы по программам вуза из выгрузки приёма: грант или сельская квота.
-      </HigPageLead>
+      <div className="pg-ex__hero" style={{ marginBottom: 20 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Пороги вузов</h2>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '38rem' }}>
+          Минимальные проходные баллы по программам из выгрузки приёма. Выберите цикл, вуз и тип квоты — таблица
+          пересчитается.
+        </p>
+      </div>
       {cyclesQ.isLoading || unisQ.isLoading ? (
         <div className="admin-boot" style={{ minHeight: 200 }}>
           <Spin />
@@ -92,26 +96,22 @@ export function UniversityThresholdsPage() {
       ) : (
         <HigGroup label="Справочник" description="Цикл, вуз и тип квоты определяют набор порогов в таблице.">
         <Card className="hig-filter-card" size="small">
-          <Space wrap size="large">
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
-                Цикл
-              </Typography.Text>
+          <div className="pg-th__filters">
+            <div className="pg-th__field">
+              <Typography.Text type="secondary">Цикл приёма</Typography.Text>
               <Select
-                style={{ minWidth: 140 }}
+                style={{ width: '100%' }}
                 value={cycleSlug}
                 onChange={setCycleSlug}
                 options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
-                Вуз
-              </Typography.Text>
+            <div className="pg-th__field">
+              <Typography.Text type="secondary">Вуз</Typography.Text>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ minWidth: 280 }}
+                style={{ width: '100%' }}
                 placeholder="Вуз"
                 value={universityCode ?? undefined}
                 onChange={(v) => setUniversityCode(v)}
@@ -121,12 +121,10 @@ export function UniversityThresholdsPage() {
                 }))}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 11 }}>
-                Квота
-              </Typography.Text>
+            <div className="pg-th__field">
+              <Typography.Text type="secondary">Квота</Typography.Text>
               <Select
-                style={{ minWidth: 180 }}
+                style={{ width: '100%' }}
                 value={quotaType}
                 onChange={(v) => setQuotaType(v)}
                 options={[
@@ -135,7 +133,7 @@ export function UniversityThresholdsPage() {
                 ]}
               />
             </div>
-          </Space>
+          </div>
         </Card>
         </HigGroup>
       )}

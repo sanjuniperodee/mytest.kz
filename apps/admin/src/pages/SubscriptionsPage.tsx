@@ -28,7 +28,7 @@ import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigPageLead } from '../components/HigBlocks';
+import { HigGroup, HigTableCard } from '../components/HigBlocks';
 
 function humanizeApiMessage(raw: string): string {
   if (raw.includes('PLAN_TEMPLATE_HAS_NO_EXAM_RULES')) {
@@ -616,11 +616,15 @@ export function SubscriptionsPage() {
 
   return (
     <AdminPageShell className="admin-subscriptions-page">
-      <HigPageLead>
-        Выдача v2-энтитлментов по шаблонам, редактирование тарифов, проверка и редкие сценарии (legacy). Данные
-        пользователей — через поиск.
-      </HigPageLead>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <div className="pg-subs">
+        <div className="pg-subs__hero">
+          <p>
+            <strong>Биллинг и доступ.</strong> Выдача entitlements по шаблонам, каталог тарифов, редкие сценарии
+            (legacy-Subscription и ручной entitlement). Пользователей ищите в селектах — таблица подтянет связанные
+            записи.
+          </p>
+        </div>
+      <div className="hig-tab-panel-stack">
         <Tabs
           className="hig-page-tabs"
           activeKey={subscriptionTab}
@@ -630,8 +634,13 @@ export function SubscriptionsPage() {
               key: 'grant',
               label: 'Выдача',
               children: (
+                <HigGroup
+                  label="Выдача по шаблону"
+                  description="Создаёт записи v2 (entitlements) по всем правилам выбранного тарифа — как после оплаты."
+                >
                 <Card
                   id="apply-plan-template-form"
+                  className="hig-surface-card hig-entitlement-stack"
                   title="Оплата — выдать доступ"
                   extra={<QuestionCircleOutlined title="Создаёт записи v2 (entitlements) по всем правилам шаблона" />}
                 >
@@ -760,14 +769,18 @@ export function SubscriptionsPage() {
                     </Button>
                   </Form>
                 </Card>
+                </HigGroup>
               ),
             },
             {
               key: 'templates',
               label: 'Шаблоны',
               children: (
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  <Card
+                <HigGroup
+                  label="Каталог шаблонов"
+                  description="Редактирование — через «Правила экзаменов» в строке. Глобальные лимиты подставляются, если в строке не задано иное."
+                >
+                  <HigTableCard
                     title="Каталог тарифов (шаблоны v2)"
                     extra={
                       <Button type="primary" icon={<PlusOutlined />} onClick={() => setTemplateModalOpen(true)}>
@@ -775,10 +788,12 @@ export function SubscriptionsPage() {
                       </Button>
                     }
                   >
-                    <Typography.Paragraph type="secondary">
-                      У шаблона должны быть <strong>правила по экзаменам</strong>. Глобальные лимиты на карточке
-                      подставляются в правила, если в строке не переопределили.
-                    </Typography.Paragraph>
+                    <div className="hig-table-card-intro">
+                      <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                        У шаблона должны быть <strong>правила по экзаменам</strong>. Глобальные лимиты на карточке
+                        подставляются в правила, если в строке не переопределили.
+                      </Typography.Paragraph>
+                    </div>
                     <Table<PlanTemplateRow>
                       columns={templateColumns}
                       dataSource={planTemplates ?? []}
@@ -811,104 +826,120 @@ export function SubscriptionsPage() {
                           ),
                       }}
                     />
-                  </Card>
-                </Space>
+                  </HigTableCard>
+                </HigGroup>
               ),
             },
             {
               key: 'more',
               label: 'Проверка и редкие сценарии',
               children: (
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  <Collapse
-                    items={[
-                      {
-                        key: 'how',
-                        label: 'Как устроены подписки (документация для админа)',
-                        children: (
-                          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                            <Typography.Paragraph>
-                              <strong>Тариф (шаблон)</strong> в каталоге — это описание экзаменов и лимитов. Пока
-                              шаблон не выдан пользователю, доступ не меняется.
-                            </Typography.Paragraph>
-                            <Typography.Paragraph>
-                              <strong>Выдача</strong> создаёт записи v2, источник <Tag>plan_template</Tag>, по
-                              количеству правил в шаблоне.
-                            </Typography.Paragraph>
-                            <Typography.Paragraph>
-                              <strong>Legacy Subscription</strong> — строка как после оплаты (planType);
-                              движок синхронизирует entitlements. Нужна для согласованности с биллингом.
-                            </Typography.Paragraph>
-                            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                              <strong>Ручной entitlement</strong> — одна запись, один экзамен, без шаблона:{' '}
-                              <Tag>admin_override</Tag>.
-                            </Typography.Paragraph>
-                          </Space>
-                        ),
-                      },
-                    ]}
-                  />
-                  <Card title="Legacy (как в биллинге, planType)">
-                    <Typography.Paragraph type="secondary">
-                      Создаётся <code>Subscription</code> + синхронизация, если нужен именно legacy-поведение.
-                    </Typography.Paragraph>
-                    <Button type="default" onClick={() => setSubscriptionModalOpen(true)}>
-                      Форма legacy
-                    </Button>
-                  </Card>
-                  <Card title="Точечный entitlement (поддержка)">
-                    <Button onClick={() => setEntitlementModalOpen(true)}>Создать вручную</Button>
-                  </Card>
-                  <Card title="Активные legacy-подписки">
-                    <Table
-                      columns={userSubscriptionColumns}
-                      dataSource={usersWithSubs}
-                      rowKey="id"
-                      loading={usersLoading}
-                      pagination={{ pageSize: 8 }}
-                      expandable={{
-                        rowExpandable: (r: { subscriptions?: unknown[] }) => (r.subscriptions?.length ?? 0) > 0,
-                        expandedRowRender: (r: any) => (
-                          <Table
-                            size="small"
-                            rowKey="id"
-                            columns={subscriptionListColumns}
-                            dataSource={r.subscriptions}
-                            pagination={false}
-                          />
-                        ),
-                      }}
-                      locale={{ emptyText: <Empty description="Нет legacy-подписок" /> }}
+                <div className="hig-tab-panel-stack">
+                  <HigGroup label="Справка" description="Кратко, как связаны шаблоны, выдача, legacy и ручной entitlement.">
+                    <Collapse
+                      className="hig-doc-collapse"
+                      items={[
+                        {
+                          key: 'how',
+                          label: 'Как устроены подписки (документация для админа)',
+                          children: (
+                            <div className="hig-inner-flow">
+                              <Typography.Paragraph style={{ marginBottom: 0 }}>
+                                <strong>Тариф (шаблон)</strong> в каталоге — это описание экзаменов и лимитов. Пока
+                                шаблон не выдан пользователю, доступ не меняется.
+                              </Typography.Paragraph>
+                              <Typography.Paragraph style={{ marginBottom: 0 }}>
+                                <strong>Выдача</strong> создаёт записи v2, источник <Tag>plan_template</Tag>, по
+                                количеству правил в шаблоне.
+                              </Typography.Paragraph>
+                              <Typography.Paragraph style={{ marginBottom: 0 }}>
+                                <strong>Legacy Subscription</strong> — строка как после оплаты (planType);
+                                движок синхронизирует entitlements. Нужна для согласованности с биллингом.
+                              </Typography.Paragraph>
+                              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                                <strong>Ручной entitlement</strong> — одна запись, один экзамен, без шаблона:{' '}
+                                <Tag>admin_override</Tag>.
+                              </Typography.Paragraph>
+                            </div>
+                          ),
+                        },
+                      ]}
                     />
-                  </Card>
-                  <Card title="Entitlements выбранного пользователя (v2)">
-                    <Select
-                      showSearch
-                      allowClear
-                      style={{ maxWidth: 480, width: '100%', marginBottom: 12 }}
-                      placeholder="Пользователь"
-                      onSearch={setUserSearch}
-                      filterOption={false}
-                      options={userOptions}
-                      value={selectedEntitlementsUserId || undefined}
-                      onChange={(v) => setSelectedEntitlementsUserId(v ?? null)}
-                    />
-                    <Table
-                      columns={entitlementColumns}
-                      dataSource={entitlements ?? []}
-                      rowKey="id"
-                      loading={entitlementsLoading}
-                      pagination={{ pageSize: 10 }}
-                      scroll={{ x: 1100 }}
-                      locale={{ emptyText: <Empty description="Выберите пользователя" /> }}
-                    />
-                  </Card>
-                </Space>
+                  </HigGroup>
+
+                  <HigGroup label="Ручные действия" description="Когда v2-шаблона недостаточно.">
+                    <div className="hig-inner-flow" style={{ maxWidth: 520 }}>
+                      <Card className="hig-surface-card" size="small" title="Legacy (как в биллинге, planType)">
+                        <Typography.Paragraph type="secondary">
+                          Создаётся <code>Subscription</code> + синхронизация, если нужен именно legacy-поведение.
+                        </Typography.Paragraph>
+                        <Button type="default" onClick={() => setSubscriptionModalOpen(true)}>
+                          Форма legacy
+                        </Button>
+                      </Card>
+                      <Card className="hig-surface-card" size="small" title="Точечный entitlement (поддержка)">
+                        <Button onClick={() => setEntitlementModalOpen(true)}>Создать вручную</Button>
+                      </Card>
+                    </div>
+                  </HigGroup>
+
+                  <HigGroup label="Просмотр" description="Список legacy по пользователям и v2-записи по выбранному аккаунту.">
+                    <HigTableCard title="Активные legacy-подписки">
+                      <Table
+                        columns={userSubscriptionColumns}
+                        dataSource={usersWithSubs}
+                        rowKey="id"
+                        loading={usersLoading}
+                        pagination={{ pageSize: 8 }}
+                        expandable={{
+                          rowExpandable: (r: { subscriptions?: unknown[] }) => (r.subscriptions?.length ?? 0) > 0,
+                          expandedRowRender: (r: any) => (
+                            <Table
+                              size="small"
+                              rowKey="id"
+                              columns={subscriptionListColumns}
+                              dataSource={r.subscriptions}
+                              pagination={false}
+                            />
+                          ),
+                        }}
+                        locale={{ emptyText: <Empty description="Нет legacy-подписок" /> }}
+                      />
+                    </HigTableCard>
+                    <HigTableCard
+                      title="Entitlements выбранного пользователя (v2)"
+                    >
+                      <div className="hig-table-card-intro">
+                        <Select
+                          showSearch
+                          allowClear
+                          style={{ maxWidth: 480, width: '100%' }}
+                          placeholder="Пользователь"
+                          onSearch={setUserSearch}
+                          filterOption={false}
+                          options={userOptions}
+                          value={selectedEntitlementsUserId || undefined}
+                          onChange={(v) => setSelectedEntitlementsUserId(v ?? null)}
+                        />
+                      </div>
+                      <Table
+                        columns={entitlementColumns}
+                        dataSource={entitlements ?? []}
+                        rowKey="id"
+                        loading={entitlementsLoading}
+                        pagination={{ pageSize: 10 }}
+                        scroll={{ x: 1100 }}
+                        locale={{ emptyText: <Empty description="Выберите пользователя" /> }}
+                      />
+                    </HigTableCard>
+                  </HigGroup>
+                </div>
               ),
             },
           ]}
         />
-      </Space>
+      </div>
+      </div>
 
       <Modal
         title="Legacy: выдать подписку (Subscription)"

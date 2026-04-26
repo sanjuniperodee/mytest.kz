@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, Statistic, Row, Col, Spin, Button, Typography, Divider, Space } from 'antd';
+import { Button, Spin } from 'antd';
 import {
   UserOutlined,
   FileTextOutlined,
@@ -10,11 +10,38 @@ import {
   LineChartOutlined,
   BookOutlined,
   ReadOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead } from '../components/HigBlocks';
+
+const nav = [
+  {
+    to: '/analytics',
+    icon: <BarChartOutlined />,
+    title: 'Воронка платформы',
+    sub: 'Визиты, регистрации, тесты по дням',
+  },
+  {
+    to: '/admission',
+    icon: <RocketOutlined />,
+    title: 'Калькулятор шанса',
+    sub: 'Баллы ЕНТ и проходной по вузу',
+  },
+  {
+    to: '/analytics/thresholds',
+    icon: <BookOutlined />,
+    title: 'Пороги вузов',
+    sub: 'Грант и сельская квота',
+  },
+  {
+    to: '/explanations',
+    icon: <ReadOutlined />,
+    title: 'Объяснения к вопросам',
+    sub: 'По языкам и предметам',
+  },
+];
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -39,111 +66,102 @@ export function DashboardPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Сводка по данным площадки: пользователи, контент, подписки и ссылка на детальную аналитику ЕНТ.
-      </HigPageLead>
+      <div className="pg-dash">
+        <p className="pg-dash__intro">
+          Сводка по каталогу и пользователям. Пробные ЕНТ — отдельный блок; ниже — быстрые переходы в отчёты и
+          инструменты.
+        </p>
 
-      <HigGroup label="Сводка" description="Актуальные агрегаты из админ-API.">
-        <Row gutter={[12, 12]}>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small">
-              <Statistic
-                title="Пользователи"
-                value={overview?.totalUsers ?? 0}
-                prefix={<UserOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small">
-              <Statistic
-                title="Тесты"
-                value={overview?.totalTests ?? 0}
-                prefix={<FileTextOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small">
-              <Statistic
-                title="Вопросы"
-                value={overview?.totalQuestions ?? 0}
-                prefix={<QuestionCircleOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small">
-              <Statistic
-                title="Подписки"
-                value={overview?.activeSubscriptions ?? 0}
-                prefix={<CrownOutlined />}
-                valueStyle={{ color: '#ff9f0a' }}
-              />
-            </Card>
-          </Col>
-        </Row>
-      </HigGroup>
+        <div className="pg-dash__bento">
+          <article className="pg-dash__tile">
+            <div className="pg-dash__tile-ico">
+              <UserOutlined />
+            </div>
+            <div>
+              <span className="pg-dash__tile-label">Пользователи</span>
+              <div className="pg-dash__tile-value">{overview?.totalUsers ?? 0}</div>
+            </div>
+          </article>
+          <article className="pg-dash__tile">
+            <div className="pg-dash__tile-ico">
+              <FileTextOutlined />
+            </div>
+            <div>
+              <span className="pg-dash__tile-label">Тесты</span>
+              <div className="pg-dash__tile-value">{overview?.totalTests ?? 0}</div>
+            </div>
+          </article>
+          <article className="pg-dash__tile">
+            <div className="pg-dash__tile-ico">
+              <QuestionCircleOutlined />
+            </div>
+            <div>
+              <span className="pg-dash__tile-label">Вопросы</span>
+              <div className="pg-dash__tile-value">{overview?.totalQuestions ?? 0}</div>
+            </div>
+          </article>
+          <article className="pg-dash__tile">
+            <div className="pg-dash__tile-ico pg-dash__tile-ico--warm">
+              <CrownOutlined />
+            </div>
+            <div>
+              <span className="pg-dash__tile-label">Подписки</span>
+              <div className="pg-dash__tile-value pg-dash__tile-value--accent">{overview?.activeSubscriptions ?? 0}</div>
+            </div>
+          </article>
+        </div>
 
-      <HigGroup
-        label="Пробные ЕНТ и навигация"
-        description="Статистика по завершённым сессиям ent и ярлыки в ключевые разделы."
-      >
-        <Row gutter={[12, 12]}>
-          <Col xs={24} lg={14}>
-            <Card size="small" title="Пробные ЕНТ">
-              {!ent?.entFound ? (
-                <Typography.Text type="secondary">Нет типа экзамена ent в каталоге.</Typography.Text>
-              ) : (
-                <Row gutter={[12, 8]}>
-                  <Col span={12}>
-                    <Statistic title="Завершено" value={ent.completedSessions} />
-                  </Col>
-                  <Col span={12}>
-                    <Statistic title="За 30 дн." value={ent.last30Completed} />
-                  </Col>
-                  <Col span={12}>
-                    <Statistic
-                      title="Ср. балл"
-                      value={ent.avgScore != null ? Number(ent.avgScore).toFixed(1) : '—'}
-                    />
-                  </Col>
-                  <Col span={12}>
-                    <Statistic
-                      title="Ср. % верных"
-                      value={ent.avgCorrectPercent != null ? `${ent.avgCorrectPercent.toFixed(1)}%` : '—'}
-                    />
-                  </Col>
-                </Row>
-              )}
-              <Divider style={{ margin: '12px 0' }} />
-              <Space>
-                <Button type="primary" size="small" icon={<LineChartOutlined />} onClick={() => navigate('/analytics/ent')}>
-                  Аналитика ЕНТ
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} lg={10}>
-            <Card size="small" title="Переходы">
-              <div className="hig-action-grid">
-                <Button icon={<BarChartOutlined />} onClick={() => navigate('/analytics')}>
-                  Воронка
-                </Button>
-                <Button icon={<RocketOutlined />} onClick={() => navigate('/admission')}>
-                  Шанс
-                </Button>
-                <Button icon={<BookOutlined />} onClick={() => navigate('/analytics/thresholds')}>
-                  Пороги
-                </Button>
-                <Button icon={<ReadOutlined />} onClick={() => navigate('/explanations')}>
-                  Объяснения
-                </Button>
+        <div className="pg-dash__split">
+          <section className="pg-dash__ent">
+            <h2 className="pg-dash__ent-title">Пробные ЕНТ</h2>
+            <p className="pg-dash__ent-hint">Тип экзамена <code>ent</code> в каталоге — завершённые сессии и средние показатели.</p>
+            {!ent?.entFound ? (
+              <p className="pg-dash__empty">В каталоге нет типа <code>ent</code>. Добавьте экзамен с таким slug.</p>
+            ) : (
+              <div className="pg-dash__ent-grid">
+                <div className="pg-dash__ent-stat">
+                  <span>Завершено</span>
+                  <span>{ent.completedSessions}</span>
+                </div>
+                <div className="pg-dash__ent-stat">
+                  <span>За 30 дней</span>
+                  <span>{ent.last30Completed}</span>
+                </div>
+                <div className="pg-dash__ent-stat">
+                  <span>Ср. балл</span>
+                  <span>{ent.avgScore != null ? Number(ent.avgScore).toFixed(1) : '—'}</span>
+                </div>
+                <div className="pg-dash__ent-stat">
+                  <span>Ср. % верных</span>
+                  <span>{ent.avgCorrectPercent != null ? `${ent.avgCorrectPercent.toFixed(1)}%` : '—'}</span>
+                </div>
               </div>
-            </Card>
-          </Col>
-        </Row>
-      </HigGroup>
+            )}
+            <Button type="primary" icon={<LineChartOutlined />} onClick={() => navigate('/analytics/ent')}>
+              Подробная аналитика ЕНТ
+            </Button>
+          </section>
+
+          <aside className="pg-dash__links">
+            <h3 className="pg-dash__links-title">Куда дальше</h3>
+            {nav.map((item) => (
+              <button
+                key={item.to}
+                type="button"
+                className="pg-dash__link-row"
+                onClick={() => navigate(item.to)}
+              >
+                <div className="pg-dash__link-ico">{item.icon}</div>
+                <div className="pg-dash__link-text">
+                  <strong>{item.title}</strong>
+                  <small>{item.sub}</small>
+                </div>
+                <RightOutlined className="pg-dash__link-arrow" />
+              </button>
+            ))}
+          </aside>
+        </div>
+      </div>
     </AdminPageShell>
   );
 }

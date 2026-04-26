@@ -1,17 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Button,
-  Card,
-  Col,
-  DatePicker,
-  Row,
-  Space,
-  Statistic,
-  Table,
-  Tabs,
-  Tag,
-} from 'antd';
+import { Button, Card, DatePicker, Statistic, Table, Tabs, Tag } from 'antd';
 import type { TablePaginationConfig } from 'antd';
 import {
   FileTextOutlined,
@@ -31,7 +20,7 @@ import {
 } from '../api/platformAnalytics';
 import { PlatformFunnelBarChart } from '../components/PlatformFunnelBarChart';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
+import { HigTableCard } from '../components/HigBlocks';
 
 const df = 'YYYY-MM-DD';
 const PAGE_SIZE = 50;
@@ -223,69 +212,76 @@ export function AnalyticsPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Платформенные метрики, воронка по шагам, динамика и таблицы посетителей / тестирующих за выбранный период.
-      </HigPageLead>
+      <div className="pg-a">
+        <p className="pg-a__intro">
+          Сводка по каталогу, затем <strong>период</strong> для воронки и таблиц. Вкладки «Сводка» и «Воронка» смотрят
+          на выбранные даты; «Посетители» / «Тесты» — тоже.
+        </p>
 
-      <HigGroup label="Сводка" description="Состояние каталога и аккаунтов.">
-        <Row gutter={[12, 12]}>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-              <Statistic title="Пользователи" value={overview?.totalUsers ?? 0} prefix={<UserOutlined />} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-              <Statistic title="Тесты" value={overview?.totalTests ?? 0} prefix={<FileTextOutlined />} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-              <Statistic title="Вопросы" value={overview?.totalQuestions ?? 0} prefix={<QuestionCircleOutlined />} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card className="admin-stat-card" size="small" loading={overviewLoading}>
-              <Statistic
-                title="Подписки"
-                value={overview?.activeSubscriptions ?? 0}
-                prefix={<CrownOutlined />}
-                valueStyle={{ color: '#ff9f0a' }}
+        <div className="pg-a__section">
+          <h3 className="pg-a__section-title">Состояние каталога</h3>
+          <p className="pg-a__section-desc">Без привязки к датам: пользователи, тесты, вопросы, активные подписки.</p>
+          <div className="pg-a__bento">
+            <div className="pg-a__tile">
+              <Card loading={overviewLoading} bordered={false} style={{ background: 'transparent' }}>
+                <Statistic title="Пользователи" value={overview?.totalUsers ?? 0} prefix={<UserOutlined />} />
+              </Card>
+            </div>
+            <div className="pg-a__tile">
+              <Card loading={overviewLoading} bordered={false} style={{ background: 'transparent' }}>
+                <Statistic title="Тесты" value={overview?.totalTests ?? 0} prefix={<FileTextOutlined />} />
+              </Card>
+            </div>
+            <div className="pg-a__tile">
+              <Card loading={overviewLoading} bordered={false} style={{ background: 'transparent' }}>
+                <Statistic title="Вопросы" value={overview?.totalQuestions ?? 0} prefix={<QuestionCircleOutlined />} />
+              </Card>
+            </div>
+            <div className="pg-a__tile">
+              <Card loading={overviewLoading} bordered={false} style={{ background: 'transparent' }}>
+                <Statistic
+                  title="Подписки"
+                  value={overview?.activeSubscriptions ?? 0}
+                  prefix={<CrownOutlined />}
+                  valueStyle={{ color: '#ff9f0a' }}
+                />
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        <div className="pg-a__section">
+          <h3 className="pg-a__section-title">Период отчёта</h3>
+          <p className="pg-a__section-desc">Воронка и таблицы ниже пересчитываются от начальной до конечной даты включительно.</p>
+          <div className="pg-a__cockpit">
+            <div className="pg-a__cockpit-row">
+              <DatePicker
+                value={draftFrom}
+                onChange={(d) => d && setDraftFrom(d)}
+                format={df}
+                allowClear={false}
               />
-            </Card>
-          </Col>
-        </Row>
-      </HigGroup>
+              <span>—</span>
+              <DatePicker
+                value={draftTo}
+                onChange={(d) => d && setDraftTo(d)}
+                format={df}
+                allowClear={false}
+              />
+              <Button type="primary" onClick={applyDateFilters}>
+                Применить
+              </Button>
+              <Button onClick={resetDateFilters}>Сбросить 30 дн.</Button>
+            </div>
+            <div className="pg-a__range-badge">
+              Активный диапазон: {from} — {to}
+            </div>
+          </div>
+        </div>
 
-      <HigGroup
-        label="Период"
-        description="Воронка, посетители и «Тесты» учитывают даты от и до. Текущий диапазон отображается снизу."
-      >
-        <Card className="hig-filter-card" size="small" title="Диапазон дат">
-          <Space wrap align="center">
-            <DatePicker
-              value={draftFrom}
-              onChange={(d) => d && setDraftFrom(d)}
-              format={df}
-              allowClear={false}
-            />
-            <span>—</span>
-            <DatePicker
-              value={draftTo}
-              onChange={(d) => d && setDraftTo(d)}
-              format={df}
-              allowClear={false}
-            />
-            <Button type="primary" onClick={applyDateFilters}>
-              Применить
-            </Button>
-            <Button onClick={resetDateFilters}>30 дней</Button>
-          </Space>
-          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--admin-muted)' }}>{from} — {to}</div>
-        </Card>
-      </HigGroup>
-
-      <HigGroup label="Детализация">
+        <h3 className="pg-a__section-title" style={{ marginTop: 8 }}>
+          Разбивка
+        </h3>
         <Tabs
         className="hig-page-tabs"
         size="middle"
@@ -294,26 +290,26 @@ export function AnalyticsPage() {
             key: 'summary',
             label: 'Сводка',
             children: (
-              <Row gutter={[16, 16]}>
+              <div>
                 {funnelLoading && !funnel ? (
-                  <Col span={24}>
-                    <Card loading />
-                  </Col>
+                  <Card loading style={{ minHeight: 120 }} />
                 ) : funnel ? (
-                  [
-                    { label: 'Визитов (уник.)', value: funnel.totals.visits },
-                    { label: 'Зарегистрировано', value: funnel.totals.registered },
-                    { label: 'Начали тест', value: funnel.totals.started },
-                    { label: 'Завершили тест', value: funnel.totals.completed },
-                  ].map((x) => (
-                    <Col xs={12} md={6} key={x.label}>
-                      <Card>
-                        <Statistic title={x.label} value={x.value} />
-                      </Card>
-                    </Col>
-                  ))
+                  <div className="pg-a__bento">
+                    {[
+                      { label: 'Визитов (уник.)', value: funnel.totals.visits },
+                      { label: 'Зарегистрировано', value: funnel.totals.registered },
+                      { label: 'Начали тест', value: funnel.totals.started },
+                      { label: 'Завершили тест', value: funnel.totals.completed },
+                    ].map((x) => (
+                      <div className="pg-a__tile" key={x.label}>
+                        <Card bordered={false} size="small" style={{ background: 'transparent' }}>
+                          <Statistic title={x.label} value={x.value} />
+                        </Card>
+                      </div>
+                    ))}
+                  </div>
                 ) : null}
-              </Row>
+              </div>
             ),
           },
           {
@@ -324,31 +320,32 @@ export function AnalyticsPage() {
                 {funnelLoading && !funnel ? (
                   <Card loading style={{ minHeight: 200 }} />
                 ) : funnel ? (
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <Row gutter={[16, 16]}>
-                      {[
-                        { label: 'Визит → регистрация', v: cr?.visitToRegistered ?? 0 },
-                        { label: 'Регистрация → старт', v: cr?.registeredToStarted ?? 0 },
-                        { label: 'Старт → завершение', v: cr?.startedToCompleted ?? 0 },
-                        { label: 'Визит → завершение', v: cr?.visitToCompleted ?? 0 },
-                      ].map((x) => (
-                        <Col xs={12} md={6} key={x.label}>
-                          <Card>
-                            <Statistic
-                              title={x.label}
-                              value={x.v}
-                              suffix="%"
-                              valueStyle={{ color: '#007aff' }}
-                            />
-                          </Card>
-                        </Col>
-                      ))}
-                    </Row>
-                    <Card title="Шаги воронки (объёмы)">
-                      <PlatformFunnelBarChart data={funnel} />
-                    </Card>
+                  <div className="hig-inner-flow">
+                    <div className="pg-a__funnel-layout">
+                      <Card title="Шаги (объёмы)" className="hig-chart-card">
+                        <PlatformFunnelBarChart data={funnel} />
+                      </Card>
+                      <div>
+                        <h4 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text)' }}>
+                          Конверсии, %
+                        </h4>
+                        <div className="pg-a__conv-list">
+                          {[
+                            { label: 'Визит → регистрация', v: cr?.visitToRegistered ?? 0 },
+                            { label: 'Регистрация → старт', v: cr?.registeredToStarted ?? 0 },
+                            { label: 'Старт → завершение', v: cr?.startedToCompleted ?? 0 },
+                            { label: 'Визит → завершение', v: cr?.visitToCompleted ?? 0 },
+                          ].map((x) => (
+                            <div className="pg-a__conv-item" key={x.label}>
+                              <span className="pg-a__conv-label">{x.label}</span>
+                              <span className="pg-a__conv-val">{Number(x.v).toFixed(1)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                     {funnel.byDate.length > 0 && (
-                      <Card title="Динамика по дням">
+                      <Card title="Визиты и завершения по дням" className="hig-chart-card">
                         <div style={{ width: '100%', height: 300 }}>
                           <ResponsiveContainer>
                             <LineChart data={funnel.byDate}>
@@ -378,7 +375,7 @@ export function AnalyticsPage() {
                         </div>
                       </Card>
                     )}
-                  </Space>
+                  </div>
                 ) : null}
               </div>
             ),
@@ -419,7 +416,7 @@ export function AnalyticsPage() {
           },
         ]}
         />
-      </HigGroup>
+      </div>
     </AdminPageShell>
   );
 }

@@ -4,7 +4,6 @@ import { Button, Card, Form, Image, Input, Space, Switch, Typography, Upload, me
 import { PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead } from '../components/HigBlocks';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
 
 type LandingSettingsDto = {
@@ -135,10 +134,7 @@ export function LandingSettingsPage() {
 
   return (
     <AdminPageShell wide>
-      <HigPageLead>
-        Публичные ссылки и слайды главной страницы: после сохранения подхватываются лендингом через API.
-      </HigPageLead>
-      <Card loading={isLoading}>
+      <Card loading={isLoading} className="hig-surface-card">
         <Form<LandingSettingsDto>
           form={form}
           layout="vertical"
@@ -151,42 +147,52 @@ export function LandingSettingsPage() {
             heroSlides: [],
           }}
         >
-          <HigGroup label="Контент и соцсети">
-          <Form.Item
-            name="instructionVideoUrl"
-            label="Ссылка на видео-инструкцию"
-            extra="YouTube: обычная ссылка — встраивается на лендинге"
-            rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
-          >
-            <Input placeholder="https://youtu.be/..." />
-          </Form.Item>
+          <div className="pg-landing">
+            <p className="pg-landing__intro">
+              Всё, что видит гость на главной: инструкция, соцсети и картинки карусели для трёх ширин экрана. Сохранение
+              сразу отдаётся публичному API лендинга.
+            </p>
 
-          <Form.Item
-            name="instagramUrl"
-            label="Instagram URL"
-            rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
-          >
-            <Input placeholder="https://instagram.com/your-account" />
-          </Form.Item>
+            <div className="pg-landing__grid">
+              <aside className="pg-landing__aside">
+                <h3>Видео и соцсети</h3>
+                <Form.Item
+                  name="instructionVideoUrl"
+                  label="Видео-инструкция"
+                  extra="YouTube — встраивается на лендинге"
+                  rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
+                >
+                  <Input placeholder="https://youtu.be/..." />
+                </Form.Item>
 
-          <Form.Item
-            name="tiktokUrl"
-            label="TikTok URL"
-            rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
-          >
-            <Input placeholder="https://www.tiktok.com/@your-account" />
-          </Form.Item>
+                <Form.Item
+                  name="instagramUrl"
+                  label="Instagram"
+                  rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
+                >
+                  <Input placeholder="https://instagram.com/..." />
+                </Form.Item>
 
-          <Form.Item
-            name="whatsappUrl"
-            label="WhatsApp URL"
-            rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
-          >
-            <Input placeholder="https://wa.me/7777..." />
-          </Form.Item>
-          </HigGroup>
+                <Form.Item
+                  name="tiktokUrl"
+                  label="TikTok"
+                  rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
+                >
+                  <Input placeholder="https://www.tiktok.com/..." />
+                </Form.Item>
 
-          <div className="hig-landing-separator">Карусель на главной (desktop / tablet / mobile)</div>
+                <Form.Item
+                  name="whatsappUrl"
+                  label="WhatsApp"
+                  rules={[{ required: true, type: 'url', message: 'Введите корректный URL' }]}
+                >
+                  <Input placeholder="https://wa.me/..." />
+                </Form.Item>
+              </aside>
+
+              <div className="pg-landing__main">
+                <div className="pg-landing__slides-head">Карусель (desktop / tablet / mobile)</div>
+                <div className="pg-landing__slides">
           <Form.List name="heroSlides">
             {(fields, { add, remove }) => (
               <Space direction="vertical" size={14} style={{ width: '100%' }}>
@@ -265,12 +271,16 @@ export function LandingSettingsPage() {
               </Space>
             )}
           </Form.List>
+                </div>
+              </div>
+            </div>
 
-          <Space>
-            <Button type="primary" htmlType="submit" loading={saveMutation.isPending}>
-              Сохранить
-            </Button>
-          </Space>
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '0.5px solid rgba(60,60,67,0.12)' }}>
+              <Button type="primary" htmlType="submit" size="large" loading={saveMutation.isPending}>
+                Сохранить настройки лендинга
+              </Button>
+            </div>
+          </div>
         </Form>
       </Card>
     </AdminPageShell>

@@ -3,9 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Table, Input, Tag, Switch, message, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
-import { AdminPageToolbar } from '../components/AdminPageToolbar';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
+import { HigTableCard } from '../components/HigBlocks';
 
 interface User {
   id: string;
@@ -146,22 +145,32 @@ export function UsersPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>Реестр пользователей, права admin и v2-энтитлменты. Поиск по Telegram и имени.</HigPageLead>
+      <div className="pg-users">
+        <p className="pg-users__intro">
+          Каталог аккаунтов: Telegram, телефон, подписка, v2-доступ по экзаменам. Переключатель admin влияет на доступ
+          к этой панели.
+        </p>
 
-      <HigGroup label="Поиск">
-        <AdminPageToolbar
-          end={<Tag>Записей: {data?.total ?? 0}</Tag>}
-        >
-          <Input.Search
-            placeholder="Поиск: @username, имя"
-            allowClear
-            onSearch={(v) => { setSearch(v); setPage(1); }}
-            style={{ width: 280, maxWidth: '100%' }}
-          />
-        </AdminPageToolbar>
-      </HigGroup>
+        <div className="pg-users__search-card">
+          <div className="pg-users__meta">
+            <span className="pg-users__label">Поиск</span>
+            <span className="pg-users__chip">{data?.total ?? 0} в базе</span>
+          </div>
+          <div className="pg-users__search-row">
+            <Input.Search
+              className="pg-users__search"
+              placeholder="@username, имя или фрагмент телефона"
+              allowClear
+              enterButton="Найти"
+              size="large"
+              onSearch={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+            />
+          </div>
+        </div>
 
-      <HigGroup label="Список">
         <HigTableCard>
           <Table
             columns={columns}
@@ -180,7 +189,7 @@ export function UsersPage() {
             locale={{ emptyText: <Empty description="Нет данных" /> }}
           />
         </HigTableCard>
-      </HigGroup>
+      </div>
     </AdminPageShell>
   );
 }

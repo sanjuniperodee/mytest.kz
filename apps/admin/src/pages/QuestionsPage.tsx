@@ -31,7 +31,7 @@ import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutl
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigPageLead } from '../components/HigBlocks';
+import { HigGroup, HigTableCard } from '../components/HigBlocks';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import {
   getLocalizedText,
@@ -1012,9 +1012,13 @@ export function QuestionsPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Редактор банка вопросов: языковые вкладки, фильтр по экзамену и предмету, поиск похожих и полная форма вопроса.
-      </HigPageLead>
+      <div className="pg-q">
+        <div className="pg-q__hero">
+          <p>
+            <strong>Банк вопросов</strong> — языковые вкладки, фильтр по типу экзамена и предмету, три независимых поиска
+            по каталогу и боковая панель редактора. Сначала выберите экзамен, чтобы увидеть таблицу.
+          </p>
+        </div>
 
       <div className="hig-questions-toolbar-row">
         <div />
@@ -1089,7 +1093,8 @@ export function QuestionsPage() {
         ]}
       />
 
-      <Card className="hig-filter-card" size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
+      <HigGroup label="Тип и предмет" description="Список вопросов и поиск в каталоге привязаны к выбранному экзамену.">
+      <Card className="hig-filter-card" size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 0 }}>
         <Space wrap size={[12, 12]} align="center">
           <Select
             placeholder="Тип экзамена"
@@ -1124,9 +1129,14 @@ export function QuestionsPage() {
           )}
         </Space>
       </Card>
+      </HigGroup>
 
       {!!examTypeId && (
-        <Card size="small" title="Поиск по каталогу вопросов" style={{ marginBottom: 16 }}>
+        <HigGroup
+          label="Поиск в каталоге"
+          description="Независимые поиски по topicLine, тексту и общий — в пределах выбранного экзамена (и предмета, если задан)."
+        >
+        <Card className="hig-questions-search-card" size="small" title="Поиск по каталогу вопросов" style={{ marginBottom: 0 }}>
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               Три независимых запроса: по подписи блока (topicLine), по тексту вопроса (материал + условие + подсказка) и
@@ -1250,14 +1260,12 @@ export function QuestionsPage() {
             </div>
           </Space>
         </Card>
+        </HigGroup>
       )}
 
       {!!examTypeId && (subjects?.length || 0) > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-            Быстрый выбор предмета
-          </Typography.Text>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+        <HigGroup label="Быстрый выбор предмета" description="Фильтр списка ниже; «Все» — по всем предметам типа.">
+        <div className="hig-questions-subject-chips" style={{ marginBottom: 0 }}>
             <Button
               type={!subjectId ? 'primary' : 'default'}
               size="small"
@@ -1281,34 +1289,42 @@ export function QuestionsPage() {
                 {getLocalizedText(s.name)} ({subjectTotals.get(s.id) ?? 0})
               </Button>
             ))}
-          </div>
         </div>
+        </HigGroup>
       )}
 
-      <Table<Question>
-        columns={columns}
-        dataSource={examTypeId ? data?.items || [] : []}
-        rowKey="id"
-        rowClassName={(record) => (highlightId && record.id === highlightId ? 'admin-row-highlight' : '')}
-        loading={isLoading}
-        pagination={{
-          current: page,
-          total: data?.total || 0,
-          pageSize: 20,
-          onChange: setPage,
-          showTotal: (total) => `Всего: ${total}`,
-          showSizeChanger: false,
-        }}
-        size="middle"
-        scroll={{ x: 1100 }}
-        locale={{
-          emptyText: examTypeId ? (
-            <Empty description="По выбранным фильтрам вопросов нет" />
-          ) : (
-            <Empty description="Сначала выберите тип экзамена" />
-          ),
-        }}
-      />
+      <HigGroup
+        label="Список вопросов"
+        description="Редактирование и дубликаты — в строке. Выберите тип экзамена, чтобы подгрузить данные."
+      >
+        <HigTableCard>
+          <Table<Question>
+            columns={columns}
+            dataSource={examTypeId ? data?.items || [] : []}
+            rowKey="id"
+            rowClassName={(record) => (highlightId && record.id === highlightId ? 'admin-row-highlight' : '')}
+            loading={isLoading}
+            pagination={{
+              current: page,
+              total: data?.total || 0,
+              pageSize: 20,
+              onChange: setPage,
+              showTotal: (total) => `Всего: ${total}`,
+              showSizeChanger: false,
+            }}
+            size="middle"
+            scroll={{ x: 1100 }}
+            locale={{
+              emptyText: examTypeId ? (
+                <Empty description="По выбранным фильтрам вопросов нет" />
+              ) : (
+                <Empty description="Сначала выберите тип экзамена" />
+              ),
+            }}
+          />
+        </HigTableCard>
+      </HigGroup>
+      </div>
 
       <Drawer
         title={editorMode === 'edit' ? 'Редактирование вопроса' : 'Новый вопрос'}

@@ -5,7 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead, HigTableCard } from '../components/HigBlocks';
+import { HigGroup, HigTableCard } from '../components/HigBlocks';
 import {
   getLocalizedText,
   getQuestionContentLocale,
@@ -123,9 +123,14 @@ export function ExplanationsPage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Вопросы, у которых заполнено объяснение: превью текста, язык метаданных и быстрый переход к редактору.
-      </HigPageLead>
+      <div className="pg-ex">
+        <header className="pg-ex__hero">
+          <h2>Объяснения к вопросам</h2>
+          <p>
+            Только вопросы с непустым полем объяснения. Фильтруйте по метке языка контента, переключайте превью KK/RU и
+            переходите в полный редактор одним кликом.
+          </p>
+        </header>
 
       <HigGroup label="Фильтр по языку контента">
       <Tabs
@@ -222,6 +227,7 @@ export function ExplanationsPage() {
           />
         </HigTableCard>
       </HigGroup>
+      </div>
     </AdminPageShell>
   );
 }

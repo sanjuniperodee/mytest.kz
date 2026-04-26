@@ -17,7 +17,7 @@ import {
   fetchAdmissionUniversities,
 } from '../api/admission';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigPageLead } from '../components/HigBlocks';
+import { HigGroup } from '../components/HigBlocks';
 
 const tierRu: Record<ReturnType<typeof grantTierHint>, { label: string; color: string }> = {
   Blocked: { label: 'Не проходите пороги', color: 'red' },
@@ -153,9 +153,13 @@ export function AdmissionChancePage() {
 
   return (
     <AdminPageShell>
-      <HigPageLead>
-        Интерактивные баллы ЕНТ, проходные пороги и сравнение с прошлым конкурсом по выбранной программе.
-      </HigPageLead>
+      <div className="pg-ex__hero" style={{ marginBottom: 20 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Шанс поступления</h2>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '40rem' }}>
+          Сдвигайте баллы по субтестам, смотрите сумму, пороги ҰБТ и ориентир уровня. После выбора вуза и программы
+          сравнивайте сумму с прошлым конкурсным порогом.
+        </p>
+      </div>
       {cyclesQ.isLoading || unisQ.isLoading ? (
         <div className="admin-boot" style={{ minHeight: 200 }}>
           <Spin />
@@ -168,22 +172,22 @@ export function AdmissionChancePage() {
           description={`Цикл, вуз, квота и программа. Максимум суммарного балла: ${ENT_TOTAL_MAX}.`}
         >
         <Card className="hig-filter-card" size="small" title={`Справочник · до ${ENT_TOTAL_MAX} баллов`}>
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <div>
-              <Typography.Text type="secondary">Цикл приёма</Typography.Text>
+          <div className="pg-adm__select-grid">
+            <div className="pg-adm__field">
+              <span>Цикл приёма</span>
               <Select
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 value={cycleSlug || undefined}
                 options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
                 onChange={(v) => setCycleSlug(v)}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary">Вуз</Typography.Text>
+            <div className="pg-adm__field">
+              <span>Вуз</span>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 placeholder="Выберите вуз"
                 value={universityCode ?? undefined}
                 onChange={(v) => {
@@ -196,10 +200,10 @@ export function AdmissionChancePage() {
                 }))}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary">Квота</Typography.Text>
+            <div className="pg-adm__field">
+              <span>Квота</span>
               <Select
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 value={quotaType}
                 onChange={(v) => setQuotaType(v)}
                 options={[
@@ -208,12 +212,12 @@ export function AdmissionChancePage() {
                 ]}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary">Программа</Typography.Text>
+            <div className="pg-adm__field" style={{ gridColumn: '1 / -1' }}>
+              <span>Программа</span>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 placeholder={universityCode == null ? 'Сначала выберите вуз' : 'Выберите программу'}
                 value={programId ?? undefined}
                 onChange={(v) => setProgramId(v)}
@@ -221,7 +225,7 @@ export function AdmissionChancePage() {
                 options={programOptions}
               />
             </div>
-          </Space>
+          </div>
         </Card>
         </HigGroup>
       )}
@@ -266,7 +270,7 @@ export function AdmissionChancePage() {
           />
           </HigGroup>
         </Col>
-        <Col xs={24} lg={10}>
+        <Col xs={24} lg={10} className="pg-adm__sticky-summary">
           <HigGroup label="Сводка">
           <Card className="admin-stat-card" title="Итог">
             <Space direction="vertical" size="large" style={{ width: '100%' }}>

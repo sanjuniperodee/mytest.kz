@@ -971,3 +971,102 @@ body {
 .hig-cell-muted {
   color: var(--admin-text-tertiary);
 }
+
+/* Вертикальный стек во вкладках (HIG: ритм 20pt) */
+.hig-tab-panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* «Приподнятая» карточка для форм и длинного текста */
+.hig-surface-card.ant-card {
+  border-radius: var(--admin-radius) !important;
+  border: 0.5px solid var(--admin-border) !important;
+  box-shadow: var(--admin-shadow-card);
+  background: var(--admin-surface);
+}
+
+.hig-surface-card .ant-card-head {
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.hig-surface-card .ant-card-body > .ant-typography:first-child,
+.hig-surface-card .ant-card-body > p:first-child {
+  margin-top: 0;
+}
+
+/* Вводный текст над таблицей в HigTableCard */
+.hig-table-card-intro {
+  padding: 12px 16px 12px;
+  border-bottom: 0.5px solid var(--admin-separator);
+  background: #fafafa;
+}
+
+.hig-table-card-intro .ant-typography {
+  margin-bottom: 0 !important;
+}
+
+.hig-chart-card.ant-card {
+  border-radius: var(--admin-radius) !important;
+  overflow: hidden;
+}
+
+.hig-inner-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.hig-questions-subject-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  margin-bottom: 0;
+  scrollbar-width: thin;
+}
+
+.hig-questions-search-card .ant-table-wrapper {
+  border-radius: var(--admin-radius-sm);
+  border: 0.5px solid var(--admin-border);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.hig-doc-collapse.ant-collapse {
+  background: var(--admin-surface);
+  border: 0.5px solid var(--admin-border);
+  border-radius: var(--admin-radius) !important;
+  overflow: hidden;
+}
+
+.hig-doc-collapse .ant-collapse-item {
+  border-color: var(--admin-separator) !important;
+}
+
+.hig-doc-collapse .ant-collapse-header {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.hig-entitlement-stack .hig-surface-card .ant-btn-lg {
+  min-height: 48px;
+  border-radius: var(--admin-radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Модалки: воздух и шаг полей */
+.admin-shell .ant-modal .ant-modal-body {
+  padding: 20px 22px 22px;
+}
+
+.admin-shell .ant-modal .ant-form-item:last-child {
+  margin-bottom: 0;
+}
