@@ -60,4 +60,66 @@ export class AdminUserService {
   async updateUser(id: string, data: { isAdmin?: boolean }) {
     return this.prisma.user.update({ where: { id }, data });
   }
+
+  async getUserDetail(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        subscriptions: {
+          orderBy: { createdAt: 'desc' },
+        },
+        entitlements: {
+          include: {
+            examType: { select: { id: true, slug: true, name: true } },
+            planTemplate: { select: { id: true, code: true, name: true } },
+            subscription: { select: { id: true, planType: true, isActive: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const sessions = await this.prisma.testSession.findMany({
+      where: { userId: id },
+      include: {
+        examType: { select: { id: true, slug: true, name: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+      take: 50,
+    });
+
+    const funnels = await this.prisma.funnelStep.findMany({
+      where: { sessionId: { in: sessions.map((s) => s.id) } },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    return {
+      user: {
+        ...user,
+        telegramId: Number(user.telegramId),
+        hasActiveSubscription: user.entitlements.some(
+          (e) => e.tier === EntitlementTier.paid,
+        ),
+      },
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        examTypeSlug: s.examType.slug,
+        examTypeName: s.examType.name,
+        status: s.status,
+        startedAt: s.startedAt,
+        finishedAt: s.finishedAt,
+        durationSecs: s.durationSecs,
+        score: s.score != null ? Number(s.score) : null,
+        correctCount: s.correctCount,
+        totalQuestions: s.totalQuestions,
+      })),
+      funnelSteps: funnels.map((f) => ({
+        id: f.id,
+        step: f.step,
+        createdAt: f.timestamp,
+      })),
+    };
+  }
 }

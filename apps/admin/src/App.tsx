@@ -33,6 +33,7 @@ import {
 import { api, clearTokens } from './api/client';
 import { getPageMeta } from './lib/pageMeta';
 import { UsersPage } from './pages/UsersPage';
+import { UserDetailPage } from './pages/UserDetailPage';
 import { QuestionsPage } from './pages/QuestionsPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
@@ -284,6 +285,7 @@ function AdminLayout() {
             <Route path="/admission" element={<AdmissionChancePage />} />
             <Route path="/explanations" element={<ExplanationsPage />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/:id" element={<UserDetailPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/exams" element={<ExamCatalogPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />

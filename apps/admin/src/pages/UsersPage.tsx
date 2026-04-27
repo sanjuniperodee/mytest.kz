@@ -10,6 +10,7 @@ import {
   TableOutlined,
   CrownOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
 import { HigTableCard } from '../components/HigBlocks';
@@ -52,6 +53,7 @@ function formatNowRu() {
 
 export function UsersPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -166,6 +168,14 @@ export function UsersPage() {
           onChange={(checked) => toggleAdmin.mutate({ id: record.id, isAdmin: checked })}
           size="small"
         />
+      ),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 60,
+      render: (_: unknown, record: User) => (
+        <a onClick={() => navigate(`/users/${record.id}`)}>Открыть</a>
       ),
     },
     {
