@@ -16,8 +16,11 @@ async function bootstrap() {
   app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api/v1');
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,https://my-test.kz')
+    .split(',')
+    .map((o) => o.trim());
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
   });
   app.useGlobalPipes(

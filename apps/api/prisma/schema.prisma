@@ -85,6 +85,7 @@ model Question {
   @@index([subjectId, isActive])
   @@index([examTypeId, isActive])
   @@index([topicId])
+  @@index([metadata], type: Gin)
   @@map("questions")
 }
 
@@ -373,6 +374,7 @@ model TestSession {
   funnelSteps  FunnelStep[]
 
   @@index([userId, status])
+  @@index([userId, startedAt])
   @@index([visitId])
   @@map("test_sessions")
 }

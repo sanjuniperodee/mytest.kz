@@ -14,6 +14,7 @@ import { getEffectiveTheme, setThemePreference } from '../lib/theme';
 import { useBillingPlans } from '../api/hooks/useBilling';
 import { LandingStatsStrip } from '../components/landing/LandingStatsStrip';
 import { GrantEstimator } from '../components/landing/GrantEstimator';
+import { type HeroSlide, type LandingRuntimeSettings, shouldShowHeroCta, isExternalHref, isModernSlide, type ModernHeroSlide } from '@bilimland/shared';
 import './landing.css';
 
 type Benefit = { tag: string; title: string; body: string };
@@ -32,30 +33,6 @@ type PricingTier = {
   features: string[];
 };
 type TestTypeCard = { title: string; items: string[]; cta: string };
-type HeroSlide = {
-  title?: string;
-  subtitle?: string;
-  desktopImageUrl: string;
-  tabletImageUrl: string;
-  mobileImageUrl: string;
-  buttonLabel?: string;
-  buttonHref?: string;
-  showButton?: boolean;
-  isActive?: boolean;
-};
-
-function shouldShowHeroCta(slide: HeroSlide): boolean {
-  if (slide.showButton === false) return false;
-  return Boolean(slide.buttonLabel?.trim() && slide.buttonHref?.trim());
-}
-
-type LandingRuntimeSettings = {
-  instructionVideoUrl: string;
-  instagramUrl: string;
-  tiktokUrl: string;
-  whatsappUrl: string;
-  heroSlides?: HeroSlide[];
-};
 
 const STEP_ICONS = [
   <IconLogin key="i0" />,
@@ -156,9 +133,8 @@ export function LandingPage() {
   const whatsappHref = runtimeSettingsLoaded
     ? runtimeSettings?.whatsappUrl || fallbackWhatsAppHref
     : waUrl || fallbackWhatsAppHref;
-  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
-    (slide) => slide.isActive !== false,
-  );
+  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides)
+    .filter((slide): slide is ModernHeroSlide => isModernSlide(slide) && slide.isActive !== false);
 
   useEffect(() => {
     let cancelled = false;
@@ -757,11 +733,6 @@ function toYoutubeEmbedUrl(rawUrl: string): string | null {
   } catch {
     return null;
   }
-}
-
-function isExternalHref(href: string | undefined): boolean {
-  if (!href) return false;
-  return /^https?:\/\//i.test(href);
 }
 
 function IconLogin() {

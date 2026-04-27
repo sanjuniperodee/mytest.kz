@@ -13,6 +13,7 @@ import { resolveMediaUrl } from '../../lib/resolveMediaUrl';
 import { getEffectiveTheme, setThemePreference } from '../../lib/theme';
 import { useBillingPlans } from '../../api/hooks/useBilling';
 import { AdmissionChanceWidget } from '../../components/admission/AdmissionChanceWidget';
+import { type HeroSlide, type LandingRuntimeSettings, shouldShowHeroCta, isExternalHref, toYoutubeEmbedUrl, isModernSlide, type ModernHeroSlide } from '@bilimland/shared';
 import '../landing.css';
 import './landing-v2.css';
 
@@ -26,59 +27,9 @@ type PricingTier = { id: string; name: string; price: string; period: string; ba
 type TestTypeCard = { title: string; items: string[]; cta: string };
 type Stat = { value: string; label: string };
 
-type HeroSlide = {
-  title?: string;
-  subtitle?: string;
-  desktopImageUrl: string;
-  tabletImageUrl: string;
-  mobileImageUrl: string;
-  buttonLabel?: string;
-  buttonHref?: string;
-  showButton?: boolean;
-  isActive?: boolean;
-};
-
-type LandingRuntimeSettings = {
-  instructionVideoUrl: string;
-  instagramUrl: string;
-  tiktokUrl: string;
-  whatsappUrl: string;
-  heroSlides?: HeroSlide[];
-};
-
-function shouldShowHeroCta(slide: HeroSlide): boolean {
-  if (slide.showButton === false) return false;
-  return Boolean(slide.buttonLabel?.trim() && slide.buttonHref?.trim());
-}
-
 function formatLandingPriceKzt(amount: number, language: string): string {
   const locale = language === 'en' ? 'en-US' : 'ru-RU';
   return `${new Intl.NumberFormat(locale).format(amount)} ₸`;
-}
-
-function toYoutubeEmbedUrl(rawUrl: string): string | null {
-  const value = rawUrl.trim();
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    if (parsed.hostname.includes('youtu.be')) {
-      const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (parsed.hostname.includes('youtube.com')) {
-      if (parsed.pathname.startsWith('/embed/')) return value;
-      const id = parsed.searchParams.get('v');
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function isExternalHref(href: string | undefined): boolean {
-  if (!href) return false;
-  return /^https?:\/\//i.test(href);
 }
 
 function PlatformIcon({ name }: { name: PlatformFeature['icon'] }) {
@@ -218,9 +169,8 @@ export function LandingPageV2() {
   const fallbackWhatsapp = t('landingV2.contactWhatsappHref');
   const waUrl = getWhatsAppUrl();
   const whatsappHref = runtimeSettingsLoaded ? runtimeSettings?.whatsappUrl || fallbackWhatsapp : waUrl || fallbackWhatsapp;
-  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
-    (slide) => slide.isActive !== false,
-  );
+  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides)
+    .filter((slide): slide is ModernHeroSlide => isModernSlide(slide) && slide.isActive !== false);
   const faqItems = useMemo(() => t('landingV2.seoFaq', { returnObjects: true }) as FaqItem[], [t, i18n.language]);
 
   useEffect(() => {

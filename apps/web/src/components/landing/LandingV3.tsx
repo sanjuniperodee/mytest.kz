@@ -6,11 +6,18 @@ import { api } from '../../api/client';
 import { useVisitTrack } from '../../hooks/useVisitTrack';
 import { resolveMediaUrl } from '../../lib/resolveMediaUrl';
 import { AdmissionChanceWidget } from '../admission/AdmissionChanceWidget';
+import {
+  type LandingRuntimeSettings,
+  isModernSlide,
+  toYoutubeEmbedUrl,
+  type ModernHeroSlide,
+} from '@bilimland/shared';
 
 type Proof = { title: string; body: string };
 type Step = { title: string; body: string };
 type Bento = { title: string; body: string };
 type Faq = { question: string; answer: string };
+type Testimonial = { quote: string; author: string };
 type PriceFeature = { text: string; included: boolean };
 type PriceTier = {
   name: string;
@@ -21,43 +28,8 @@ type PriceTier = {
   cta: string;
   highlighted: boolean;
 };
-type Testimonial = { quote: string; author: string };
-
 export type LandingV3Props = {
   whatsappHref: string;
-};
-
-type ModernHeroSlide = {
-  title?: string;
-  subtitle?: string;
-  desktopImageUrl: string;
-  tabletImageUrl: string;
-  mobileImageUrl: string;
-  buttonLabel?: string;
-  buttonHref?: string;
-  showButton?: boolean;
-  isActive?: boolean;
-};
-
-type LegacyHeroSlide = {
-  image: string;
-  title: string;
-  subtitle: string;
-  cta: string;
-};
-
-function isModernSlide(slide: HeroSlide): slide is ModernHeroSlide {
-  return 'desktopImageUrl' in slide;
-}
-
-type HeroSlide = ModernHeroSlide | LegacyHeroSlide;
-
-type LandingRuntimeSettings = {
-  instructionVideoUrl: string;
-  instagramUrl: string;
-  tiktokUrl: string;
-  whatsappUrl: string;
-  heroSlides?: HeroSlide[];
 };
 
 function trackThemeFromDoc(): { effective: 'light' | 'dark'; preference: ThemePreference } {
@@ -139,24 +111,6 @@ function GridPattern({ className = '' }: { className?: string }) {
       <rect width="400" height="400" fill="url(#grid)" />
     </svg>
   );
-}
-
-function toYoutubeEmbedUrl(rawUrl: string): string | null {
-  const value = rawUrl.trim();
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    if (parsed.hostname.includes('youtu.be')) {
-      const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (parsed.hostname.includes('youtube.com')) {
-      if (parsed.pathname.startsWith('/embed/')) return value;
-      const id = parsed.searchParams.get('v');
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    return null;
-  } catch { return null; }
 }
 
 function EntCountdownTimer({ target, language }: { target: Date; language: string }) {

@@ -10,10 +10,7 @@ import { getWhatsAppUrl } from '../../lib/whatsapp';
 import { WhatsAppFab } from '../../components/common/WhatsAppFab';
 import { Spinner } from '../../components/common/Spinner';
 import { LandingV3 } from '../../components/landing/LandingV3';
-
-type LandingRuntimeSettings = {
-  whatsappUrl: string;
-};
+import { type LandingRuntimeSettings } from '@bilimland/shared';
 
 export function LandingPageV3() {
   const { t, i18n } = useTranslation();
