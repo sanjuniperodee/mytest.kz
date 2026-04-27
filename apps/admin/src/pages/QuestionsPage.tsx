@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useQueries, keepPreviousData } from '@tanstack/react-query';
 import {
   Table,
   Button,
@@ -27,11 +27,24 @@ import {
   Image,
   Collapse,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, GlobalOutlined, PictureOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  GlobalOutlined,
+  PictureOutlined,
+  InfoCircleOutlined,
+  QuestionCircleOutlined,
+  ThunderboltOutlined,
+  UnorderedListOutlined,
+  TableOutlined,
+  FilterOutlined,
+  FormOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigTableCard } from '../components/HigBlocks';
+import { HigTableCard } from '../components/HigBlocks';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import {
   getLocalizedText,
@@ -52,6 +65,24 @@ import { resolveApiBaseUrl } from '../lib/resolveApiBaseUrl';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
 
 const { TextArea } = Input;
+
+const LIST_PAGE_SIZE = 20;
+
+function formatNowRu() {
+  return new Date().toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function filterLabel(f: AdminLocaleFilter) {
+  if (f === '') return 'Все';
+  if (f === 'kk') return 'KK';
+  if (f === 'ru') return 'RU';
+  return 'Без метки';
+}
 
 function normalizeImageUrls(raw: unknown): string[] {
   if (raw == null) return [];
@@ -468,7 +499,7 @@ export function QuestionsPage() {
     return map;
   }, [subjects]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ['admin-questions', examTypeId, subjectId, page, localeFilter],
     queryFn: async () => {
       const { data: res } = await api.get('/admin/questions', {
@@ -476,13 +507,14 @@ export function QuestionsPage() {
           examTypeId,
           subjectId,
           page,
-          limit: 20,
+          limit: LIST_PAGE_SIZE,
           ...localeParams,
         },
       });
       return res;
     },
     enabled: !!examTypeId,
+    placeholderData: keepPreviousData,
   });
 
   const { data: editingQuestion, isLoading: editingLoading } = useQuery({
@@ -1010,90 +1042,173 @@ export function QuestionsPage() {
     [previewLang, examTypeNameMap, subjectNameMap],
   );
 
+  const listItems = data?.items ?? [];
+  const listPageCount = useMemo(() => {
+    if (!examTypeId || data == null) return 1;
+    return Math.max(1, Math.ceil((data.total ?? 0) / LIST_PAGE_SIZE));
+  }, [examTypeId, data]);
+
   return (
     <AdminPageShell>
-      <div className="pg-q">
-        <div className="pg-q__hero">
-          <p>
-            <strong>Банк вопросов</strong> — языковые вкладки, фильтр по типу экзамена и предмету, три независимых поиска
-            по каталогу и боковая панель редактора. Сначала выберите экзамен, чтобы увидеть таблицу.
-          </p>
+      <div className="pg-questions">
+        <div className="pg-questions__hero pg-dash__hero">
+          <div>
+            <p className="pg-dash__eyebrow">
+              <FormOutlined /> Банк вопросов
+            </p>
+            <h1 className="pg-dash__headline">Вопросы</h1>
+            <p className="pg-dash__lede">
+              Языковые вкладки, тип экзамена и предмет, три независимых поиска по каталогу и боковой редактор. Сначала
+              выберите тип экзамена, чтобы увидеть таблицу.
+            </p>
+          </div>
+          <div className="pg-dash__hero-aside">
+            <span className="pg-dash__date">{formatNowRu()}</span>
+            <span
+              className={examTypeId && isFetching ? 'pg-dash__pill pg-dash__pill--sync' : 'pg-dash__pill'}
+            >
+              {examTypeId && isFetching ? (
+                <>
+                  <ThunderboltOutlined /> Обновление…
+                </>
+              ) : (
+                'Данные на момент загрузки'
+              )}
+            </span>
+          </div>
         </div>
 
-      <div className="hig-questions-toolbar-row">
-        <div />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Tooltip
-            title={
-              <>
-                Условие: JSON <Typography.Text code>topicLine</Typography.Text> +{' '}
-                <Typography.Text code>text</Typography.Text>. Похожие вопросы — по словам и биграммам (≥0,85 — возможный
-                дубликат).
-              </>
-            }
-          >
-            <Button type="text" icon={<InfoCircleOutlined />} size="small" style={{ color: 'var(--admin-muted)' }} />
-          </Tooltip>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Добавить
-          </Button>
+        <div className="pg-questions__stat-strip">
+          <div className="pg-questions__stat pg-questions__stat--blue">
+            <span className="pg-questions__stat-icon">
+              <QuestionCircleOutlined />
+            </span>
+            <div className="pg-questions__stat-body">
+              <span className="pg-questions__stat-k">Всего (по фильтру)</span>
+              <span className="pg-questions__stat-v">
+                {examTypeId ? (data?.total ?? 0).toLocaleString('ru-RU') : '—'}
+              </span>
+            </div>
+          </div>
+          <div className="pg-questions__stat pg-questions__stat--violet">
+            <span className="pg-questions__stat-icon">
+              <UnorderedListOutlined />
+            </span>
+            <div className="pg-questions__stat-body">
+              <span className="pg-questions__stat-k">На странице</span>
+              <span className="pg-questions__stat-v">{examTypeId ? listItems.length : '—'}</span>
+            </div>
+          </div>
+          <div className="pg-questions__stat pg-questions__stat--teal">
+            <span className="pg-questions__stat-icon">
+              <TableOutlined />
+            </span>
+            <div className="pg-questions__stat-body">
+              <span className="pg-questions__stat-k">Номер страницы</span>
+              <span className="pg-questions__stat-v">
+                {examTypeId ? (
+                  <>
+                    {page} / {listPageCount}
+                  </>
+                ) : (
+                  '—'
+                )}
+              </span>
+            </div>
+          </div>
+          <div className="pg-questions__stat pg-questions__stat--amber">
+            <span className="pg-questions__stat-icon">
+              <FilterOutlined />
+            </span>
+            <div className="pg-questions__stat-body">
+              <span className="pg-questions__stat-k">Язык контента</span>
+              <span className="pg-questions__stat-v pg-questions__stat-v--sm">{filterLabel(localeFilter)}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <Tabs
-        className="hig-page-tabs"
-        activeKey={localeFilterToTabKey(localeFilter)}
-        onChange={(key) => {
-          setLocaleFilter(tabKeyToLocaleFilter(key));
-          setPage(1);
-          if (key === LOCALE_TAB_KEYS.kk) setPreviewLang('kk');
-          if (key === LOCALE_TAB_KEYS.ru) setPreviewLang('ru');
-        }}
-        type="line"
-        size="large"
-        style={{ marginBottom: 16 }}
-        items={[
-          {
-            key: LOCALE_TAB_KEYS.all,
-            label: (
-              <span>
-                <strong>Барлығы</strong>
-                <Typography.Text type="secondary" style={{ marginLeft: 8, fontWeight: 400 }}>
-                  / Все
-                </Typography.Text>
-              </span>
-            ),
-          },
-          {
-            key: LOCALE_TAB_KEYS.kk,
-            label: (
-              <span>
-                <Tag color="gold" style={{ marginRight: 8 }}>
-                  KK
-                </Tag>
-                Қазақша
-              </span>
-            ),
-          },
-          {
-            key: LOCALE_TAB_KEYS.ru,
-            label: (
-              <span>
-                <Tag color="cyan" style={{ marginRight: 8 }}>
-                  RU
-                </Tag>
-                Русский
-              </span>
-            ),
-          },
-          {
-            key: LOCALE_TAB_KEYS.unset,
-            label: 'Без метки',
-          },
-        ]}
-      />
+        <div className="pg-questions__header-row">
+          <div />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Tooltip
+              title={
+                <>
+                  Условие: JSON <Typography.Text code>topicLine</Typography.Text> +{' '}
+                  <Typography.Text code>text</Typography.Text>. Похожие вопросы — по словам и биграммам (≥0,85 — возможный
+                  дубликат).
+                </>
+              }
+            >
+              <Button type="text" icon={<InfoCircleOutlined />} size="small" style={{ color: 'var(--admin-muted)' }} />
+            </Tooltip>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Добавить
+            </Button>
+          </div>
+        </div>
 
-      <HigGroup label="Тип и предмет" description="Список вопросов и поиск в каталоге привязаны к выбранному экзамену.">
+        <div className="pg-questions__locale pg-questions__locale--accent">
+          <p className="pg-questions__tool-label">Метка языка в контенте</p>
+          <Tabs
+            className="hig-page-tabs"
+            activeKey={localeFilterToTabKey(localeFilter)}
+            onChange={(key) => {
+              setLocaleFilter(tabKeyToLocaleFilter(key));
+              setPage(1);
+              if (key === LOCALE_TAB_KEYS.kk) setPreviewLang('kk');
+              if (key === LOCALE_TAB_KEYS.ru) setPreviewLang('ru');
+            }}
+            type="line"
+            size="large"
+            items={[
+              {
+                key: LOCALE_TAB_KEYS.all,
+                label: (
+                  <span>
+                    <strong>Барлығы</strong>
+                    <Typography.Text type="secondary" style={{ marginLeft: 8, fontWeight: 400 }}>
+                      / Все
+                    </Typography.Text>
+                  </span>
+                ),
+              },
+              {
+                key: LOCALE_TAB_KEYS.kk,
+                label: (
+                  <span>
+                    <Tag color="gold" style={{ marginRight: 8 }}>
+                      KK
+                    </Tag>
+                    Қазақша
+                  </span>
+                ),
+              },
+              {
+                key: LOCALE_TAB_KEYS.ru,
+                label: (
+                  <span>
+                    <Tag color="cyan" style={{ marginRight: 8 }}>
+                      RU
+                    </Tag>
+                    Русский
+                  </span>
+                ),
+              },
+              {
+                key: LOCALE_TAB_KEYS.unset,
+                label: 'Без метки',
+              },
+            ]}
+          />
+        </div>
+
+        <div className="pg-questions__section">
+          <div className="pg-questions__section-head">
+            <h2 className="pg-questions__section-title">Тип и предмет</h2>
+            <p className="pg-questions__section-desc">
+              Список вопросов и поиск в каталоге привязаны к выбранному экзамену.
+            </p>
+          </div>
       <Card className="hig-filter-card" size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 0 }}>
         <Space wrap size={[12, 12]} align="center">
           <Select
@@ -1129,13 +1244,16 @@ export function QuestionsPage() {
           )}
         </Space>
       </Card>
-      </HigGroup>
+        </div>
 
       {!!examTypeId && (
-        <HigGroup
-          label="Поиск в каталоге"
-          description="Независимые поиски по topicLine, тексту и общий — в пределах выбранного экзамена (и предмета, если задан)."
-        >
+        <div className="pg-questions__section">
+          <div className="pg-questions__section-head">
+            <h2 className="pg-questions__section-title">Поиск в каталоге</h2>
+            <p className="pg-questions__section-desc">
+              Независимые поиски по topicLine, тексту и общий — в пределах выбранного экзамена (и предмета, если задан).
+            </p>
+          </div>
         <Card className="hig-questions-search-card" size="small" title="Поиск по каталогу вопросов" style={{ marginBottom: 0 }}>
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -1260,11 +1378,15 @@ export function QuestionsPage() {
             </div>
           </Space>
         </Card>
-        </HigGroup>
+        </div>
       )}
 
       {!!examTypeId && (subjects?.length || 0) > 0 && (
-        <HigGroup label="Быстрый выбор предмета" description="Фильтр списка ниже; «Все» — по всем предметам типа.">
+        <div className="pg-questions__section">
+          <div className="pg-questions__section-head">
+            <h2 className="pg-questions__section-title">Быстрый выбор предмета</h2>
+            <p className="pg-questions__section-desc">Фильтр списка ниже; «Все» — по всем предметам типа.</p>
+          </div>
         <div className="hig-questions-subject-chips" style={{ marginBottom: 0 }}>
             <Button
               type={!subjectId ? 'primary' : 'default'}
@@ -1290,26 +1412,29 @@ export function QuestionsPage() {
               </Button>
             ))}
         </div>
-        </HigGroup>
+        </div>
       )}
 
-      <HigGroup
-        label="Список вопросов"
-        description="Редактирование и дубликаты — в строке. Выберите тип экзамена, чтобы подгрузить данные."
-      >
-        <HigTableCard>
+      <div className="pg-questions__section">
+        <div className="pg-questions__section-head">
+          <h2 className="pg-questions__section-title">Список вопросов</h2>
+          <p className="pg-questions__section-desc">
+            Редактирование и дубликаты — в строке. Выберите тип экзамена, чтобы подгрузить данные.
+          </p>
+        </div>
+        <HigTableCard className="pg-questions__table-card">
           <Table<Question>
             columns={columns}
             dataSource={examTypeId ? data?.items || [] : []}
             rowKey="id"
             rowClassName={(record) => (highlightId && record.id === highlightId ? 'admin-row-highlight' : '')}
-            loading={isLoading}
+            loading={!!examTypeId && isFetching}
             pagination={{
               current: page,
               total: data?.total || 0,
-              pageSize: 20,
+              pageSize: LIST_PAGE_SIZE,
               onChange: setPage,
-              showTotal: (total) => `Всего: ${total}`,
+              showTotal: (total) => `Всего: ${total.toLocaleString('ru-RU')}`,
               showSizeChanger: false,
             }}
             size="middle"
@@ -1323,7 +1448,7 @@ export function QuestionsPage() {
             }}
           />
         </HigTableCard>
-      </HigGroup>
+      </div>
       </div>
 
       <Drawer

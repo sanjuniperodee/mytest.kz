@@ -21,14 +21,33 @@ import {
   Tag,
   Typography,
   message,
+  Skeleton,
 } from 'antd';
-import { PlusOutlined, QuestionCircleOutlined, StopOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  QuestionCircleOutlined,
+  StopOutlined,
+  CrownOutlined,
+  ThunderboltOutlined,
+  CheckCircleOutlined,
+  AppstoreOutlined,
+  TeamOutlined,
+} from '@ant-design/icons';
 import { isAxiosError } from 'axios';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
-import { HigGroup, HigTableCard } from '../components/HigBlocks';
+import { HigTableCard } from '../components/HigBlocks';
+
+function formatNowRu() {
+  return new Date().toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 function humanizeApiMessage(raw: string): string {
   if (raw.includes('PLAN_TEMPLATE_HAS_NO_EXAM_RULES')) {
@@ -125,12 +144,17 @@ export function SubscriptionsPage() {
     queryFn: async () => (await api.get('/admin/users', { params: { search: userSearch, limit: 200 } })).data,
   });
 
-  const { data: examTypes } = useQuery({
+  const { data: examTypes, isPending: examTypesPending } = useQuery({
     queryKey: ['exam-types'],
     queryFn: async () => (await api.get('/exams/types')).data,
   });
 
-  const { data: planTemplates, isLoading: templatesLoading } = useQuery({
+  const {
+    data: planTemplates,
+    isLoading: templatesLoading,
+    isFetching: templatesFetching,
+    isPending: templatesPending,
+  } = useQuery({
     queryKey: ['admin-plan-templates'],
     queryFn: async () => (await api.get('/admin/subscriptions/plan-templates')).data,
   });
@@ -160,6 +184,23 @@ export function SubscriptionsPage() {
       }),
     [usersData?.items],
   );
+
+  const subsStats = useMemo(() => {
+    const tpl = planTemplates ?? [];
+    const withRules = tpl.filter((p: PlanTemplateRow) => (p.examRules?.length ?? 0) > 0).length;
+    const ud = usersData as { total?: number; items?: unknown[] } | undefined;
+    const usersCount =
+      typeof ud?.total === 'number' ? ud.total : (ud?.items?.length ?? 0);
+    return {
+      templates: tpl.length,
+      withRules,
+      examTypes: (examTypes ?? []).length,
+      usersInList: usersCount,
+    };
+  }, [planTemplates, examTypes, usersData]);
+
+  const showSkeleton =
+    (templatesPending && !planTemplates) || (examTypesPending && !examTypes);
 
   useEffect(() => {
     if (applyTemplateIdPrefill) {
@@ -614,30 +655,107 @@ export function SubscriptionsPage() {
     };
   });
 
+  if (showSkeleton) {
+    return (
+      <AdminPageShell className="admin-subscriptions-page">
+        <div className="pg-subs-page">
+          <Skeleton active className="pg-subs-page__skeleton-hero" paragraph={{ rows: 0 }} />
+          <div className="pg-subs-page__stat-strip">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton.Button key={i} active block style={{ height: 86, borderRadius: 16 }} />
+            ))}
+          </div>
+          <Skeleton active className="pg-subs-page__skeleton-tabs" paragraph={{ rows: 8 }} />
+        </div>
+      </AdminPageShell>
+    );
+  }
+
   return (
     <AdminPageShell className="admin-subscriptions-page">
-      <div className="pg-subs">
-        <div className="pg-subs__hero">
-          <p>
-            <strong>Биллинг и доступ.</strong> Выдача entitlements по шаблонам, каталог тарифов, редкие сценарии
-            (legacy-Subscription и ручной entitlement). Пользователей ищите в селектах — таблица подтянет связанные
-            записи.
-          </p>
+      <div className="pg-subs-page">
+        <div className="pg-subs-page__hero pg-dash__hero">
+          <div>
+            <p className="pg-dash__eyebrow">
+              <CrownOutlined /> Биллинг
+            </p>
+            <h1 className="pg-dash__headline">Подписки</h1>
+            <p className="pg-dash__lede">
+              Выдача entitlements по шаблонам, каталог тарифов, редкие сценарии (legacy-Subscription и ручной
+              entitlement). Пользователей ищите в селектах — таблицы подтянут связанные записи.
+            </p>
+          </div>
+          <div className="pg-dash__hero-aside">
+            <span className="pg-dash__date">{formatNowRu()}</span>
+            <span className={templatesFetching ? 'pg-dash__pill pg-dash__pill--sync' : 'pg-dash__pill'}>
+              {templatesFetching ? (
+                <>
+                  <ThunderboltOutlined /> Обновление…
+                </>
+              ) : (
+                'Данные на момент загрузки'
+              )}
+            </span>
+          </div>
         </div>
-      <div className="hig-tab-panel-stack">
-        <Tabs
-          className="hig-page-tabs"
-          activeKey={subscriptionTab}
-          onChange={setSubscriptionTab}
-          items={[
-            {
-              key: 'grant',
-              label: 'Выдача',
-              children: (
-                <HigGroup
-                  label="Выдача по шаблону"
-                  description="Создаёт записи v2 (entitlements) по всем правилам выбранного тарифа — как после оплаты."
-                >
+
+        <div className="pg-subs-page__stat-strip">
+          <div className="pg-subs-page__stat pg-subs-page__stat--blue">
+            <span className="pg-subs-page__stat-icon">
+              <CrownOutlined />
+            </span>
+            <div className="pg-subs-page__stat-body">
+              <span className="pg-subs-page__stat-k">Шаблонов тарифов</span>
+              <span className="pg-subs-page__stat-v">{subsStats.templates.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+          <div className="pg-subs-page__stat pg-subs-page__stat--violet">
+            <span className="pg-subs-page__stat-icon">
+              <CheckCircleOutlined />
+            </span>
+            <div className="pg-subs-page__stat-body">
+              <span className="pg-subs-page__stat-k">С правилами экзаменов</span>
+              <span className="pg-subs-page__stat-v">{subsStats.withRules.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+          <div className="pg-subs-page__stat pg-subs-page__stat--teal">
+            <span className="pg-subs-page__stat-icon">
+              <AppstoreOutlined />
+            </span>
+            <div className="pg-subs-page__stat-body">
+              <span className="pg-subs-page__stat-k">Типов экзаменов</span>
+              <span className="pg-subs-page__stat-v">{subsStats.examTypes.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+          <div className="pg-subs-page__stat pg-subs-page__stat--amber">
+            <span className="pg-subs-page__stat-icon">
+              <TeamOutlined />
+            </span>
+            <div className="pg-subs-page__stat-body">
+              <span className="pg-subs-page__stat-k">Пользователей (поиск)</span>
+              <span className="pg-subs-page__stat-v">{subsStats.usersInList.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="pg-subs-page__tabs-surface">
+          <div className="hig-tab-panel-stack">
+            <Tabs
+              className="hig-page-tabs"
+              activeKey={subscriptionTab}
+              onChange={setSubscriptionTab}
+              items={[
+                {
+                  key: 'grant',
+                  label: 'Выдача',
+                  children: (
+                <div className="pg-subs__section">
+                  <div className="pg-subs__section-head">
+                    <h2 className="pg-subs__section-title">Выдача по шаблону</h2>
+                    <p className="pg-subs__section-desc">
+                      Создаёт записи v2 (entitlements) по всем правилам выбранного тарифа — как после оплаты.
+                    </p>
+                  </div>
                 <Card
                   id="apply-plan-template-form"
                   className="hig-surface-card hig-entitlement-stack"
@@ -769,17 +887,21 @@ export function SubscriptionsPage() {
                     </Button>
                   </Form>
                 </Card>
-                </HigGroup>
+                </div>
               ),
             },
             {
               key: 'templates',
               label: 'Шаблоны',
               children: (
-                <HigGroup
-                  label="Каталог шаблонов"
-                  description="Редактирование — через «Правила экзаменов» в строке. Глобальные лимиты подставляются, если в строке не задано иное."
-                >
+                <div className="pg-subs__section">
+                  <div className="pg-subs__section-head">
+                    <h2 className="pg-subs__section-title">Каталог шаблонов</h2>
+                    <p className="pg-subs__section-desc">
+                      Редактирование — через «Правила экзаменов» в строке. Глобальные лимиты подставляются, если в строке
+                      не задано иное.
+                    </p>
+                  </div>
                   <HigTableCard
                     title="Каталог тарифов (шаблоны v2)"
                     extra={
@@ -827,7 +949,7 @@ export function SubscriptionsPage() {
                       }}
                     />
                   </HigTableCard>
-                </HigGroup>
+                </div>
               ),
             },
             {
@@ -835,7 +957,13 @@ export function SubscriptionsPage() {
               label: 'Проверка и редкие сценарии',
               children: (
                 <div className="hig-tab-panel-stack">
-                  <HigGroup label="Справка" description="Кратко, как связаны шаблоны, выдача, legacy и ручной entitlement.">
+                  <div className="pg-subs__section">
+                    <div className="pg-subs__section-head">
+                      <h2 className="pg-subs__section-title">Справка</h2>
+                      <p className="pg-subs__section-desc">
+                        Кратко, как связаны шаблоны, выдача, legacy и ручной entitlement.
+                      </p>
+                    </div>
                     <Collapse
                       className="hig-doc-collapse"
                       items={[
@@ -865,9 +993,13 @@ export function SubscriptionsPage() {
                         },
                       ]}
                     />
-                  </HigGroup>
+                  </div>
 
-                  <HigGroup label="Ручные действия" description="Когда v2-шаблона недостаточно.">
+                  <div className="pg-subs__section">
+                    <div className="pg-subs__section-head">
+                      <h2 className="pg-subs__section-title">Ручные действия</h2>
+                      <p className="pg-subs__section-desc">Когда v2-шаблона недостаточно.</p>
+                    </div>
                     <div className="hig-inner-flow" style={{ maxWidth: 520 }}>
                       <Card className="hig-surface-card" size="small" title="Legacy (как в биллинге, planType)">
                         <Typography.Paragraph type="secondary">
@@ -881,9 +1013,15 @@ export function SubscriptionsPage() {
                         <Button onClick={() => setEntitlementModalOpen(true)}>Создать вручную</Button>
                       </Card>
                     </div>
-                  </HigGroup>
+                  </div>
 
-                  <HigGroup label="Просмотр" description="Список legacy по пользователям и v2-записи по выбранному аккаунту.">
+                  <div className="pg-subs__section">
+                    <div className="pg-subs__section-head">
+                      <h2 className="pg-subs__section-title">Просмотр</h2>
+                      <p className="pg-subs__section-desc">
+                        Список legacy по пользователям и v2-записи по выбранному аккаунту.
+                      </p>
+                    </div>
                     <HigTableCard title="Активные legacy-подписки">
                       <Table
                         columns={userSubscriptionColumns}
@@ -932,13 +1070,14 @@ export function SubscriptionsPage() {
                         locale={{ emptyText: <Empty description="Выберите пользователя" /> }}
                       />
                     </HigTableCard>
-                  </HigGroup>
+                  </div>
                 </div>
               ),
             },
           ]}
         />
-      </div>
+          </div>
+        </div>
       </div>
 
       <Modal
