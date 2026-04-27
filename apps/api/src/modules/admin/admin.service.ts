@@ -18,6 +18,10 @@ export class AdminService {
     return this.userService.getUsers(search, page, limit);
   }
 
+  async getUserDetail(id: string) {
+    return this.userService.getUserDetail(id);
+  }
+
   async updateUser(id: string, data: { isAdmin?: boolean }) {
     return this.userService.updateUser(id, data);
   }
