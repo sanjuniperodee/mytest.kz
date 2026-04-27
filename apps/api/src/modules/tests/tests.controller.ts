@@ -6,7 +6,6 @@ import {
   Param,
   Query,
   UseGuards,
-  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
@@ -14,6 +13,9 @@ import { PremiumGuard } from '../../common/guards/premium.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TestSessionService } from './test-session.service';
 import { MistakesService } from './mistakes.service';
+import { StartTestDto } from './dto/start-test.dto';
+import { MistakesPracticeDto } from './dto/mistakes-practice.dto';
+import { SubmitAnswerDto } from './dto/submit-answer.dto';
 
 @Controller('tests')
 @UseGuards(AuthGuard('jwt'), ChannelMemberGuard)
@@ -31,35 +33,26 @@ export class TestsController {
   @Post('mistakes/practice')
   async mistakesPractice(
     @CurrentUser('id') userId: string,
-    @Body('language') language: string,
-    @Body('examTypeId') examTypeId?: string,
-    @Body('limit') limit?: number,
-    @Body('durationMins') durationMins?: number,
+    @Body() dto: MistakesPracticeDto,
   ) {
-    if (!language || typeof language !== 'string') {
-      throw new BadRequestException('language required');
-    }
-    return this.testSessionService.startRemediationSession(userId, language, {
-      examTypeId,
-      limit: typeof limit === 'number' ? limit : undefined,
-      durationMins: typeof durationMins === 'number' ? durationMins : undefined,
+    return this.testSessionService.startRemediationSession(userId, dto.language, {
+      examTypeId: dto.examTypeId,
+      limit: dto.limit,
+      durationMins: dto.durationMins,
     });
   }
 
   @Post('start')
   async startTest(
     @CurrentUser('id') userId: string,
-    @Body('templateId') templateId: string,
-    @Body('language') language: string,
-    @Body('profileSubjectIds') profileSubjectIds?: string[],
-    @Body('entScope') entScope?: 'mandatory' | 'profile' | 'full',
+    @Body() dto: StartTestDto,
   ) {
     return this.testSessionService.startTest(
       userId,
-      templateId,
-      language,
-      profileSubjectIds,
-      entScope,
+      dto.templateId,
+      dto.language,
+      dto.profileSubjectIds,
+      dto.entScope,
     );
   }
 
@@ -88,14 +81,13 @@ export class TestsController {
   async submitAnswer(
     @CurrentUser('id') userId: string,
     @Param('id') sessionId: string,
-    @Body('questionId') questionId: string,
-    @Body('selectedIds') selectedIds: string[],
+    @Body() dto: SubmitAnswerDto,
   ) {
     return this.testSessionService.submitAnswer(
       sessionId,
       userId,
-      questionId,
-      selectedIds,
+      dto.questionId,
+      dto.selectedIds,
     );
   }
 

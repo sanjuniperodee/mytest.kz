@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Button, Typography, message } from 'antd';
+import { Form, Input, Button, message } from 'antd';
 import { normalizeKzPhone } from '@bilimland/shared';
 import { api, setTokens } from '../api/client';
-
-const { Title } = Typography;
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
-  /** Нормализованный 11-значный номер для шага с кодом */
   const [phoneNormalized, setPhoneNormalized] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -68,80 +65,90 @@ export function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg,#f5f7fb,#eef3fb)',
-      }}
-    >
-      <Card style={{ width: 420, borderRadius: 12, boxShadow: '0 10px 30px rgba(15,23,42,0.08)' }}>
-        <Title level={3} style={{ textAlign: 'center' }}>
-          MyTest Admin
-        </Title>
-        <p style={{ textAlign: 'center', color: '#64748b', marginTop: -8, marginBottom: 20 }}>
-          Вход только для администраторов
-        </p>
-        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
-          Укажите тот же номер телефона, что привязан к аккаунту в Telegram (через бота). Код придёт в
-          Telegram.
-        </p>
+    <div className="pg-login">
+      <div className="pg-login__brand" aria-hidden={false}>
+        <div className="pg-login__mark">M</div>
+        <h1 className="pg-login__title">MyTest</h1>
+        <p className="pg-login__tagline">Панель администратора</p>
+        <ul className="pg-login__bullets">
+          <li>Вход по номеру, как в Telegram-боте — без отдельного пароля</li>
+          <li>Одноразовый код уходит в привязанный Telegram</li>
+          <li>Роль admin проверяется на сервере при входе</li>
+        </ul>
+      </div>
 
-        {step === 'phone' ? (
-          <Form onFinish={handleRequestCode} layout="vertical">
-            <Form.Item label="Телефон" required>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+7 707 123 45 67"
-                size="large"
-                autoFocus
-                inputMode="tel"
-              />
-            </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-                Получить код
-              </Button>
-            </Form.Item>
-          </Form>
-        ) : (
-          <Form onFinish={handleVerifyCode} layout="vertical">
-            <p style={{ marginBottom: 16, color: '#666' }}>
-              Код отправлен в Telegram для номера{' '}
-              <strong>{phoneNormalized ? `+${phoneNormalized}` : phone}</strong>
-            </p>
-            <Form.Item
-              name="code"
-              label="Код"
-              rules={[{ required: true, len: 6, message: 'Введите 6-значный код' }]}
-            >
-              <Input
-                size="large"
-                maxLength={6}
-                style={{ textAlign: 'center', letterSpacing: 8, fontSize: 24 }}
-                autoComplete="one-time-code"
-              />
-            </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-                Войти
-              </Button>
-            </Form.Item>
-            <Button
-              type="link"
-              onClick={() => {
-                setStep('phone');
-                setPhoneNormalized(null);
-              }}
-            >
-              Назад
-            </Button>
-          </Form>
-        )}
-      </Card>
+      <div className="pg-login__stage">
+        <div className="pg-login__panel">
+          <div className="pg-login__steps" aria-label="Шаги входа">
+            <span className={step === 'phone' ? 'is-active' : 'is-done'}>1. Телефон</span>
+            <span aria-hidden>→</span>
+            <span className={step === 'code' ? 'is-active' : ''}>2. Код</span>
+          </div>
+
+          {step === 'phone' ? (
+            <>
+              <h2 className="pg-login__head">Войти</h2>
+              <p className="pg-login__sub">Укажите номер в формате KZ. Мы пришлём код в Telegram.</p>
+              <Form onFinish={handleRequestCode} layout="vertical" requiredMark="optional">
+                <Form.Item label="Телефон" required>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+7 707 123 45 67"
+                    size="large"
+                    autoFocus
+                    inputMode="tel"
+                  />
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" htmlType="submit" block size="large" loading={loading}>
+                    Получить код
+                  </Button>
+                </Form.Item>
+              </Form>
+            </>
+          ) : (
+            <>
+              <h2 className="pg-login__head">Код из Telegram</h2>
+              <p className="pg-login__code-hint">
+                Отправлен на{' '}
+                <strong>{phoneNormalized ? `+${phoneNormalized}` : phone}</strong>
+              </p>
+              <Form onFinish={handleVerifyCode} layout="vertical">
+                <Form.Item
+                  name="code"
+                  label="6 цифр"
+                  rules={[{ required: true, len: 6, message: 'Введите 6-значный код' }]}
+                >
+                  <Input
+                    size="large"
+                    maxLength={6}
+                    style={{ textAlign: 'center', letterSpacing: 10, fontSize: 22, fontWeight: 600 }}
+                    autoComplete="one-time-code"
+                    placeholder="••••••"
+                  />
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" htmlType="submit" block size="large" loading={loading}>
+                    Войти в панель
+                  </Button>
+                </Form.Item>
+                <div className="pg-login__back">
+                  <Button
+                    type="link"
+                    onClick={() => {
+                      setStep('phone');
+                      setPhoneNormalized(null);
+                    }}
+                  >
+                    Изменить номер
+                  </Button>
+                </div>
+              </Form>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

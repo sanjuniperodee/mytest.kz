@@ -10,22 +10,28 @@ import {
   Avatar,
   Button,
   Typography,
+  Drawer,
+  Dropdown,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   UserOutlined,
-  QuestionCircleOutlined,
   CrownOutlined,
-  BarChartOutlined,
   DashboardOutlined,
   LineChartOutlined,
   BookOutlined,
   RocketOutlined,
   FundProjectionScreenOutlined,
   AppstoreOutlined,
-  SettingOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  LogoutOutlined,
+  ReadOutlined,
+  FormOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
+import { getPageMeta } from './lib/pageMeta';
 import { UsersPage } from './pages/UsersPage';
 import { QuestionsPage } from './pages/QuestionsPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
@@ -78,39 +84,53 @@ function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const selectedKey = useMemo(() => menuKeyFromPath(location.pathname), [location.pathname]);
+  const pageMeta = useMemo(() => getPageMeta(location.pathname), [location.pathname]);
 
-  useEffect(() => {
-    if (location.pathname.startsWith('/analytics')) {
-      setOpenKeys((k) => (k.includes('analytics') ? k : [...k, 'analytics']));
-    }
-  }, [location.pathname]);
 
   const menuItems: MenuProps['items'] = useMemo(
     () => [
-      { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
       {
-        key: 'analytics',
-        icon: <BarChartOutlined />,
-        label: 'Аналитика',
+        type: 'group',
+        label: 'Старт',
+        children: [{ key: 'dashboard', icon: <DashboardOutlined />, label: 'Панель' }],
+      },
+      {
+        type: 'group',
+        label: 'Метрики',
         children: [
-          { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Платформа' },
-          { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'Пробные ЕНТ' },
-          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги в вузы (5 лет)' },
+          { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Воронка' },
+          { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'ЕНТ' },
+          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги' },
         ],
       },
-      { key: 'admission', icon: <RocketOutlined />, label: 'Шанс поступления' },
-      { key: 'explanations', icon: <QuestionCircleOutlined />, label: 'Объяснения вопросов' },
-      { type: 'divider' },
-      { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
-      { key: 'questions', icon: <QuestionCircleOutlined />, label: 'Вопросы' },
-      { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены и шаблоны' },
-      { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
-      { key: 'landing-settings', icon: <SettingOutlined />, label: 'Настройки лендинга' },
+      {
+        type: 'group',
+        label: 'Каталог',
+        children: [
+          { key: 'questions', icon: <FormOutlined />, label: 'Вопросы' },
+          { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
+          { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены' },
+          { key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Аккаунты',
+        children: [
+          { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
+          { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Сервис',
+        children: [{ key: 'admission', icon: <RocketOutlined />, label: 'Шанс' }],
+      },
     ],
     [],
   );
@@ -136,7 +156,7 @@ function AdminLayout() {
 
   if (loadingUser) {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+      <div className="admin-boot">
         <Spin size="large" />
       </div>
     );
@@ -146,64 +166,112 @@ function AdminLayout() {
 
   return (
     <Layout className="admin-shell">
+      {/* Desktop sidebar */}
       <Sider
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        width={240}
-        style={{
-          background: 'linear-gradient(180deg, #0c1324 0%, #111827 100%)',
-          boxShadow: '4px 0 24px rgba(15, 23, 42, 0.12)',
+        width={256}
+        breakpoint="lg"
+        onBreakpoint={(broken) => {
+          if (broken) setCollapsed(true);
         }}
+        className="admin-desktop-sider admin-sider"
       >
         <div className="admin-sider-brand">
-          <div className="admin-sider-brand-title">{collapsed ? 'MT' : 'MyTest Admin'}</div>
-          {!collapsed && <div className="admin-sider-brand-sub">Анализ · контент · доступ</div>}
+          <div className="admin-sider-logo">{collapsed ? 'MT' : 'M'}</div>
+          {!collapsed && (
+            <div className="admin-sider-brand-text">
+              <div className="admin-sider-brand-title">MyTest</div>
+              <div className="admin-sider-brand-sub">admin</div>
+            </div>
+          )}
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={[selectedKey]}
-          openKeys={collapsed ? [] : openKeys}
-          onOpenChange={(keys) => setOpenKeys(keys as string[])}
           onClick={({ key }) => {
             const path = MENU_NAV[key];
             if (path) navigate(path);
           }}
-          style={{ background: 'transparent', border: 'none' }}
+          className="admin-sider-menu"
           items={menuItems}
         />
       </Sider>
-      <Layout>
-        <Header
-          style={{
-            background: '#fff',
-            padding: '0 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
+
+      {/* Mobile drawer sidebar */}
+      <Drawer
+        placement="left"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        width={260}
+        closable={false}
+        rootClassName="admin-mobile-drawer"
+        styles={{ body: { padding: 0, background: 'var(--admin-sider-bg)' } }}
+      >
+        <div className="admin-sider-brand">
+          <div className="admin-sider-logo">M</div>
+          <div className="admin-sider-brand-text">
+            <div className="admin-sider-brand-title">MyTest</div>
+            <div className="admin-sider-brand-sub">admin</div>
+          </div>
+        </div>
+        <Menu
+          theme="light"
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          onClick={({ key }) => {
+            const path = MENU_NAV[key];
+            if (path) navigate(path);
+            setMobileOpen(false);
           }}
-        >
-          <Typography.Text strong style={{ fontSize: 15, color: '#0f172a' }}>
-            Панель администратора
-          </Typography.Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Avatar size="small" style={{ backgroundColor: '#3b5bdb' }}>
-              {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
-            </Avatar>
-            <span>
-              {user.firstName} {user.lastName}
-            </span>
-            <Button
-              type="link"
-              onClick={() => {
-                clearTokens();
-                navigate('/login', { replace: true });
+          className="admin-sider-menu"
+          items={menuItems}
+        />
+      </Drawer>
+
+      <Layout>
+        <Header className="admin-top-header">
+          <Button
+            type="text"
+            icon={mobileOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="admin-header-hamburger"
+            aria-label="Меню"
+          />
+          <div className="admin-header-titles">
+            <Typography.Title level={4} className="admin-header-title">
+              {pageMeta.title}
+            </Typography.Title>
+          </div>
+          <div className="admin-header-user">
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'logout',
+                    label: 'Выйти',
+                    icon: <LogoutOutlined />,
+                    onClick: () => {
+                      clearTokens();
+                      navigate('/login', { replace: true });
+                    },
+                  },
+                ],
               }}
+              trigger={['click']}
+              placement="bottomRight"
             >
-              Выйти
-            </Button>
+              <Button type="text" className="admin-header-user-btn">
+                <Avatar size="small" className="admin-header-avatar">
+                  {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
+                </Avatar>
+                <span className="admin-header-username">
+                  {user.firstName} {user.lastName}
+                </span>
+              </Button>
+            </Dropdown>
           </div>
         </Header>
         <Content className="admin-content-wrap">
@@ -234,9 +302,70 @@ export function App() {
         algorithm: theme.defaultAlgorithm,
         token: {
           borderRadius: 10,
-          colorPrimary: '#3b5bdb',
-          fontFamily:
-            'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          colorPrimary: '#007aff',
+          colorInfo: '#007aff',
+          colorSuccess: '#34c759',
+          colorWarning: '#ff9f0a',
+          colorError: '#ff3b30',
+          colorText: '#1d1d1f',
+          colorTextSecondary: 'rgba(60, 60, 67, 0.72)',
+          colorTextTertiary: 'rgba(60, 60, 67, 0.55)',
+          colorTextQuaternary: 'rgba(60, 60, 67, 0.4)',
+          colorBorder: 'rgba(60, 60, 67, 0.12)',
+          colorBorderSecondary: 'rgba(60, 60, 67, 0.06)',
+          colorSplit: 'rgba(60, 60, 67, 0.12)',
+          colorBgContainer: '#ffffff',
+          colorBgLayout: 'transparent',
+          colorFillAlter: '#fafafa',
+          colorFillSecondary: '#e5e5ea',
+          fontSize: 13,
+          fontSizeSM: 12,
+          fontSizeLG: 15,
+          lineHeight: 1.45,
+          controlHeight: 32,
+          controlHeightSM: 28,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+          boxShadowSecondary: '0 4px 16px rgba(0, 0, 0, 0.1)',
+        },
+        components: {
+          Menu: {
+            itemHeight: 40,
+            itemBorderRadius: 8,
+            subMenuItemBorderRadius: 8,
+            iconSize: 16,
+            collapsedIconSize: 16,
+            groupTitleFontSize: 11,
+            itemColor: 'rgba(29, 29, 31, 0.9)',
+            itemSelectedColor: '#007aff',
+            itemActiveBg: 'rgba(0, 122, 255, 0.12)',
+            itemHoverBg: 'rgba(0, 0, 0, 0.04)',
+            itemSelectedBg: 'rgba(0, 122, 255, 0.12)',
+            groupTitleColor: 'rgba(60, 60, 67, 0.55)',
+          },
+          Card: { paddingLG: 16, boxShadow: 'none' },
+          Table: {
+            cellPaddingBlock: 8,
+            cellPaddingInline: 12,
+            fontSize: 13,
+            headerColor: 'rgba(60, 60, 67, 0.55)',
+            rowHoverBg: 'rgba(0, 0, 0, 0.02)',
+          },
+          Tabs: {
+            cardHeight: 36,
+            itemColor: 'rgba(60, 60, 67, 0.55)',
+            itemSelectedColor: '#007aff',
+            titleFontSize: 13,
+            inkBarColor: '#007aff',
+          },
+          Button: { controlHeight: 32, fontWeight: 500, borderRadius: 10, primaryShadow: 'none' },
+          Input: { activeBorderColor: '#007aff', hoverBorderColor: 'rgba(60, 60, 67, 0.28)' },
+          Select: { optionSelectedBg: 'rgba(0, 122, 255, 0.1)' },
+          Form: { labelFontSize: 12, labelColor: 'rgba(60, 60, 67, 0.75)' },
+          Modal: { contentBg: '#ffffff', titleFontSize: 15, titleLineHeight: 1.4 },
+          Drawer: { colorBgElevated: '#e8e8ed' },
+          Tag: { defaultBg: '#e5e5ea', defaultColor: 'rgba(60, 60, 67, 0.85)', borderRadiusSM: 6 },
+          Alert: { borderRadiusLG: 12 },
         },
       }}
     >

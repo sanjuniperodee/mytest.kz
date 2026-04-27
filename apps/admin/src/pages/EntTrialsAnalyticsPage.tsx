@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, Statistic, Row, Col, Spin, Alert, Typography } from 'antd';
+import { Spin, Typography } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
 import { api } from '../api/client';
+import { AdminPageShell } from '../components/AdminPageShell';
 
 export function EntTrialsAnalyticsPage() {
   const { data, isLoading } = useQuery({
@@ -10,69 +11,54 @@ export function EntTrialsAnalyticsPage() {
   });
 
   if (isLoading) {
-    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+    return (
+      <div className="admin-boot">
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
-    <div>
-      <h2 className="admin-page-title">Аналитика по пробным ЕНТ</h2>
-      <p className="admin-page-lead">
-        Статистика по завершённым сессиям с типом экзамена ENT: объём прохождений, средний балл и доля
-        верных ответов (агрегировано по завершённым попыткам).
-      </p>
+    <AdminPageShell>
+      <div className="pg-ent">
+        <p className="pg-ent__intro">
+          Агрегаты по <strong>завершённым</strong> сессиям типа <code>ent</code>: объёмы за всё время и за 30 дней,
+          средний балл и доля верных ответов.
+        </p>
 
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-        message="Данные строятся по полю статуса «completed» и привязке к exam_type.slug = ent."
-      />
-
-      {!data?.entFound ? (
-        <Card>
-          <Typography.Text type="secondary">
-            В каталоге экзаменов нет типа с идентификатором <code>ent</code>. Добавьте его в базе,
-            чтобы аналитика заполнилась.
-          </Typography.Text>
-        </Card>
-      ) : (
-        <Row gutter={[16, 16]}>
-          <Col xs={12} md={6}>
-            <Card className="admin-stat-card">
-              <Statistic
-                title="Завершено всего"
-                value={data.completedSessions}
-                prefix={<LineChartOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card className="admin-stat-card">
-              <Statistic title="Завершено за 30 дней" value={data.last30Completed} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card className="admin-stat-card">
-              <Statistic
-                title="Средний балл (score)"
-                value={data.avgScore != null ? Number(data.avgScore).toFixed(2) : '—'}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card className="admin-stat-card">
-              <Statistic
-                title="Средний % верных"
-                value={
-                  data.avgCorrectPercent != null
-                    ? `${Number(data.avgCorrectPercent).toFixed(1)}%`
-                    : '—'
-                }
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
-    </div>
+        {!data?.entFound ? (
+          <div className="pg-ent__empty">
+            <Typography.Text>
+              В каталоге экзаменов нет типа с идентификатором <code>ent</code>. Добавьте его в базе — тогда метрики
+              заполнятся автоматически.
+            </Typography.Text>
+          </div>
+        ) : (
+          <div className="pg-ent__strip">
+            <div className="pg-ent__stat">
+              <span className="pg-ent__stat-k">
+                <LineChartOutlined style={{ marginRight: 6 }} />
+                Завершено всего
+              </span>
+              <span className="pg-ent__stat-v">{data.completedSessions}</span>
+            </div>
+            <div className="pg-ent__stat">
+              <span className="pg-ent__stat-k">За 30 дней</span>
+              <span className="pg-ent__stat-v">{data.last30Completed}</span>
+            </div>
+            <div className="pg-ent__stat">
+              <span className="pg-ent__stat-k">Средний балл</span>
+              <span className="pg-ent__stat-v">{data.avgScore != null ? Number(data.avgScore).toFixed(2) : '—'}</span>
+            </div>
+            <div className="pg-ent__stat">
+              <span className="pg-ent__stat-k">Средний % верных</span>
+              <span className="pg-ent__stat-v">
+                {data.avgCorrectPercent != null ? `${Number(data.avgCorrectPercent).toFixed(1)}%` : '—'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </AdminPageShell>
   );
 }

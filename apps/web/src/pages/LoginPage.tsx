@@ -72,6 +72,7 @@ export function LoginPage() {
           canonicalPath="/login"
           noindex
           htmlLang={htmlLang}
+          i18nLanguage={i18n.language}
           includeHreflang={false}
         />
         <div className="login-page">
@@ -175,6 +176,7 @@ export function LoginPage() {
         canonicalPath="/login"
         noindex
         htmlLang={htmlLang}
+        i18nLanguage={i18n.language}
         includeHreflang={false}
       />
       <div className="login-page">

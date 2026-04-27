@@ -329,6 +329,8 @@ export class TestSessionService {
     if (!session) throw new BadRequestException('Session not available');
 
     const durationMins = await this.getDurationMinsForSession(session);
+    let serverTimeRemaining: number | null = null;
+
     if (durationMins != null) {
       const elapsed = Math.floor(
         (Date.now() - session.startedAt.getTime()) / 1000,
@@ -337,6 +339,7 @@ export class TestSessionService {
         await this.finishTest(sessionId, userId, true);
         throw new BadRequestException('Time expired');
       }
+      serverTimeRemaining = Math.max(0, durationMins * 60 - elapsed);
     }
 
     const answer = await this.prisma.testAnswer.findFirst({
@@ -345,13 +348,22 @@ export class TestSessionService {
 
     if (!answer) throw new NotFoundException('Question not in this test');
 
-    return this.prisma.testAnswer.update({
+    const updated = await this.prisma.testAnswer.update({
       where: { id: answer.id },
       data: {
         selectedIds,
         answeredAt: new Date(),
       },
     });
+
+    if (serverTimeRemaining !== null) {
+      await this.prisma.testSession.update({
+        where: { id: sessionId },
+        data: { timeRemaining: serverTimeRemaining },
+      });
+    }
+
+    return { ...updated, serverTimeRemaining };
   }
 
   async finishTest(sessionId: string, userId: string, timedOut = false) {

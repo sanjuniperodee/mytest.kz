@@ -68,11 +68,19 @@ export class BillingService {
       body.set(key, String(value));
     }
 
-    const response = await fetch(`${apiUrl}/init_payment.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+    let response: Response;
+    try {
+      response = await fetch(`${apiUrl}/init_payment.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const text = await response.text();
     if (!response.ok) {
       throw new BadRequestException(`PAYMENT_GATEWAY_ERROR:${response.status}`);

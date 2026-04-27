@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../client';
+import { useTestSessionStore } from '../../stores/testSessionStore';
 import type { TestSession, PaginatedResponse, MistakesSummary } from '../types';
 
 export function useStartTest() {
@@ -54,8 +55,13 @@ export function useSessions(page = 1) {
 export function useSubmitAnswer(sessionId: string) {
   return useMutation({
     mutationFn: async (params: { questionId: string; selectedIds: string[] }) => {
-      const { data } = await api.post(`/tests/sessions/${sessionId}/answer`, params);
+      const { data } = await api.post<{ id: string; selectedIds: string[]; serverTimeRemaining: number | null }>(`/tests/sessions/${sessionId}/answer`, params);
       return data;
+    },
+    onSuccess: (data) => {
+      if (data.serverTimeRemaining != null) {
+        useTestSessionStore.getState().setTimeRemaining(data.serverTimeRemaining);
+      }
     },
   });
 }

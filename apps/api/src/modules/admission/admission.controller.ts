@@ -1,4 +1,5 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { GrantQuotaType } from '@prisma/client';
 import { AdmissionService } from './admission.service';
 import {
@@ -11,6 +12,7 @@ import {
 } from './admission.dto';
 
 @Controller('admission')
+@UseGuards(ThrottlerGuard)
 export class AdmissionController {
   constructor(private readonly admissionService: AdmissionService) {}
 

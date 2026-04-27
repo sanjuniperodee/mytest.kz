@@ -3,13 +3,21 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setThemePreference, type ThemePreference } from '../../lib/theme';
 import { api } from '../../api/client';
+import { useVisitTrack } from '../../hooks/useVisitTrack';
 import { resolveMediaUrl } from '../../lib/resolveMediaUrl';
 import { AdmissionChanceWidget } from '../admission/AdmissionChanceWidget';
+import {
+  type LandingRuntimeSettings,
+  isModernSlide,
+  toYoutubeEmbedUrl,
+  type ModernHeroSlide,
+} from '@bilimland/shared';
 
 type Proof = { title: string; body: string };
 type Step = { title: string; body: string };
 type Bento = { title: string; body: string };
 type Faq = { question: string; answer: string };
+type Testimonial = { quote: string; author: string };
 type PriceFeature = { text: string; included: boolean };
 type PriceTier = {
   name: string;
@@ -20,40 +28,8 @@ type PriceTier = {
   cta: string;
   highlighted: boolean;
 };
-type Testimonial = { quote: string; author: string };
-
 export type LandingV3Props = {
   whatsappHref: string;
-};
-
-type HeroSlide = {
-  title?: string;
-  subtitle?: string;
-  desktopImageUrl: string;
-  tabletImageUrl: string;
-  mobileImageUrl: string;
-  buttonLabel?: string;
-  buttonHref?: string;
-  showButton?: boolean;
-  isActive?: boolean;
-} | {
-  // fallback shape used by defaultHeroSlides
-  image: string;
-  title: string;
-  subtitle: string;
-  cta: string;
-};
-
-function hasModernHeroSlide(slide: HeroSlide): slide is HeroSlide & Required<Pick<HeroSlide, 'desktopImageUrl'>> {
-  return 'desktopImageUrl' in slide;
-}
-
-type LandingRuntimeSettings = {
-  instructionVideoUrl: string;
-  instagramUrl: string;
-  tiktokUrl: string;
-  whatsappUrl: string;
-  heroSlides?: HeroSlide[];
 };
 
 function trackThemeFromDoc(): { effective: 'light' | 'dark'; preference: ThemePreference } {
@@ -137,24 +113,6 @@ function GridPattern({ className = '' }: { className?: string }) {
   );
 }
 
-function toYoutubeEmbedUrl(rawUrl: string): string | null {
-  const value = rawUrl.trim();
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    if (parsed.hostname.includes('youtu.be')) {
-      const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (parsed.hostname.includes('youtube.com')) {
-      if (parsed.pathname.startsWith('/embed/')) return value;
-      const id = parsed.searchParams.get('v');
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    return null;
-  } catch { return null; }
-}
-
 function EntCountdownTimer({ target, language }: { target: Date; language: string }) {
   const [time, setTime] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
   useEffect(() => {
@@ -202,6 +160,7 @@ function EntCountdownTimer({ target, language }: { target: Date; language: strin
 
 export function LandingV3({ whatsappHref }: LandingV3Props) {
   const { t, i18n } = useTranslation();
+  useVisitTrack();
   const [isDark, setIsDark] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -235,7 +194,7 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
   ], [i18n.language]);
 
   const apiHeroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides).filter(
-    (slide) => slide.isActive !== false,
+    (slide) => (slide as ModernHeroSlide).isActive !== false,
   );
 
   const heroCarouselSlides = apiHeroSlides.length > 0 ? apiHeroSlides : defaultHeroSlides;
@@ -354,12 +313,45 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
   );
   const faq = useMemo(() => t('landingV3.faqItems', { returnObjects: true }) as Faq[], [t]);
 
+  // Cookie consent
+  const [showConsent, setShowConsent] = useState(false);
+  useEffect(() => {
+    if (!localStorage.getItem('blm_cookie_consent')) {
+      setShowConsent(true);
+    }
+  }, []);
+  const acceptCookies = () => {
+    localStorage.setItem('blm_cookie_consent', 'true');
+    setShowConsent(false);
+  };
+
   return (
     <div
       id="landing-v3-root"
       className={`${isDark ? 'dark' : ''} text-zinc-900 antialiased [font-feature-settings:"ss01","cv01"] selection:bg-violet-500/15 selection:text-inherit dark:text-zinc-100`}
     >
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+
+        {/* Cookie Consent Banner */}
+        {showConsent && (
+          <div className="sticky top-0 z-50 border-b border-violet-200 bg-violet-50/95 px-4 py-3 text-sm dark:border-violet-800 dark:bg-violet-950/95 lg:px-8">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+              <p className="text-zinc-600 dark:text-zinc-300">
+                {i18n.language === 'ru'
+                  ? 'Мы используем cookies для учёта посещений и улучшения опыта. Никакие персональные данные не отслеживаются.'
+                  : i18n.language === 'kk'
+                  ? 'Біз келулерді есептеу және тәжірибені жақсарту үшін cookie пайдаланамыз. Ешқандай жеке деректер бақыланбайды.'
+                  : 'We use cookies to count visits and improve your experience. No personal data is tracked.'}
+              </p>
+              <button
+                onClick={acceptCookies}
+                className="shrink-0 rounded-lg bg-violet-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-zinc-50/80 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/80">
@@ -438,10 +430,10 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                 }`}
               >
                 <picture>
-                  <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl || (slide as any).image)} />
-                  <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl || (slide as any).image)} />
+                  <source media="(max-width: 767px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.mobileImageUrl : slide.image)} />
+                  <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.tabletImageUrl : slide.image)} />
                   <img
-                    src={resolveMediaUrl(slide.desktopImageUrl || (slide as any).image)}
+                    src={resolveMediaUrl(isModernSlide(slide) ? slide.desktopImageUrl : slide.image)}
                     alt={slide.title || ''}
                     className="h-full w-full object-cover"
                     loading={i === 0 ? 'eager' : 'lazy'}
@@ -472,7 +464,7 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
                         <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-200">
                           {slide.subtitle}
                         </p>
-                        {slide.showButton !== false && slide.buttonLabel && (
+                        {isModernSlide(slide) && slide.showButton !== false && slide.buttonLabel && (
                           <div className="mt-10">
                             <a
                               href={slide.buttonHref || '/login'}

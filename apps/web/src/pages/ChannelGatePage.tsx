@@ -33,6 +33,7 @@ export function ChannelGatePage() {
         canonicalPath="/channel-gate"
         noindex
         htmlLang={htmlLang}
+        i18nLanguage={i18n.language}
         includeHreflang={false}
       />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 20, textAlign: 'center' }}>

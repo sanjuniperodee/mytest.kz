@@ -861,8 +861,7 @@
       "loading": "Загрузка...",
       "showing": "Показано {{from}}–{{to}} из {{total}}"
     }
-  }
-}
+  },
   "landingV4": {
     "navFeatures": "Возможности",
     "navHowItWorks": "Как работает",

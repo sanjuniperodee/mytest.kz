@@ -16,6 +16,8 @@ import {
   fetchAdmissionCycles,
   fetchAdmissionUniversities,
 } from '../api/admission';
+import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup } from '../components/HigBlocks';
 
 const tierRu: Record<ReturnType<typeof grantTierHint>, { label: string; color: string }> = {
   Blocked: { label: 'Не проходите пороги', color: 'red' },
@@ -39,7 +41,7 @@ function EntBlock({
   threshold: number;
 }) {
   return (
-    <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 16px' } }}>
+    <Card size="small" className="hig-ent-block" styles={{ body: { padding: '12px 16px' } }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <Typography.Text strong>{label}</Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -150,36 +152,42 @@ export function AdmissionChancePage() {
   });
 
   return (
-    <div>
-      <h2 className="admin-page-title">Шанс поступления (модель ҰБТ 2026)</h2>
-      <p className="admin-page-lead">
-        Интерактивная оценка по порогам и суммарному баллу (максимум {ENT_TOTAL_MAX}). Ниже — сравнение с
-        прошлыми конкурсными баллами из загруженной аналитики. Категории — ориентир, не юридическая гарантия
-        зачисления.
-      </p>
-
+    <AdminPageShell>
+      <div className="pg-ex__hero" style={{ marginBottom: 20 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Шанс поступления</h2>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '40rem' }}>
+          Сдвигайте баллы по субтестам, смотрите сумму, пороги ҰБТ и ориентир уровня. После выбора вуза и программы
+          сравнивайте сумму с прошлым конкурсным порогом.
+        </p>
+      </div>
       {cyclesQ.isLoading || unisQ.isLoading ? (
-        <Spin />
+        <div className="admin-boot" style={{ minHeight: 200 }}>
+          <Spin />
+        </div>
       ) : cyclesQ.isError ? (
         <Typography.Text type="danger">Не удалось загрузить справочник приёма (нужен API и сид данных).</Typography.Text>
       ) : (
-        <Card size="small" style={{ marginBottom: 20 }} title="Справочник гранта">
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <div>
-              <Typography.Text type="secondary">Цикл приёма</Typography.Text>
+        <HigGroup
+          label="Параметры приёма"
+          description={`Цикл, вуз, квота и программа. Максимум суммарного балла: ${ENT_TOTAL_MAX}.`}
+        >
+        <Card className="hig-filter-card" size="small" title={`Справочник · до ${ENT_TOTAL_MAX} баллов`}>
+          <div className="pg-adm__select-grid">
+            <div className="pg-adm__field">
+              <span>Цикл приёма</span>
               <Select
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 value={cycleSlug || undefined}
                 options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
                 onChange={(v) => setCycleSlug(v)}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary">Вуз</Typography.Text>
+            <div className="pg-adm__field">
+              <span>Вуз</span>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 placeholder="Выберите вуз"
                 value={universityCode ?? undefined}
                 onChange={(v) => {
@@ -192,10 +200,10 @@ export function AdmissionChancePage() {
                 }))}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary">Квота</Typography.Text>
+            <div className="pg-adm__field">
+              <span>Квота</span>
               <Select
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 value={quotaType}
                 onChange={(v) => setQuotaType(v)}
                 options={[
@@ -204,12 +212,12 @@ export function AdmissionChancePage() {
                 ]}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary">Программа</Typography.Text>
+            <div className="pg-adm__field" style={{ gridColumn: '1 / -1' }}>
+              <span>Программа</span>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ width: '100%', marginTop: 6 }}
+                style={{ width: '100%' }}
                 placeholder={universityCode == null ? 'Сначала выберите вуз' : 'Выберите программу'}
                 value={programId ?? undefined}
                 onChange={(v) => setProgramId(v)}
@@ -217,12 +225,14 @@ export function AdmissionChancePage() {
                 options={programOptions}
               />
             </div>
-          </Space>
+          </div>
         </Card>
+        </HigGroup>
       )}
 
-      <Row gutter={[24, 24]}>
+      <Row gutter={[20, 20]}>
         <Col xs={24} lg={14}>
+          <HigGroup label="Баллы по субтестам" description="Сдвиньте ползунки — сумма и ориентиры пересчитываются сразу.">
           <EntBlock
             label="Математическая грамотность"
             value={scores.mathLit}
@@ -258,18 +268,17 @@ export function AdmissionChancePage() {
             max={ENT_MAX.profile2}
             threshold={ENT_THRESHOLD_2026.profile2}
           />
+          </HigGroup>
         </Col>
-        <Col xs={24} lg={10}>
+        <Col xs={24} lg={10} className="pg-adm__sticky-summary">
+          <HigGroup label="Сводка">
           <Card className="admin-stat-card" title="Итог">
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div>
                 <Typography.Text type="secondary">Суммарный балл</Typography.Text>
-                <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.1 }}>
+                <div className="hig-metric-xl">
                   {total.toFixed(0)}
-                  <span style={{ fontSize: 16, fontWeight: 600, color: '#64748b' }}>
-                    {' '}
-                    / {ENT_TOTAL_MAX}
-                  </span>
+                  <span className="hig-metric-suffix">/ {ENT_TOTAL_MAX}</span>
                 </div>
               </div>
               <div>
@@ -301,8 +310,9 @@ export function AdmissionChancePage() {
               )}
             </Space>
           </Card>
+          </HigGroup>
         </Col>
       </Row>
-    </div>
+    </AdminPageShell>
   );
 }

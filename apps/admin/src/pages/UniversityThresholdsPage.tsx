@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Select, Space, Spin, Table, Typography } from 'antd';
+import { Card, Select, Spin, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   fetchAdmissionCutoffs,
   fetchAdmissionCycles,
   fetchAdmissionUniversities,
 } from '../api/admission';
+import { AdminPageShell } from '../components/AdminPageShell';
+import { HigGroup, HigTableCard } from '../components/HigBlocks';
 
 type Row = {
   key: string;
@@ -77,47 +79,39 @@ export function UniversityThresholdsPage() {
   ];
 
   return (
-    <div>
-      <h2 className="admin-page-title">Пороговые баллы в вузы</h2>
-      <p className="admin-page-lead">
-        Данные из загруженной аналитики конкурса (циклы 2023–2024 и 2025–2026). Для решений о подаче документов
-        ориентируйтесь на официальные источники приёма.
-      </p>
-
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-        message="Источник данных"
-        description="Таблица строится из API по выбранному вузу и циклу. Если список пуст, выполните миграции и сид: npm run db:migrate и npm run seed:grant-admission -w @bilimland/api."
-      />
-
+    <AdminPageShell>
+      <div className="pg-ex__hero" style={{ marginBottom: 20 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Пороги вузов</h2>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '38rem' }}>
+          Минимальные проходные баллы по программам из выгрузки приёма. Выберите цикл, вуз и тип квоты — таблица
+          пересчитается.
+        </p>
+      </div>
       {cyclesQ.isLoading || unisQ.isLoading ? (
-        <Spin />
+        <div className="admin-boot" style={{ minHeight: 200 }}>
+          <Spin />
+        </div>
       ) : cyclesQ.isError ? (
         <Typography.Text type="danger">Не удалось загрузить циклы приёма.</Typography.Text>
       ) : (
-        <Space direction="vertical" style={{ width: '100%', marginBottom: 20 }} size="middle">
-          <Space wrap>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Цикл
-              </Typography.Text>
+        <HigGroup label="Справочник" description="Цикл, вуз и тип квоты определяют набор порогов в таблице.">
+        <Card className="hig-filter-card" size="small">
+          <div className="pg-th__filters">
+            <div className="pg-th__field">
+              <Typography.Text type="secondary">Цикл приёма</Typography.Text>
               <Select
-                style={{ minWidth: 160 }}
+                style={{ width: '100%' }}
                 value={cycleSlug}
                 onChange={setCycleSlug}
                 options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Вуз
-              </Typography.Text>
+            <div className="pg-th__field">
+              <Typography.Text type="secondary">Вуз</Typography.Text>
               <Select
                 showSearch
                 optionFilterProp="label"
-                style={{ minWidth: 320 }}
+                style={{ width: '100%' }}
                 placeholder="Вуз"
                 value={universityCode ?? undefined}
                 onChange={(v) => setUniversityCode(v)}
@@ -127,36 +121,36 @@ export function UniversityThresholdsPage() {
                 }))}
               />
             </div>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Квота
-              </Typography.Text>
+            <div className="pg-th__field">
+              <Typography.Text type="secondary">Квота</Typography.Text>
               <Select
-                style={{ minWidth: 200 }}
+                style={{ width: '100%' }}
                 value={quotaType}
                 onChange={(v) => setQuotaType(v)}
                 options={[
                   { value: 'GRANT', label: 'Грант' },
-                  { value: 'RURAL', label: 'Сельская квота' },
+                  { value: 'RURAL', label: 'Сельская' },
                 ]}
               />
             </div>
-          </Space>
-        </Space>
+          </div>
+        </Card>
+        </HigGroup>
       )}
 
-      <Table<Row>
-        rowKey={(r) => r.key}
-        columns={columns}
-        dataSource={dataSource}
-        loading={cutoffsQ.isFetching}
-        pagination={{ pageSize: 25 }}
-        size="middle"
-      />
-
-      <Typography.Paragraph type="secondary" style={{ marginTop: 20, marginBottom: 0 }}>
-        Пустые ячейки в исходной матрице отображаются как «—» (данных нет или программа не ведётся в этом вузе).
-      </Typography.Paragraph>
-    </div>
+      <HigGroup label="Программы и пороги">
+        <HigTableCard>
+          <Table<Row>
+            rowKey={(r) => r.key}
+            columns={columns}
+            dataSource={dataSource}
+            loading={cutoffsQ.isFetching}
+            pagination={{ pageSize: 25 }}
+            size="small"
+            scroll={{ x: 800 }}
+          />
+        </HigTableCard>
+      </HigGroup>
+    </AdminPageShell>
   );
 }

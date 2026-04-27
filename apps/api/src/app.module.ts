@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './database/redis.module';
@@ -24,6 +25,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     RedisModule,
     AuthModule,
