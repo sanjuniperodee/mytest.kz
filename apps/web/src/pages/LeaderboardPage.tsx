@@ -47,14 +47,22 @@ function TopThreePodium({ rows }: { rows: EntLeaderboardRow[] }) {
     <div className="lb-podium">
       {podiumOrder.map((row, i) => {
         const raw = Math.round(row.rawScore);
+        const subjects = row.profileSubjects ?? [];
         return (
           <div key={row.userId} className={`lb-podium-item lb-podium-item--${podiumRank[i]}`}>
             <div className="lb-podium-avatar">
               {row.displayName[0]?.toUpperCase() ?? 'M'}
             </div>
             <div className="lb-podium-name">
-              {row.userId === rows[0]?.userId ? t('leaderboard.youName', { name: row.displayName }) : row.displayName}
+              {row.userId === rows[0]?.userId ? t('leaderboard.youLabel', { name: row.displayName }) : row.displayName}
             </div>
+            {subjects.length > 0 && (
+              <div className="lb-podium-subjects">
+                {subjects.slice(0, 2).map((s) => (
+                  <span key={s} className="lb-subject-chip">{s}</span>
+                ))}
+              </div>
+            )}
             <div className="lb-podium-score">{raw}</div>
             <div className="lb-podium-bar" style={{ height: heights[i] }} />
             <div className="lb-podium-label">
@@ -81,6 +89,7 @@ function LeaderboardRow({
   const raw = Math.round(row.rawScore);
   const pct = Math.round(row.score);
   const duration = formatDuration(row.durationSecs, t('leaderboard.noValue'));
+  const subjects = row.profileSubjects ?? [];
 
   return (
     <div className={`lb-row${isMe ? ' lb-row--me' : ''}`}>
@@ -95,6 +104,11 @@ function LeaderboardRow({
         <span className="lb-row-avatar">{row.displayName[0]?.toUpperCase() ?? 'M'}</span>
         <div className="lb-row-info">
           <strong>{isMe ? t('leaderboard.youLabel', { name: row.displayName }) : row.displayName}</strong>
+          {subjects.length > 0 && (
+            <span className="lb-row-subjects">
+              {subjects.slice(0, 2).join(' + ')}
+            </span>
+          )}
           {row.telegramUsername && <span>@{row.telegramUsername}</span>}
         </div>
       </div>

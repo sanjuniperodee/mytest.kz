@@ -688,6 +688,30 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: linear-gradient(to top, #92400e, #d97706);
 }
 
+.lb-podium-subjects {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 110px;
+}
+
+.lb-subject-chip {
+  padding: 1px 6px;
+  border-radius: var(--r-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lb-row-subjects {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .lb-podium-label {
   display: flex;
   flex-direction: column;
