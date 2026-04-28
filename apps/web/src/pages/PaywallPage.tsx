@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useBillingPlans } from '../api/hooks/useBilling';
+import { useBillingPlans, useCreateCheckout } from '../api/hooks/useBilling';
 import { useProfile } from '../api/hooks/useProfile';
 import type { BillingPlan } from '../api/types';
 import { Spinner } from '../components/common/Spinner';
@@ -19,6 +19,9 @@ export function PaywallPage() {
   const [invoicePhone, setInvoicePhone] = useState('');
   const [invoiceError, setInvoiceError] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
+  const [payingPlanId, setPayingPlanId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const createCheckout = useCreateCheckout();
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -80,6 +83,18 @@ export function PaywallPage() {
     setPlanForWhatsapp(null);
   };
 
+  const handlePay = async (plan: BillingPlan) => {
+    setPaymentError(null);
+    setPayingPlanId(plan.id);
+    try {
+      const result = await createCheckout.mutateAsync(plan.id);
+      window.location.href = result.checkoutUrl;
+    } catch {
+      setPaymentError(t('paywall.paymentError') || 'Payment failed. Please try again.');
+      setPayingPlanId(null);
+    }
+  };
+
   const paymentStatus = searchParams.get('payment');
   const entAccess = profile?.accessByExam?.find((x) => x.examSlug === 'ent');
   const hasPremium =
@@ -136,6 +151,9 @@ export function PaywallPage() {
         {paymentStatus === 'failed' && (
           <p className="paywall-status paywall-status-fail">{t('paywall.statusFail')}</p>
         )}
+        {paymentError ? (
+          <p className="paywall-status paywall-status-fail" role="alert">{paymentError}</p>
+        ) : null}
         {hasPremium && (
           <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/app')}>
             {t('paywall.activeButton')}
@@ -166,8 +184,8 @@ export function PaywallPage() {
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>
-              <button type="button" className="btn btn-primary" onClick={() => openInvoiceModal(plan)}>
-                {t('paywall.payButton')}
+              <button type="button" className="btn btn-primary" onClick={() => handlePay(plan)} disabled={payingPlanId === plan.id}>
+                {payingPlanId === plan.id ? t('paywall.processing') || '...' : t('paywall.payButton')}
               </button>
             </article>
           ))}
