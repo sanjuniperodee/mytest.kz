@@ -15,6 +15,7 @@ const ExamPage = lazy(() => import('./pages/ExamPage').then(m => ({ default: m.E
 const TestPage = lazy(() => import('./pages/TestPage').then(m => ({ default: m.TestPage })));
 const ReviewPage = lazy(() => import('./pages/ReviewPage').then(m => ({ default: m.ReviewPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const StatsPage = lazy(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })));
 const MistakesPage = lazy(() => import('./pages/MistakesPage').then(m => ({ default: m.MistakesPage })));
 const AdmissionChancePage = lazy(() => import('./pages/AdmissionChancePage').then(m => ({ default: m.AdmissionChancePage })));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
@@ -96,6 +97,7 @@ function AppRoutes() {
             path="/profile"
             element={<ProfilePage />}
           />
+          <Route path="/stats" element={<StatsPage />} />
           <Route
             path="/settings"
             element={<SettingsPage />}

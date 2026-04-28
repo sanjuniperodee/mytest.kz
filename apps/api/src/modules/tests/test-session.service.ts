@@ -296,16 +296,27 @@ export class TestSessionService {
     return this.normalizeSessionScore(session);
   }
 
-  async getSessions(userId: string, page = 1, limit = 10) {
+  async getSessions(
+    userId: string,
+    page = 1,
+    limit = 10,
+    filters?: { examTypeId?: string; status?: string },
+  ) {
+    const where = {
+      userId,
+      ...(filters?.examTypeId ? { examTypeId: filters.examTypeId } : {}),
+      ...(filters?.status ? { status: filters.status } : {}),
+    };
+
     const [items, total] = await Promise.all([
       this.prisma.testSession.findMany({
-        where: { userId },
+        where,
         include: { examType: true },
         orderBy: { startedAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.testSession.count({ where: { userId } }),
+      this.prisma.testSession.count({ where }),
     ]);
 
     return {

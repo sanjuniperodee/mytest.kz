@@ -45,15 +45,25 @@ export function useTestSession(sessionId: string | undefined) {
   });
 }
 
-export function useSessions(page = 1) {
+export function useSessions(
+  page = 1,
+  options?: { limit?: number; examTypeId?: string; status?: TestSession['status']; enabled?: boolean },
+) {
+  const limit = options?.limit ?? 10;
   return useQuery<PaginatedResponse<TestSession>>({
-    queryKey: ['sessions', page],
+    queryKey: ['sessions', page, limit, options?.examTypeId ?? null, options?.status ?? null],
     queryFn: async () => {
       const { data } = await api.get('/tests/sessions', {
-        params: { page, limit: 10 },
+        params: {
+          page,
+          limit,
+          examTypeId: options?.examTypeId,
+          status: options?.status,
+        },
       });
       return data;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -5,6 +5,7 @@
   "nav": {
     "home": "Home",
     "chance": "Chance",
+    "stats": "Stats",
     "leaderboard": "Leaderboard",
     "subscriptions": "Subscriptions",
     "profile": "Profile",
@@ -74,6 +75,43 @@
     "topTitle": "Top students",
     "topCount": "{{count}} results",
     "listAria": "Full UNT result ranking"
+  },
+  "stats": {
+    "title": "Stats & history",
+    "subtitle": "All exam activity: active tests, finished attempts, results, and open mistakes.",
+    "tabsAria": "Exams with stats",
+    "currentExam": "Selected exam",
+    "totalAttempts": "Total attempts",
+    "completed": "Completed",
+    "best": "Best result",
+    "average": "Average result",
+    "avgDuration": "Average time",
+    "openMistakes": "Open mistakes",
+    "points": "{{raw}}/{{max}}",
+    "percent": "{{value}}%",
+    "emptyValue": "—",
+    "historyTitle": "Attempt history",
+    "historySubtitle": "Active tests appear first, followed by the latest finished attempts.",
+    "statusFilterAria": "Filter history by status",
+    "statusFilter": {
+      "all": "All",
+      "in_progress": "Active",
+      "completed": "Completed",
+      "timed_out": "Timed out"
+    },
+    "status": {
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "timed_out": "Timed out",
+      "abandoned": "Abandoned"
+    },
+    "fullEnt": "Full UNT",
+    "continue": "Continue",
+    "review": "Review",
+    "loading": "Loading history...",
+    "noSessions": "No attempts match this filter.",
+    "noExamsTitle": "No stats yet",
+    "noExamsText": "Start your first test and exam tabs, progress, and history will appear here."
   },
   "exam": {
     "subjects": "Subjects",
@@ -173,6 +211,11 @@
     "title": "Profile",
     "guestName": "MyTest student",
     "settings": "Settings",
+    "statsCtaTitle": "Stats & history",
+    "statsCtaSub": "All attempts, results, and progress by exam",
+    "statsCtaAction": "Open",
+    "account": "Account",
+    "timezone": "Time zone",
     "toHome": "Exams",
     "quickNavAria": "Quick actions",
     "trialCtaTitle": "Take a trial test",

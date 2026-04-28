@@ -209,6 +209,9 @@ export interface UserExamStats {
     name: unknown;
   };
   testsCount: number;
+  totalSessionsCount?: number;
+  completedCount?: number;
+  timedOutCount?: number;
   averageScore: number | null;
   bestScore: number | null;
   /** Сырой балл лучшей попытки (напр. верные ответы для ЕНТ). */
