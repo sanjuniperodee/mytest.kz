@@ -65,7 +65,6 @@ export function PaywallPage() {
     return message;
   };
 
-
   const confirmWhatsapp = () => {
     if (!planForWhatsapp) return;
     const trimmed = invoicePhone.trim();
