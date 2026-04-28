@@ -8,26 +8,8 @@ import { useProfile } from '../api/hooks/useProfile';
 import { Spinner } from '../components/common/Spinner';
 import { localizedText } from '../lib/localizedText';
 import { ExamTileIcon } from '../lib/examVisuals';
-
-function ChevronRight() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.4 }}>
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
-  if (!targetIso) return null;
-  const target = new Date(targetIso).getTime();
-  if (!Number.isFinite(target)) return null;
-  const diff = Math.max(0, target - nowMs);
-  const totalSec = Math.floor(diff / 1000);
-  const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-  const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-  const ss = String(totalSec % 60).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
-}
+import { formatCountdown } from '../lib/entitlements';
+import { ChevronRightIcon } from '../components/common/AppIcons';
 
 export function HomePage() {
   const { t, i18n } = useTranslation();
@@ -255,7 +237,7 @@ export function HomePage() {
                     </div>
                   )}
                 </div>
-                <ChevronRight />
+                <ChevronRightIcon />
               </button>
             );
           })}

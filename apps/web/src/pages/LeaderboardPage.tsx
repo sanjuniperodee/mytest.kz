@@ -2,16 +2,8 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '../components/common/Spinner';
 import { useEntLeaderboard } from '../api/hooks/useTests';
+import { formatDuration } from '../lib/formatDuration';
 import type { EntLeaderboardRow } from '../api/types';
-
-function formatDuration(seconds: number | null, fallback: string) {
-  if (seconds == null || seconds <= 0) return fallback;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 function formatDate(value: string | null, locale: string, fallback: string) {
   if (!value) return fallback;

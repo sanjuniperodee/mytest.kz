@@ -6,18 +6,7 @@ import { useProfile } from '../api/hooks/useProfile';
 import type { BillingPlan } from '../api/types';
 import { Spinner } from '../components/common/Spinner';
 import { openWhatsAppWithText } from '../lib/whatsapp';
-
-function formatCountdown(targetIso: string | null | undefined, nowMs: number): string | null {
-  if (!targetIso) return null;
-  const target = new Date(targetIso).getTime();
-  if (!Number.isFinite(target)) return null;
-  const diff = Math.max(0, target - nowMs);
-  const totalSec = Math.floor(diff / 1000);
-  const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-  const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-  const ss = String(totalSec % 60).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
-}
+import { formatCountdown } from '../lib/entitlements';
 
 export function PaywallPage() {
   const { t, i18n } = useTranslation();
