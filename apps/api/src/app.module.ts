@@ -20,6 +20,7 @@ import { DbSnapshotModule } from './modules/db-snapshot/db-snapshot.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -43,6 +44,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     LeadsModule,
     SettingsModule,
     AnalyticsModule,
+    LeaderboardModule,
   ],
 })
 export class AppModule {}

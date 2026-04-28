@@ -232,6 +232,24 @@ export interface UserStats {
   byExamType: UserExamStats[];
 }
 
+export interface EntLeaderboardRow {
+  rank: number;
+  userId: string;
+  displayName: string;
+  telegramUsername: string | null;
+  rawScore: number;
+  maxScore: number;
+  score: number;
+  durationSecs: number | null;
+  finishedAt: string | null;
+  sessionId: string;
+}
+
+export interface EntLeaderboardResponse {
+  items: EntLeaderboardRow[];
+  me: EntLeaderboardRow | null;
+}
+
 export interface BillingPlan {
   id: string;
   name: string;
