@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../client';
 import { useTestSessionStore } from '../../stores/testSessionStore';
-import type { TestSession, PaginatedResponse, MistakesSummary } from '../types';
+import type {
+  EntLeaderboardResponse,
+  TestSession,
+  PaginatedResponse,
+  MistakesSummary,
+} from '../types';
 
 export function useStartTest() {
   const queryClient = useQueryClient();
@@ -40,15 +45,25 @@ export function useTestSession(sessionId: string | undefined) {
   });
 }
 
-export function useSessions(page = 1) {
+export function useSessions(
+  page = 1,
+  options?: { limit?: number; examTypeId?: string; status?: TestSession['status']; enabled?: boolean },
+) {
+  const limit = options?.limit ?? 10;
   return useQuery<PaginatedResponse<TestSession>>({
-    queryKey: ['sessions', page],
+    queryKey: ['sessions', page, limit, options?.examTypeId ?? null, options?.status ?? null],
     queryFn: async () => {
       const { data } = await api.get('/tests/sessions', {
-        params: { page, limit: 10 },
+        params: {
+          page,
+          limit,
+          examTypeId: options?.examTypeId,
+          status: options?.status,
+        },
       });
       return data;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -87,6 +102,18 @@ export function useMistakesSummary() {
     queryKey: ['mistakes-summary'],
     queryFn: async () => {
       const { data } = await api.get<MistakesSummary>('/tests/mistakes/summary');
+      return data;
+    },
+  });
+}
+
+export function useEntLeaderboard(limit = 50) {
+  return useQuery<EntLeaderboardResponse>({
+    queryKey: ['ent-leaderboard', limit],
+    queryFn: async () => {
+      const { data } = await api.get<EntLeaderboardResponse>('/leaderboard/ent', {
+        params: { limit },
+      });
       return data;
     },
   });

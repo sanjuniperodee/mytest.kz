@@ -61,11 +61,23 @@ export class TestsController {
     @CurrentUser('id') userId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('examTypeId') examTypeId?: string,
+    @Query('status') status?: string,
   ) {
     return this.testSessionService.getSessions(
       userId,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 10,
+      {
+        examTypeId,
+        status:
+          status === 'in_progress' ||
+          status === 'completed' ||
+          status === 'timed_out' ||
+          status === 'abandoned'
+            ? status
+            : undefined,
+      },
     );
   }
 

@@ -1,5 +1,5 @@
-import { LeaderboardService } from '../src/modules/leaderboard/leaderboard.service';
 import { ENT_CONFIG } from '@bilimland/shared';
+import { LeaderboardService } from '../src/modules/leaderboard/leaderboard.service';
 
 const session = (overrides: Record<string, unknown>) => ({
   id: 'session',

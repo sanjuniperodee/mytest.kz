@@ -150,6 +150,8 @@ export class UsersService {
       durations: number[];
       correctPct: number[];
       finishedAts: Date[];
+      completedCount: number;
+      timedOutCount: number;
       /** Лучшая попытка по проценту (при равенстве % — больший сырой балл). */
       bestByPoints: BestSessionPoints | null;
     };
@@ -171,6 +173,8 @@ export class UsersService {
           durations: [],
           correctPct: [],
           finishedAts: [],
+          completedCount: 0,
+          timedOutCount: 0,
           bestByPoints: null,
         });
       }
@@ -220,6 +224,8 @@ export class UsersService {
       if (s.finishedAt) {
         agg.finishedAts.push(s.finishedAt);
       }
+      if (s.status === 'completed') agg.completedCount++;
+      if (s.status === 'timed_out') agg.timedOutCount++;
       const list = finishedByExam.get(s.examTypeId) ?? [];
       list.push(s);
       finishedByExam.set(s.examTypeId, list);
@@ -263,6 +269,9 @@ export class UsersService {
             name: agg.examName,
           },
           testsCount: n,
+          totalSessionsCount: n + (inProgressByExam.get(agg.examTypeId) ?? 0),
+          completedCount: agg.completedCount,
+          timedOutCount: agg.timedOutCount,
           averageScore: n > 0 ? Math.round(avg * 100) / 100 : null,
           bestScore: n > 0 ? Math.round(Math.max(...agg.scores) * 100) / 100 : null,
           bestRawScore: agg.bestByPoints?.raw ?? null,
