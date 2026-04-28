@@ -106,6 +106,13 @@ export class LeaderboardService {
     return a.userId.localeCompare(b.userId);
   }
 
+  private getSubjectName(name: unknown, lang = 'ru'): string {
+    if (!name || typeof name !== 'object') return String(name ?? '');
+    const obj = name as Record<string, unknown>;
+    const localized = obj[lang] ?? obj['ru'] ?? obj['kk'] ?? Object.values(obj)[0];
+    return String(localized ?? '');
+  }
+
   private async toRow(session: EligibleSession, rank: number): Promise<EntLeaderboardRow> {
     const maxScore = this.toNumber(session.maxScore);
     const rawScore = this.toNumber(session.rawScore);
@@ -123,8 +130,11 @@ export class LeaderboardService {
         select: { id: true, name: true },
       });
       // preserve order from profileSubjectIds
-      const nameById = new Map(subjects.map((s) => [s.id, s.name]));
-      profileSubjects = profileSubjectIds.map((id) => String(nameById.get(id) ?? id));
+      const nameById = new Map(subjects.map((s) => [s.id, s.name as Record<string, unknown>]));
+      profileSubjects = profileSubjectIds.map((id) => {
+        const nameObj = nameById.get(id);
+        return this.getSubjectName(nameObj, 'ru');
+      });
     }
 
     return {
