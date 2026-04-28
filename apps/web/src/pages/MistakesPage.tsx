@@ -5,14 +5,7 @@ import { useAuth } from '../api/hooks/useAuth';
 import { useMistakesSummary, useStartMistakesPractice } from '../api/hooks/useTests';
 import { Spinner } from '../components/common/Spinner';
 import { localizedText } from '../lib/localizedText';
-
-const EXAM_GRADIENTS: Record<string, string> = {
-  ent: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-  nuet: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-  nis: 'linear-gradient(135deg, #10b981, #059669)',
-  ktl: 'linear-gradient(135deg, #f59e0b, #d97706)',
-  physmath: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-};
+import { EXAM_GRADIENTS } from '../lib/examVisuals';
 
 export function MistakesPage() {
   const { t, i18n } = useTranslation();

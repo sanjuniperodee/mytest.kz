@@ -246,6 +246,7 @@ export interface EntLeaderboardRow {
   durationSecs: number | null;
   finishedAt: string | null;
   sessionId: string;
+  profileSubjects: string[];
 }
 
 export interface EntLeaderboardResponse {

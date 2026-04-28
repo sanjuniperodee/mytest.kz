@@ -9,14 +9,9 @@ import { Spinner } from '../components/common/Spinner';
 import { renderMathInText } from '../lib/katex';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 import { localizedText } from '../lib/localizedText';
-
-function BackArrow() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
+import { getScoreColor } from '../lib/entitlements';
+import { computeSectionBoundaries } from '../lib/sectionBoundaries';
+import { BackArrowIcon } from '../components/common/AppIcons';
 
 function readExplanationOpenMap(sessionId: string | undefined): Record<string, boolean> {
   if (typeof window === 'undefined' || !sessionId) return {};
@@ -85,22 +80,7 @@ export function ReviewPage() {
     });
   }, [session?.sectionScores, session?.sectionsScores, subjectContentLang]);
 
-  const sectionBoundaries = useMemo(() => {
-    if (orderedAnswers.length === 0) return [];
-    const boundaries: { index: number; subjectName: string }[] = [];
-    let currentSubjectId = '';
-    for (let i = 0; i < orderedAnswers.length; i++) {
-      const subjId = orderedAnswers[i].question?.subject?.id || '';
-      if (subjId !== currentSubjectId) {
-        currentSubjectId = subjId;
-        boundaries.push({
-          index: i,
-          subjectName: localizedText(orderedAnswers[i].question?.subject?.name, subjectContentLang),
-        });
-      }
-    }
-    return boundaries;
-  }, [orderedAnswers, subjectContentLang]);
+  const sectionBoundaries = useMemo(() => computeSectionBoundaries(orderedAnswers, subjectContentLang), [orderedAnswers, subjectContentLang]);
 
   if (isLoading || !session) return <Spinner fullScreen />;
 
@@ -117,7 +97,6 @@ export function ReviewPage() {
   const scorePercent = Number.isFinite(scoreRaw) ? scoreRaw : 0;
   const displayedAnswers = showErrorsOnly ? answers.filter((a) => !a.isCorrect) : answers;
   const backTo = (location.state as { from?: string } | undefined)?.from || '/app';
-  const getScoreColor = (s: number) => s >= 80 ? 'var(--success)' : s >= 50 ? 'var(--warning)' : 'var(--error)';
 
   const hasRawPoints = session.rawScore !== null && session.maxScore !== null;
   const primaryPointsLabel = hasRawPoints
@@ -131,7 +110,7 @@ export function ReviewPage() {
   return (
     <div className="page review-page">
       <button className="back-btn" onClick={() => navigate(backTo)}>
-        <BackArrow /> {t('common.back')}
+        <BackArrowIcon /> {t('common.back')}
       </button>
 
       {session.metadata?.kind === 'remediation' && (

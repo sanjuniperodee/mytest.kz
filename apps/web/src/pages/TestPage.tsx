@@ -15,6 +15,7 @@ import { safeShowAlert, safeShowConfirm, useTelegram } from '../lib/telegram';
 import { localizedText } from '../lib/localizedText';
 import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 import { useMediaQuery } from '../lib/useMediaQuery';
+import { computeSectionBoundaries } from '../lib/sectionBoundaries';
 
 export function TestPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -71,27 +72,7 @@ export function TestPage() {
 
   const subjectContentLang = session?.language ?? i18n.language;
 
-  const sectionBoundaries = useMemo(() => {
-    if (orderedAnswers.length === 0) return [];
-    const boundaries: { index: number; subjectName: string; subjectSlug: string; count: number }[] = [];
-    let currentSubjectId: string | null = null;
-    for (let i = 0; i < orderedAnswers.length; i++) {
-      const subj = orderedAnswers[i].question?.subject;
-      const subjId = subj?.id || '';
-      if (subjId !== currentSubjectId) {
-        currentSubjectId = subjId;
-        boundaries.push({
-          index: i,
-          subjectName: localizedText(subj?.name, subjectContentLang),
-          subjectSlug: subj?.slug || '',
-          count: 0,
-        });
-      }
-      const currentBoundary = boundaries[boundaries.length - 1];
-      if (currentBoundary) currentBoundary.count++;
-    }
-    return boundaries;
-  }, [orderedAnswers, subjectContentLang]);
+  const sectionBoundaries = useMemo(() => computeSectionBoundaries(orderedAnswers, subjectContentLang), [orderedAnswers, subjectContentLang]);
 
   const currentSection = useMemo(() => {
     for (let i = sectionBoundaries.length - 1; i >= 0; i--) {

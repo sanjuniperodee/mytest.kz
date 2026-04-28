@@ -13,6 +13,7 @@ export interface EntLeaderboardRow {
   durationSecs: number | null;
   finishedAt: string | null;
   sessionId: string;
+  profileSubjects: string[]; // e.g. ['Математика', 'Физика']
 }
 
 export interface EntLeaderboardResponse {
@@ -28,6 +29,7 @@ type EligibleSession = {
   score: unknown;
   durationSecs: number | null;
   finishedAt: Date | null;
+  metadata: unknown;
   user: {
     firstName: string | null;
     lastName: string | null;
@@ -64,6 +66,7 @@ export class LeaderboardService {
             telegramUsername: true,
           },
         },
+        metadata: true,
       },
     });
 
@@ -75,9 +78,12 @@ export class LeaderboardService {
       }
     }
 
-    const rows = Array.from(bestByUser.values())
-      .sort((a, b) => this.compareSessions(a, b))
-      .map((session, index) => this.toRow(session, index + 1));
+    const sorted = Array.from(bestByUser.values())
+      .sort((a, b) => this.compareSessions(a, b));
+
+    const rows = await Promise.all(
+      sorted.map((session, index) => this.toRow(session, index + 1)),
+    );
 
     return {
       items: rows.slice(0, take),
@@ -100,20 +106,39 @@ export class LeaderboardService {
     return a.userId.localeCompare(b.userId);
   }
 
-  private toRow(session: EligibleSession, rank: number): EntLeaderboardRow {
+  private async toRow(session: EligibleSession, rank: number): Promise<EntLeaderboardRow> {
     const maxScore = this.toNumber(session.maxScore);
-    const score = this.toNumber(session.score);
+    const rawScore = this.toNumber(session.rawScore);
+    const scorePct = this.toNumber(session.score);
+
+    // Extract profile subject IDs from metadata
+    const meta = session.metadata as Record<string, unknown> | null;
+    const profileSubjectIds: string[] = Array.isArray(meta?.profileSubjectIds) ? (meta.profileSubjectIds as string[]) : [];
+
+    // Fetch subject names if any
+    let profileSubjects: string[] = [];
+    if (profileSubjectIds.length > 0) {
+      const subjects = await this.prisma.subject.findMany({
+        where: { id: { in: profileSubjectIds } },
+        select: { id: true, name: true },
+      });
+      // preserve order from profileSubjectIds
+      const nameById = new Map(subjects.map((s) => [s.id, s.name]));
+      profileSubjects = profileSubjectIds.map((id) => String(nameById.get(id) ?? id));
+    }
+
     return {
       rank,
       userId: session.userId,
       displayName: this.getDisplayName(session.user),
       telegramUsername: session.user.telegramUsername,
-      rawScore: this.toNumber(session.rawScore),
+      rawScore,
       maxScore,
-      score,
+      score: scorePct,
       durationSecs: session.durationSecs,
       finishedAt: session.finishedAt?.toISOString() ?? null,
       sessionId: session.id,
+      profileSubjects,
     };
   }
 
