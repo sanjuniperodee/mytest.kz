@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '../components/common/Spinner';
 import { useEntLeaderboard } from '../api/hooks/useTests';
@@ -16,11 +15,57 @@ function formatDate(value: string | null, locale: string, fallback: string) {
   }).format(d);
 }
 
-function rankClass(rank: number) {
-  if (rank === 1) return 'leaderboard-rank leaderboard-rank--gold';
-  if (rank === 2) return 'leaderboard-rank leaderboard-rank--silver';
-  if (rank === 3) return 'leaderboard-rank leaderboard-rank--bronze';
-  return 'leaderboard-rank';
+function TrophyIcon({ rank }: { rank: number }) {
+  const colors: Record<number, string> = { 1: '#f59e0b', 2: '#94a3b8', 3: '#d97706' };
+  const color = colors[rank] ?? 'var(--text-muted)';
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill={color} stroke="none">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM5 5H3v2a4 4 0 0 0 4 4M19 5h2v2a4 4 0 0 1-4 4" />
+    </svg>
+  );
+}
+
+function MedalBadge({ rank }: { rank: number }) {
+  const labels: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+  return (
+    <span className="lb-rank-badge" style={{ fontSize: 18 }} aria-label={`Место ${rank}`}>
+      {labels[rank] ?? rank}
+    </span>
+  );
+}
+
+function TopThreePodium({ rows }: { rows: EntLeaderboardRow[] }) {
+  const { t } = useTranslation();
+  const top3 = rows.slice(0, 3);
+  if (top3.length < 3) return null;
+
+  const podiumOrder = [top3[1], top3[0], top3[2]];
+  const heights = ['80px', '110px', '60px'];
+  const podiumRank = [2, 1, 3];
+
+  return (
+    <div className="lb-podium">
+      {podiumOrder.map((row, i) => {
+        const raw = Math.round(row.rawScore);
+        return (
+          <div key={row.userId} className={`lb-podium-item lb-podium-item--${podiumRank[i]}`}>
+            <div className="lb-podium-avatar">
+              {row.displayName[0]?.toUpperCase() ?? 'M'}
+            </div>
+            <div className="lb-podium-name">
+              {row.userId === rows[0]?.userId ? t('leaderboard.youName', { name: row.displayName }) : row.displayName}
+            </div>
+            <div className="lb-podium-score">{raw}</div>
+            <div className="lb-podium-bar" style={{ height: heights[i] }} />
+            <div className="lb-podium-label">
+              <MedalBadge rank={podiumRank[i]} />
+              <span>#{podiumRank[i]}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function LeaderboardRow({
@@ -33,21 +78,32 @@ function LeaderboardRow({
   locale: string;
 }) {
   const { t } = useTranslation();
-  const percent = Number.isFinite(row.score) ? Math.round(row.score) : 0;
+  const raw = Math.round(row.rawScore);
+  const pct = Math.round(row.score);
+  const duration = formatDuration(row.durationSecs, t('leaderboard.noValue'));
 
   return (
-    <div className={`leaderboard-row${isMe ? ' leaderboard-row--me' : ''}`}>
-      <div className={rankClass(row.rank)}>{row.rank}</div>
-      <div className="leaderboard-student">
-        <strong>{isMe ? t('leaderboard.youName', { name: row.displayName }) : row.displayName}</strong>
-        {row.telegramUsername ? <span>@{row.telegramUsername}</span> : null}
+    <div className={`lb-row${isMe ? ' lb-row--me' : ''}`}>
+      <div className="lb-row-rank">
+        {row.rank <= 3 ? (
+          <TrophyIcon rank={row.rank} />
+        ) : (
+          <span className="lb-row-rank-num">#{row.rank}</span>
+        )}
       </div>
-      <div className="leaderboard-score">
-        <strong>{t('leaderboard.points', { raw: row.rawScore, max: row.maxScore })}</strong>
-        <span>{t('leaderboard.percent', { value: percent })}</span>
+      <div className="lb-row-user">
+        <span className="lb-row-avatar">{row.displayName[0]?.toUpperCase() ?? 'M'}</span>
+        <div className="lb-row-info">
+          <strong>{isMe ? t('leaderboard.youLabel', { name: row.displayName }) : row.displayName}</strong>
+          {row.telegramUsername && <span>@{row.telegramUsername}</span>}
+        </div>
       </div>
-      <div className="leaderboard-meta">
-        <span>{formatDuration(row.durationSecs, t('leaderboard.noValue'))}</span>
+      <div className="lb-row-score">
+        <strong className="lb-row-score-num">{raw}</strong>
+        <span className="lb-row-score-pct">{pct}%</span>
+      </div>
+      <div className="lb-row-meta">
+        <span>{duration}</span>
         <span>{formatDate(row.finishedAt, locale, t('leaderboard.noValue'))}</span>
       </div>
     </div>
@@ -61,75 +117,76 @@ export function LeaderboardPage() {
   const rows = data?.items ?? [];
   const myUserId = data?.me?.userId ?? null;
 
-  const topScore = useMemo(() => rows[0] ?? null, [rows]);
+  const myEntry = data?.me;
+  const topScore = rows[0] ?? null;
 
   if (isLoading) return <Spinner fullScreen />;
 
+  const myRaw = myEntry ? Math.round(myEntry.rawScore) : null;
+  const myPct = myEntry ? Math.round(myEntry.score) : null;
+
   return (
-    <div className="page leaderboard-page">
-      <header className="page-hero leaderboard-hero">
-        <div className="page-header">
-          <p className="leaderboard-kicker">{t('leaderboard.kicker')}</p>
-          <h1 className="page-title">{t('leaderboard.title')}</h1>
-          <p className="page-subtitle">{t('leaderboard.subtitle')}</p>
+    <div className="page lb-page">
+      <header className="lb-header">
+        <div className="lb-header-top">
+          <div>
+            <p className="lb-kicker">{t('leaderboard.kicker')}</p>
+            <h1 className="lb-title">{t('leaderboard.title')}</h1>
+          </div>
+          {topScore && (
+            <div className="lb-best-badge">
+              <span className="lb-best-label">{t('leaderboard.record')}</span>
+              <strong>{Math.round(topScore.rawScore)}</strong>
+            </div>
+          )}
         </div>
 
-        <div className="leaderboard-summary-grid">
-          <section className="leaderboard-summary-card">
-            <span>{t('leaderboard.myPlace')}</span>
-            {data?.me ? (
-              <>
-                <strong>#{data.me.rank}</strong>
-                <small>{t('leaderboard.points', { raw: data.me.rawScore, max: data.me.maxScore })}</small>
-              </>
-            ) : (
-              <>
-                <strong>{t('leaderboard.noRank')}</strong>
-                <small>{t('leaderboard.noRankHint')}</small>
-              </>
-            )}
-          </section>
-          <section className="leaderboard-summary-card">
-            <span>{t('leaderboard.bestResult')}</span>
-            {topScore ? (
-              <>
-                <strong>{t('leaderboard.points', { raw: topScore.rawScore, max: topScore.maxScore })}</strong>
-                <small>{topScore.displayName}</small>
-              </>
-            ) : (
-              <>
-                <strong>{t('leaderboard.noValue')}</strong>
-                <small>{t('leaderboard.emptyShort')}</small>
-              </>
-            )}
-          </section>
-        </div>
+        {myEntry && (
+          <div className="lb-me-card">
+            <div className="lb-me-left">
+              <span className="lb-me-rank">#{myEntry.rank}</span>
+              <div className="lb-me-info">
+                <strong>{t('leaderboard.yourResult')}</strong>
+                <span>{myEntry.displayName}</span>
+              </div>
+            </div>
+            <div className="lb-me-score">
+              <span className="lb-me-score-num">{myRaw}</span>
+              <span className="lb-me-score-pct">{myPct}%</span>
+            </div>
+          </div>
+        )}
       </header>
 
       {error ? (
-        <div className="surface leaderboard-state">{t('leaderboard.error')}</div>
+        <div className="surface lb-state">
+          <strong>{t('leaderboard.error')}</strong>
+        </div>
       ) : rows.length === 0 ? (
-        <div className="surface leaderboard-state">
+        <div className="surface lb-state">
           <strong>{t('leaderboard.emptyTitle')}</strong>
           <span>{t('leaderboard.emptyText')}</span>
         </div>
       ) : (
-        <section className="surface leaderboard-board" aria-label={t('leaderboard.listAria')}>
-          <div className="leaderboard-board-head">
-            <h2 className="section-title">{t('leaderboard.topTitle')}</h2>
-            <span>{t('leaderboard.topCount', { count: rows.length })}</span>
-          </div>
-          <div className="leaderboard-list">
-            {rows.map((row) => (
-              <LeaderboardRow
-                key={row.userId}
-                row={row}
-                isMe={row.userId === myUserId}
-                locale={locale}
-              />
-            ))}
-          </div>
-        </section>
+        <>
+          {rows.length >= 3 && <TopThreePodium rows={rows} />}
+
+          <section className="lb-board" aria-label={t('leaderboard.listAria')}>
+            <div className="lb-board-head">
+              <span>{t('leaderboard.topCount', { count: rows.length })}</span>
+            </div>
+            <div className="lb-list">
+              {rows.map((row) => (
+                <LeaderboardRow
+                  key={row.userId}
+                  row={row}
+                  isMe={row.userId === myUserId}
+                  locale={locale}
+                />
+              ))}
+            </div>
+          </section>
+        </>
       )}
     </div>
   );
