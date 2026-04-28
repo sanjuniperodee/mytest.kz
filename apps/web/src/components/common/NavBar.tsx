@@ -31,6 +31,16 @@ const AdmissionIcon = ({ active }: { active: boolean }) => (
   </svg>
 );
 
+const TrophyIcon = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 21h8" />
+    <path d="M12 17v4" />
+    <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
+    <path d="M5 5H3v2a4 4 0 004 4" />
+    <path d="M19 5h2v2a4 4 0 01-4 4" />
+  </svg>
+);
+
 const SubscriptionIcon = ({ active }: { active: boolean }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -47,6 +57,7 @@ export function NavBar() {
   const items = [
     { path: '/app', Icon: HomeIcon, label: t('nav.home') },
     { path: '/admission-chance', Icon: AdmissionIcon, label: t('nav.chance') },
+    { path: '/leaderboard', Icon: TrophyIcon, label: t('nav.leaderboard') },
     { path: '/paywall', Icon: SubscriptionIcon, label: t('nav.subscriptions'), desktopOnly: true },
     { path: '/profile', Icon: ProfileIcon, label: t('nav.profile') },
     { path: '/settings', Icon: SettingsIcon, label: t('nav.settings') },

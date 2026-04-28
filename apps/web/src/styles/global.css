@@ -485,6 +485,215 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .badge-lg { padding: 5px 14px; font-size: 14px; font-weight: 700; }
 
+/* ── ENT Leaderboard ── */
+.leaderboard-page {
+  max-width: 860px;
+}
+
+.leaderboard-hero {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.leaderboard-kicker {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: var(--sp-2);
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: var(--warning-surface);
+  color: var(--warning-light);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.leaderboard-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  position: relative;
+  z-index: 1;
+}
+
+.leaderboard-summary-card {
+  display: grid;
+  gap: 4px;
+  min-height: 118px;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-glass);
+}
+
+.leaderboard-summary-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.leaderboard-summary-card strong {
+  align-self: end;
+  color: var(--text-primary);
+  font-size: 30px;
+  font-weight: 850;
+  line-height: 1.05;
+}
+
+.leaderboard-summary-card small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-board {
+  padding: var(--sp-4);
+}
+
+.leaderboard-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.leaderboard-board-head .section-title {
+  margin-bottom: 0;
+}
+
+.leaderboard-board-head > span {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1.4fr) minmax(96px, auto) minmax(120px, auto);
+  gap: var(--sp-3);
+  align-items: center;
+  min-height: 72px;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+}
+
+.leaderboard-row--me {
+  border-color: var(--border-active);
+  background: var(--accent-surface);
+  box-shadow: 0 0 0 1px var(--border-active);
+}
+
+.leaderboard-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-full);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.leaderboard-rank--gold {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--warning-light);
+}
+
+.leaderboard-rank--silver {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text-primary);
+}
+
+.leaderboard-rank--bronze {
+  background: rgba(217, 119, 6, 0.16);
+  color: #f59e0b;
+}
+
+.leaderboard-student,
+.leaderboard-score,
+.leaderboard-meta {
+  display: grid;
+  min-width: 0;
+}
+
+.leaderboard-student strong,
+.leaderboard-score strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-student span,
+.leaderboard-score span,
+.leaderboard-meta span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score,
+.leaderboard-meta {
+  justify-items: end;
+  text-align: right;
+}
+
+.leaderboard-state {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-6);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.leaderboard-state strong {
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+@media (max-width: 560px) {
+  .leaderboard-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-row {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: var(--sp-2);
+  }
+
+  .leaderboard-meta {
+    grid-column: 2 / -1;
+    grid-template-columns: auto auto;
+    justify-content: start;
+    gap: var(--sp-3);
+    text-align: left;
+  }
+}
+
 /* ── Progress bar ── */
 .progress-bar {
   width: 100%;
@@ -3718,4 +3927,3 @@ html[data-theme='light'] .wa-fab {
     transform: none;
   }
 }
-

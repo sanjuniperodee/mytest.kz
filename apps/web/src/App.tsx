@@ -17,6 +17,7 @@ const ReviewPage = lazy(() => import('./pages/ReviewPage').then(m => ({ default:
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const MistakesPage = lazy(() => import('./pages/MistakesPage').then(m => ({ default: m.MistakesPage })));
 const AdmissionChancePage = lazy(() => import('./pages/AdmissionChancePage').then(m => ({ default: m.AdmissionChancePage })));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const ChannelGatePage = lazy(() => import('./pages/ChannelGatePage').then(m => ({ default: m.ChannelGatePage })));
@@ -100,6 +101,7 @@ function AppRoutes() {
             element={<SettingsPage />}
           />
           <Route path="/admission-chance" element={<AdmissionChancePage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/mistakes" element={<MistakesPage />} />
           <Route path="/paywall" element={<PaywallPage />} />
         </Route>

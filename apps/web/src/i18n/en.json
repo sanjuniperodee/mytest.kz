@@ -5,6 +5,7 @@
   "nav": {
     "home": "Home",
     "chance": "Chance",
+    "leaderboard": "Leaderboard",
     "subscriptions": "Subscriptions",
     "profile": "Profile",
     "settings": "Settings",
@@ -53,6 +54,26 @@
     "homeBannerTitle": "Work on mistakes",
     "homeBannerSub": "{{count}} questions waiting",
     "reviewBadge": "Mistake-review session"
+  },
+  "leaderboard": {
+    "kicker": "Full UNT",
+    "title": "Leaderboard",
+    "subtitle": "Top full UNT practice results. Only each student's best result appears in the ranking.",
+    "myPlace": "My place",
+    "bestResult": "Best result",
+    "points": "{{raw}}/{{max}}",
+    "percent": "{{value}}%",
+    "youName": "You · {{name}}",
+    "noRank": "—",
+    "noRankHint": "Finish a full UNT test to enter the ranking",
+    "noValue": "—",
+    "emptyShort": "No results yet",
+    "emptyTitle": "The leaderboard is empty",
+    "emptyText": "Finish a full 120-question UNT test and your result will appear here.",
+    "error": "Could not load the leaderboard. Try refreshing the page.",
+    "topTitle": "Top students",
+    "topCount": "{{count}} results",
+    "listAria": "Full UNT result ranking"
   },
   "exam": {
     "subjects": "Subjects",
