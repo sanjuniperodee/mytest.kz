@@ -65,12 +65,6 @@ export function PaywallPage() {
     return message;
   };
 
-  const openInvoiceModal = (plan: BillingPlan) => {
-    setPlanForWhatsapp(plan);
-    setInvoicePhone((profile?.phone ?? '').trim());
-    setInvoiceError(false);
-  };
-
   const confirmWhatsapp = () => {
     if (!planForWhatsapp) return;
     const trimmed = invoicePhone.trim();
