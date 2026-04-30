@@ -334,7 +334,13 @@
     "invoiceModalLabel": "Телефон",
     "invoiceModalPlaceholder": "Мысалы, +7 700 000 00 00",
     "invoiceModalOpen": "WhatsApp-қа өту",
-    "invoiceModalError": "Нөмірді енгізіңіз"
+    "invoiceModalError": "Нөмірді енгізіңіз",
+    "paymentAccepted": "Төлемді қабылдаймыз",
+    "paymentSecure": "Қауіпсіз төлемдер",
+    "paymentProcess": "Төлем FreedomPay төлем жүйесі арқылы жүзеге асады. Барлық деректер қорғалған.",
+    "footerRights": "© MyTest 2026. Барлық құқықтар қорғалған.",
+    "offerLink": "Жария ұсыныс",
+    "privacyLink": "Құпиялылық саясаты"
   },
   "common": {
     "loading": "Жүктелуде...",

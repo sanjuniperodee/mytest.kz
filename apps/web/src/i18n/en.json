@@ -334,7 +334,13 @@
     "invoiceModalLabel": "Phone",
     "invoiceModalPlaceholder": "E.g. +7 700 000 00 00",
     "invoiceModalOpen": "Open WhatsApp",
-    "invoiceModalError": "Enter a phone number"
+    "invoiceModalError": "Enter a phone number",
+    "paymentAccepted": "We accept payments",
+    "paymentSecure": "Secure payments",
+    "paymentProcess": "Payment is processed via FreedomPay payment system. All data is protected.",
+    "footerRights": "© MyTest 2026. All rights reserved.",
+    "offerLink": "Public offer",
+    "privacyLink": "Privacy policy"
   },
   "common": {
     "loading": "Loading...",

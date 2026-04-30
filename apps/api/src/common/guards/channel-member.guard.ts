@@ -1,4 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../../modules/telegram/telegram-bot.service';
 
@@ -7,9 +8,13 @@ export class ChannelMemberGuard implements CanActivate {
   constructor(
     private prisma: PrismaService,
     private telegramBot: TelegramBotService,
+    private config: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const required = this.config.get<boolean>('TELEGRAM_CHANNEL_REQUIRED', true);
+    if (!required) return true;
+
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
