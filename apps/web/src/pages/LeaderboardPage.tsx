@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '../components/common/Spinner';
 import { useEntLeaderboard } from '../api/hooks/useTests';
-import { formatDuration } from '../lib/formatDuration';
 import type { EntLeaderboardRow } from '../api/types';
 
 function formatDate(value: string | null, locale: string, fallback: string) {
@@ -87,8 +86,6 @@ function LeaderboardRow({
 }) {
   const { t } = useTranslation();
   const raw = Math.round(row.rawScore);
-  const pct = Math.round(row.score);
-  const duration = formatDuration(row.durationSecs, t('leaderboard.noValue'));
   const subjects = row.profileSubjects ?? [];
 
   return (
@@ -114,10 +111,8 @@ function LeaderboardRow({
       </div>
       <div className="lb-row-score">
         <strong className="lb-row-score-num">{raw}</strong>
-        <span className="lb-row-score-pct">{pct}%</span>
       </div>
       <div className="lb-row-meta">
-        <span>{duration}</span>
         <span>{formatDate(row.finishedAt, locale, t('leaderboard.noValue'))}</span>
       </div>
     </div>
@@ -126,7 +121,7 @@ function LeaderboardRow({
 
 export function LeaderboardPage() {
   const { t, i18n } = useTranslation();
-  const { data, isLoading, error } = useEntLeaderboard(50);
+  const { data, isLoading, error } = useEntLeaderboard(10);
   const locale = i18n.language === 'kk' ? 'kk-KZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU';
   const rows = data?.items ?? [];
   const myUserId = data?.me?.userId ?? null;

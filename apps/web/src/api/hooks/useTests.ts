@@ -107,7 +107,7 @@ export function useMistakesSummary() {
   });
 }
 
-export function useEntLeaderboard(limit = 50) {
+export function useEntLeaderboard(limit = 10) {
   return useQuery<EntLeaderboardResponse>({
     queryKey: ['ent-leaderboard', limit],
     queryFn: async () => {
