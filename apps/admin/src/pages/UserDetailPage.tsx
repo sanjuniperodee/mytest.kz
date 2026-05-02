@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
   Card,
@@ -10,6 +10,8 @@ import {
   Badge,
   Button,
   Empty,
+  Popconfirm,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -17,6 +19,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
+  StopOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
 import { api } from '../api/client';
@@ -110,6 +113,7 @@ function StatusTag({ status }: { status: string }) {
 
 export function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const { data, isPending, error } = useQuery<UserDetailResponse>({
     queryKey: ['admin-user', id],
@@ -118,6 +122,21 @@ export function UserDetailPage() {
       return data;
     },
     enabled: Boolean(id),
+  });
+
+  const revokeSubscription = useMutation({
+    mutationFn: async (subscriptionId: string) => {
+      await api.delete(`/admin/subscriptions/${subscriptionId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-entitlements'] });
+      message.success('Подписка удалена');
+    },
+    onError: () => {
+      message.error('Не удалось удалить подписку');
+    },
   });
 
   if (isPending) {
@@ -348,6 +367,31 @@ export function UserDetailPage() {
                           title: 'Заметка',
                           dataIndex: 'paymentNote',
                           render: (v: string | null) => v ?? '—',
+                        },
+                        {
+                          title: '',
+                          key: 'actions',
+                          width: 130,
+                          render: (_: unknown, record) =>
+                            record.isActive ? (
+                              <Popconfirm
+                                title="Удалить подписку?"
+                                description="Пользователь потеряет доступ, связанный с этой подпиской."
+                                okText="Удалить"
+                                cancelText="Отмена"
+                                okButtonProps={{ danger: true, loading: revokeSubscription.isPending }}
+                                onConfirm={() => revokeSubscription.mutate(record.id)}
+                              >
+                                <Button
+                                  danger
+                                  size="small"
+                                  icon={<StopOutlined />}
+                                  loading={revokeSubscription.isPending}
+                                >
+                                  Удалить
+                                </Button>
+                              </Popconfirm>
+                            ) : null,
                         },
                       ]}
                     />
