@@ -156,71 +156,34 @@ export function PaywallPage() {
       </div>
 
       {!hasPremium && (
-        <>
-          <div className="paywall-grid stagger-list">
-            {plans?.map((plan) => (
-              <article key={plan.id} className="surface paywall-card">
-                <div className="paywall-card-head">
-                  <h3>{plan.name}</h3>
-                  {plan.highlight ? <span>{plan.highlight}</span> : null}
-                </div>
-                <p className="paywall-card-description">{plan.description}</p>
-                <p className="paywall-card-price">
-                  {plan.originalPriceKzt ? (
-                    <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', marginRight: 8, fontSize: '0.85em' }}>
-                      {new Intl.NumberFormat('ru-RU').format(plan.originalPriceKzt)} ₸
-                    </span>
-                  ) : null}
-                  {new Intl.NumberFormat('ru-RU').format(plan.priceKzt)} ₸
-                  <small> / {plan.durationDays} дн.</small>
-                </p>
-                <ul className="paywall-features">
-                  {plan.features.map((feature) => (
-                    <li key={feature}>{feature}</li>
-                  ))}
-                </ul>
-                <button type="button" className="btn btn-primary" onClick={() => handlePay(plan)} disabled={payingPlanId === plan.id}>
-                  {payingPlanId === plan.id ? t('paywall.processing') || '...' : t('paywall.payButton')}
-                </button>
-              </article>
-            ))}
-          </div>
-
-          <footer className="paywall-footer">
-            <div className="paywall-footer-payment">
-              <p className="paywall-footer-payment-label">{t('paywall.paymentAccepted')}</p>
-              <div className="paywall-footer-cards">
-                <div className="paywall-footer-card-icon" aria-label="Visa">
-                  <svg viewBox="0 0 60 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="60" height="24" rx="4" fill="#1A1F71"/>
-                    <text x="8" y="17" fill="#FFFFFF" fontFamily="Arial" fontWeight="bold" fontSize="12">VISA</text>
-                  </svg>
-                </div>
-                <div className="paywall-footer-card-icon" aria-label="Mastercard">
-                  <svg viewBox="0 0 60 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="60" height="24" rx="4" fill="#000"/>
-                    <circle cx="22" cy="12" r="10" fill="#EB001B"/>
-                    <circle cx="38" cy="12" r="10" fill="#F79E1B"/>
-                    <path d="M30 4.2a10 10 0 0 1 0 15.6A10 10 0 0 1 30 4.2z" fill="#FF5F00"/>
-                  </svg>
-                </div>
+        <div className="paywall-grid stagger-list">
+          {plans?.map((plan) => (
+            <article key={plan.id} className="surface paywall-card">
+              <div className="paywall-card-head">
+                <h3>{plan.name}</h3>
+                {plan.highlight ? <span>{plan.highlight}</span> : null}
               </div>
-            </div>
-            <div className="paywall-footer-secure">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              {t('paywall.paymentSecure')}
-            </div>
-            <p className="paywall-footer-process">{t('paywall.paymentProcess')}</p>
-            <div className="paywall-footer-links">
-              <a href="/offer" target="_blank" rel="noopener noreferrer">{t('paywall.offerLink')}</a>
-              <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('paywall.privacyLink')}</a>
-            </div>
-            <p className="paywall-footer-copy">{t('paywall.footerRights')}</p>
-          </footer>
-        </>
+              <p className="paywall-card-description">{plan.description}</p>
+              <p className="paywall-card-price">
+                {plan.originalPriceKzt ? (
+                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', marginRight: 8, fontSize: '0.85em' }}>
+                    {new Intl.NumberFormat('ru-RU').format(plan.originalPriceKzt)} ₸
+                  </span>
+                ) : null}
+                {new Intl.NumberFormat('ru-RU').format(plan.priceKzt)} ₸
+                <small> / {plan.durationDays} дн.</small>
+              </p>
+              <ul className="paywall-features">
+                {plan.features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+              <button type="button" className="btn btn-primary" onClick={() => handlePay(plan)} disabled={payingPlanId === plan.id}>
+                {payingPlanId === plan.id ? t('paywall.processing') || '...' : t('paywall.payButton')}
+              </button>
+            </article>
+          ))}
+        </div>
       )}
 
       {planForWhatsapp ? (
