@@ -14,14 +14,30 @@ export class AnalyticsService {
     landingPath?: string;
     userAgent?: string;
   }) {
+    const visitorId = data.visitorId.slice(0, 64);
+    const landingPath = (data.landingPath || '/').slice(0, 255);
+    const recentDuplicate = await this.prisma.visitEvent.findFirst({
+      where: {
+        visitorId,
+        landingPath,
+        createdAt: { gte: new Date(Date.now() - 10_000) },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (recentDuplicate) {
+      return { visitorId, recorded: false, duplicate: true };
+    }
+
     const visit = await this.prisma.visitEvent.create({
       data: {
-        visitorId: data.visitorId,
-        source: data.source ?? null,
-        medium: data.medium ?? null,
-        campaign: data.campaign ?? null,
-        referrer: data.referrer ?? null,
-        landingPath: data.landingPath ?? '/',
+        visitorId,
+        source: data.source?.slice(0, 32) ?? null,
+        medium: data.medium?.slice(0, 32) ?? null,
+        campaign: data.campaign?.slice(0, 64) ?? null,
+        referrer: data.referrer?.slice(0, 500) ?? null,
+        landingPath,
       },
     });
 
@@ -32,7 +48,7 @@ export class AnalyticsService {
       },
     });
 
-    return { visitorId: data.visitorId, recorded: true };
+    return { visitorId, recorded: true };
   }
 
   async attrributeVisit(visitorId: string, userId: string) {
@@ -161,7 +177,7 @@ export class AnalyticsService {
     // By date aggregation
     const rawByDate = await this.prisma.$queryRaw<
       Array<{
-        date: string;
+        date: string | Date;
         visits: bigint;
         registered: bigint;
         started: bigint;
@@ -172,8 +188,8 @@ export class AnalyticsService {
         DATE(v.created_at at time zone 'Asia/Almaty') as date,
         COUNT(DISTINCT v.visitor_id) as visits,
         COUNT(DISTINCT CASE WHEN v.user_id IS NOT NULL THEN v.visitor_id END) as registered,
-        COUNT(DISTINCT CASE WHEN fs_step.visitor_id IS NOT NULL AND fs_step.step = 'started_test' THEN v.visitor_id END) as started,
-        COUNT(DISTINCT CASE WHEN fs_comp.visitor_id IS NOT NULL AND fs_comp.step = 'completed_test' THEN v.visitor_id END) as completed
+        COUNT(DISTINCT CASE WHEN fs_step.id IS NOT NULL THEN v.visitor_id END) as started,
+        COUNT(DISTINCT CASE WHEN fs_comp.id IS NOT NULL THEN v.visitor_id END) as completed
       FROM visit_events v
       LEFT JOIN funnel_steps fs_step ON fs_step.visit_id = v.id AND fs_step.step = 'started_test'
       LEFT JOIN funnel_steps fs_comp ON fs_comp.visit_id = v.id AND fs_comp.step = 'completed_test'
@@ -183,7 +199,10 @@ export class AnalyticsService {
     `;
 
     const byDate = rawByDate.map((row) => ({
-      date: row.date,
+      date:
+        row.date instanceof Date
+          ? row.date.toISOString().slice(0, 10)
+          : String(row.date),
       visits: Number(row.visits),
       registered: Number(row.registered),
       started: Number(row.started),

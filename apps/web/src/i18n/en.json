@@ -71,6 +71,8 @@
     "emptyText": "Finish a full 120-question UNT test and your result will appear here.",
     "error": "Could not load the leaderboard. Try refreshing the page.",
     "topCount": "{{count}} students",
+    "participants": "Participants",
+    "maxScore": "out of {{value}}",
     "listAria": "Full UNT result ranking"
   },
   "stats": {

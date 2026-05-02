@@ -3,8 +3,9 @@ import {
   Post,
   Body,
   Res,
+  Req,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
@@ -22,12 +23,10 @@ export class AnalyticsController {
       referrer?: string;
       landingPath?: string;
     },
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    // Generate visitorId if not provided
-    const visitorId =
-      body.visitorId ||
-      crypto.randomUUID();
+    const visitorId = body.visitorId || req.cookies?.['blm_vid'] || crypto.randomUUID();
 
     const result = await this.analyticsService.recordVisit({
       visitorId,
@@ -43,6 +42,7 @@ export class AnalyticsController {
       maxAge: 365 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
     });
 
     return result;

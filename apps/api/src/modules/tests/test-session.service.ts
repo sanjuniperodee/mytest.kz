@@ -234,7 +234,7 @@ export class TestSessionService {
     // Record 'started_test' funnel step
     if (visit) {
       const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: visit.id, step: 'started_test' },
+        where: { visitId: visit.id, step: 'started_test', sessionId: session.id },
       });
       if (!existingStep) {
         await this.prisma.funnelStep.create({
@@ -410,7 +410,7 @@ export class TestSessionService {
     // Record 'completed_test' funnel step
     if (session.visitId) {
       const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: session.visitId, step: 'completed_test' },
+        where: { visitId: session.visitId, step: 'completed_test', sessionId },
       });
       if (!existingStep) {
         await this.prisma.funnelStep.create({
@@ -619,7 +619,7 @@ export class TestSessionService {
     // Record 'started_test' funnel step for remediation
     if (visit) {
       const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: visit.id, step: 'started_test' },
+        where: { visitId: visit.id, step: 'started_test', sessionId: session.id },
       });
       if (!existingStep) {
         await this.prisma.funnelStep.create({

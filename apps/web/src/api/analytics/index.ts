@@ -11,6 +11,7 @@ const API_BASE = resolveApiBaseUrl({
 
 const noAuthClient = axios.create({
   baseURL: API_BASE,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 

@@ -3,6 +3,7 @@ import { join } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { I18nInterceptor } from './common/interceptors/i18n.interceptor';
 
@@ -13,10 +14,11 @@ async function bootstrap() {
   if (!existsSync(uploadRoot)) {
     mkdirSync(uploadRoot, { recursive: true });
   }
+  app.use(cookieParser());
   app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api/v1');
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,https://my-test.kz')
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,https://my-test.kz,https://www.my-test.kz,https://admin.my-test.kz')
     .split(',')
     .map((o) => o.trim());
   app.enableCors({

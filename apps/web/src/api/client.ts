@@ -11,6 +11,7 @@ const API_BASE = resolveApiBaseUrl({
 
 export const api = axios.create({
   baseURL: API_BASE,
+  withCredentials: true,
   timeout: 15_000,
   headers: {
     'Content-Type': 'application/json',
@@ -96,9 +97,11 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(`${API_BASE}/auth/refresh`, {
-          refreshToken,
-        });
+        const { data } = await axios.post(
+          `${API_BASE}/auth/refresh`,
+          { refreshToken },
+          { withCredentials: true },
+        );
 
         setTokens(data.accessToken, data.refreshToken);
         processQueue(null, data.accessToken);

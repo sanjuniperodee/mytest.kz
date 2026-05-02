@@ -1,12 +1,14 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './api/hooks/useAuth';
 import { TelegramProvider } from './lib/telegram';
 import { Spinner } from './components/common/Spinner';
 import { NavBar } from './components/common/NavBar';
 import { WhatsAppFab } from './components/common/WhatsAppFab';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { getCookieConsent, setCookieConsent, useVisitTrack } from './hooks/useVisitTrack';
 
 const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const LandingPageV3 = lazy(() => import('./pages/v3/LandingPageV3').then(m => ({ default: m.LandingPageV3 })));
@@ -59,6 +61,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  useVisitTrack();
+
   function TabsLayout() {
     return (
       <div className="app-shell">
@@ -132,7 +136,40 @@ function AppRoutes() {
           }
         />
       </Routes>
+      <CookieConsentBanner />
     </Suspense>
+  );
+}
+
+function CookieConsentBanner() {
+  const { i18n } = useTranslation();
+  const [isVisible, setIsVisible] = useState(() => localStorage.getItem('blm_cookie_consent') == null);
+
+  if (!isVisible || getCookieConsent()) return null;
+
+  const text =
+    i18n.language === 'kk'
+      ? 'Біз келулерді есептеу және тәжірибені жақсарту үшін cookie пайдаланамыз. Ешқандай жеке деректер бақыланбайды.'
+      : i18n.language === 'en'
+      ? 'We use cookies to count visits and improve your experience. No personal data is tracked.'
+      : 'Мы используем cookies для учёта посещений и улучшения опыта. Никакие персональные данные не отслеживаются.';
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-[80] border-t border-slate-200 bg-white/95 px-4 py-3 text-sm shadow-2xl backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-4xl text-slate-700 dark:text-slate-200">{text}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setCookieConsent(true);
+            setIsVisible(false);
+          }}
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-slate-900 px-5 font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+        >
+          OK
+        </button>
+      </div>
+    </div>
   );
 }
 
