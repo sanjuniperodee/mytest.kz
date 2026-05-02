@@ -2758,6 +2758,81 @@ html[data-theme="light"] .paywall-invoice-modal-backdrop {
   margin-top: 18px;
 }
 
+.paywall-footer {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.paywall-footer-payment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.paywall-footer-payment-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.paywall-footer-cards {
+  display: flex;
+  gap: 6px;
+}
+
+.paywall-footer-card-icon {
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.paywall-footer-card-icon svg {
+  height: 22px;
+  width: auto;
+}
+
+.paywall-footer-secure {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.paywall-footer-process {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.paywall-footer-links {
+  display: flex;
+  gap: 16px;
+}
+
+.paywall-footer-links a {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.paywall-footer-links a:hover {
+  color: var(--text-primary);
+}
+
+.paywall-footer-copy {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .mistakes-home-banner {
   display: flex;
   align-items: center;
