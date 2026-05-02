@@ -139,6 +139,21 @@ export function UserDetailPage() {
     },
   });
 
+  const revokeEntitlement = useMutation({
+    mutationFn: async (entitlementId: string) => {
+      await api.patch(`/admin/subscriptions/entitlements/${entitlementId}`, { status: 'revoked' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-entitlements'] });
+      message.success('Доступ отозван');
+    },
+    onError: () => {
+      message.error('Не удалось отозвать доступ');
+    },
+  });
+
   if (isPending) {
     return (
       <AdminPageShell>
@@ -300,6 +315,25 @@ export function UserDetailPage() {
                                 status={ent.status === 'active' ? 'success' : 'default'}
                                 text={ent.status === 'active' ? 'Активен' : ent.status}
                               />
+                              {ent.status === 'active' && (
+                                <Popconfirm
+                                  title="Отозвать доступ?"
+                                  description="Пользователь потеряет доступ к этому экзамену."
+                                  okText="Отозвать"
+                                  cancelText="Отмена"
+                                  okButtonProps={{ danger: true, loading: revokeEntitlement.isPending }}
+                                  onConfirm={() => revokeEntitlement.mutate(ent.id)}
+                                >
+                                  <Button
+                                    danger
+                                    size="small"
+                                    icon={<StopOutlined />}
+                                    loading={revokeEntitlement.isPending}
+                                  >
+                                    Отозвать
+                                  </Button>
+                                </Popconfirm>
+                              )}
                             </div>
                             <div className="pg-user-detail__ent-meta">
                               <span>Осталось попыток: {remaining}</span>
