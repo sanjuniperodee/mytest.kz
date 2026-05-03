@@ -26,7 +26,7 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { preferredLanguage?: string; timezone?: string }) => {
+    mutationFn: async (data: { preferredLanguage?: string; timezone?: string; avatarUrl?: string | null }) => {
       const { data: result } = await api.patch('/users/me', data);
       return result;
     },

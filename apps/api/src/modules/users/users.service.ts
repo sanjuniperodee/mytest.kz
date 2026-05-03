@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
@@ -60,6 +60,7 @@ export class UsersService {
       phone: user.phone,
       firstName: user.firstName,
       lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
       preferredLanguage: user.preferredLanguage,
       timezone: user.timezone,
       isAdmin: user.isAdmin,
@@ -89,18 +90,44 @@ export class UsersService {
 
   async updateProfile(
     userId: string,
-    data: { preferredLanguage?: string; timezone?: string },
+    data: { preferredLanguage?: string; timezone?: string; avatarUrl?: string | null },
   ) {
+    const updateData: {
+      preferredLanguage?: string;
+      avatarUrl?: string | null;
+    } = {};
+
     if (data.preferredLanguage) {
+      updateData.preferredLanguage = data.preferredLanguage;
+    }
+    if ('avatarUrl' in data) {
+      updateData.avatarUrl = this.normalizeAvatarUrl(data.avatarUrl);
+    }
+    if (Object.keys(updateData).length > 0) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { preferredLanguage: data.preferredLanguage },
+        data: updateData,
       });
     }
     if (data.timezone) {
       await this.accessService.updateUserTimezone(userId, data.timezone);
     }
     return this.getProfile(userId);
+  }
+
+  private normalizeAvatarUrl(value: string | null | undefined): string | null {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (trimmed.length > 200_000) {
+      throw new BadRequestException('Avatar image is too large');
+    }
+    const isDataImage = /^data:image\/(png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(trimmed);
+    const isRemoteImage = /^https:\/\/[^\s]+$/i.test(trimmed);
+    if (!isDataImage && !isRemoteImage) {
+      throw new BadRequestException('Unsupported avatar image');
+    }
+    return trimmed;
   }
 
   async getStats(userId: string) {

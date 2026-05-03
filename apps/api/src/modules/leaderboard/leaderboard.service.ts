@@ -7,6 +7,7 @@ export interface EntLeaderboardRow {
   userId: string;
   displayName: string;
   telegramUsername: string | null;
+  avatarUrl: string | null;
   rawScore: number;
   maxScore: number;
   score: number;
@@ -34,6 +35,7 @@ type EligibleSession = {
     firstName: string | null;
     lastName: string | null;
     telegramUsername: string | null;
+    avatarUrl: string | null;
   };
 };
 
@@ -64,6 +66,7 @@ export class LeaderboardService {
             firstName: true,
             lastName: true,
             telegramUsername: true,
+            avatarUrl: true,
           },
         },
         metadata: true,
@@ -142,6 +145,7 @@ export class LeaderboardService {
       userId: session.userId,
       displayName: this.getDisplayName(session.user),
       telegramUsername: session.user.telegramUsername,
+      avatarUrl: session.user.avatarUrl ?? null,
       rawScore,
       maxScore,
       score: scorePct,

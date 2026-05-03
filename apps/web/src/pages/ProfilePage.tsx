@@ -1,21 +1,77 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useProfile, useUserStats } from '../api/hooks/useProfile';
+import { useProfile, useUpdateProfile, useUserStats } from '../api/hooks/useProfile';
+import { useAuth } from '../api/hooks/useAuth';
 import { useMistakesSummary } from '../api/hooks/useTests';
 import { useExamTypes } from '../api/hooks/useExams';
 import { Spinner } from '../components/common/Spinner';
 import { StarIcon, HomeIcon, StatsIcon, MistakesIcon, LeaderboardIcon, SettingsIcon, PlansIcon } from '../components/common/AppIcons';
 import { formatCountdown } from '../lib/entitlements';
 
+function getInitials(name: string) {
+  const parts = name.trim().replace(/^@/, '').split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? [parts[0][0], parts[1][0]] : [parts[0]?.[0]];
+  return letters.join('').toUpperCase() || 'M';
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('read_failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image_failed'));
+    img.src = src;
+  });
+}
+
+async function resizeProfilePhoto(file: File) {
+  const source = await fileToDataUrl(file);
+  const img = await loadImage(source);
+  const size = 320;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas_failed');
+
+  const side = Math.min(img.width, img.height);
+  const sx = (img.width - side) / 2;
+  const sy = (img.height - side) / 2;
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+  return canvas.toDataURL('image/jpeg', 0.84);
+}
+
+function CameraIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14.5 4l1.4 2H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4.1l1.4-2h5z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
 export function ProfilePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
+  const updateProfile = useUpdateProfile();
   const { data: stats } = useUserStats();
   const { data: mistakesSummary } = useMistakesSummary();
   const { data: examTypes } = useExamTypes();
   const [nowMs, setNowMs] = useState(Date.now());
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isPhotoSaving, setIsPhotoSaving] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -82,6 +138,44 @@ export function ProfilePage() {
     navigate(entExam ? `/exam/${entExam.id}` : '/app');
   };
 
+  const handleProfilePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPhotoError(null);
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setPhotoError(t('profile.photoInvalid'));
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setPhotoError(t('profile.photoTooLarge'));
+      return;
+    }
+    try {
+      setIsPhotoSaving(true);
+      const avatarUrl = await resizeProfilePhoto(file);
+      await updateProfile.mutateAsync({ avatarUrl });
+      await refreshUser();
+    } catch {
+      setPhotoError(t('profile.photoError'));
+    } finally {
+      setIsPhotoSaving(false);
+    }
+  };
+
+  const handleProfilePhotoRemove = async () => {
+    setPhotoError(null);
+    try {
+      setIsPhotoSaving(true);
+      await updateProfile.mutateAsync({ avatarUrl: null });
+      await refreshUser();
+    } catch {
+      setPhotoError(t('profile.photoError'));
+    } finally {
+      setIsPhotoSaving(false);
+    }
+  };
+
   const hubItems = [
     { to: '/app', Icon: HomeIcon, title: t('profile.toHome'), sub: t('home.subtitle') },
     {
@@ -108,16 +202,38 @@ export function ProfilePage() {
       <header className="profile-hero surface">
         <div className="profile-hero-glow" aria-hidden />
         <div className="profile-hero-main">
-          <div
-            className="avatar avatar-lg profile-hero-avatar"
-            style={{
-              background: 'linear-gradient(145deg, var(--accent-light), var(--accent-hover))',
-              boxShadow: '0 8px 28px var(--accent-glow)',
-            }}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleProfilePhotoChange}
+            hidden
+          />
+          <button
+            type="button"
+            className="profile-avatar-button"
+            disabled={isPhotoSaving || updateProfile.isPending}
+            onClick={() => photoInputRef.current?.click()}
+            aria-label={t('profile.photoUpload')}
           >
-            <span className="avatar-ring" />
-            {(displayName[0] || 'M').toUpperCase()}
-          </div>
+            <span
+              className="avatar avatar-lg profile-hero-avatar"
+              style={{
+                background: 'linear-gradient(145deg, var(--accent-light), var(--accent-hover))',
+                boxShadow: '0 8px 28px var(--accent-glow)',
+              }}
+            >
+              <span className="avatar-ring" />
+              {profile?.avatarUrl ? (
+                <img src={profile.avatarUrl} alt="" />
+              ) : (
+                getInitials(displayName)
+              )}
+            </span>
+            <span className="profile-avatar-camera">
+              <CameraIcon />
+            </span>
+          </button>
           <div className="profile-hero-copy">
             <p className="profile-hero-kicker">{t('profile.title')}</p>
             <h1 className="profile-hero-name">{displayName}</h1>
@@ -125,6 +241,16 @@ export function ProfilePage() {
               <span className="profile-hero-handle">@{profile.telegramUsername}</span>
             )}
             <div className="profile-hero-chips">
+              {profile?.avatarUrl ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-xs profile-photo-action"
+                  disabled={isPhotoSaving || updateProfile.isPending}
+                  onClick={handleProfilePhotoRemove}
+                >
+                  {t('profile.photoRemove')}
+                </button>
+              ) : null}
               {hasPremium ? (
                 <span className="badge badge-success profile-premium-badge">
                   <StarIcon /> {t('profile.premium')}
@@ -135,6 +261,7 @@ export function ProfilePage() {
                 </Link>
               )}
             </div>
+            {photoError ? <small className="profile-photo-error">{photoError}</small> : null}
           </div>
         </div>
 

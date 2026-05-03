@@ -39,6 +39,24 @@ function getInitials(name: string) {
   return letters.join('').toUpperCase() || 'M';
 }
 
+function LeaderboardAvatar({
+  row,
+  className,
+}: {
+  row: Pick<EntLeaderboardRow, 'displayName' | 'avatarUrl'>;
+  className: string;
+}) {
+  return (
+    <span className={`${className}${row.avatarUrl ? ' lb-avatar--image' : ''}`}>
+      {row.avatarUrl ? (
+        <img src={row.avatarUrl} alt="" loading="lazy" decoding="async" />
+      ) : (
+        getInitials(row.displayName)
+      )}
+    </span>
+  );
+}
+
 function getScorePercent(row: EntLeaderboardRow) {
   const max = row.maxScore || ENT_MAX_SCORE;
   return Math.min(100, Math.max(0, Math.round((row.rawScore / max) * 100)));
@@ -69,9 +87,7 @@ function TopThreePodium({ rows, myUserId }: { rows: EntLeaderboardRow[]; myUserI
             <div className="lb-podium-rank">
               <MedalBadge rank={podiumRank[i]} />
             </div>
-            <div className="lb-podium-avatar">
-              {getInitials(row.displayName)}
-            </div>
+            <LeaderboardAvatar row={row} className="lb-podium-avatar" />
             <div className="lb-podium-name">
               {row.userId === myUserId ? t('leaderboard.youLabel', { name: row.displayName }) : row.displayName}
             </div>
@@ -116,7 +132,7 @@ function LeaderboardRow({
         )}
       </div>
       <div className="lb-row-user">
-        <span className="lb-row-avatar">{getInitials(row.displayName)}</span>
+        <LeaderboardAvatar row={row} className="lb-row-avatar" />
         <div className="lb-row-info">
           <strong>{isMe ? t('leaderboard.youLabel', { name: row.displayName }) : row.displayName}</strong>
           {subjects.length > 0 && (

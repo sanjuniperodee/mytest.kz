@@ -201,6 +201,7 @@ export class AuthService {
     telegramUsername: string | null;
     firstName: string | null;
     lastName: string | null;
+    avatarUrl?: string | null;
   }) {
     const payload = {
       sub: user.id,
@@ -225,6 +226,7 @@ export class AuthService {
         telegramUsername: user.telegramUsername,
         firstName: user.firstName,
         lastName: user.lastName,
+        avatarUrl: user.avatarUrl ?? null,
         preferredLanguage: user.preferredLanguage,
         isChannelMember: user.isChannelMember,
         isAdmin: user.isAdmin,

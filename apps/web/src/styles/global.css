@@ -751,6 +751,7 @@ html[data-theme="light"] .lb-stat-card {
   font-weight: 850;
   color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-surface);
+  overflow: hidden;
 }
 
 .lb-podium-item--1 .lb-podium-avatar {
@@ -965,12 +966,26 @@ html[data-theme="light"] .lb-stat-card {
   font-weight: 800;
   color: var(--text-secondary);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .lb-row--me .lb-row-avatar {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+.lb-avatar--image {
+  background: var(--bg-elevated);
+  color: transparent;
+}
+
+.lb-podium-avatar img,
+.lb-row-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .lb-row-info {
@@ -2697,6 +2712,41 @@ html[data-theme="light"] .profile-hero-glow {
   flex-shrink: 0;
 }
 
+.profile-avatar-button {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  width: 82px;
+  height: 82px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.profile-avatar-button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.profile-avatar-camera {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--bg-primary);
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
 .profile-hero-copy {
   min-width: 0;
   flex: 1;
@@ -2741,6 +2791,18 @@ html[data-theme="light"] .profile-hero-glow {
   gap: 6px;
   padding: 8px 14px !important;
   font-size: 12px !important;
+}
+
+.profile-photo-action {
+  gap: 6px;
+}
+
+.profile-photo-error {
+  display: block;
+  margin-top: 8px;
+  color: var(--error-light);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .profile-premium-cta {
@@ -3872,6 +3934,14 @@ html[data-theme="light"] .paywall-invoice-modal-backdrop {
   color: #fff;
   flex-shrink: 0;
   position: relative;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .avatar-sm { width: 36px; height: 36px; font-size: 14px; }

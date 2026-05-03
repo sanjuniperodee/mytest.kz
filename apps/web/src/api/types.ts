@@ -5,6 +5,7 @@ export interface User {
   phone?: string | null;
   firstName: string | null;
   lastName: string | null;
+  avatarUrl?: string | null;
   preferredLanguage: 'kk' | 'ru' | 'en';
   timezone?: string;
   isChannelMember: boolean;
@@ -240,6 +241,7 @@ export interface EntLeaderboardRow {
   userId: string;
   displayName: string;
   telegramUsername: string | null;
+  avatarUrl: string | null;
   rawScore: number;
   maxScore: number;
   score: number;
