@@ -17,8 +17,9 @@ import { HigTableCard } from '../components/HigBlocks';
 
 interface User {
   id: string;
-  telegramId: number;
+  telegramId: number | null;
   telegramUsername: string | null;
+  email: string | null;
   phone: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -94,6 +95,7 @@ export function UsersPage() {
       dataIndex: 'telegramId',
       width: 120,
       className: 'pg-users__cell-mono',
+      render: (v: number | null) => v ?? '—',
     },
     {
       title: 'Username',

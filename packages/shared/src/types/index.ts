@@ -81,8 +81,9 @@ export interface TestAnswerDto {
 // User
 export interface UserDto {
   id: string;
-  telegramId: number;
+  telegramId: number | null;
   telegramUsername: string | null;
+  email?: string | null;
   firstName: string | null;
   lastName: string | null;
   preferredLanguage: Language;

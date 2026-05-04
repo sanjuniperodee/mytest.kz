@@ -4410,6 +4410,31 @@ html[data-theme="light"] .paywall-invoice-modal-backdrop {
   width: 100%;
 }
 
+.login-page-google {
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.login-page-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 18px;
+}
+
+.login-page-divider::before,
+.login-page-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .login-page-panel-hint {
   display: none;
   text-align: center;

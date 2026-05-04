@@ -294,6 +294,7 @@
     "title": "MyTest-қа кіру",
     "telegramLogin": "Telegram арқылы кіру",
     "webLogin": "Телефон нөмірі бойынша кіру",
+    "or": "немесе",
     "phonePlaceholder": "+7 7XX XXX XX XX",
     "phoneInvalid": "Дұрыс мобильді нөмірді енгізіңіз",
     "sendCode": "Код жіберу",

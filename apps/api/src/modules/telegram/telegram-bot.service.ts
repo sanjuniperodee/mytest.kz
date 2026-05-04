@@ -61,7 +61,7 @@ export class TelegramBotService implements OnModuleInit {
         where: { id: this.leadNotifyUserId },
         select: { telegramId: true },
       });
-      if (user) {
+      if (user?.telegramId) {
         return Number(user.telegramId);
       }
       this.logger.warn(

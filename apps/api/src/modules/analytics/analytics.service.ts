@@ -364,7 +364,7 @@ export class AnalyticsService {
         user: v.user
           ? {
               id: v.user.id,
-              telegramId: Number(v.user.telegramId),
+              telegramId: v.user.telegramId ? Number(v.user.telegramId) : null,
               telegramUsername: v.user.telegramUsername,
               firstName: v.user.firstName,
               lastName: v.user.lastName,
@@ -439,7 +439,7 @@ export class AnalyticsService {
       string,
       {
         userId: string;
-        telegramId: number;
+        telegramId: number | null;
         telegramUsername: string | null;
         firstName: string | null;
         lastName: string | null;
@@ -458,7 +458,7 @@ export class AnalyticsService {
       if (!existing) {
         userMap.set(id, {
           userId: id,
-          telegramId: Number(u.telegramId),
+          telegramId: u.telegramId ? Number(u.telegramId) : null,
           telegramUsername: u.telegramUsername,
           firstName: u.firstName,
           lastName: u.lastName,

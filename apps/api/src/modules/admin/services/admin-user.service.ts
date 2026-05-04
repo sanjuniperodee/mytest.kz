@@ -12,6 +12,7 @@ export class AdminUserService {
       ? {
           OR: [
             { telegramUsername: { contains: search, mode: 'insensitive' as const } },
+            { email: { contains: search, mode: 'insensitive' as const } },
             ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : []),
             { firstName: { contains: search, mode: 'insensitive' as const } },
             { lastName: { contains: search, mode: 'insensitive' as const } },
@@ -46,7 +47,7 @@ export class AdminUserService {
     return {
       items: items.map((u) => ({
         ...u,
-        telegramId: Number(u.telegramId),
+        telegramId: u.telegramId ? Number(u.telegramId) : null,
         hasActiveSubscription: u.entitlements.some(
           (e) => e.tier === EntitlementTier.paid,
         ),
@@ -98,7 +99,7 @@ export class AdminUserService {
     return {
       user: {
         ...user,
-        telegramId: Number(user.telegramId),
+        telegramId: user.telegramId ? Number(user.telegramId) : null,
         hasActiveSubscription: user.entitlements.some(
           (e) => e.tier === EntitlementTier.paid,
         ),

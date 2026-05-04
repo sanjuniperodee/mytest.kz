@@ -7,6 +7,7 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   login: (initData: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   loginWithCode: (phone: string, code: string) => Promise<void>;
   requestCode: (phone: string) => Promise<void>;
   refreshUser: () => Promise<User | null>;
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   login: async () => {},
+  loginWithGoogle: async () => {},
   loginWithCode: async () => {},
   requestCode: async () => {},
   refreshUser: async () => null,
@@ -82,6 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const { data } = await api.post<AuthResponse>('/auth/google', { credential });
+    setTokens(data.accessToken, data.refreshToken);
+    setUser(data.user);
+  }, []);
+
   const requestCode = useCallback(async (phone: string) => {
     await api.post('/auth/web/request-code', { phone });
   }, []);
@@ -105,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginWithCode, requestCode, refreshUser, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithGoogle, loginWithCode, requestCode, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

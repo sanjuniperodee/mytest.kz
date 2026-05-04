@@ -133,8 +133,11 @@ model TestTemplateSection {
 
 model User {
   id                String    @id @default(uuid()) @db.Uuid
-  telegramId        BigInt    @unique @map("telegram_id")
+  telegramId        BigInt?   @unique @map("telegram_id")
   telegramUsername   String?   @map("telegram_username") @db.VarChar(100)
+  googleId          String?   @unique @map("google_id") @db.VarChar(255)
+  email             String?   @unique @map("email") @db.VarChar(255)
+  emailVerified     Boolean   @default(false) @map("email_verified")
   /// E.164 digits without +, e.g. 77001234567 — set when user shares contact in bot; used for web login
   phone             String?   @unique @map("phone") @db.VarChar(20)
   firstName         String?   @map("first_name") @db.VarChar(100)

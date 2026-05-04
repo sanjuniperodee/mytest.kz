@@ -30,6 +30,15 @@ export class AuthController {
     return this.authService.verifyWebCode(phone, code, visitorId);
   }
 
+  @Post('google')
+  async authenticateGoogle(
+    @Body('credential') credential: string,
+    @Req() req: Request,
+  ) {
+    const visitorId = req.cookies?.['blm_vid'];
+    return this.authService.authenticateGoogle(credential, visitorId);
+  }
+
   @Post('refresh')
   async refreshToken(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);

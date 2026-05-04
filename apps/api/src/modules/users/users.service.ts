@@ -24,9 +24,11 @@ export class UsersService {
     // - Always re-check if currently false (user might have just subscribed)
     // - If true, cache for 5 min to avoid spamming Telegram API
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    let isChannelMember = user.isChannelMember;
+    let isChannelMember = user.telegramId ? user.isChannelMember : true;
 
-    const shouldRecheck = !isChannelMember || !user.channelCheckedAt || user.channelCheckedAt < fiveMinAgo;
+    const shouldRecheck =
+      !!user.telegramId &&
+      (!isChannelMember || !user.channelCheckedAt || user.channelCheckedAt < fiveMinAgo);
     if (shouldRecheck) {
       isChannelMember = await this.telegramBot.checkChannelMembership(
         Number(user.telegramId),
@@ -55,8 +57,9 @@ export class UsersService {
 
     return {
       id: user.id,
-      telegramId: Number(user.telegramId),
+      telegramId: user.telegramId ? Number(user.telegramId) : null,
       telegramUsername: user.telegramUsername,
+      email: user.email,
       phone: user.phone,
       firstName: user.firstName,
       lastName: user.lastName,

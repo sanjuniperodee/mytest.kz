@@ -152,8 +152,8 @@ export function AnalyticsPage() {
       dataIndex: 'telegramId',
       key: 'tg',
       width: 120,
-      render: (id: number) => (
-        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{id}</span>
+      render: (id: number | null) => (
+        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{id ?? '—'}</span>
       ),
     },
     {

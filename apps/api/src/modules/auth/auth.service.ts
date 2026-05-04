@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { OAuth2Client } from 'google-auth-library';
 import Redis from 'ioredis';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramAuthService } from './telegram-auth.service';
@@ -20,6 +21,8 @@ import {
 
 @Injectable()
 export class AuthService {
+  private googleClient = new OAuth2Client();
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -84,6 +87,75 @@ export class AuthService {
     });
   }
 
+  async authenticateGoogle(credential: string, visitorId?: string) {
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+    if (!clientId) {
+      throw new BadRequestException('Google sign-in is not configured');
+    }
+    if (!credential) {
+      throw new BadRequestException('Google credential is required');
+    }
+
+    let payload;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('Invalid Google credential');
+    }
+
+    if (!payload?.sub || !payload.email || !payload.email_verified) {
+      throw new UnauthorizedException('Google email is not verified');
+    }
+
+    const email = payload.email.toLowerCase();
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ googleId: payload.sub }, { email }],
+      },
+    });
+
+    const names = this.getGoogleNames(payload);
+    const user = existingUser
+      ? await this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            googleId: payload.sub,
+            email,
+            emailVerified: true,
+            firstName: existingUser.firstName || names.firstName,
+            lastName: existingUser.lastName || names.lastName,
+            avatarUrl: existingUser.avatarUrl || payload.picture || null,
+            isChannelMember: existingUser.telegramId ? existingUser.isChannelMember : true,
+          },
+        })
+      : await this.prisma.user.create({
+          data: {
+            googleId: payload.sub,
+            email,
+            emailVerified: true,
+            firstName: names.firstName,
+            lastName: names.lastName,
+            avatarUrl: payload.picture || null,
+            preferredLanguage: 'ru',
+            isChannelMember: true,
+          },
+        });
+
+    if (visitorId) {
+      await this.attrributeVisit(visitorId, user.id);
+    }
+
+    return this.generateTokens({
+      ...user,
+      telegramId: user.telegramId ? Number(user.telegramId) : null,
+      isChannelMember: user.telegramId ? user.isChannelMember : true,
+    });
+  }
+
   /**
    * Step 1: User enters phone (same as shared in Telegram bot).
    * Redis key + code sent to Telegram chat by telegramId.
@@ -107,6 +179,9 @@ export class AuthService {
       throw new BadRequestException(
         'Номер не найден. Откройте бота @bilimhan_bot по ссылке с сайта и укажите номер в Telegram.',
       );
+    }
+    if (!user.telegramId) {
+      throw new BadRequestException('Для этого аккаунта вход через Telegram-код недоступен');
     }
 
     const code = Array.from({ length: AUTH_CODE_LENGTH }, () =>
@@ -147,6 +222,9 @@ export class AuthService {
         'Пользователь не найден. Откройте бота @bilimhan_bot по ссылке с сайта и укажите номер в Telegram.',
       );
     }
+    if (!user.telegramId) {
+      throw new UnauthorizedException('Для этого аккаунта вход через Telegram-код недоступен');
+    }
 
     // Check channel membership
     const isChannelMember = await this.telegramBot.checkChannelMembership(
@@ -185,7 +263,8 @@ export class AuthService {
 
       return this.generateTokens({
         ...user,
-        telegramId: Number(user.telegramId),
+        telegramId: user.telegramId ? Number(user.telegramId) : null,
+        isChannelMember: user.telegramId ? user.isChannelMember : true,
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
@@ -194,7 +273,7 @@ export class AuthService {
 
   private generateTokens(user: {
     id: string;
-    telegramId: number;
+    telegramId: number | null;
     preferredLanguage: string;
     isAdmin: boolean;
     isChannelMember: boolean;
@@ -202,6 +281,7 @@ export class AuthService {
     firstName: string | null;
     lastName: string | null;
     avatarUrl?: string | null;
+    email?: string | null;
   }) {
     const payload = {
       sub: user.id,
@@ -227,10 +307,29 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         avatarUrl: user.avatarUrl ?? null,
+        email: user.email ?? null,
         preferredLanguage: user.preferredLanguage,
         isChannelMember: user.isChannelMember,
         isAdmin: user.isAdmin,
       },
+    };
+  }
+
+  private getGoogleNames(payload: {
+    given_name?: string;
+    family_name?: string;
+    name?: string;
+  }) {
+    const firstName = payload.given_name?.trim() || null;
+    const lastName = payload.family_name?.trim() || null;
+    if (firstName || lastName || !payload.name) {
+      return { firstName, lastName };
+    }
+
+    const [first, ...rest] = payload.name.trim().split(/\s+/);
+    return {
+      firstName: first || null,
+      lastName: rest.join(' ') || null,
     };
   }
 

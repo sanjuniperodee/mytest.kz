@@ -8,12 +8,14 @@ import { AdvancedSEO } from '../components/seo/AdvancedSEO';
 
 /** Deep link: Telegram sends /start automatically — user does not type the command. */
 const BOT_DEEP_LINK = 'https://t.me/bilimhan_bot?start=web';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export function LoginPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { login, requestCode, loginWithCode, user, isLoading: authLoading } = useAuth();
+  const { login, loginWithGoogle, requestCode, loginWithCode, user, isLoading: authLoading } = useAuth();
   const { isTelegram, webApp } = useTelegram();
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
 
   const [phone, setPhone] = useState('');
   const [phoneE164, setPhoneE164] = useState<string | null>(null);
@@ -26,8 +28,6 @@ export function LoginPage() {
   const telegramAttemptedRef = useRef(false);
 
   const htmlLang = i18n.language === 'kk' ? 'kk' : i18n.language === 'en' ? 'en' : 'ru';
-
-  if (user) { navigate('/app', { replace: true }); return null; }
 
   const mapTelegramAuthError = (msg: string | undefined): string => {
     if (msg === 'PHONE_REQUIRED_IN_BOT') return t('auth.telegramPhoneRequired');
@@ -61,6 +61,60 @@ export function LoginPage() {
     telegramAttemptedRef.current = true;
     void tryTelegramLogin(webApp.initData);
   }, [isTelegram, webApp?.initData, authLoading]);
+
+  useEffect(() => {
+    if (!user) return;
+    navigate('/app', { replace: true });
+  }, [navigate, user]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || isTelegram || !googleButtonRef.current) return;
+
+    let cancelled = false;
+    const buttonEl = googleButtonRef.current;
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !window.google || !buttonEl) return;
+        buttonEl.innerHTML = '';
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async ({ credential }) => {
+            if (!credential) {
+              setError(t('common.error'));
+              return;
+            }
+            setError('');
+            setLoading(true);
+            try {
+              await loginWithGoogle(credential);
+              navigate('/app', { replace: true });
+            } catch (err: unknown) {
+              const msg = extractBackendMessage(err);
+              setError(msg || t('common.error'));
+            } finally {
+              setLoading(false);
+            }
+          },
+        });
+        window.google.accounts.id.renderButton(buttonEl, {
+          theme: 'outline',
+          size: 'large',
+          type: 'standard',
+          shape: 'rectangular',
+          text: 'continue_with',
+          width: Math.min(360, buttonEl.offsetWidth || 320),
+        });
+      })
+      .catch(() => setError(t('common.error')));
+
+    return () => {
+      cancelled = true;
+      buttonEl.innerHTML = '';
+    };
+  }, [isTelegram, loginWithGoogle, navigate, t]);
+
+  if (user) return null;
 
   if (isTelegram && webApp?.initData) {
     const isBusy = authLoading || telegramAutoLoading;
@@ -188,6 +242,14 @@ export function LoginPage() {
           <Logo title={t('app.name')} />
 
           <div className="login-page-form">
+          {GOOGLE_CLIENT_ID && (
+            <>
+              <div className="login-page-google" ref={googleButtonRef} />
+              <div className="login-page-divider">
+                <span>{t('auth.or')}</span>
+              </div>
+            </>
+          )}
           {step === 'phone' ? (
             <>
               <div className="surface" style={{ borderRadius: 'var(--r-xl)', padding: 24, marginBottom: 24 }}>
@@ -323,6 +385,28 @@ function ErrorMsg({ text }: { text: string }) {
       {text}
     </p>
   );
+}
+
+function loadGoogleIdentityScript() {
+  const src = 'https://accounts.google.com/gsi/client';
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (window.google) return Promise.resolve();
+  if (existing) {
+    return new Promise<void>((resolve, reject) => {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Google script failed')), { once: true });
+    });
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Google script failed'));
+    document.head.appendChild(script);
+  });
 }
 
 function MailIcon() {

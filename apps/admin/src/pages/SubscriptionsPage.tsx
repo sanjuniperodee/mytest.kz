@@ -176,7 +176,7 @@ export function SubscriptionsPage() {
       (usersData?.items ?? []).map((u: Record<string, unknown>) => {
         const fn = (u.firstName as string) || '';
         const ln = (u.lastName as string) || '';
-        const h = (u.telegramUsername as string) || String(u.telegramId);
+        const h = (u.telegramUsername as string) || (u.email as string) || String(u.telegramId || '');
         return {
           value: u.id as string,
           label: `${fn} ${ln}`.trim() || h,
@@ -482,7 +482,7 @@ export function SubscriptionsPage() {
             {String(record.firstName || '')} {String(record.lastName || '')}
           </div>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            @{String(record.telegramUsername || record.telegramId)}
+            {record.telegramUsername ? `@${String(record.telegramUsername)}` : String(record.email || record.telegramId || '—')}
             {record.phone ? ` · +${String(record.phone)}` : ''}
           </Typography.Text>
         </div>

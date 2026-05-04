@@ -294,6 +294,7 @@
     "title": "Вход в MyTest",
     "telegramLogin": "Войти через Telegram",
     "webLogin": "Вход по номеру телефона",
+    "or": "или",
     "phonePlaceholder": "+7 7XX XXX XX XX",
     "phoneInvalid": "Введите корректный номер мобильного телефона",
     "sendCode": "Отправить код",

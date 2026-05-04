@@ -35,7 +35,7 @@ export type Visitor = {
   userId: string | null;
   user: {
     id: string;
-    telegramId: number;
+    telegramId: number | null;
     telegramUsername: string | null;
     firstName: string | null;
     lastName: string | null;
@@ -54,7 +54,7 @@ export type Visitor = {
 
 export type TestTaker = {
   userId: string;
-  telegramId: number;
+  telegramId: number | null;
   telegramUsername: string | null;
   firstName: string | null;
   lastName: string | null;

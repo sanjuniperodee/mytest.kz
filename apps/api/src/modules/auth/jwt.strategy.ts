@@ -15,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   validate(payload: {
     sub: string;
-    telegramId: number;
+    telegramId: number | null;
     preferredLanguage: string;
     isAdmin: boolean;
     isChannelMember: boolean;

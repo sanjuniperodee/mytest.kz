@@ -38,6 +38,10 @@ export class ChannelMemberGuard implements CanActivate {
     if (!dbUser) {
       throw new ForbiddenException('Channel subscription required');
     }
+    if (!dbUser.telegramId) {
+      request.user.isChannelMember = true;
+      return true;
+    }
 
     // If DB already has true, trust it and update request user.
     if (dbUser.isChannelMember) {
