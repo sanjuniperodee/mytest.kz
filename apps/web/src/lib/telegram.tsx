@@ -79,13 +79,17 @@ function readTelegramWebAppFromWindow(): TelegramWebApp | null {
   return window.Telegram?.WebApp ?? null;
 }
 
+function hasTelegramInitData(webApp: TelegramWebApp | null): webApp is TelegramWebApp {
+  return typeof webApp?.initData === 'string' && webApp.initData.trim().length > 0;
+}
+
 export function TelegramProvider({ children }: { children: ReactNode }) {
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(readTelegramWebAppFromWindow);
-  const isTelegram = !!webApp;
+  const isTelegram = hasTelegramInitData(webApp);
 
   useEffect(() => {
     const tg = readTelegramWebAppFromWindow();
-    if (tg) {
+    if (hasTelegramInitData(tg)) {
       tg.ready();
       tg.expand();
       setWebApp(tg);
