@@ -266,99 +266,98 @@ export function LandingPage() {
         </header>
 
         {heroSlides.length > 0 ? (
-          <section className="ld-hero-carousel" aria-label={t('landing.heroCarouselAria')}>
-            <div className="ld-max">
-              <div className="ld-carousel-shell">
-                {heroSlides.map((slide, idx) => {
-                  const titleText = slide.title?.trim() ?? '';
-                  const subtitleText = slide.subtitle?.trim() ?? '';
-                  const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
-                  return (
-                    <article
-                      key={`hero-slide-${idx}`}
-                      className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
-                      aria-hidden={idx !== heroIndex}
-                    >
-                      <picture>
-                        <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
-                        <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
-                        <img
-                          src={resolveMediaUrl(slide.desktopImageUrl)}
-                          alt={titleText}
-                          loading={idx === 0 ? 'eager' : 'lazy'}
-                        />
-                      </picture>
-                      {showOverlay ? (
-                        <div className="ld-carousel-overlay">
-                          {titleText ? <h1 className="ld-carousel-title">{titleText}</h1> : null}
-                          {subtitleText ? <p className="ld-carousel-subtitle">{subtitleText}</p> : null}
-                          {shouldShowHeroCta(slide) ? (
-                            isExternalHref(slide.buttonHref) ? (
-                              <a
-                                href={slide.buttonHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="ld-btn ld-btn-primary ld-btn-lg"
-                              >
-                                {slide.buttonLabel!.trim()}
-                              </a>
-                            ) : (
-                              <Link to={slide.buttonHref!.trim()} className="ld-btn ld-btn-primary ld-btn-lg">
-                                {slide.buttonLabel!.trim()}
-                              </Link>
-                            )
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-                {heroSlides.length > 1 ? (
-                  <>
-                    <button
-                      type="button"
-                      className="ld-carousel-nav is-prev"
-                      aria-label={t('landing.heroCarouselPrev')}
-                      onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
-                      onMouseEnter={() => setIsCarouselPaused(true)}
-                      onMouseLeave={() => setIsCarouselPaused(false)}
-                    >
-                      <span aria-hidden>‹</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="ld-carousel-nav is-next"
-                      aria-label={t('landing.heroCarouselNext')}
-                      onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
-                      onMouseEnter={() => setIsCarouselPaused(true)}
-                      onMouseLeave={() => setIsCarouselPaused(false)}
-                    >
-                      <span aria-hidden>›</span>
-                    </button>
-                  </>
-                ) : null}
-                {heroSlides.length > 1 ? (
-                  <div
-                    className="ld-carousel-dots"
-                    role="tablist"
-                    aria-label={t('landing.heroCarouselDotsAria')}
-                    onMouseEnter={() => setIsCarouselPaused(true)}
-                    onMouseLeave={() => setIsCarouselPaused(false)}
-                  >
-                    {heroSlides.map((_, idx) => (
+          <a href="/login" className="block" onClick={(e) => e.stopPropagation()}>
+            <section className="ld-hero-carousel" aria-label={t('landing.heroCarouselAria')}>
+              <div className="ld-max">
+                <div className="ld-carousel-shell">
+                  {heroSlides.map((slide, idx) => {
+                    const titleText = slide.title?.trim() ?? '';
+                    const subtitleText = slide.subtitle?.trim() ?? '';
+                    const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
+                    return (
+                      <article
+                        key={`hero-slide-${idx}`}
+                        className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
+                        aria-hidden={idx !== heroIndex}
+                      >
+                        <picture>
+                          <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
+                          <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
+                          <img
+                            src={resolveMediaUrl(slide.desktopImageUrl)}
+                            alt={titleText}
+                            loading={idx === 0 ? 'eager' : 'lazy'}
+                          />
+                        </picture>
+                        {showOverlay ? (
+                          <div className="ld-carousel-overlay">
+                            {titleText ? <h1 className="ld-carousel-title">{titleText}</h1> : null}
+                            {subtitleText ? <p className="ld-carousel-subtitle">{subtitleText}</p> : null}
+                            {shouldShowHeroCta(slide) ? (
+                              isExternalHref(slide.buttonHref) ? (
+                                <span
+                                  className="ld-btn ld-btn-primary ld-btn-lg"
+                                >
+                                  {slide.buttonLabel!.trim()}
+                                </span>
+                              ) : (
+                                <span className="ld-btn ld-btn-primary ld-btn-lg">
+                                  {slide.buttonLabel!.trim()}
+                                </span>
+                              )
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                  {heroSlides.length > 1 ? (
+                    <>
                       <button
-                        key={`hero-slide-dot-${idx}`}
                         type="button"
-                        className={idx === heroIndex ? 'is-active' : ''}
-                        onClick={() => setHeroIndex(idx)}
-                        aria-label={`${t('landing.heroCarouselDot')} ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                        className="ld-carousel-nav is-prev"
+                        aria-label={t('landing.heroCarouselPrev')}
+                        onClick={(e) => { e.stopPropagation(); setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length); }}
+                        onMouseEnter={() => setIsCarouselPaused(true)}
+                        onMouseLeave={() => setIsCarouselPaused(false)}
+                      >
+                        <span aria-hidden>‹</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="ld-carousel-nav is-next"
+                        aria-label={t('landing.heroCarouselNext')}
+                        onClick={(e) => { e.stopPropagation(); setHeroIndex((prev) => (prev + 1) % heroSlides.length); }}
+                        onMouseEnter={() => setIsCarouselPaused(true)}
+                        onMouseLeave={() => setIsCarouselPaused(false)}
+                      >
+                        <span aria-hidden>›</span>
+                      </button>
+                    </>
+                  ) : null}
+                  {heroSlides.length > 1 ? (
+                    <div
+                      className="ld-carousel-dots"
+                      role="tablist"
+                      aria-label={t('landing.heroCarouselDotsAria')}
+                      onMouseEnter={() => setIsCarouselPaused(true)}
+                      onMouseLeave={() => setIsCarouselPaused(false)}
+                    >
+                      {heroSlides.map((_, idx) => (
+                        <button
+                          key={`hero-slide-dot-${idx}`}
+                          type="button"
+                          className={idx === heroIndex ? 'is-active' : ''}
+                          onClick={(e) => { e.stopPropagation(); setHeroIndex(idx); }}
+                          aria-label={`${t('landing.heroCarouselDot')} ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </a>
         ) : null}
 
         <section className="ld-hero-meta" aria-label={t('landing.heroQuickNavAria')}>
