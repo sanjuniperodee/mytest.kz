@@ -54,6 +54,8 @@ describe('AccessService', () => {
         findUnique: jest.fn().mockResolvedValue({ id: 'exam-ent', slug: 'ent' }),
       },
       userExamEntitlement: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         findMany: jest.fn().mockResolvedValue([
           {
@@ -79,7 +81,36 @@ describe('AccessService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'user-1', entTrialUsed: 0, timezone: 'Asia/Almaty' }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          entTrialUsed: 2,
+          timezone: 'Asia/Almaty',
+          createdAt: new Date(),
+        }),
+      },
+      subscriptionPlanTemplate: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({
+          id: 'tpl-1',
+          code: 'free_ent_trial',
+          isActive: true,
+          isPremium: false,
+          durationDays: null,
+          totalAttemptsLimit: 2,
+          dailyAttemptsLimit: null,
+          examRules: [
+            {
+              examTypeId: 'exam-ent',
+              totalAttemptsLimit: 2,
+              dailyAttemptsLimit: null,
+              isUnlimited: false,
+              examType: { id: 'exam-ent', slug: 'ent' },
+            },
+          ],
+        }),
+      },
+      subscriptionPlanTemplateExamRule: {
+        create: jest.fn(),
       },
       testSession: {
         count: jest.fn().mockResolvedValue(0),

@@ -18,6 +18,7 @@ import {
   AUTH_CODE_LENGTH,
   normalizeKzPhone,
 } from '@bilimland/shared';
+import { AccessService } from '../subscriptions/access.service';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +31,7 @@ export class AuthService {
     private telegramAuth: TelegramAuthService,
     @Inject(forwardRef(() => TelegramBotService))
     private telegramBot: TelegramBotService,
+    private accessService: AccessService,
     @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
 
@@ -79,6 +81,8 @@ export class AuthService {
     if (visitorId) {
       await this.attrributeVisit(visitorId, user.id);
     }
+
+    await this.accessService.ensureSignupEntitlementsForUser(user.id);
 
     return this.generateTokens({
       ...user,
@@ -148,6 +152,8 @@ export class AuthService {
     if (visitorId) {
       await this.attrributeVisit(visitorId, user.id);
     }
+
+    await this.accessService.ensureSignupEntitlementsForUser(user.id);
 
     return this.generateTokens({
       ...user,
@@ -260,6 +266,8 @@ export class AuthService {
       });
 
       if (!user) throw new UnauthorizedException();
+
+      await this.accessService.ensureSignupEntitlementsForUser(user.id);
 
       return this.generateTokens({
         ...user,

@@ -12,7 +12,7 @@ export class ChannelMemberGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const required = this.config.get<boolean>('TELEGRAM_CHANNEL_REQUIRED', true);
+    const required = this.isTelegramChannelRequired();
     if (!required) return true;
 
     const request = context.switchToHttp().getRequest();
@@ -78,5 +78,12 @@ export class ChannelMemberGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private isTelegramChannelRequired(): boolean {
+    const raw = this.config.get<string | boolean>('TELEGRAM_CHANNEL_REQUIRED');
+    if (raw === undefined || raw === null || raw === '') return true;
+    if (typeof raw === 'boolean') return raw;
+    return !['false', '0', 'no', 'off'].includes(raw.trim().toLowerCase());
   }
 }

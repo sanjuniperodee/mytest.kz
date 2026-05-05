@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { EntitlementSourceType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
@@ -39,12 +40,27 @@ export class UsersService {
       });
     }
 
+    await this.accessService.ensureSignupEntitlementsForUser(userId);
+
     const accessByExam = await this.accessService.getUserAccessByExam(userId);
     const entAccess = accessByExam.find((x) => x.examSlug === 'ent');
     const activePaidAccess = accessByExam.some((x) => x.hasPaidTier && x.hasAccess);
 
-    const freeLimit = ENT_TRIAL_LIMIT;
-    const freeUsed = Math.max(0, user.entTrialUsed);
+    const signupEntitlement = await this.prisma.userExamEntitlement.findFirst({
+      where: {
+        userId,
+        sourceType: EntitlementSourceType.plan_template,
+        sourceRef: { startsWith: `signup:${userId}:exam:` },
+        examType: { slug: 'ent' },
+      },
+      select: { totalAttemptsLimit: true, usedAttemptsTotal: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const freeLimit = signupEntitlement?.totalAttemptsLimit ?? ENT_TRIAL_LIMIT;
+    const freeUsed = Math.max(
+      0,
+      signupEntitlement?.usedAttemptsTotal ?? user.entTrialUsed,
+    );
     const freeRemaining = Math.max(0, freeLimit - freeUsed);
     const totalRemainingFromAccess =
       entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : 0;

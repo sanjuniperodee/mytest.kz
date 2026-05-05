@@ -63,6 +63,7 @@ type AccessDecision = {
 
 @Injectable()
 export class AccessService {
+  private readonly signupPlanTemplateCode: string;
   private readonly v2Enabled: boolean;
   private readonly legacySyncEnabled: boolean;
   private readonly dualWriteLegacyEnabled: boolean;
@@ -84,6 +85,9 @@ export class AccessService {
       this.config.get<string>('SUBSCRIPTION_ENGINE_V2_DUAL_WRITE'),
       true,
     );
+    this.signupPlanTemplateCode =
+      this.config.get<string>('SIGNUP_PLAN_TEMPLATE_CODE')?.trim() ||
+      'free_ent_trial';
     const cooldownRaw = Number(
       this.config.get<string>('USER_TIMEZONE_COOLDOWN_DAYS', '30'),
     );
@@ -93,6 +97,14 @@ export class AccessService {
 
   isV2Enabled() {
     return this.v2Enabled;
+  }
+
+  async ensureSignupEntitlementsForUser(userId: string): Promise<void> {
+    if (!this.v2Enabled) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.ensureSignupEntitlementsTx(tx, userId, new Date());
+    });
   }
 
   async assertAndConsumeAttempt(
@@ -113,6 +125,7 @@ export class AccessService {
       });
       if (!exam) throw new BadRequestException('EXAM_NOT_FOUND');
 
+      await this.ensureSignupEntitlementsTx(tx, userId, now);
       await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
       await this.expireEndedEntitlements(tx, userId, exam.id, now);
 
@@ -237,6 +250,7 @@ export class AccessService {
         select: { id: true, slug: true },
       });
       const result: AccessExamStatus[] = [];
+      await this.ensureSignupEntitlementsTx(tx, user.id, now);
       for (const exam of exams) {
         await this.maybeSyncLegacyEntitlements(tx, user.id, exam, now);
         await this.expireEndedEntitlements(tx, user.id, exam.id, now);
@@ -547,49 +561,9 @@ export class AccessService {
 
     const user = await tx.user.findUnique({
       where: { id: userId },
-      select: { id: true, entTrialUsed: true, timezone: true },
+      select: { id: true, timezone: true },
     });
     if (!user) return;
-
-    const freeUsed = Math.max(0, user.entTrialUsed);
-    const freeStatus =
-      freeUsed >= ENT_TRIAL_LIMIT
-        ? EntitlementStatus.exhausted
-        : EntitlementStatus.active;
-    await tx.userExamEntitlement.upsert({
-      where: {
-        sourceType_sourceRef: {
-          sourceType: EntitlementSourceType.legacy_free_trial,
-          sourceRef: `user:${userId}:ent_free`,
-        },
-      },
-      update: {
-        userId,
-        examTypeId: exam.id,
-        tier: EntitlementTier.free,
-        status: freeStatus,
-        totalAttemptsLimit: ENT_TRIAL_LIMIT,
-        dailyAttemptsLimit: null,
-        usedAttemptsTotal: freeUsed,
-        timezone: user.timezone || 'Asia/Almaty',
-        windowStartsAt: now,
-        windowEndsAt: null,
-        exhaustedAt: freeStatus === EntitlementStatus.exhausted ? now : null,
-      },
-      create: {
-        userId,
-        examTypeId: exam.id,
-        tier: EntitlementTier.free,
-        status: freeStatus,
-        sourceType: EntitlementSourceType.legacy_free_trial,
-        sourceRef: `user:${userId}:ent_free`,
-        totalAttemptsLimit: ENT_TRIAL_LIMIT,
-        dailyAttemptsLimit: null,
-        usedAttemptsTotal: freeUsed,
-        timezone: user.timezone || 'Asia/Almaty',
-        windowStartsAt: now,
-      },
-    });
 
     const activeSubscriptions = await tx.subscription.findMany({
       where: {
@@ -676,6 +650,176 @@ export class AccessService {
         },
       });
     }
+  }
+
+  private async ensureSignupEntitlementsTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    now: Date,
+  ) {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { id: true, timezone: true, entTrialUsed: true, createdAt: true },
+    });
+    if (!user) return;
+
+    const tpl = await this.ensureSignupPlanTemplateTx(tx);
+    if (!tpl || tpl.examRules.length === 0) return;
+
+    const start = user.createdAt && user.createdAt <= now ? user.createdAt : now;
+    const end =
+      tpl.durationDays != null
+        ? new Date(start.getTime() + tpl.durationDays * 86400000)
+        : null;
+    const tz = user.timezone || 'Asia/Almaty';
+
+    for (const rule of tpl.examRules) {
+      const totalLimit = rule.isUnlimited
+        ? null
+        : (rule.totalAttemptsLimit ?? tpl.totalAttemptsLimit);
+      const dailyLimit = rule.dailyAttemptsLimit ?? tpl.dailyAttemptsLimit;
+      const sourceRef = `signup:${user.id}:exam:${rule.examTypeId}`;
+      const existing = await tx.userExamEntitlement.findUnique({
+        where: {
+          sourceType_sourceRef: {
+            sourceType: EntitlementSourceType.plan_template,
+            sourceRef,
+          },
+        },
+        select: { usedAttemptsTotal: true },
+      });
+      const usedAttemptsTotal =
+        existing?.usedAttemptsTotal ??
+        (totalLimit != null && rule.examType.slug === 'ent'
+          ? Math.min(Math.max(0, user.entTrialUsed), totalLimit)
+          : 0);
+      const status =
+        totalLimit != null && usedAttemptsTotal >= totalLimit
+          ? EntitlementStatus.exhausted
+          : EntitlementStatus.active;
+
+      await tx.userExamEntitlement.upsert({
+        where: {
+          sourceType_sourceRef: {
+            sourceType: EntitlementSourceType.plan_template,
+            sourceRef,
+          },
+        },
+        update: {
+          userId: user.id,
+          examTypeId: rule.examTypeId,
+          tier: tpl.isPremium ? EntitlementTier.paid : EntitlementTier.free,
+          status,
+          planTemplateId: tpl.id,
+          totalAttemptsLimit: totalLimit,
+          dailyAttemptsLimit: dailyLimit,
+          usedAttemptsTotal,
+          timezone: tz,
+          windowStartsAt: start,
+          windowEndsAt: end,
+          exhaustedAt: status === EntitlementStatus.exhausted ? now : null,
+          revokedAt: null,
+          metadata: {
+            planTemplateCode: tpl.code,
+            autoGrantedOnSignup: true,
+          },
+        },
+        create: {
+          userId: user.id,
+          examTypeId: rule.examTypeId,
+          tier: tpl.isPremium ? EntitlementTier.paid : EntitlementTier.free,
+          status,
+          sourceType: EntitlementSourceType.plan_template,
+          sourceRef,
+          planTemplateId: tpl.id,
+          totalAttemptsLimit: totalLimit,
+          dailyAttemptsLimit: dailyLimit,
+          usedAttemptsTotal,
+          timezone: tz,
+          windowStartsAt: start,
+          windowEndsAt: end,
+          exhaustedAt: status === EntitlementStatus.exhausted ? now : null,
+          metadata: {
+            planTemplateCode: tpl.code,
+            autoGrantedOnSignup: true,
+          },
+        },
+      });
+    }
+  }
+
+  private async ensureSignupPlanTemplateTx(tx: Prisma.TransactionClient) {
+    const existing = await tx.subscriptionPlanTemplate.findUnique({
+      where: { code: this.signupPlanTemplateCode },
+      include: {
+        examRules: {
+          include: { examType: { select: { id: true, slug: true } } },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+    if (existing && existing.isActive) return existing;
+
+    const entExam = await tx.examType.findUnique({
+      where: { slug: 'ent' },
+      select: { id: true, slug: true },
+    });
+    if (!entExam) return null;
+
+    const created = await tx.subscriptionPlanTemplate.upsert({
+      where: { code: this.signupPlanTemplateCode },
+      update: { isActive: true },
+      create: {
+        code: this.signupPlanTemplateCode,
+        name: 'Free ENT trial',
+        description: 'Automatically grants 2 ENT attempts to registered users.',
+        isActive: true,
+        isPremium: false,
+        durationDays: null,
+        totalAttemptsLimit: ENT_TRIAL_LIMIT,
+        dailyAttemptsLimit: null,
+        timezoneMode: 'user',
+        metadata: { system: true, autoGrantOnSignup: true },
+        examRules: {
+          create: {
+            examTypeId: entExam.id,
+            totalAttemptsLimit: ENT_TRIAL_LIMIT,
+            dailyAttemptsLimit: null,
+            isUnlimited: false,
+            sortOrder: 0,
+          },
+        },
+      },
+      include: {
+        examRules: {
+          include: { examType: { select: { id: true, slug: true } } },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    if (created.examRules.length > 0) return created;
+
+    await tx.subscriptionPlanTemplateExamRule.create({
+      data: {
+        planTemplateId: created.id,
+        examTypeId: entExam.id,
+        totalAttemptsLimit: ENT_TRIAL_LIMIT,
+        dailyAttemptsLimit: null,
+        isUnlimited: false,
+        sortOrder: 0,
+      },
+    });
+
+    return tx.subscriptionPlanTemplate.findUnique({
+      where: { id: created.id },
+      include: {
+        examRules: {
+          include: { examType: { select: { id: true, slug: true } } },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
   }
 
   private async buildExamSummaryTx(

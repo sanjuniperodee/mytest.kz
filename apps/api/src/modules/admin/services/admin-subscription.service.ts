@@ -52,6 +52,8 @@ export class AdminSubscriptionService {
   }
 
   async listUserEntitlements(userId: string) {
+    await this.accessService.ensureSignupEntitlementsForUser(userId);
+
     return this.prisma.userExamEntitlement.findMany({
       where: { userId },
       include: {
