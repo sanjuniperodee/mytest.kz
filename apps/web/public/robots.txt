@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /profile
+Disallow: /stats
+Disallow: /settings
+Disallow: /exam/
+Disallow: /test/
+Disallow: /admin
+Disallow: /paywall
+Disallow: /channel-gate
+
+Sitemap: https://my-test.kz/sitemap.xml

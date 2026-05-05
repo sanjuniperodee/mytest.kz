@@ -84,6 +84,9 @@ export function AdvancedSEO({
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />
       <meta property="og:image" content={image} />
+      <meta property="og:image:secure_url" content={image} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
       <meta property="og:image:alt" content={ogImageAlt} />
       <meta property="og:locale" content={primaryOgLocale} />
       {ogLocaleAlternates.map((loc) => (
@@ -100,6 +103,7 @@ export function AdvancedSEO({
       {/* Discovery */}
       <meta name="author" content="MyTest" />
       <meta name="application-name" content="MyTest" />
+      <meta name="apple-mobile-web-app-title" content="MyTest" />
       <meta name="theme-color" content="#05070d" />
       <meta name="referrer" content="strict-origin-when-cross-origin" />
       <meta name="format-detection" content="telephone=no" />

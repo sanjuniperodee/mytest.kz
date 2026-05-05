@@ -39,6 +39,8 @@ export function buildLandingJsonLd(
   const howToDescription = options?.seo?.howToDescription ?? t('landing.seoHowToDescription');
 
   const orgDescription = t('landing.seoDescription');
+  const leadUrl = `${siteUrl}/#lead`;
+  const loginUrl = `${siteUrl}/login`;
 
   const organization = {
     '@type': 'Organization',
@@ -51,6 +53,24 @@ export function buildLandingJsonLd(
       url: `${siteUrl}/og-cover.svg`,
     },
     sameAs: ['https://t.me/bilimilimland'],
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        telephone: '+7-777-593-2124',
+        email: 'mytest.info.kz@gmail.com',
+        areaServed: 'KZ',
+        availableLanguage: ['Russian', 'Kazakh', 'English'],
+      },
+    ],
+    knowsAbout: [
+      'ЕНТ онлайн',
+      'ҰБТ онлайн',
+      'пробный ЕНТ',
+      'подготовка к НИШ',
+      'NUET practice test',
+      'разбор ошибок',
+    ],
     areaServed: { '@type': 'Country', name: 'Kazakhstan' },
     addressCountry: 'KZ',
   };
@@ -62,6 +82,11 @@ export function buildLandingJsonLd(
     name: 'MyTest',
     inLanguage: ['ru-KZ', 'kk-KZ', 'en'],
     publisher: { '@id': orgId },
+    potentialAction: {
+      '@type': 'RegisterAction',
+      name: t('landing.footerCta'),
+      target: loginUrl,
+    },
   };
 
   const software = {
@@ -74,11 +99,57 @@ export function buildLandingJsonLd(
     isAccessibleForFree: true,
     publisher: { '@id': orgId },
     offers: {
-      '@type': 'Offer',
-      name: 'Free trial attempts',
-      price: '0',
-      priceCurrency: 'KZT',
+      '@type': 'OfferCatalog',
+      name: 'MyTest plans',
+      itemListElement: [
+        {
+          '@type': 'Offer',
+          name: 'Free trial attempts',
+          price: '0',
+          priceCurrency: 'KZT',
+          availability: 'https://schema.org/InStock',
+          url: loginUrl,
+        },
+        {
+          '@type': 'Offer',
+          name: 'Monthly exam prep access',
+          priceCurrency: 'KZT',
+          availability: 'https://schema.org/InStock',
+          url: loginUrl,
+        },
+      ],
     },
+  };
+
+  const service = {
+    '@type': 'Service',
+    '@id': `${siteUrl}/#exam-prep-service`,
+    name: pageTitle,
+    description: pageDescription,
+    serviceType: 'Online exam preparation',
+    provider: { '@id': orgId },
+    areaServed: { '@type': 'Country', name: 'Kazakhstan' },
+    audience: {
+      '@type': 'EducationalAudience',
+      educationalRole: 'student',
+    },
+    availableChannel: {
+      '@type': 'ServiceChannel',
+      serviceUrl: pageUrl,
+      availableLanguage: ['ru-KZ', 'kk-KZ', 'en'],
+    },
+    potentialAction: [
+      {
+        '@type': 'RegisterAction',
+        name: t('landing.footerCta'),
+        target: loginUrl,
+      },
+      {
+        '@type': 'ContactAction',
+        name: t('landing.leadSection'),
+        target: leadUrl,
+      },
+    ],
   };
 
   const webPage = {
@@ -90,6 +161,19 @@ export function buildLandingJsonLd(
     isPartOf: { '@id': webId },
     about: { '@id': orgId },
     inLanguage: ['ru-KZ', 'kk-KZ', 'en'],
+    mainEntity: { '@id': `${siteUrl}/#exam-prep-service` },
+    potentialAction: [
+      {
+        '@type': 'RegisterAction',
+        name: t('landing.footerCta'),
+        target: loginUrl,
+      },
+      {
+        '@type': 'ContactAction',
+        name: t('landing.leadSection'),
+        target: leadUrl,
+      },
+    ],
   };
 
   const howTo = {
@@ -119,6 +203,6 @@ export function buildLandingJsonLd(
 
   return {
     '@context': 'https://schema.org',
-    '@graph': [organization, website, software, webPage, howTo, faqPage],
+    '@graph': [organization, website, software, service, webPage, howTo, faqPage],
   };
 }
