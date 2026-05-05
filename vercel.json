@@ -3,5 +3,5 @@
   "installCommand": "npm install",
   "buildCommand": "npx turbo run build --filter=@bilimland/web",
   "outputDirectory": "apps/web/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/((?!.*\\..*).*)", "destination": "/index.html" }]
 }
