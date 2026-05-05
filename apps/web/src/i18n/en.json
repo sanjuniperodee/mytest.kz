@@ -666,9 +666,9 @@
     "footerRights": "© MyTest 2026. All rights reserved.",
     "footerTagline": "Focused prep — without the chaos.",
     "footerCta": "Go to tests",
-    "seoTitle": "Free UNT Practice Test Online — MyTest | Kazakhstan",
-    "seoDescription": "Prepare for UNT, NIS and NUET online: 2 free attempts, exam-style timer, mistake review, topic analytics and progress tracking. Leave a request or sign in with Telegram.",
-    "seoKeywords": "free UNT practice test online, UNT online Kazakhstan, NIS test, NUET practice, Kazakhstan exam prep, college prep, mytest, trial exam",
+    "seoTitle": "Free UNT Practice Test Online — UNT Prep | MyTest",
+    "seoDescription": "Prepare for the UNT online: 2 free attempts, full 120-question format, exam-style timer, mistake review, topic analytics and grant-score context. Leave a request or sign in with Telegram.",
+    "seoKeywords": "free UNT practice test online, UNT prep Kazakhstan, UNT online, full UNT 120 questions, timed UNT test, UNT grant score, UNT mistake review, mytest",
     "seoOgImageAlt": "MyTest — online exam practice platform for Kazakhstan",
     "seoHowToName": "How to start using MyTest",
     "seoHowToDescription": "Use your phone in the bot and on the site, pick an exam type and launch a timed practice session.",
@@ -683,7 +683,7 @@
       },
       {
         "question": "Which exam formats are supported?",
-        "answer": "The catalog includes UNT-, NIS-, NUET-, KTL- and physmath-style formats. Section layout depends on the template you choose."
+        "answer": "The core format is UNT: mandatory subjects, profile subjects, a full 120-question practice test and shorter practice modes."
       },
       {
         "question": "Is there mistake review?",
