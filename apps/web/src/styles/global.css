@@ -4675,3 +4675,45 @@ html[data-theme='light'] .wa-fab {
     transform: none;
   }
 }
+
+/* Legal Pages (offer, privacy, contacts) */
+.legal-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  line-height: 1.7;
+}
+.legal-page h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.legal-page .legal-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+.legal-nav {
+  margin-bottom: 2rem;
+}
+.legal-nav a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.legal-nav a:hover {
+  text-decoration: underline;
+}
+.legal-page section {
+  margin-bottom: 1.75rem;
+}
+.legal-page section h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.legal-page section p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}

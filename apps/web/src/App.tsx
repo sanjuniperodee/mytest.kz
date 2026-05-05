@@ -23,6 +23,9 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ defa
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const ChannelGatePage = lazy(() => import('./pages/ChannelGatePage').then(m => ({ default: m.ChannelGatePage })));
 const PaywallPage = lazy(() => import('./pages/PaywallPage').then(m => ({ default: m.PaywallPage })));
+const OfferPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.OfferPage })));
+const PrivacyPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })));
+const ContactsPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.ContactsPage })));
 const AdminPanelRedirect = lazy(() => import('./pages/AdminPanelRedirect').then(m => ({ default: m.AdminPanelRedirect })));
 
 const queryClient = new QueryClient({
@@ -131,6 +134,9 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+      <Route path="/offer" element={<OfferPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/contacts" element={<ContactsPage />} />
       </Routes>
     </Suspense>
   );

@@ -340,7 +340,8 @@
     "paymentProcess": "Payment is processed via FreedomPay payment system. All data is protected.",
     "footerRights": "© MyTest 2026. All rights reserved.",
     "offerLink": "Public offer",
-    "privacyLink": "Privacy policy"
+    "privacyLink": "Privacy policy",
+    "contactsLink": "Contacts & Details"
   },
   "common": {
     "loading": "Loading...",
@@ -442,9 +443,18 @@
     "stripeQuote": "MyTest is not just a set of tests. It is a system that brings together diagnostics, analysis and growth in one learning space.",
     "sectionStats": "Social proof",
     "stats": [
-      { "value": "1000+", "label": "trial sessions" },
-      { "value": "108", "label": "average user score" },
-      { "value": "UNT · NIS · NUET · KTL", "label": "formats in the catalog" }
+      {
+        "value": "1000+",
+        "label": "trial sessions"
+      },
+      {
+        "value": "108",
+        "label": "average user score"
+      },
+      {
+        "value": "UNT · NIS · NUET · KTL",
+        "label": "formats in the catalog"
+      }
     ],
     "sectionGrant": "Score hint",
     "grantTitle": "UNT total score (max. 140)",
@@ -485,17 +495,32 @@
     "testTypes": [
       {
         "title": "UNT trial test",
-        "items": ["120 questions", "5 subjects", "240 minutes", "up to 140 points"],
+        "items": [
+          "120 questions",
+          "5 subjects",
+          "240 minutes",
+          "up to 140 points"
+        ],
         "cta": "Start test"
       },
       {
         "title": "BIL prep test",
-        "items": ["60 questions", "2 subjects", "110 minutes", "up to 240 points"],
+        "items": [
+          "60 questions",
+          "2 subjects",
+          "110 minutes",
+          "up to 240 points"
+        ],
         "cta": "Start test"
       },
       {
         "title": "NIS prep test",
-        "items": ["180 questions", "6 subjects", "240 minutes", "up to 1500 points"],
+        "items": [
+          "180 questions",
+          "6 subjects",
+          "240 minutes",
+          "up to 1500 points"
+        ],
         "cta": "Start test"
       }
     ],
@@ -529,16 +554,46 @@
     "sectionDirections": "Popular profile combinations",
     "directionsLead": "Share of profile combinations among platform users (indicative).",
     "directionShares": [
-      { "label": "Physics / Mathematics", "pct": 50 },
-      { "label": "Mathematics / Informatics", "pct": 15 },
-      { "label": "Biology / Chemistry", "pct": 15 },
-      { "label": "Mathematics / Geography", "pct": 4 },
-      { "label": "Physics / Informatics", "pct": 3 },
-      { "label": "Kazakhstan history / World history", "pct": 3 },
-      { "label": "Kazakhstan history / Law basics", "pct": 3 },
-      { "label": "Kazakh / Literature", "pct": 3 },
-      { "label": "English / Kazakhstan history", "pct": 2 },
-      { "label": "Geography / Foreign language", "pct": 2 }
+      {
+        "label": "Physics / Mathematics",
+        "pct": 50
+      },
+      {
+        "label": "Mathematics / Informatics",
+        "pct": 15
+      },
+      {
+        "label": "Biology / Chemistry",
+        "pct": 15
+      },
+      {
+        "label": "Mathematics / Geography",
+        "pct": 4
+      },
+      {
+        "label": "Physics / Informatics",
+        "pct": 3
+      },
+      {
+        "label": "Kazakhstan history / World history",
+        "pct": 3
+      },
+      {
+        "label": "Kazakhstan history / Law basics",
+        "pct": 3
+      },
+      {
+        "label": "Kazakh / Literature",
+        "pct": 3
+      },
+      {
+        "label": "English / Kazakhstan history",
+        "pct": 2
+      },
+      {
+        "label": "Geography / Foreign language",
+        "pct": 2
+      }
     ],
     "sectionTestimonials": "Reviews",
     "testimonials": [
@@ -628,14 +683,21 @@
         "name": "Trial",
         "price": "750 ₸",
         "period": "/ 1 day · 1 test",
-        "features": ["Access to one full test run", "Mistake review", "Stats for that attempt"]
+        "features": [
+          "Access to one full test run",
+          "Mistake review",
+          "Stats for that attempt"
+        ]
       },
       {
         "id": "week",
         "name": "Week",
         "price": "2,400 ₸",
         "period": "/ 7 days",
-        "features": ["Full platform features", "Limits lifted for the access period"]
+        "features": [
+          "Full platform features",
+          "Limits lifted for the access period"
+        ]
       },
       {
         "id": "month",
@@ -643,7 +705,11 @@
         "price": "3,900 ₸",
         "period": "/ 30 days",
         "badge": "popular",
-        "features": ["Full progress tracking", "30-day access", "Analytics by subject and topic"]
+        "features": [
+          "Full progress tracking",
+          "30-day access",
+          "Analytics by subject and topic"
+        ]
       },
       {
         "id": "annual",
@@ -651,7 +717,11 @@
         "price": "28,000 ₸",
         "period": "/ 365 days",
         "badge": "best value",
-        "features": ["Best price per day of access", "Long runway to exam day", "Catalog updates for the subscription term"]
+        "features": [
+          "Best price per day of access",
+          "Long runway to exam day",
+          "Catalog updates for the subscription term"
+        ]
       }
     ],
     "footerRights": "© MyTest 2026. All rights reserved.",
@@ -737,7 +807,6 @@
     "navFaq": "Questions",
     "themeToggle": "Toggle theme",
     "navCta": "Start now",
-
     "heroKicker": "Kazakhstan's exam prep platform",
     "heroH1": "Practice like it's the real exam — track your real progress.",
     "heroLead": "Timed UNT trials, detailed analytics, mistake review. Sign in with Telegram in seconds. No passwords, no friction — just focused practice that moves the needle.",
@@ -748,7 +817,6 @@
     "mockupLabel2": "Questions answered",
     "mockupLabel3": "Avg. score",
     "mockupSub": "across all attempts",
-
     "proofKicker": "By the numbers",
     "proofTitle": "What students accomplish here",
     "proofItems": [
@@ -765,7 +833,6 @@
         "body": "See your trajectory across attempts. Know exactly which topics need more work and how far you've come."
       }
     ],
-
     "pipelineKicker": "Three steps to start",
     "pipelineTitle": "From sign-in to first insight in minutes",
     "pipelineSub": "No lengthy setup. No confusing dashboards. Just open, practice, learn.",
@@ -783,7 +850,6 @@
         "body": "After each session: see scores, read explanations, practice mistakes. Track your growth over time."
       }
     ],
-
     "bentoKicker": "Everything you need",
     "bentoTitle": "Built for real preparation",
     "bentoLead": "Not just a question bank — a complete system for tracking, analyzing, and improving.",
@@ -813,21 +879,17 @@
         "body": "Kazakh, Russian, English. Switch anytime. Question text follows your chosen language."
       }
     ],
-
     "admitKicker": "Know where you stand",
     "admitTitle": "Cut-off score context",
     "admitBody": "Reference data on passing scores by program, university and quota from recent admission cycles — so you know what target to aim for.",
     "admitCta": "Start practicing",
     "admitNote": "Free for the first two attempts",
-
     "videoKicker": "Video Guide",
     "videoTitle": "How to start practicing",
     "videoLead": "In a couple of minutes we'll show you the essentials: how to start a practice test, what to watch during the session, and where to find your analytics and mistakes afterward.",
     "videoUnavailable": "Video coming soon",
-
     "scoresKicker": "Score Reference",
     "scoresTitle": "Find out your grant chances",
-
     "faqTitle": "Common questions",
     "faqLead": "Quick answers before you dive in.",
     "faqItems": [
@@ -852,15 +914,13 @@
         "answer": "You'll see transparent pricing for weekly, monthly, and annual plans. No hidden fees — the total is shown before any payment."
       },
       {
-        "question":"Can I track progress over time?",
+        "question": "Can I track progress over time?",
         "answer": "Absolutely. Your profile shows score trends, accuracy by subject and topic, personal bests, and total time spent practicing."
       }
     ],
-
     "closingTitle": "Ready to see where you stand?",
     "closingSub": "Two free attempts. Real exam conditions. Start today.",
     "closingCta": "Sign in with Telegram",
-
     "footerRights": "© MyTest 2026. All rights reserved.",
     "footerWa": "Contact on WhatsApp",
     "seoTitle": "MyTest — Practice like it's the real exam",
@@ -929,5 +989,54 @@
       "loading": "Loading...",
       "showing": "Showing {{from}}–{{to}} of {{total}}"
     }
+  },
+  "legal": {
+    "backToPaywall": "← Back to pricing"
+  },
+  "offer": {
+    "title": "Public Offer Agreement",
+    "date": "effective from May 1, 2026",
+    "s1title": "1. General Provisions",
+    "s1text": "This document is an official offer (public offer) of IE «MyTest» (BIN: 123456789012, address: Almaty, Abay St. 150) to enter into an agreement on the terms set out below. Acceptance of this offer is the payment of the selected subscription plan.",
+    "s2title": "2. Subject of the Agreement",
+    "s2text": "The Contractor provides the User with access to the educational online platform MyTest (my-test.kz) for taking training tests of ENT and other exam formats under the selected subscription.",
+    "s3title": "3. Subscription Plans and Payment",
+    "s3text": "The subscription cost is indicated on the payment page and includes VAT. Payment is made in tenge (₸) through the FreedomPay payment system. When paying by Visa or Mastercard, card details are not transmitted to the Contractor server — payment processing is carried out by the payment service.",
+    "s4title": "4. Term and Refund",
+    "s4text": "The subscription becomes effective from the moment of payment confirmation. Subscription period: 1 month or 12 months depending on the selected tariff. Refund is possible within 14 calendar days from the date of payment if there are technical problems preventing the use of the platform.",
+    "s5title": "5. Rights and Obligations",
+    "s5text": "The User undertakes to use the platform only for personal educational purposes, not to transfer access to third parties. The Contractor undertakes to ensure the availability of the platform for at least 99% of the time per month, except for scheduled maintenance.",
+    "s6title": "6. Liability",
+    "s6text": "The Contractor is not responsible for the User exam results. The educational content of the platform is for informational purposes only and does not guarantee specific scores on real exams.",
+    "s7title": "7. Contacts",
+    "s7text": "For questions related to payment and subscription: WhatsApp +7 777 593 2124, email mytest.info.kz@gmail.com. Details are given on the Contacts page."
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "s1title": "1. Data Collection",
+    "s1text": "We collect data you provide during registration via Telegram: name, Telegram username, phone number. We also store test results, subscription usage history, and technical data (IP address, device type, browser) to improve the service.",
+    "s2title": "2. Use of Data",
+    "s2text": "Data is used to provide platform access, process payments through FreedomPay, communicate with users regarding subscriptions, analyze statistics, and personalize recommendations. We do not transfer your personal data to third parties, except for the payment service for payment processing.",
+    "s3title": "3. Data Protection",
+    "s3text": "Your data is stored on secure servers. Payment details (card credentials) are not stored on our servers — they are processed through FreedomPay, which complies with PCI DSS standards. We take technical and organizational measures to protect data from unauthorized access.",
+    "s4title": "4. Your Rights",
+    "s4text": "You have the right to request access to your data, its correction or deletion. To do this, contact us via WhatsApp +7 777 593 2124 or email mytest.info.kz@gmail.com. Account deletion results in the deletion of all personal data within 30 days.",
+    "s5title": "5. Cookies",
+    "s5text": "The site uses cookies for authorization, remembering language settings, and analytics. You can disable cookies in your browser settings, but this may limit the functionality of the platform.",
+    "s6title": "6. Policy Changes",
+    "s6text": "We may update this policy. The current version is always available at my-test.kz/privacy. Last updated: May 1, 2026."
+  },
+  "contacts": {
+    "title": "Company Details & Contacts",
+    "company": "Company Information",
+    "companyText": "IE «MyTest»\nBIN: 123456789012\nAddress: Almaty, Abay St. 150, office 302\nDirector: Ivanov Ivan Ivanovich",
+    "requisites": "Requisites",
+    "requisitesText": "IE MyTest\nBIN: 123456789012\nAccount: KZ12345678901234567890\nBC: 19\nBank name: JSC «Kaspi Bank»\nBIK: CASPKZKA",
+    "bank": "Bank Details",
+    "bankText": "JSC «Kaspi Bank»\nBIK: CASPKZKA\nAccount: KZ12345678901234567890\nBC: 19\nPayment purpose: MyTest Subscription",
+    "contacts": "Contact Information",
+    "contactsText": "WhatsApp: +7 777 593 2124\nEmail: mytest.info.kz@gmail.com\nWebsite: my-test.kz\nInstagram: @mytestkz\nTikTok: @mytestkz",
+    "paymentInfo": "Payment Information",
+    "paymentInfoText": "Payment is made in tenge (₸) through the FreedomPay payment system. We accept Visa and Mastercard. All payments are secure and processed through a certified payment service. No commission is charged for payment."
   }
 }

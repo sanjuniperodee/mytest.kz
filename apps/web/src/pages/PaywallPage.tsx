@@ -245,6 +245,45 @@ export function PaywallPage() {
           </div>
         </>
       ) : null}
+      <PaywallFooter />
     </div>
+  );
+}
+
+function PaywallFooter() {
+  const { t } = useTranslation();
+  return (
+    <footer className="paywall-footer">
+      <div className="paywall-footer-cards">
+        <div className="paywall-footer-card-icon" aria-label="Visa">
+          <svg viewBox="0 0 60 24" width="60" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="60" height="24" rx="4" fill="#1A1F71"/>
+            <text x="8" y="17" fill="#FFFFFF" fontFamily="Arial" fontWeight="bold" fontSize="12">VISA</text>
+          </svg>
+        </div>
+        <div className="paywall-footer-card-icon" aria-label="Mastercard">
+          <svg viewBox="0 0 60 24" width="60" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="60" height="24" rx="4" fill="#000"/>
+            <circle cx="22" cy="12" r="10" fill="#EB001B"/>
+            <circle cx="38" cy="12" r="10" fill="#F79E1B"/>
+            <path d="M30 4.2a10 10 0 0 1 0 15.6A10 10 0 0 1 30 4.2z" fill="#FF5F00"/>
+          </svg>
+        </div>
+        <span>{t('paywall.paymentAccepted')}</span>
+      </div>
+      <div className="paywall-footer-secure">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+          <path fillRule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clipRule="evenodd"/>
+        </svg>
+        {t('paywall.paymentSecure')}
+      </div>
+      <p className="paywall-footer-process">{t('paywall.paymentProcess')}</p>
+      <div className="paywall-footer-links">
+        <a href="/offer" target="_blank" rel="noopener noreferrer">{t('paywall.offerLink')}</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('paywall.privacyLink')}</a>
+        <a href="/contacts" target="_blank" rel="noopener noreferrer">{t('paywall.contactsLink')}</a>
+      </div>
+      <p className="paywall-footer-copy">{t('paywall.footerRights')}</p>
+    </footer>
   );
 }
