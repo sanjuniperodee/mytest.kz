@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="MyTest">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#05070d"/>
+      <stop offset="1" stop-color="#172033"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="12" y1="12" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8d56b"/>
+      <stop offset=".55" stop-color="#d7a82f"/>
+      <stop offset="1" stop-color="#a77918"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="17" y1="14" x2="47" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35e8da"/>
+      <stop offset="1" stop-color="#7c6cff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <path d="M14 22c0-5 4-9 9-9 4 0 7 2 9 5 2-3 5-5 9-5 5 0 9 4 9 9 0 6-5 10-11 10h-4v16h-6V32h-4c-6 0-11-4-11-10Z" fill="none" stroke="url(#gold)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)"/>
+  <path d="M22 23c0-2 2-4 4-4s4 2 4 4v25h-8V23Zm12 0c0-2 2-4 4-4s4 2 4 4v25h-8V23Z" fill="url(#cyan)"/>
+  <path d="M18 48h28" stroke="url(#gold)" stroke-width="4" stroke-linecap="round"/>
+</svg>

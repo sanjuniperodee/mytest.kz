@@ -10,7 +10,7 @@
   "lang": "ru",
   "icons": [
     {
-      "src": "/og-cover.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
