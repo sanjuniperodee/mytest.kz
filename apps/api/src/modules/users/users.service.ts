@@ -143,7 +143,8 @@ export class UsersService {
     }
     const isDataImage = /^data:image\/(png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(trimmed);
     const isRemoteImage = /^https:\/\/[^\s]+$/i.test(trimmed);
-    if (!isDataImage && !isRemoteImage) {
+    const isUploadedAvatar = /^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(trimmed);
+    if (!isDataImage && !isRemoteImage && !isUploadedAvatar) {
       throw new BadRequestException('Unsupported avatar image');
     }
     return trimmed;
