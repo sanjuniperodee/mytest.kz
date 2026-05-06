@@ -320,98 +320,95 @@ export function LandingPageV2() {
         </header>
 
         {heroSlides.length > 0 ? (
-          <section className="lv2-hero" aria-label={t2('heroCarouselAria')}>
-            <div className="lv2-hero__shell">
-              {heroSlides.map((slide, idx) => {
-                const titleText = slide.title?.trim() ?? '';
-                const subtitleText = slide.subtitle?.trim() ?? '';
-                const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
-                return (
-                  <article
-                    key={`v2-hero-${idx}`}
-                    className={`lv2-hero__slide ${idx === heroIndex ? 'is-active' : ''}`}
-                    aria-hidden={idx !== heroIndex}
-                  >
-                    <picture>
-                      <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
-                      <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
-                      <img
-                        src={resolveMediaUrl(slide.desktopImageUrl)}
-                        alt={titleText || t2('heroBadge')}
-                        loading={idx === 0 ? 'eager' : 'lazy'}
-                        decoding="async"
-                      />
-                    </picture>
-                    <div className="lv2-hero__veil" aria-hidden />
-                    {showOverlay ? (
-                      <div className="lv2-hero__content">
-                        {titleText ? <h1 className="lv2-hero__title">{titleText}</h1> : null}
-                        {subtitleText ? <p className="lv2-hero__sub">{subtitleText}</p> : null}
-                        {shouldShowHeroCta(slide) ? (
-                          isExternalHref(slide.buttonHref) ? (
-                            <a
-                              href={slide.buttonHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="lv2-btn lv2-btn--primary lv2-btn--lg"
-                            >
-                              {slide.buttonLabel!.trim()}
-                            </a>
-                          ) : (
-                            <Link to={slide.buttonHref!.trim()} className="lv2-btn lv2-btn--primary lv2-btn--lg">
-                              {slide.buttonLabel!.trim()}
-                            </Link>
-                          )
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
+          <a href="/login" className="block" onClick={(e) => e.stopPropagation()}>
+            <section className="lv2-hero" aria-label={t2('heroCarouselAria')}>
+              <div className="lv2-hero__shell">
+                {heroSlides.map((slide, idx) => {
+                  const titleText = slide.title?.trim() ?? '';
+                  const subtitleText = slide.subtitle?.trim() ?? '';
+                  const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
+                  return (
+                    <article
+                      key={`v2-hero-${idx}`}
+                      className={`lv2-hero__slide ${idx === heroIndex ? 'is-active' : ''}`}
+                      aria-hidden={idx !== heroIndex}
+                    >
+                      <picture>
+                        <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
+                        <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
+                        <img
+                          src={resolveMediaUrl(slide.desktopImageUrl)}
+                          alt={titleText || t2('heroBadge')}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          decoding="async"
+                        />
+                      </picture>
+                      <div className="lv2-hero__veil" aria-hidden />
+                      {showOverlay ? (
+                        <div className="lv2-hero__content">
+                          {titleText ? <h1 className="lv2-hero__title">{titleText}</h1> : null}
+                          {subtitleText ? <p className="lv2-hero__sub">{subtitleText}</p> : null}
+                          {shouldShowHeroCta(slide) ? (
+                            isExternalHref(slide.buttonHref) ? (
+                              <span className="lv2-btn lv2-btn--primary lv2-btn--lg">
+                                {slide.buttonLabel!.trim()}
+                              </span>
+                            ) : (
+                              <span className="lv2-btn lv2-btn--primary lv2-btn--lg">
+                                {slide.buttonLabel!.trim()}
+                              </span>
+                            )
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
 
-              {heroSlides.length > 1 ? (
-                <>
-                  <button
-                    type="button"
-                    className="lv2-hero__arrow lv2-hero__arrow--prev"
-                    aria-label={t2('heroCarouselPrev')}
-                    onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
-                    onMouseEnter={() => setIsCarouselPaused(true)}
-                    onMouseLeave={() => setIsCarouselPaused(false)}
-                  />
-                  <button
-                    type="button"
-                    className="lv2-hero__arrow lv2-hero__arrow--next"
-                    aria-label={t2('heroCarouselNext')}
-                    onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
-                    onMouseEnter={() => setIsCarouselPaused(true)}
-                    onMouseLeave={() => setIsCarouselPaused(false)}
-                  />
-                </>
-              ) : null}
-
-              {heroSlides.length > 1 ? (
-                <div
-                  className="lv2-hero__dots"
-                  role="tablist"
-                  aria-label={t2('heroCarouselDotsAria')}
-                  onMouseEnter={() => setIsCarouselPaused(true)}
-                  onMouseLeave={() => setIsCarouselPaused(false)}
-                >
-                  {heroSlides.map((_, idx) => (
+                {heroSlides.length > 1 ? (
+                  <>
                     <button
-                      key={`v2-dot-${idx}`}
                       type="button"
-                      className={idx === heroIndex ? 'is-active' : ''}
-                      onClick={() => setHeroIndex(idx)}
-                      aria-label={`${t2('heroCarouselDot')} ${idx + 1}`}
+                      className="lv2-hero__arrow lv2-hero__arrow--prev"
+                      aria-label={t2('heroCarouselPrev')}
+                      onClick={(e) => { e.stopPropagation(); setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length); }}
+                      onMouseEnter={() => setIsCarouselPaused(true)}
+                      onMouseLeave={() => setIsCarouselPaused(false)}
                     />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <p className="lv2-hero__badge">{t2('heroBadge')}</p>
-          </section>
+                    <button
+                      type="button"
+                      className="lv2-hero__arrow lv2-hero__arrow--next"
+                      aria-label={t2('heroCarouselNext')}
+                      onClick={(e) => { e.stopPropagation(); setHeroIndex((prev) => (prev + 1) % heroSlides.length); }}
+                      onMouseEnter={() => setIsCarouselPaused(true)}
+                      onMouseLeave={() => setIsCarouselPaused(false)}
+                    />
+                  </>
+                ) : null}
+
+                {heroSlides.length > 1 ? (
+                  <div
+                    className="lv2-hero__dots"
+                    role="tablist"
+                    aria-label={t2('heroCarouselDotsAria')}
+                    onMouseEnter={() => setIsCarouselPaused(true)}
+                    onMouseLeave={() => setIsCarouselPaused(false)}
+                  >
+                    {heroSlides.map((_, idx) => (
+                      <button
+                        key={`v2-dot-${idx}`}
+                        type="button"
+                        className={idx === heroIndex ? 'is-active' : ''}
+                        onClick={(e) => { e.stopPropagation(); setHeroIndex(idx); }}
+                        aria-label={`${t2('heroCarouselDot')} ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <p className="lv2-hero__badge">{t2('heroBadge')}</p>
+            </section>
+          </a>
         ) : null}
 
         <section className="lv2-section" id="value" aria-labelledby="lv2-value-h">

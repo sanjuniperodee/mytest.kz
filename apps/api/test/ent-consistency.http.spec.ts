@@ -272,6 +272,9 @@ describe('ENT 120/140 consistency', () => {
           }),
         ),
       },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     } as any;
     const generatorMock = {
       generateFromTemplate: jest.fn().mockResolvedValue(generatedSections),
@@ -441,8 +444,15 @@ describe('ENT 120/140 consistency', () => {
       testSession: {
         count: jest.fn().mockResolvedValue(0),
       },
+      userExamEntitlement: {
+        findFirst: jest.fn().mockResolvedValue({
+          totalAttemptsLimit: 2,
+          usedAttemptsTotal: 1,
+        }),
+      },
     } as any;
     const accessMock = {
+      ensureSignupEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
       getUserAccessByExam: jest.fn().mockResolvedValue([
         {
           examTypeId: 'exam-ent',
@@ -612,5 +622,50 @@ describe('ENT 120/140 consistency', () => {
     expect(ids.slice(ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-h'))).toBe(
       true,
     );
+  });
+
+  it('falls back to active profile questions when locale-tagged ENT full pool is too small', async () => {
+    const localeTagged = Array.from({ length: 12 }, (_, i) => ({
+      id: `p1-locale-${i + 1}`,
+      scoreWeight: 1,
+    }));
+    const allActive = Array.from(
+      { length: ENT_CONFIG.profileQuestionsPerSubject },
+      (_, i) => ({
+        id: i < 30 ? `p1-any-r${i + 1}` : `p1-any-h${i - 29}`,
+        scoreWeight: i < 30 ? 1 : ENT_CONFIG.profileTier2Points,
+      }),
+    );
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce(localeTagged)
+          .mockResolvedValueOnce(allActive),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(result[0].questionIds.every((id) => id.startsWith('p1-any-'))).toBe(true);
   });
 });

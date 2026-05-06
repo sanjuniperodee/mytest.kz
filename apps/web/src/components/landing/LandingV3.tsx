@@ -380,116 +380,121 @@ export function LandingV3({ whatsappHref }: LandingV3Props) {
 
         <main>
 
-          {/* Hero Carousel Section */}
-          <section
-            className="relative h-[85vh] min-h-[500px] overflow-hidden"
+          {/* Hero Carousel Section — entire carousel is a registration link */}
+          <a
+            href="/login"
+            className="block"
+            onClick={(e) => e.stopPropagation()}
             onMouseEnter={() => setHeroCarouselPaused(true)}
             onMouseLeave={() => setHeroCarouselPaused(false)}
           >
-            {/* Background images */}
-            {heroCarouselSlides.map((slide, i) => (
-              <div
-                key={i}
-                className={`absolute inset-0 transition-opacity duration-1000 ${
-                  i === heroCarouselIndex ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                <picture>
-                  <source media="(max-width: 767px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.mobileImageUrl : slide.image)} />
-                  <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.tabletImageUrl : slide.image)} />
-                  <img
-                    src={resolveMediaUrl(isModernSlide(slide) ? slide.desktopImageUrl : slide.image)}
-                    alt={slide.title || ''}
-                    className="h-full w-full object-cover"
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                  />
-                </picture>
-                <div className="absolute inset-0 bg-gradient-to-r from-zinc-900/80 via-zinc-900/40 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-transparent to-transparent" />
-              </div>
-            ))}
-
-            {/* Content */}
-            <div className="relative z-10 flex h-full items-center">
-              <div className="mx-auto w-full max-w-7xl px-5 lg:px-8">
-                <div className="max-w-2xl">
-                  {heroCarouselSlides.map((slide, i) => (
-                    <div
-                      key={i}
-                      className={`transition-all duration-700 ${
-                        i === heroCarouselIndex
-                          ? 'opacity-100 translate-y-0'
-                          : 'opacity-0 translate-y-8 pointer-events-none absolute inset-0 flex items-center'
-                      }`}
-                    >
-                      <div>
-                        <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl whitespace-pre-line">
-                          {slide.title}
-                        </h1>
-                        <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-200">
-                          {slide.subtitle}
-                        </p>
-                        {isModernSlide(slide) && slide.showButton !== false && slide.buttonLabel && (
-                          <div className="mt-10">
-                            <a
-                              href={slide.buttonHref || '/login'}
-                              className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-white px-10 text-base font-semibold text-zinc-900 shadow-xl transition-all hover:bg-zinc-100 active:scale-[0.99]"
-                            >
-                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                              </svg>
-                              {slide.buttonLabel}
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  <EntCountdownTimer target={new Date('2026-06-20T08:00:00+06:00')} language={i18n.language} />
-                </div>
-
-                {/* Navigation dots */}
-                <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 gap-3">
-                  {heroCarouselSlides.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setHeroCarouselIndex(i)}
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        i === heroCarouselIndex
-                          ? 'w-10 bg-white shadow-lg'
-                          : 'w-2 bg-white/40 hover:bg-white/60'
-                      }`}
-                      aria-label={`Go to slide ${i + 1}`}
+            <section
+              className="relative h-[85vh] min-h-[500px] overflow-hidden"
+            >
+              {/* Background images */}
+              {heroCarouselSlides.map((slide, i) => (
+                <div
+                  key={i}
+                  className={`absolute inset-0 transition-opacity duration-1000 ${
+                    i === heroCarouselIndex ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                  <picture>
+                    <source media="(max-width: 767px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.mobileImageUrl : slide.image)} />
+                    <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(isModernSlide(slide) ? slide.tabletImageUrl : slide.image)} />
+                    <img
+                      src={resolveMediaUrl(isModernSlide(slide) ? slide.desktopImageUrl : slide.image)}
+                      alt={slide.title || ''}
+                      className="h-full w-full object-cover"
+                      loading={i === 0 ? 'eager' : 'lazy'}
                     />
-                  ))}
+                  </picture>
+                  <div className="absolute inset-0 bg-gradient-to-r from-zinc-900/80 via-zinc-900/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-transparent to-transparent" />
                 </div>
+              ))}
 
-                {/* Navigation arrows */}
-                <button
-                  type="button"
-                  onClick={() => setHeroCarouselIndex((prev) => (prev - 1 + heroCarouselSlides.length) % heroCarouselSlides.length)}
-                  className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:left-8"
-                  aria-label="Previous slide"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHeroCarouselIndex((prev) => (prev + 1) % heroCarouselSlides.length)}
-                  className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:right-8"
-                  aria-label="Next slide"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+              {/* Content */}
+              <div className="relative z-10 flex h-full items-center">
+                <div className="mx-auto w-full max-w-7xl px-5 lg:px-8">
+                  <div className="max-w-2xl">
+                    {heroCarouselSlides.map((slide, i) => (
+                      <div
+                        key={i}
+                        className={`transition-all duration-700 ${
+                          i === heroCarouselIndex
+                            ? 'opacity-100 translate-y-0'
+                            : 'opacity-0 translate-y-8 pointer-events-none absolute inset-0 flex items-center'
+                        }`}
+                      >
+                        <div>
+                          <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl whitespace-pre-line">
+                            {slide.title}
+                          </h1>
+                          <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-200">
+                            {slide.subtitle}
+                          </p>
+                          {isModernSlide(slide) && slide.showButton !== false && slide.buttonLabel && (
+                            <div className="mt-10">
+                              <span
+                                className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-white px-10 text-base font-semibold text-zinc-900 shadow-xl transition-all hover:bg-zinc-100 active:scale-[0.99]"
+                              >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                {slide.buttonLabel}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    <EntCountdownTimer target={new Date('2026-06-20T08:00:00+06:00')} language={i18n.language} />
+                  </div>
+
+                  {/* Navigation dots */}
+                  <div className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 gap-3">
+                    {heroCarouselSlides.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setHeroCarouselIndex(i); }}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          i === heroCarouselIndex
+                            ? 'w-10 bg-white shadow-lg'
+                            : 'w-2 bg-white/40 hover:bg-white/60'
+                        }`}
+                        aria-label={`Go to slide ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Navigation arrows */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setHeroCarouselIndex((prev) => (prev - 1 + heroCarouselSlides.length) % heroCarouselSlides.length); }}
+                    className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:left-8"
+                    aria-label="Previous slide"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setHeroCarouselIndex((prev) => (prev + 1) % heroCarouselSlides.length); }}
+                    className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white transition-all hover:bg-white/20 hover:scale-105 lg:right-8"
+                    aria-label="Next slide"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </a>
 
           {/* Stats Bar — animated */}
           <section className="border-y border-zinc-200/80 bg-white/50 py-8 dark:border-zinc-800/80 dark:bg-zinc-900/20">

@@ -1,140 +1,274 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../api/hooks/useAuth';
 import { api } from '../api/client';
 import { Spinner } from '../components/common/Spinner';
 import { AdvancedSEO } from '../components/seo/AdvancedSEO';
-import { buildLandingJsonLd, type FaqItem } from '../components/seo/buildLandingJsonLd';
-import { getSiteUrl } from '../lib/siteUrl';
-import { getWhatsAppUrl } from '../lib/whatsapp';
 import { WhatsAppFab } from '../components/common/WhatsAppFab';
+import { getWhatsAppUrl } from '../lib/whatsapp';
 import { resolveMediaUrl } from '../lib/resolveMediaUrl';
-import { getEffectiveTheme, setThemePreference } from '../lib/theme';
-import { useBillingPlans } from '../api/hooks/useBilling';
-import { LandingStatsStrip } from '../components/landing/LandingStatsStrip';
-import { GrantEstimator } from '../components/landing/GrantEstimator';
-import { type HeroSlide, type LandingRuntimeSettings, shouldShowHeroCta, isExternalHref, isModernSlide, type ModernHeroSlide } from '@bilimland/shared';
+import { type HeroSlide, type LandingRuntimeSettings, isModernSlide } from '@bilimland/shared';
 import './landing.css';
 
-type Benefit = { tag: string; title: string; body: string };
-type Step = { title: string; body: string };
-type AboutFact = { title: string; body: string };
-type PlatformFeature = { icon: 'progress' | 'mistakes' | 'topics' | 'thresholds'; title: string; body: string };
-type DirectionShare = { label: string; pct: number };
-type Testimonial = { quote: string; author: string };
-type TrialFeature = { title: string; body: string };
-type PricingTier = {
-  id: string;
-  name: string;
-  price: string;
-  period: string;
-  badge?: string;
-  features: string[];
+type Lang = 'ru' | 'kk' | 'en';
+type ScoreKey = 'mathLit' | 'readingLit' | 'history' | 'profile1' | 'profile2';
+
+const SCORE_LIMITS: Record<ScoreKey, number> = {
+  mathLit: 10,
+  readingLit: 10,
+  history: 20,
+  profile1: 50,
+  profile2: 50,
 };
-type TestTypeCard = { title: string; items: string[]; cta: string };
 
-const STEP_ICONS = [
-  <IconLogin key="i0" />,
-  <IconLayers key="i1" />,
-  <IconTarget key="i2" />,
-];
+const DEFAULT_SCORES: Record<ScoreKey, number> = {
+  mathLit: 8,
+  readingLit: 7,
+  history: 14,
+  profile1: 38,
+  profile2: 32,
+};
 
-function formatLandingPriceKzt(amount: number, language: string): string {
-  const locale = language === 'en' ? 'en-US' : 'ru-RU';
-  return `${new Intl.NumberFormat(locale).format(amount)} ₸`;
+const COPY = {
+  ru: {
+    seoTitle: 'MyTest — пробный ЕНТ онлайн',
+    seoDescription: 'Пробный ЕНТ онлайн с таймером, анализом ошибок и калькулятором шансов на грант.',
+    nav: ['Каталог', 'Калькулятор', 'Тарифы'],
+    login: 'Войти',
+    freeTag: '2 теста бесплатно · без карты',
+    heroTitle: <>Пробный <em>ЕНТ</em> онлайн —<br />как настоящий экзамен</>,
+    heroSub: <>Таймер, анализ ошибок и калькулятор шансов на грант.<br />Подготовка к ЕНТ, НИШ, НУЭТ и БИЛ.</>,
+    start: 'Начать бесплатный тест',
+    demo: 'Смотреть демо',
+    note: 'Вход через Telegram — 30 секунд',
+    photoAlt: 'Фото ученика с медалью/дипломом',
+    avgBadge: 'средний балл выпускников',
+    proof: [
+      ['1 200+', 'прошли пробный ЕНТ'],
+      ['108', 'средний балл пользователей'],
+      ['ЕНТ · НИШ · НУЭТ · БИЛ', 'форматы тестирования'],
+    ],
+    calcLabel: 'Калькулятор баллов',
+    calcTitle: 'Узнай шансы на грант прямо сейчас',
+    calcSub: 'Введи свои баллы — покажем, на какие специальности ты проходишь',
+    profileSubjects: 'Профильные предметы',
+    quota: 'Квота',
+    quotaValue: 'Без квоты (грант)',
+    subjects: {
+      mathLit: 'Математическая грамотность',
+      readingLit: 'Грамотность чтения',
+      history: 'История Казахстана',
+      profile1: 'Физика',
+      profile2: 'Математика',
+    },
+    total: 'Сумма баллов',
+    list: 'Смотреть список',
+    passMany: (count: number) => `Проходите на ${count} направлений`,
+    passHard: 'Порог пройден, конкурс высокий',
+    fail: 'Пока не проходите',
+    catalogLabel: 'Каталог',
+    catalogTitle: 'Выбери формат теста',
+    popular: 'Популярно',
+    tests: [
+      ['Пробный ЕНТ', 'Полный формат с таймером. Все 5 предметов как в настоящем экзамене.', ['120 вопросов', '240 мин', 'до 140 баллов'], 'Начать бесплатно'],
+      ['Подготовка к НИШ', '6 предметов, полный формат вступительного экзамена.', ['180 вопросов', '240 мин', 'до 1500 баллов'], 'Начать тест'],
+      ['Подготовка к БИЛ', '2 предмета, формат вступительного тестирования.', ['60 вопросов', '110 мин', 'до 240 баллов'], 'Начать тест'],
+    ],
+    stepsLabel: 'Как это работает',
+    stepsTitle: 'Три шага до первого теста',
+    steps: [
+      ['Войди через Telegram', 'Открой бота, укажи номер — код придёт в Telegram за 10 секунд.'],
+      ['Выбери экзамен', 'ЕНТ, НИШ или БИЛ. Настрой профильные предметы и запусти сессию.'],
+      ['Разбери ошибки', 'Тематический анализ, правильные ответы и слабые места — сразу после теста.'],
+    ],
+    reviewsLabel: 'Отзывы',
+    reviewsTitle: 'Говорят ученики',
+    reviews: [
+      ['СЖ', 'Самгат Жумали', '11 класс · Алматы', 'Итоговый балл ЕНТ: 127', 'Сложность максимально приближена к реальному экзамену. Вопросы на январском ЕНТ были похожи на пробные здесь.'],
+      ['НО', 'Нарбек Оразбек', 'Репетитор · Астана', '10 учеников прошли тест', 'Ученикам нравится удобство и интерфейс. При повторных тестах минимальное повторение вопросов — это важно.'],
+    ],
+    pricingLabel: 'Тарифы',
+    pricingTitle: 'Начни бесплатно',
+    freeTitle: '2 полных теста — бесплатно',
+    freeSub: 'Без карты. Без ограничений по времени. Полный формат.',
+    startNow: 'Начать сейчас',
+    prices: [
+      ['Пробный', '750 ₸', '/ 1 тест', ['1 полный тест', 'Разбор ошибок', 'Статистика попытки']],
+      ['Месяц', '3 900 ₸', '/ 30 дней', ['Все тесты без лимита', 'Полный трекинг прогресса', 'Аналитика по темам']],
+      ['Год', '28 000 ₸', '/ 365 дней', ['Всё из «Месяца»', 'Все обновления каталога', 'Лучшая цена за день']],
+    ],
+    footerTagline: 'Подготовка к экзамену — без хаоса',
+  },
+  kk: {
+    seoTitle: 'MyTest — онлайн сынақ ҰБТ',
+    seoDescription: 'Таймері, қате талдауы және грант мүмкіндігін есептейтін онлайн сынақ ҰБТ.',
+    nav: ['Каталог', 'Калькулятор', 'Тарифтер'],
+    login: 'Кіру',
+    freeTag: '2 тест тегін · карта қажет емес',
+    heroTitle: <>Онлайн сынақ <em>ҰБТ</em> —<br />нағыз емтихан сияқты</>,
+    heroSub: <>Таймер, қателерді талдау және грант мүмкіндігін есептеу.<br />ҰБТ, НЗМ, NUET және БИЛ-ға дайындық.</>,
+    start: 'Тегін тест бастау',
+    demo: 'Демо көру',
+    note: 'Telegram арқылы кіру — 30 секунд',
+    photoAlt: 'Медаль/диплом ұстаған оқушы суреті',
+    avgBadge: 'түлектердің орташа балы',
+    proof: [
+      ['1 200+', 'сынақ ҰБТ тапсырды'],
+      ['108', 'қолданушылардың орташа балы'],
+      ['ҰБТ · НЗМ · NUET · БИЛ', 'тестілеу форматтары'],
+    ],
+    calcLabel: 'Балл калькуляторы',
+    calcTitle: 'Грант мүмкіндігін қазір біл',
+    calcSub: 'Баллдарыңды енгіз — қай мамандықтарға өтетініңді көрсетеміз',
+    profileSubjects: 'Бейіндік пәндер',
+    quota: 'Квота',
+    quotaValue: 'Квотасыз (грант)',
+    subjects: {
+      mathLit: 'Математикалық сауаттылық',
+      readingLit: 'Оқу сауаттылығы',
+      history: 'Қазақстан тарихы',
+      profile1: 'Физика',
+      profile2: 'Математика',
+    },
+    total: 'Жалпы балл',
+    list: 'Тізімді көру',
+    passMany: (count: number) => `${count} бағытқа өтесіз`,
+    passHard: 'Шектік балл өтті, конкурс жоғары',
+    fail: 'Әзірге өтпейсіз',
+    catalogLabel: 'Каталог',
+    catalogTitle: 'Тест форматын таңда',
+    popular: 'Танымал',
+    tests: [
+      ['Сынақ ҰБТ', 'Таймері бар толық формат. Нағыз емтихандағыдай 5 пән.', ['120 сұрақ', '240 мин', '140 балға дейін'], 'Тегін бастау'],
+      ['НЗМ-ға дайындық', '6 пән, қабылдау емтиханының толық форматы.', ['180 сұрақ', '240 мин', '1500 балға дейін'], 'Тест бастау'],
+      ['БИЛ-ға дайындық', '2 пән, қабылдау тестілеу форматы.', ['60 сұрақ', '110 мин', '240 балға дейін'], 'Тест бастау'],
+    ],
+    stepsLabel: 'Қалай жұмыс істейді',
+    stepsTitle: 'Алғашқы тестке дейін үш қадам',
+    steps: [
+      ['Telegram арқылы кір', 'Ботты ашып, нөмірді көрсет — код Telegram-ға 10 секундта келеді.'],
+      ['Емтиханды таңда', 'ҰБТ, НЗМ немесе БИЛ. Бейіндік пәндерді баптап, сессияны баста.'],
+      ['Қателерді талда', 'Тақырыптық талдау, дұрыс жауаптар және әлсіз тұстар — тесттен кейін бірден.'],
+    ],
+    reviewsLabel: 'Пікірлер',
+    reviewsTitle: 'Оқушылар не дейді',
+    reviews: [
+      ['СЖ', 'Самғат Жұмалы', '11 сынып · Алматы', 'ҰБТ қорытынды балы: 127', 'Күрделілігі нағыз емтиханға өте жақын. Қаңтардағы ҰБТ сұрақтары мұндағы сынақтарға ұқсас болды.'],
+      ['НО', 'Нарбек Оразбек', 'Репетитор · Астана', '10 оқушы тест тапсырды', 'Оқушыларға ыңғайлылығы мен интерфейсі ұнайды. Қайталап тапсырғанда сұрақтардың аз қайталануы маңызды.'],
+    ],
+    pricingLabel: 'Тарифтер',
+    pricingTitle: 'Тегін баста',
+    freeTitle: '2 толық тест — тегін',
+    freeSub: 'Картасыз. Уақыт шектеусіз. Толық формат.',
+    startNow: 'Қазір бастау',
+    prices: [
+      ['Сынақ', '750 ₸', '/ 1 тест', ['1 толық тест', 'Қате талдауы', 'Әрекет статистикасы']],
+      ['Ай', '3 900 ₸', '/ 30 күн', ['Барлық тесттер лимитсіз', 'Прогресті толық бақылау', 'Тақырыптар бойынша аналитика']],
+      ['Жыл', '28 000 ₸', '/ 365 күн', ['«Айдағының» бәрі', 'Каталогтың барлық жаңартуы', 'Күнге шаққандағы тиімді баға']],
+    ],
+    footerTagline: 'Емтиханға дайындық — ретімен',
+  },
+  en: {
+    seoTitle: 'MyTest — online UNT practice test',
+    seoDescription: 'Online UNT practice tests with timer, mistake review, and grant chance calculator.',
+    nav: ['Catalog', 'Calculator', 'Pricing'],
+    login: 'Log in',
+    freeTag: '2 free tests · no card',
+    heroTitle: <>Online practice <em>UNT</em> —<br />like the real exam</>,
+    heroSub: <>Timer, mistake analysis, and a grant chance calculator.<br />Prep for UNT, NIS, NUET, and BIL.</>,
+    start: 'Start a free test',
+    demo: 'Watch demo',
+    note: 'Telegram login — 30 seconds',
+    photoAlt: 'Student with medal or diploma photo',
+    avgBadge: 'average graduate score',
+    proof: [
+      ['1 200+', 'completed a practice UNT'],
+      ['108', 'average user score'],
+      ['UNT · NIS · NUET · BIL', 'testing formats'],
+    ],
+    calcLabel: 'Score calculator',
+    calcTitle: 'Check your grant chances now',
+    calcSub: 'Enter your scores and see which programs you can pass',
+    profileSubjects: 'Profile subjects',
+    quota: 'Quota',
+    quotaValue: 'No quota (grant)',
+    subjects: {
+      mathLit: 'Mathematical literacy',
+      readingLit: 'Reading literacy',
+      history: 'History of Kazakhstan',
+      profile1: 'Physics',
+      profile2: 'Mathematics',
+    },
+    total: 'Total score',
+    list: 'View list',
+    passMany: (count: number) => `You pass ${count} directions`,
+    passHard: 'Threshold passed, competition is high',
+    fail: 'Not passing yet',
+    catalogLabel: 'Catalog',
+    catalogTitle: 'Choose a test format',
+    popular: 'Popular',
+    tests: [
+      ['Practice UNT', 'Full timed format. All 5 subjects just like the real exam.', ['120 questions', '240 min', 'up to 140 points'], 'Start free'],
+      ['NIS preparation', '6 subjects, full entrance exam format.', ['180 questions', '240 min', 'up to 1500 points'], 'Start test'],
+      ['BIL preparation', '2 subjects, entrance testing format.', ['60 questions', '110 min', 'up to 240 points'], 'Start test'],
+    ],
+    stepsLabel: 'How it works',
+    stepsTitle: 'Three steps to your first test',
+    steps: [
+      ['Log in via Telegram', 'Open the bot, enter your number, and get the code in Telegram in 10 seconds.'],
+      ['Choose an exam', 'UNT, NIS, or BIL. Set profile subjects and launch a session.'],
+      ['Review mistakes', 'Topic analysis, correct answers, and weak spots right after the test.'],
+    ],
+    reviewsLabel: 'Reviews',
+    reviewsTitle: 'Students say',
+    reviews: [
+      ['SZ', 'Samgat Zhumali', 'Grade 11 · Almaty', 'Final UNT score: 127', 'The difficulty is very close to the real exam. Questions on the January UNT were similar to the practice tests here.'],
+      ['NO', 'Narbek Orazbek', 'Tutor · Astana', '10 students took the test', 'Students like the convenience and interface. Low question repetition in retakes matters a lot.'],
+    ],
+    pricingLabel: 'Pricing',
+    pricingTitle: 'Start free',
+    freeTitle: '2 full tests — free',
+    freeSub: 'No card. No time limits. Full format.',
+    startNow: 'Start now',
+    prices: [
+      ['Trial', '750 ₸', '/ 1 test', ['1 full test', 'Mistake review', 'Attempt statistics']],
+      ['Month', '3 900 ₸', '/ 30 days', ['Unlimited tests', 'Full progress tracking', 'Topic analytics']],
+      ['Year', '28 000 ₸', '/ 365 days', ['Everything in Month', 'All catalog updates', 'Best daily price']],
+    ],
+    footerTagline: 'Exam prep without chaos',
+  },
+} satisfies Record<Lang, Record<string, unknown>>;
+
+function getHeroImage(slides: HeroSlide[] | undefined): string | null {
+  const slide = slides?.find((item) => (item as { isActive?: boolean }).isActive !== false);
+  if (!slide) return null;
+  return resolveMediaUrl(isModernSlide(slide) ? slide.desktopImageUrl : slide.image);
 }
 
 export function LandingPage() {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const { user, isLoading } = useAuth();
-  const [leadName, setLeadName] = useState('');
-  const [leadPhone, setLeadPhone] = useState('');
-  const [leadMessage, setLeadMessage] = useState('');
-  const [leadLoading, setLeadLoading] = useState(false);
-  const [leadResult, setLeadResult] = useState<'idle' | 'success' | 'error'>('idle');
   const [runtimeSettings, setRuntimeSettings] = useState<LandingRuntimeSettings | null>(null);
   const [runtimeSettingsLoaded, setRuntimeSettingsLoaded] = useState(false);
-  const [heroIndex, setHeroIndex] = useState(0);
-  const [landingTheme, setLandingTheme] = useState<'light' | 'dark'>(() => getEffectiveTheme());
-  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const [scores, setScores] = useState(DEFAULT_SCORES);
 
-  const benefits = useMemo(
-    () => t('landing.benefits', { returnObjects: true }) as Benefit[],
-    [t, i18n.language],
-  );
-  const steps = useMemo(
-    () => t('landing.steps', { returnObjects: true }) as Step[],
-    [t, i18n.language],
-  );
-  const aboutFacts = useMemo(
-    () => t('landing.aboutFacts', { returnObjects: true }) as AboutFact[],
-    [t, i18n.language],
-  );
-  const trialFeatures = useMemo(
-    () => t('landing.trialFeatures', { returnObjects: true }) as TrialFeature[],
-    [t, i18n.language],
-  );
-  const { data: billingPlans } = useBillingPlans();
-  const pricingTiers = useMemo(
-    () => t('landing.pricingTiers', { returnObjects: true }) as PricingTier[],
-    [t, i18n.language],
-  );
-  const displayPricingTiers = useMemo(() => {
-    if (!billingPlans?.length) return pricingTiers;
-    return pricingTiers.map((tier) => {
-      const plan = billingPlans.find((p) => p.id === tier.id);
-      if (!plan) return tier;
-      return { ...tier, price: formatLandingPriceKzt(plan.priceKzt, i18n.language) };
-    });
-  }, [billingPlans, pricingTiers, i18n.language]);
-  const testTypes = useMemo(
-    () => t('landing.testTypes', { returnObjects: true }) as TestTypeCard[],
-    [t, i18n.language],
-  );
-  const platformFeatures = useMemo(
-    () => t('landing.platformFeatures', { returnObjects: true }) as PlatformFeature[],
-    [t, i18n.language],
-  );
-  const directionShares = useMemo(
-    () => t('landing.directionShares', { returnObjects: true }) as DirectionShare[],
-    [t, i18n.language],
-  );
-  const testimonials = useMemo(
-    () => t('landing.testimonials', { returnObjects: true }) as Testimonial[],
-    [t, i18n.language],
-  );
-
-  const seoFaq = useMemo(
-    () => t('landing.seoFaq', { returnObjects: true }) as FaqItem[],
-    [t, i18n.language],
-  );
-
-  const jsonLd = useMemo(
-    () => buildLandingJsonLd(t, getSiteUrl(), steps, seoFaq),
-    [t, steps, seoFaq],
-  );
-
-  const htmlLang = i18n.language === 'kk' ? 'kk' : i18n.language === 'en' ? 'en' : 'ru';
-  const langs = ['ru', 'kk', 'en'] as const;
-  const marquee = `${t('landing.marqueeLine')} · `;
-  const waUrl = getWhatsAppUrl();
-  const fallbackWhatsAppHref = t('landing.contactWhatsappHref');
-  const fallbackInstagramHref = t('landing.contactInstagramHref');
-  const fallbackTiktokHref = t('landing.contactTiktokHref');
-  const defaultHeroSlides = useMemo(
-    () => (t('landing.heroSlides', { returnObjects: true }) as HeroSlide[]) || [],
-    [t, i18n.language],
-  );
-  const instructionVideoUrl = runtimeSettings?.instructionVideoUrl || t('landing.instructionVideoUrl');
-  const instructionVideoEmbedUrl = toYoutubeEmbedUrl(instructionVideoUrl);
-  const instagramHref = runtimeSettings?.instagramUrl || fallbackInstagramHref;
-  const tiktokHref = runtimeSettings?.tiktokUrl || fallbackTiktokHref;
+  const language = (i18n.language === 'kk' || i18n.language === 'en' ? i18n.language : 'ru') as Lang;
+  const copy = COPY[language];
+  const total = Object.values(scores).reduce((sum, value) => sum + value, 0);
+  const directionCount = Math.max(1, Math.round((total - 70) / 3));
+  const status = total >= 90 ? copy.passMany(directionCount) : total >= 70 ? copy.passHard : copy.fail;
   const whatsappHref = runtimeSettingsLoaded
-    ? runtimeSettings?.whatsappUrl || fallbackWhatsAppHref
-    : waUrl || fallbackWhatsAppHref;
-  const heroSlides = (runtimeSettingsLoaded ? runtimeSettings?.heroSlides || [] : defaultHeroSlides)
-    .filter((slide): slide is ModernHeroSlide => isModernSlide(slide) && slide.isActive !== false);
+    ? runtimeSettings?.whatsappUrl || getWhatsAppUrl() || 'https://wa.me/77775932124'
+    : getWhatsAppUrl() || 'https://wa.me/77775932124';
+  const heroImage = useMemo(() => getHeroImage(runtimeSettings?.heroSlides), [runtimeSettings?.heroSlides]);
+  const demoHref = runtimeSettings?.instructionVideoUrl?.trim() || '#catalog';
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.remove('dark');
+    document.documentElement.style.colorScheme = 'light';
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,646 +286,245 @@ export function LandingPage() {
     };
   }, []);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', landingTheme);
-  }, [landingTheme]);
-
-  useEffect(() => {
-    if (heroSlides.length <= 1 || isCarouselPaused) return;
-    const timer = window.setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
-    }, 6000);
-    return () => window.clearInterval(timer);
-  }, [heroSlides, isCarouselPaused]);
-
-  useEffect(() => {
-    if (heroSlides.length === 0) {
-      setHeroIndex(0);
-      return;
-    }
-    if (heroIndex >= heroSlides.length) {
-      setHeroIndex(0);
-    }
-  }, [heroSlides, heroIndex]);
-
-  if (isLoading) {
-    return <Spinner fullScreen />;
-  }
-
-  if (user) {
-    return <Navigate to="/app" replace />;
-  }
-
-  const handleLeadSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (leadLoading) return;
-    setLeadLoading(true);
-    setLeadResult('idle');
-    try {
-      await api.post('/leads', {
-        name: leadName.trim(),
-        phone: leadPhone.trim(),
-        message: leadMessage.trim() || undefined,
-        source: 'landing',
-      });
-      setLeadName('');
-      setLeadPhone('');
-      setLeadMessage('');
-      setLeadResult('success');
-    } catch {
-      setLeadResult('error');
-    } finally {
-      setLeadLoading(false);
-    }
-  };
+  if (isLoading) return <Spinner fullScreen />;
+  if (user) return <Navigate to="/app" replace />;
 
   return (
     <>
       <AdvancedSEO
-        title={t('landing.seoTitle')}
-        description={t('landing.seoDescription')}
-        keywords={t('landing.seoKeywords')}
+        title={copy.seoTitle as string}
+        description={copy.seoDescription as string}
+        keywords="ЕНТ, пробный ЕНТ, ҰБТ, НИШ, БИЛ, MyTest"
         canonicalPath="/"
-        htmlLang={htmlLang}
-        i18nLanguage={i18n.language}
-        jsonLd={jsonLd}
-        ogImageAlt={t('landing.seoOgImageAlt')}
+        htmlLang={language}
+        i18nLanguage={language}
+        ogImageAlt="MyTest"
       />
-      <div className={`landing-root ${landingTheme === 'light' ? 'is-light' : ''}`}>
-        <div className="ld-aurora" aria-hidden />
-        <div className="ld-grid" aria-hidden />
-        <div className="ld-noise" aria-hidden />
-
-        <header className="ld-nav">
-          <div className="ld-max ld-nav-inner">
-            <div className="ld-logo" aria-label={t('app.name')}>
-              <span className="ld-logo-mark">M</span>
-              <span className="ld-logo-text">
-                My<span>Test</span>
-              </span>
-            </div>
-            <div className="ld-nav-actions">
-              <button
-                type="button"
-                className="ld-theme-toggle"
-                onClick={() => {
-                  const next = landingTheme === 'dark' ? 'light' : 'dark';
-                  setLandingTheme(next);
-                  setThemePreference(next);
-                }}
-                aria-label={t('landing.themeToggleAria')}
-              >
-                {landingTheme === 'dark' ? t('landing.themeLight') : t('landing.themeDark')}
-              </button>
-              <div className="ld-lang" role="group" aria-label={t('landing.langLabel')}>
-                {langs.map((lng) => (
-                  <button
-                    key={lng}
-                    type="button"
-                    className={i18n.language === lng ? 'is-active' : ''}
-                    onClick={() => {
-                      i18n.changeLanguage(lng);
-                      localStorage.setItem('language', lng);
-                    }}
-                  >
-                    {lng.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-              <Link to="/login" className="ld-btn ld-btn-primary">
-                {t('landing.ctaTrial')}
-              </Link>
-            </div>
+      <div className="mytest-lite">
+        <nav className="mtl-nav">
+          <Link to="/" className="mtl-logo"><span>My</span>Test</Link>
+          <div className="mtl-nav-links">
+            <a href="#catalog">{copy.nav[0]}</a>
+            <a href="#calculator">{copy.nav[1]}</a>
+            <a href="#pricing">{copy.nav[2]}</a>
           </div>
-        </header>
-
-        {heroSlides.length > 0 ? (
-          <a href="/login" className="block" onClick={(e) => e.stopPropagation()}>
-            <section className="ld-hero-carousel" aria-label={t('landing.heroCarouselAria')}>
-              <div className="ld-max">
-                <div className="ld-carousel-shell">
-                  {heroSlides.map((slide, idx) => {
-                    const titleText = slide.title?.trim() ?? '';
-                    const subtitleText = slide.subtitle?.trim() ?? '';
-                    const showOverlay = Boolean(titleText || subtitleText || shouldShowHeroCta(slide));
-                    return (
-                      <article
-                        key={`hero-slide-${idx}`}
-                        className={`ld-carousel-slide ${idx === heroIndex ? 'is-active' : ''}`}
-                        aria-hidden={idx !== heroIndex}
-                      >
-                        <picture>
-                          <source media="(max-width: 767px)" srcSet={resolveMediaUrl(slide.mobileImageUrl)} />
-                          <source media="(max-width: 1199px)" srcSet={resolveMediaUrl(slide.tabletImageUrl)} />
-                          <img
-                            src={resolveMediaUrl(slide.desktopImageUrl)}
-                            alt={titleText}
-                            loading={idx === 0 ? 'eager' : 'lazy'}
-                          />
-                        </picture>
-                        {showOverlay ? (
-                          <div className="ld-carousel-overlay">
-                            {titleText ? <h1 className="ld-carousel-title">{titleText}</h1> : null}
-                            {subtitleText ? <p className="ld-carousel-subtitle">{subtitleText}</p> : null}
-                            {shouldShowHeroCta(slide) ? (
-                              isExternalHref(slide.buttonHref) ? (
-                                <span
-                                  className="ld-btn ld-btn-primary ld-btn-lg"
-                                >
-                                  {slide.buttonLabel!.trim()}
-                                </span>
-                              ) : (
-                                <span className="ld-btn ld-btn-primary ld-btn-lg">
-                                  {slide.buttonLabel!.trim()}
-                                </span>
-                              )
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                  {heroSlides.length > 1 ? (
-                    <>
-                      <button
-                        type="button"
-                        className="ld-carousel-nav is-prev"
-                        aria-label={t('landing.heroCarouselPrev')}
-                        onClick={(e) => { e.stopPropagation(); setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length); }}
-                        onMouseEnter={() => setIsCarouselPaused(true)}
-                        onMouseLeave={() => setIsCarouselPaused(false)}
-                      >
-                        <span aria-hidden>‹</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="ld-carousel-nav is-next"
-                        aria-label={t('landing.heroCarouselNext')}
-                        onClick={(e) => { e.stopPropagation(); setHeroIndex((prev) => (prev + 1) % heroSlides.length); }}
-                        onMouseEnter={() => setIsCarouselPaused(true)}
-                        onMouseLeave={() => setIsCarouselPaused(false)}
-                      >
-                        <span aria-hidden>›</span>
-                      </button>
-                    </>
-                  ) : null}
-                  {heroSlides.length > 1 ? (
-                    <div
-                      className="ld-carousel-dots"
-                      role="tablist"
-                      aria-label={t('landing.heroCarouselDotsAria')}
-                      onMouseEnter={() => setIsCarouselPaused(true)}
-                      onMouseLeave={() => setIsCarouselPaused(false)}
-                    >
-                      {heroSlides.map((_, idx) => (
-                        <button
-                          key={`hero-slide-dot-${idx}`}
-                          type="button"
-                          className={idx === heroIndex ? 'is-active' : ''}
-                          onClick={(e) => { e.stopPropagation(); setHeroIndex(idx); }}
-                          aria-label={`${t('landing.heroCarouselDot')} ${idx + 1}`}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-          </a>
-        ) : null}
-
-        <section className="ld-hero-meta" aria-label={t('landing.heroQuickNavAria')}>
-          <div className="ld-max">
-            <div className="ld-hero-pills">
-              <a href="#grant" className="ld-hero-pill">
-                {t('landing.sectionGrant')}
-              </a>
-              <a href="#test-types" className="ld-hero-pill">
-                {t('landing.sectionTestTypes')}
-              </a>
-              <a href="#instruction" className="ld-hero-pill">
-                {t('landing.sectionInstruction')}
-              </a>
-              <a href="#lead" className="ld-hero-pill">
-                {t('landing.leadSection')}
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <LandingStatsStrip />
-        <GrantEstimator />
-
-        <section className="ld-section ld-section-instruction" id="instruction">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionInstruction')}</p>
-            <div className="ld-instruction-wrap">
-              <div>
-                <h2 className="ld-trial-title">{t('landing.instructionTitle')}</h2>
-                <p className="ld-trial-lead">{t('landing.instructionLead')}</p>
-              </div>
-              <div className="ld-instruction-video">
-                {instructionVideoEmbedUrl ? (
-                  <iframe
-                    src={instructionVideoEmbedUrl}
-                    title={t('landing.instructionVideoTitle')}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                ) : (
-                  <a href={instructionVideoUrl} target="_blank" rel="noopener noreferrer" className="ld-btn ld-btn-glass">
-                    {t('landing.instructionOpenVideo')}
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="ld-marquee-outer" aria-hidden>
-          <div className="ld-marquee-track">
-            <span>{marquee}</span>
-            <span>{marquee}</span>
-          </div>
-        </div>
-
-        <section id="benefits" className="ld-section">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionBenefits')}</p>
-            <div className="ld-bento">
-              {benefits.map((b, i) => (
-                <article key={b.title} className={`ld-tile ld-tile-${i}`}>
-                  <span className="ld-tile-tag">{b.tag}</span>
-                  <h3 className="ld-tile-title">{b.title}</h3>
-                  <p className="ld-tile-body">{b.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="test-types" className="ld-section ld-section-test-types">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionTestTypes')}</p>
-            <h2 className="ld-trial-title">{t('landing.testTypesTitle')}</h2>
-            <div className="ld-test-types-grid">
-              {testTypes.map((card) => (
-                <article key={card.title} className="ld-test-type-card">
-                  <h3>{card.title}</h3>
-                  <ul>
-                    {card.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <Link to="/login" className="ld-btn ld-btn-primary">
-                    {card.cta}
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="ld-pullquote">
-          <div className="ld-max">
-            <div className="ld-quote-card">
-              <blockquote className="ld-quote-text">{t('landing.stripeQuote')}</blockquote>
-            </div>
-          </div>
-        </section>
-
-        <section id="how" className="ld-section ld-section-how">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionHow')}</p>
-            <div className="ld-steps">
-              {steps.map((step, i) => (
-                <div key={step.title} className="ld-step-card">
-                  <div className="ld-step-icon" aria-hidden>
-                    {STEP_ICONS[i] ?? <IconTarget />}
-                  </div>
-                  <span className="ld-step-num">{String(i + 1).padStart(2, '0')}</span>
-                  <h4 className="ld-step-title">{step.title}</h4>
-                  <p className="ld-step-body">{step.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="about" className="ld-section ld-about">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionAbout')}</p>
-            <p className="ld-about-lead">{t('landing.aboutLead')}</p>
-            <p className="ld-about-body">{t('landing.aboutBody')}</p>
-            <p className="ld-about-body ld-about-body-secondary">{t('landing.aboutClosing')}</p>
-            <div className="ld-about-facts">
-              {aboutFacts.map((fact) => (
-                <article key={fact.title} className="ld-about-fact">
-                  <h4>{fact.title}</h4>
-                  <p>{fact.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="platform" className="ld-section ld-section-platform">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionPlatform')}</p>
-            <h2 className="ld-platform-heading">{t('landing.platformHeading')}</h2>
-            <p className="ld-platform-lead">{t('landing.platformLead')}</p>
-            <div className="ld-platform-grid">
-              {platformFeatures.map((feature) => (
-                <article key={feature.title} className="ld-platform-card">
-                  <div className="ld-platform-icon" aria-hidden>
-                    <PlatformIcon name={feature.icon} />
-                  </div>
-                  <h3 className="ld-platform-title">{feature.title}</h3>
-                  <p className="ld-platform-body">{feature.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="directions" className="ld-section ld-section-directions" aria-labelledby="ld-directions-title">
-          <div className="ld-max">
-            <p className="ld-eyebrow" id="ld-directions-title">
-              {t('landing.sectionDirections')}
-            </p>
-            <p className="ld-directions-lead">{t('landing.directionsLead')}</p>
-            <ul className="ld-directions-list">
-              {directionShares.map((row) => (
-                <li key={row.label} className="ld-directions-row">
-                  <div className="ld-directions-row-head">
-                    <span className="ld-directions-label">{row.label}</span>
-                    <span className="ld-directions-pct">{row.pct}%</span>
-                  </div>
-                  <div className="ld-directions-track" aria-hidden>
-                    <div className="ld-directions-fill" style={{ width: `${Math.min(100, row.pct)}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <section id="reviews" className="ld-section ld-section-testimonials" aria-labelledby="ld-reviews-title">
-          <div className="ld-max">
-            <p className="ld-eyebrow" id="ld-reviews-title">
-              {t('landing.sectionTestimonials')}
-            </p>
-            <div className="ld-testimonials-grid">
-              {testimonials.map((item) => (
-                <blockquote key={item.author} className="ld-testimonial">
-                  <p className="ld-testimonial-quote">«{item.quote}»</p>
-                  <footer className="ld-testimonial-author">— {item.author}</footer>
-                </blockquote>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="ld-section ld-section-trial">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.sectionTrial')}</p>
-            <div className="ld-trial-wrap">
-              <div>
-                <h2 className="ld-trial-title">{t('landing.trialTitle')}</h2>
-                <p className="ld-trial-lead">{t('landing.trialLead')}</p>
-                <div className="ld-trial-grid">
-                  {trialFeatures.map((feature) => (
-                    <article key={feature.title} className="ld-trial-item">
-                      <h4>{feature.title}</h4>
-                      <p>{feature.body}</p>
-                    </article>
-                  ))}
-                </div>
-              </div>
-              <aside className="ld-pricing-preview">
-                <p className="ld-pricing-title">{t('landing.pricingTitle')}</p>
-                <div className="ld-pricing-list">
-                  {displayPricingTiers.map((tier) => (
-                    <article key={tier.id} className="ld-pricing-card">
-                      <div className="ld-pricing-card-head">
-                        <h4>{tier.name}</h4>
-                        {tier.badge ? <span>{tier.badge}</span> : null}
-                      </div>
-                      <p className="ld-pricing-price">
-                        {tier.price} <small>{tier.period}</small>
-                      </p>
-                      <ul>
-                        {tier.features.map((feature) => (
-                          <li key={feature}>{feature}</li>
-                        ))}
-                      </ul>
-                    </article>
-                  ))}
-                </div>
-                <p className="ld-pricing-footnote">{t('landing.pricingFootnote')}</p>
-                <Link to="/login" className="ld-btn ld-btn-primary ld-btn-lg">
-                  {t('landing.ctaTrial')}
-                </Link>
-              </aside>
-            </div>
-          </div>
-        </section>
-
-        <section className="ld-section ld-section-lead" id="lead">
-          <div className="ld-max">
-            <p className="ld-eyebrow">{t('landing.leadSection')}</p>
-            <div className="ld-lead-wrap">
-              <div>
-                <h2 className="ld-trial-title">{t('landing.leadTitle')}</h2>
-                <p className="ld-trial-lead">{t('landing.leadSubtitle')}</p>
-              </div>
-              <form className="ld-lead-form" onSubmit={handleLeadSubmit}>
-                <label className="ld-lead-field">
-                  <span>{t('landing.leadNameLabel')}</span>
-                  <input
-                    type="text"
-                    value={leadName}
-                    onChange={(e) => setLeadName(e.target.value)}
-                    placeholder={t('landing.leadNamePlaceholder')}
-                    autoComplete="name"
-                    minLength={2}
-                    maxLength={100}
-                    required
-                  />
-                </label>
-                <label className="ld-lead-field">
-                  <span>{t('landing.leadPhoneLabel')}</span>
-                  <input
-                    type="tel"
-                    value={leadPhone}
-                    onChange={(e) => setLeadPhone(e.target.value)}
-                    placeholder={t('landing.leadPhonePlaceholder')}
-                    autoComplete="tel"
-                    minLength={5}
-                    maxLength={30}
-                    required
-                  />
-                </label>
-                <label className="ld-lead-field">
-                  <span>{t('landing.leadMessageLabel')}</span>
-                  <textarea
-                    value={leadMessage}
-                    onChange={(e) => setLeadMessage(e.target.value)}
-                    placeholder={t('landing.leadMessagePlaceholder')}
-                    maxLength={1000}
-                    rows={4}
-                  />
-                </label>
-                <button type="submit" className="ld-btn ld-btn-primary ld-btn-lg" disabled={leadLoading}>
-                  {leadLoading ? t('landing.leadSubmitting') : t('landing.leadSubmit')}
+          <div className="mtl-nav-actions">
+            <div className="mtl-lang" role="group" aria-label="Language">
+              {(['ru', 'kk', 'en'] as const).map((lng) => (
+                <button
+                  key={lng}
+                  type="button"
+                  className={`mtl-lang-btn ${language === lng ? 'active' : ''}`}
+                  onClick={() => i18n.changeLanguage(lng)}
+                >
+                  {lng === 'ru' ? 'РУС' : lng === 'kk' ? 'ҚАЗ' : 'ENG'}
                 </button>
-                {leadResult === 'success' ? (
-                  <p className="ld-lead-status ld-lead-status-success">{t('landing.leadSuccess')}</p>
-                ) : null}
-                {leadResult === 'error' ? (
-                  <p className="ld-lead-status ld-lead-status-error">{t('landing.leadError')}</p>
-                ) : null}
-              </form>
+              ))}
             </div>
+            <Link to="/login" className="mtl-nav-cta">{copy.login}</Link>
           </div>
-        </section>
+        </nav>
 
-        <footer className="ld-footer">
-          <div className="ld-max ld-footer-inner">
-            <div className="ld-footer-brand">
-              <p className="ld-footer-copy">
-                <strong>{t('app.name')}</strong> — {t('landing.footerTagline')}
-              </p>
-              <ul className="ld-footer-socials" aria-label={t('landing.footerSocialsAria')}>
-                <li>
-                  <a href={instagramHref} target="_blank" rel="noopener noreferrer">
-                    {t('landing.contactInstagramLabel')}
-                  </a>
-                </li>
-                <li>
-                  <a href={tiktokHref} target="_blank" rel="noopener noreferrer">
-                    {t('landing.contactTiktokLabel')}
-                  </a>
-                </li>
-              </ul>
-              <div className="ld-footer-contact" aria-label={t('landing.footerContactAria')}>
-                <p className="ld-footer-contact-title">{t('landing.footerContactTitle')}</p>
-                <ul className="ld-footer-contact-list">
-                  <li>
-                    <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-                      {t('landing.contactWhatsappLabel')}
-                    </a>
-                  </li>
-                  <li>
-                    <a href={`mailto:${t('landing.contactEmail')}`}>{t('landing.contactEmail')}</a>
-                  </li>
-                  <li>
-                    <a href={t('landing.contactSiteHref')} target="_blank" rel="noopener noreferrer">
-                      {t('landing.contactSiteLabel')}
-                    </a>
-                  </li>
-                </ul>
+        <main>
+          <section className="mtl-hero">
+            <div className="mtl-hero-left">
+              <div className="mtl-hero-tag"><span />{copy.freeTag}</div>
+              <h1 className="mtl-hero-h1">{copy.heroTitle}</h1>
+              <p className="mtl-hero-sub">{copy.heroSub}</p>
+              <div className="mtl-hero-btns">
+                <Link to="/login" className="mtl-btn-primary">{copy.start}</Link>
+                <a
+                  href={demoHref}
+                  className="mtl-btn-secondary"
+                  target={demoHref.startsWith('http') ? '_blank' : undefined}
+                  rel={demoHref.startsWith('http') ? 'noopener noreferrer' : undefined}
+                >
+                  {copy.demo}
+                </a>
+              </div>
+              <div className="mtl-hero-note">{copy.note}</div>
+            </div>
+            <div className="mtl-hero-right">
+              {heroImage ? (
+                <img className="mtl-hero-photo" src={heroImage} alt={copy.photoAlt as string} />
+              ) : (
+                <div className="mtl-hero-img-placeholder" aria-label={copy.photoAlt as string}>
+                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                    <circle cx="20" cy="14" r="8" stroke="#378ADD" strokeWidth="1.5" />
+                    <path d="M6 36c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#378ADD" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                  <div>{copy.photoAlt}</div>
+                </div>
+              )}
+              <div className="mtl-hero-badge">
+                <div className="mtl-hero-badge-num">132</div>
+                <div>{copy.avgBadge}</div>
               </div>
             </div>
-            <div className="ld-footer-actions">
-              <a href={whatsappHref} className="ld-btn ld-btn-glass" target="_blank" rel="noopener noreferrer">
-                {t('landing.whatsappCta')}
-              </a>
-              <Link to="/login" className="ld-btn ld-btn-primary">
-                {t('landing.ctaTrial')}
-              </Link>
-            </div>
+          </section>
+
+          <div className="mtl-social-proof">
+            {copy.proof.map(([num, label]) => (
+              <div className="mtl-sp-item" key={label}>
+                <div className="mtl-sp-num">{num}</div>
+                <div className="mtl-sp-label">{label}</div>
+              </div>
+            ))}
           </div>
-          <div className="ld-max">
-            <p className="ld-footer-rights">{t('landing.footerRights')}</p>
+
+          <section className="mtl-section" id="calculator">
+            <div className="mtl-section-label">{copy.calcLabel}</div>
+            <h2 className="mtl-section-title">{copy.calcTitle}</h2>
+            <p className="mtl-section-sub">{copy.calcSub}</p>
+            <div className="mtl-calc-box">
+              <div className="mtl-calc-row">
+                <label>
+                  <span className="mtl-calc-label">{copy.profileSubjects}</span>
+                  <select className="mtl-calc-select" defaultValue="physics-math">
+                    <option value="physics-math">{copy.subjects.profile1} / {copy.subjects.profile2}</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="mtl-calc-label">{copy.quota}</span>
+                  <select className="mtl-calc-select" defaultValue="grant">
+                    <option value="grant">{copy.quotaValue}</option>
+                  </select>
+                </label>
+              </div>
+              {(Object.keys(SCORE_LIMITS) as ScoreKey[]).map((key) => (
+                <label className="mtl-slider-row" key={key}>
+                  <span className="mtl-slider-header">
+                    <span>{copy.subjects[key]}</span>
+                    <strong>{scores[key]} / {SCORE_LIMITS[key]}</strong>
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max={SCORE_LIMITS[key]}
+                    step="1"
+                    value={scores[key]}
+                    onChange={(event) => setScores((current) => ({ ...current, [key]: Number(event.target.value) }))}
+                  />
+                </label>
+              ))}
+              <div className="mtl-calc-result">
+                <div>
+                  <div className="mtl-calc-sum-label">{copy.total}</div>
+                  <div className="mtl-calc-sum">{total} / 140</div>
+                </div>
+                <div className="mtl-calc-actions">
+                  <span className={`mtl-calc-badge ${total >= 70 ? 'pass' : 'fail'}`}>{status}</span>
+                  <Link to="/login" className="mtl-calc-list">{copy.list}</Link>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mtl-section" id="catalog">
+            <div className="mtl-section-label">{copy.catalogLabel}</div>
+            <h2 className="mtl-section-title">{copy.catalogTitle}</h2>
+            <div className="mtl-catalog-grid">
+              {(copy.tests as [string, string, string[], string][]).map(([title, desc, stats, cta], index) => (
+                <article className={`mtl-cat-card ${index === 0 ? 'featured' : ''}`} key={title}>
+                  {index === 0 ? <div className="mtl-cat-pop">{copy.popular}</div> : null}
+                  <div className="mtl-cat-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
+                      <path d="M5 8h6M5 5.5h6M5 10.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <h3 className="mtl-cat-title">{title}</h3>
+                  <p className="mtl-cat-desc">{desc}</p>
+                  <div className="mtl-cat-stats">
+                    {stats.map((stat) => <span className="mtl-cat-stat" key={stat}>{stat}</span>)}
+                  </div>
+                  <Link to="/login" className="mtl-cat-btn">{cta}</Link>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="mtl-section mtl-steps-section">
+            <div className="mtl-section-label">{copy.stepsLabel}</div>
+            <h2 className="mtl-section-title">{copy.stepsTitle}</h2>
+            <div className="mtl-steps-grid">
+              {copy.steps.map(([title, desc], index) => (
+                <article className="mtl-step" key={title}>
+                  <div className="mtl-step-num">{index + 1}</div>
+                  <h3 className="mtl-step-title">{title}</h3>
+                  <p className="mtl-step-desc">{desc}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="mtl-section">
+            <div className="mtl-section-label">{copy.reviewsLabel}</div>
+            <h2 className="mtl-section-title">{copy.reviewsTitle}</h2>
+            <div className="mtl-reviews-grid">
+              {copy.reviews.map(([initials, name, meta, score, text]) => (
+                <article className="mtl-review-card" key={name}>
+                  <div className="mtl-review-header">
+                    <div className="mtl-review-avatar">{initials}</div>
+                    <div>
+                      <h3 className="mtl-review-name">{name}</h3>
+                      <div className="mtl-review-meta">{meta}</div>
+                    </div>
+                  </div>
+                  <div className="mtl-review-score">{score}</div>
+                  <p className="mtl-review-text">«{text}»</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="mtl-section" id="pricing">
+            <div className="mtl-section-label">{copy.pricingLabel}</div>
+            <h2 className="mtl-section-title">{copy.pricingTitle}</h2>
+            <div className="mtl-pricing-free">
+              <div>
+                <div className="mtl-pricing-free-text">{copy.freeTitle}</div>
+                <div className="mtl-pricing-free-sub">{copy.freeSub}</div>
+              </div>
+              <Link to="/login" className="mtl-pricing-free-btn">{copy.startNow}</Link>
+            </div>
+            <div className="mtl-pricing-grid">
+              {(copy.prices as [string, string, string, string[]][]).map(([name, price, period, features], index) => (
+                <article className={`mtl-price-card ${index === 1 ? 'featured' : ''}`} key={name}>
+                  {index === 1 ? <div className="mtl-price-pop">{copy.popular}</div> : null}
+                  <div className="mtl-price-label">{name}</div>
+                  <div className="mtl-price-num">{price} <span>{period}</span></div>
+                  <div className="mtl-price-features">
+                    {features.map((feature) => (
+                      <div className="mtl-price-feat" key={feature}>
+                        <span />
+                        <p>{feature}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </main>
+
+        <footer className="mtl-footer">
+          <div>
+            <div className="mtl-footer-logo"><span>My</span>Test</div>
+            <div className="mtl-footer-tagline">{copy.footerTagline}</div>
+          </div>
+          <div className="mtl-footer-links">
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            <span>·</span>
+            <a href={runtimeSettings?.instagramUrl || '#'}>Instagram</a>
+            <span>·</span>
+            <a href={runtimeSettings?.tiktokUrl || '#'}>TikTok</a>
+            <span>·</span>
+            <a href="mailto:mytest.info.kz@gmail.com">mytest.info.kz@gmail.com</a>
           </div>
         </footer>
-
-        <WhatsAppFab layout="landing" />
       </div>
+      <WhatsAppFab layout="landing" />
     </>
   );
-}
-
-function toYoutubeEmbedUrl(rawUrl: string): string | null {
-  const value = rawUrl.trim();
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    if (parsed.hostname.includes('youtu.be')) {
-      const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (parsed.hostname.includes('youtube.com')) {
-      if (parsed.pathname.startsWith('/embed/')) return value;
-      const id = parsed.searchParams.get('v');
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function IconLogin() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
-    </svg>
-  );
-}
-
-function IconLayers() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path d="M12 2 2 7l10 5 10-5-10-5Z" />
-      <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
-    </svg>
-  );
-}
-
-function IconTarget() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="2" />
-    </svg>
-  );
-}
-
-function PlatformIcon({ name }: { name: PlatformFeature['icon'] }) {
-  const common = { width: 26, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 } as const;
-  switch (name) {
-    case 'progress':
-      return (
-        <svg {...common}>
-          <path d="M4 19V5M8 19V11M12 19V8M16 19v-5M20 19V4" strokeLinecap="round" />
-        </svg>
-      );
-    case 'mistakes':
-      return (
-        <svg {...common}>
-          <path d="M12 3a6 6 0 0 1 6 6c0 4-6 12-6 12S6 13 6 9a6 6 0 0 1 6-6Z" />
-          <path d="M12 10v3M12 16h.01" strokeLinecap="round" />
-        </svg>
-      );
-    case 'topics':
-      return (
-        <svg {...common}>
-          <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round" />
-          <circle cx="18" cy="12" r="2" />
-        </svg>
-      );
-    case 'thresholds':
-      return (
-        <svg {...common}>
-          <path d="M4 20V4M4 20h16" strokeLinecap="round" />
-          <path d="m7 16 4-5 4 3 5-7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    default:
-      return <IconTarget />;
-  }
 }

@@ -218,7 +218,13 @@ export class TestSessionService {
         answers: {
           include: {
             question: {
-              include: {
+              select: {
+                id: true,
+                difficulty: true,
+                type: true,
+                content: true,
+                imageUrls: true,
+                subjectId: true,
                 subject: { select: { id: true, name: true, slug: true } },
                 answerOptions: {
                   select: { id: true, content: true, sortOrder: true },

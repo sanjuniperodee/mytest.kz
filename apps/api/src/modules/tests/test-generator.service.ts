@@ -67,6 +67,7 @@ export class TestGeneratorService {
           section.selectionMode,
           userId,
           language,
+          strictEntFull,
         );
         if (strictEntFull && questionIds.length !== section.questionCount) {
           throw new BadRequestException(
@@ -103,6 +104,7 @@ export class TestGeneratorService {
               'random',
               userId,
               language,
+              false,
             );
         if (strictEntFull && questionIds.length !== profileQuestionCount) {
           throw new BadRequestException(
@@ -127,30 +129,46 @@ export class TestGeneratorService {
     selectionMode: string,
     userId?: string,
     language?: string,
+    allowLanguageFallback = false,
   ): Promise<string[]> {
     const localeWhere = questionWhereForTestLanguage(language);
-    const baseWhere = {
-      AND: [{ subjectId }, { isActive: true }, localeWhere],
-    };
-    if (selectionMode === 'random') {
-      const questions = await this.prisma.question.findMany({
-        where: baseWhere,
-        select: { id: true },
-      });
-      if (questions.length === 0) return [];
+    const makeWhere = (withLocale: boolean) => ({
+      AND: withLocale
+        ? [{ subjectId }, { isActive: true }, localeWhere]
+        : [{ subjectId }, { isActive: true }],
+    });
+    const selectFromWhere = async (where: ReturnType<typeof makeWhere>) => {
+      if (selectionMode === 'random') {
+        const questions = await this.prisma.question.findMany({
+          where,
+          select: { id: true },
+        });
+        if (questions.length === 0) return [];
 
-      const ids = questions.map((q) => q.id);
-      const ordered = await this.orderWithFreshFirst(ids, userId);
-      return ordered.slice(0, count);
-    } else {
+        const ids = questions.map((q) => q.id);
+        const ordered = await this.orderWithFreshFirst(ids, userId);
+        return ordered.slice(0, count);
+      }
+
       const questions = await this.prisma.question.findMany({
-        where: baseWhere,
+        where,
         select: { id: true },
         take: count,
         orderBy: { createdAt: 'asc' },
       });
       return questions.map((q) => q.id);
+    };
+
+    const selected = await selectFromWhere(makeWhere(true));
+    if (selected.length >= count || !allowLanguageFallback || !language) {
+      return selected;
     }
+
+    const fallbackSelected = await selectFromWhere(makeWhere(false));
+    if (fallbackSelected.length <= selected.length) {
+      return selected;
+    }
+    return fallbackSelected;
   }
 
   /**
@@ -164,10 +182,39 @@ export class TestGeneratorService {
     userId?: string,
     language?: string,
   ): Promise<string[]> {
+    const selectedWithLocale = await this.selectStrictEntProfileQuestionsFromPool(
+      subjectId,
+      userId,
+      language,
+    );
+    if (
+      selectedWithLocale.length >= ENT_CONFIG.profileQuestionsPerSubject ||
+      !language
+    ) {
+      return selectedWithLocale;
+    }
+
+    const selectedWithFallback = await this.selectStrictEntProfileQuestionsFromPool(
+      subjectId,
+      userId,
+    );
+    if (selectedWithFallback.length <= selectedWithLocale.length) {
+      return selectedWithLocale;
+    }
+    return selectedWithFallback;
+  }
+
+  private async selectStrictEntProfileQuestionsFromPool(
+    subjectId: string,
+    userId?: string,
+    language?: string,
+  ): Promise<string[]> {
     const localeWhere = questionWhereForTestLanguage(language);
     const questions = await this.prisma.question.findMany({
       where: {
-        AND: [{ subjectId }, { isActive: true }, localeWhere],
+        AND: language
+          ? [{ subjectId }, { isActive: true }, localeWhere]
+          : [{ subjectId }, { isActive: true }],
       },
       select: { id: true, scoreWeight: true },
     });
