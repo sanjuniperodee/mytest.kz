@@ -26,6 +26,10 @@ export class AdminService {
     return this.userService.updateUser(id, data);
   }
 
+  async deleteUser(adminId: string, id: string) {
+    return this.userService.deleteUser(adminId, id);
+  }
+
   // Subscription management
   async grantSubscription(adminId: string, data: Parameters<AdminSubscriptionService['grantSubscription']>[1]) {
     return this.subscriptionService.grantSubscription(adminId, data);

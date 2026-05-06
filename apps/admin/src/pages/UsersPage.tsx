@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { Table, Input, Tag, Switch, message, Empty, Skeleton } from 'antd';
+import { Button, Empty, Input, message, Popconfirm, Skeleton, Space, Switch, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   TeamOutlined,
@@ -9,6 +9,7 @@ import {
   UnorderedListOutlined,
   TableOutlined,
   CrownOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -86,6 +87,23 @@ export function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       message.success('Обновлено');
+    },
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/admin/users/${id}`);
+    },
+    onSuccess: () => {
+      if (items.length <= 1 && page > 1) {
+        setPage((cur) => Math.max(1, cur - 1));
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-entitlements'] });
+      message.success('Пользователь удалён');
+    },
+    onError: () => {
+      message.error('Не удалось удалить пользователя');
     },
   });
 
@@ -175,9 +193,29 @@ export function UsersPage() {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 150,
       render: (_: unknown, record: User) => (
-        <a onClick={() => navigate(`/users/${record.id}`)}>Открыть</a>
+        <Space size="small">
+          <Button type="link" size="small" onClick={() => navigate(`/users/${record.id}`)}>
+            Открыть
+          </Button>
+          <Popconfirm
+            title="Удалить пользователя?"
+            description="Аккаунт, сессии, ответы, подписки, доступы и платежные заказы будут удалены."
+            okText="Удалить"
+            cancelText="Отмена"
+            okButtonProps={{ danger: true, loading: deleteUser.isPending }}
+            onConfirm={() => deleteUser.mutate(record.id)}
+          >
+            <Button
+              danger
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              loading={deleteUser.isPending}
+            />
+          </Popconfirm>
+        </Space>
       ),
     },
     {

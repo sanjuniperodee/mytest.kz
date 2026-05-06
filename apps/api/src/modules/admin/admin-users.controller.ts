@@ -1,6 +1,7 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 
 @Controller('admin/users')
@@ -29,5 +30,13 @@ export class AdminUsersController {
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() data: { isAdmin?: boolean }) {
     return this.adminService.updateUser(id, data);
+  }
+
+  @Delete(':id')
+  async deleteUser(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.adminService.deleteUser(adminId, id);
   }
 }

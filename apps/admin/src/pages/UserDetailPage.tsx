@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Card,
   Tag,
@@ -12,6 +12,7 @@ import {
   Empty,
   Popconfirm,
   message,
+  Space,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -19,6 +20,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
+  DeleteOutlined,
   StopOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
@@ -114,6 +116,7 @@ function StatusTag({ status }: { status: string }) {
 
 export function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data, isPending, error } = useQuery<UserDetailResponse>({
@@ -152,6 +155,22 @@ export function UserDetailPage() {
     },
     onError: () => {
       message.error('Не удалось отозвать доступ');
+    },
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: async () => {
+      if (!id) return;
+      await api.delete(`/admin/users/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-entitlements'] });
+      message.success('Пользователь удалён');
+      navigate('/users');
+    },
+    onError: () => {
+      message.error('Не удалось удалить пользователя');
     },
   });
 
@@ -227,11 +246,30 @@ export function UserDetailPage() {
     <AdminPageShell>
       <div className="pg-user-detail">
         <div className="pg-user-detail__back">
-          <Link to="/users">
-            <Button type="text" icon={<ArrowLeftOutlined />} size="small">
-              К списку
-            </Button>
-          </Link>
+          <Space>
+            <Link to="/users">
+              <Button type="text" icon={<ArrowLeftOutlined />} size="small">
+                К списку
+              </Button>
+            </Link>
+            <Popconfirm
+              title="Удалить пользователя?"
+              description="Будут удалены аккаунт, сессии, ответы, подписки, доступы и платежные заказы."
+              okText="Удалить"
+              cancelText="Отмена"
+              okButtonProps={{ danger: true, loading: deleteUser.isPending }}
+              onConfirm={() => deleteUser.mutate()}
+            >
+              <Button
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                loading={deleteUser.isPending}
+              >
+                Удалить пользователя
+              </Button>
+            </Popconfirm>
+          </Space>
         </div>
 
         <Descriptions size="small" bordered column={2} className="pg-user-detail__info">

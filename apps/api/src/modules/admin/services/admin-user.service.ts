@@ -90,6 +90,101 @@ export class AdminUserService {
     return this.prisma.user.update({ where: { id }, data });
   }
 
+  async deleteUser(adminId: string, id: string) {
+    if (adminId === id) {
+      throw new BadRequestException('Cannot delete your own admin account');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        telegramUsername: true,
+        email: true,
+        phone: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      const sessionIds = (
+        await tx.testSession.findMany({
+          where: { userId: id },
+          select: { id: true },
+        })
+      ).map((s) => s.id);
+
+      if (sessionIds.length > 0) {
+        await tx.funnelStep.updateMany({
+          where: { sessionId: { in: sessionIds } },
+          data: { sessionId: null },
+        });
+        await tx.attemptUsageLedger.updateMany({
+          where: { sessionId: { in: sessionIds } },
+          data: { sessionId: null },
+        });
+        await tx.testAnswer.deleteMany({
+          where: { sessionId: { in: sessionIds } },
+        });
+        await tx.testSession.deleteMany({ where: { id: { in: sessionIds } } });
+      }
+
+      await tx.visitEvent.updateMany({
+        where: { userId: id },
+        data: { userId: null },
+      });
+      await tx.subscription.updateMany({
+        where: { grantedBy: id },
+        data: { grantedBy: null },
+      });
+      await tx.userExamEntitlement.updateMany({
+        where: { createdBy: id },
+        data: { createdBy: null },
+      });
+      await tx.subscriptionPlanTemplate.updateMany({
+        where: { createdBy: id },
+        data: { createdBy: null },
+      });
+
+      const [
+        paymentOrders,
+        dailyUsage,
+        usageLedger,
+        entitlements,
+        subscriptions,
+      ] = await Promise.all([
+        tx.paymentOrder.deleteMany({ where: { userId: id } }),
+        tx.userExamDailyUsage.deleteMany({ where: { userId: id } }),
+        tx.attemptUsageLedger.deleteMany({ where: { userId: id } }),
+        tx.userExamEntitlement.deleteMany({ where: { userId: id } }),
+        tx.subscription.deleteMany({ where: { userId: id } }),
+      ]);
+
+      await tx.user.delete({ where: { id } });
+
+      return {
+        paymentOrders: paymentOrders.count,
+        dailyUsage: dailyUsage.count,
+        usageLedger: usageLedger.count,
+        entitlements: entitlements.count,
+        subscriptions: subscriptions.count,
+        testSessions: sessionIds.length,
+      };
+    });
+
+    const displayName =
+      [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+      user.telegramUsername ||
+      user.email ||
+      user.phone ||
+      user.id;
+
+    return { deleted: true, id, displayName, deletedRelations: deleted };
+  }
+
   async getUserDetail(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
