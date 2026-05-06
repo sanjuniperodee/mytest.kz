@@ -8,11 +8,16 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
+import { randomInt } from 'crypto';
 import Redis from 'ioredis';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramAuthService } from './telegram-auth.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
+import {
+  getJwtExpiresIn,
+  getRequiredConfig,
+} from '../../common/config/required-config';
 import {
   AUTH_CODE_TTL_SECONDS,
   AUTH_CODE_LENGTH,
@@ -191,7 +196,7 @@ export class AuthService {
     }
 
     const code = Array.from({ length: AUTH_CODE_LENGTH }, () =>
-      Math.floor(Math.random() * 10),
+      randomInt(0, 10),
     ).join('');
 
     const redisKey = `auth:code:${normalized}`;
@@ -258,7 +263,7 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwt.verify(refreshToken, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+        secret: getRequiredConfig(this.config, 'JWT_REFRESH_SECRET'),
       });
 
       const user = await this.prisma.user.findUnique({
@@ -301,8 +306,11 @@ export class AuthService {
 
     const accessToken = this.jwt.sign(payload);
     const refreshToken = this.jwt.sign(payload, {
-      secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN') || '60d',
+      secret: getRequiredConfig(this.config, 'JWT_REFRESH_SECRET'),
+      expiresIn: getJwtExpiresIn(
+        this.config.get<string>('JWT_REFRESH_EXPIRES_IN'),
+        '60d',
+      ),
     });
 
     return {

@@ -7,6 +7,10 @@ import { AuthService } from './auth.service';
 import { TelegramAuthService } from './telegram-auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { TelegramModule } from '../telegram/telegram.module';
+import {
+  getJwtExpiresIn,
+  getRequiredConfig,
+} from '../../common/config/required-config';
 
 @Module({
   imports: [
@@ -14,9 +18,12 @@ import { TelegramModule } from '../telegram/telegram.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        secret: getRequiredConfig(config, 'JWT_SECRET'),
         signOptions: {
-          expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN') || '12h',
+          expiresIn: getJwtExpiresIn(
+            config.get<string>('JWT_ACCESS_EXPIRES_IN'),
+            '12h',
+          ),
         },
       }),
       inject: [ConfigService],

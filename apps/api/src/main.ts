@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { I18nInterceptor } from './common/interceptors/i18n.interceptor';
 
@@ -15,6 +16,11 @@ async function bootstrap() {
     mkdirSync(uploadRoot, { recursive: true });
   }
   app.use(cookieParser());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: false,
+    }),
+  );
   app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api/v1');

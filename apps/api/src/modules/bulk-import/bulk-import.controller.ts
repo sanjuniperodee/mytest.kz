@@ -12,7 +12,7 @@ import {
 
 /**
  * Временные открытые эндпоинты для массового наполнения контентом.
- * См. BULK_IMPORT_ENABLED и опционально BULK_IMPORT_SECRET.
+ * См. BULK_IMPORT_ENABLED и BULK_IMPORT_SECRET.
  */
 @Controller('bulk')
 export class BulkImportController {
