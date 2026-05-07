@@ -20,6 +20,7 @@ const DEFAULT_LEAD_NOTIFY_USER_ID = '22f36334-d7ac-435f-a834-a6bdb4349217';
 export class TelegramBotService implements OnModuleInit {
   private bot: Telegraf | null = null;
   private channelId: string;
+  private readonly channelUrl: string;
   private readonly leadAdminChatId: string;
   private readonly leadAdminUsername: string;
   /** If non-empty: load `users.telegram_id` by this UUID and DM the lead there. */
@@ -41,6 +42,10 @@ export class TelegramBotService implements OnModuleInit {
   ) {
     this.botToken = (config.get<string>('TELEGRAM_BOT_TOKEN', '') || '').trim();
     this.channelId = config.get<string>('TELEGRAM_CHANNEL_ID', '');
+    this.channelUrl =
+      (config.get<string>('TELEGRAM_CHANNEL_URL') || '').trim() ||
+      this.buildChannelUrl(this.channelId) ||
+      'https://t.me/bilimilimland';
     this.leadAdminChatId = (config.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '').trim();
     this.leadAdminUsername =
       (config.get<string>('TELEGRAM_ADMIN_USERNAME') || '@sanjuniperodee').trim();
@@ -52,6 +57,12 @@ export class TelegramBotService implements OnModuleInit {
     const raw =
       config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://www.my-test.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
+  }
+
+  private buildChannelUrl(channelId: string) {
+    const trimmed = (channelId || '').trim();
+    if (!trimmed.startsWith('@')) return '';
+    return `https://t.me/${trimmed.slice(1)}`;
   }
 
   /** Chat id (numeric) or @username for lead notifications. */
@@ -520,6 +531,37 @@ export class TelegramBotService implements OnModuleInit {
       throw new BadRequestException(
         'Не удалось отправить заявку в Telegram. Проверьте, что админ открыл бота.',
       );
+    }
+  }
+
+  async sendLifecycleNotification(
+    telegramId: bigint,
+    body: string,
+    options?: { language?: 'ru' | 'kk'; channelButtons?: boolean },
+  ): Promise<void> {
+    if (!this.bot) {
+      this.logger.warn('sendLifecycleNotification: бот не запущен');
+      throw new BadRequestException('Telegram-бот недоступен.');
+    }
+    const language = options?.language === 'kk' ? 'kk' : 'ru';
+    const openLabel = language === 'kk' ? '🚀 MyTest ашу' : '🚀 Открыть MyTest';
+    const subscribeLabel = language === 'kk' ? 'Каналға жазылу' : 'Подписаться';
+    const keyboard = options?.channelButtons
+      ? Markup.inlineKeyboard([
+          [Markup.button.url(subscribeLabel, this.channelUrl)],
+          [Markup.button.webApp(openLabel, this.webAppUrl)],
+        ])
+      : Markup.inlineKeyboard([
+          [Markup.button.webApp(openLabel, this.webAppUrl)],
+        ]);
+
+    try {
+      await this.bot.telegram.sendMessage(Number(telegramId), body, keyboard);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send lifecycle notification to telegramId ${telegramId}: ${error}`,
+      );
+      throw error;
     }
   }
 }

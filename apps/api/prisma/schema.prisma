@@ -163,6 +163,7 @@ model User {
   usageLedger          AttemptUsageLedger[]
   dailyUsage           UserExamDailyUsage[]
   visitEvents          VisitEvent[]
+  notificationDeliveries NotificationDelivery[]
 
   @@map("users")
 }
@@ -183,6 +184,7 @@ model Subscription {
   grantor  User?     @relation("GrantedSubscriptions", fields: [grantedBy], references: [id])
   examType ExamType? @relation(fields: [examTypeId], references: [id])
   entitlements UserExamEntitlement[]
+  notificationDeliveries NotificationDelivery[]
 
   @@index([userId, isActive, expiresAt])
   @@map("subscriptions")
@@ -376,6 +378,7 @@ model TestSession {
   answers      TestAnswer[]
   usageLedger  AttemptUsageLedger[]
   funnelSteps  FunnelStep[]
+  notificationDeliveries NotificationDelivery[]
 
   @@index([userId, status])
   @@index([userId, startedAt])
@@ -527,6 +530,65 @@ model FunnelStep {
   @@index([visitId])
   @@index([step, timestamp])
   @@map("funnel_steps")
+}
+
+model NotificationCampaign {
+  id            String   @id @default(uuid()) @db.Uuid
+  key           String   @unique @db.VarChar(64)
+  title         String
+  isActive      Boolean  @default(true) @map("is_active")
+  cooldownHours Int      @default(24) @map("cooldown_hours")
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  deliveries NotificationDelivery[]
+
+  @@map("notification_campaigns")
+}
+
+model NotificationDelivery {
+  id               String    @id @default(uuid()) @db.Uuid
+  campaignKey      String    @map("campaign_key") @db.VarChar(64)
+  userId           String    @map("user_id") @db.Uuid
+  sessionId        String?   @map("session_id") @db.Uuid
+  subscriptionId   String?   @map("subscription_id") @db.Uuid
+  dedupeKey        String    @unique @map("dedupe_key") @db.VarChar(160)
+  status           String    @default("pending") @db.VarChar(20)
+  targetTelegramId BigInt    @map("target_telegram_id")
+  attemptedAt      DateTime  @default(now()) @map("attempted_at") @db.Timestamptz
+  sentAt           DateTime? @map("sent_at") @db.Timestamptz
+  errorCode        String?   @map("error_code") @db.VarChar(80)
+  errorMessage     String?   @map("error_message") @db.Text
+  metadata         Json?
+
+  campaign     NotificationCampaign @relation(fields: [campaignKey], references: [key], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session      TestSession?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  subscription Subscription?         @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([campaignKey, status, attemptedAt])
+  @@index([userId, sentAt])
+  @@index([sessionId])
+  @@index([subscriptionId])
+  @@map("notification_deliveries")
+}
+
+model NotificationRun {
+  id          String    @id @default(uuid()) @db.Uuid
+  source      String    @default("scheduler") @db.VarChar(20)
+  status      String    @default("running") @db.VarChar(20)
+  scanned     Int       @default(0)
+  sent        Int       @default(0)
+  skipped     Int       @default(0)
+  failed      Int       @default(0)
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt  DateTime? @map("finished_at") @db.Timestamptz
+  errorMessage String?  @map("error_message") @db.Text
+  metadata    Json?
+
+  @@index([startedAt])
+  @@map("notification_runs")
 }
 
 model SiteSetting {

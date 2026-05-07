@@ -21,6 +21,7 @@ import { LeadsModule } from './modules/leads/leads.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -45,6 +46,7 @@ import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
     SettingsModule,
     AnalyticsModule,
     LeaderboardModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

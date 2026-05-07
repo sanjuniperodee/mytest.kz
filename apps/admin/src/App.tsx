@@ -29,6 +29,7 @@ import {
   ReadOutlined,
   FormOutlined,
   GlobalOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
 import { getPageMeta } from './lib/pageMeta';
@@ -45,6 +46,7 @@ import { ExplanationsPage } from './pages/ExplanationsPage';
 import { ExamCatalogPage } from './pages/ExamCatalogPage';
 import { LandingSettingsPage } from './pages/LandingSettingsPage';
 import { LoginPage } from './pages/LoginPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 const { Sider, Content, Header } = Layout;
 
@@ -63,6 +65,7 @@ const MENU_NAV: Record<string, string> = {
   questions: '/questions',
   exams: '/exams',
   subscriptions: '/subscriptions',
+  notifications: '/notifications',
   'landing-settings': '/landing-settings',
 };
 
@@ -77,6 +80,7 @@ function menuKeyFromPath(pathname: string): string {
   if (pathname.startsWith('/questions')) return 'questions';
   if (pathname.startsWith('/exams')) return 'exams';
   if (pathname.startsWith('/subscriptions')) return 'subscriptions';
+  if (pathname.startsWith('/notifications')) return 'notifications';
   if (pathname.startsWith('/landing-settings')) return 'landing-settings';
   return 'dashboard';
 }
@@ -125,6 +129,7 @@ function AdminLayout() {
         children: [
           { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
           { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+          { key: 'notifications', icon: <NotificationOutlined />, label: 'Рассылки' },
         ],
       },
       {
@@ -289,6 +294,7 @@ function AdminLayout() {
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/exams" element={<ExamCatalogPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/landing-settings" element={<LandingSettingsPage />} />
           </Routes>
         </Content>

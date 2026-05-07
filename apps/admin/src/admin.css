@@ -1070,3 +1070,28 @@ body {
 .admin-shell .ant-modal .ant-form-item:last-child {
   margin-bottom: 0;
 }
+
+.pg-notifications {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pg-notifications__settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.pg-notifications__toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.pg-notifications__muted {
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}

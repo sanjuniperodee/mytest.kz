@@ -13,6 +13,7 @@ export function getPageMeta(pathname: string): AdminPageTitle {
   if (p.startsWith('/questions')) return { title: 'Вопросы' };
   if (p.startsWith('/exams')) return { title: 'Экзамены' };
   if (p.startsWith('/subscriptions')) return { title: 'Подписки' };
+  if (p.startsWith('/notifications')) return { title: 'Рассылки' };
   if (p.startsWith('/landing-settings')) return { title: 'Лендинг' };
   return { title: 'Админка' };
 }
