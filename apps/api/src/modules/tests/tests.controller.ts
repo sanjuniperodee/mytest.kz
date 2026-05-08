@@ -37,6 +37,7 @@ export class TestsController {
   ) {
     return this.testSessionService.startRemediationSession(userId, dto.language, {
       examTypeId: dto.examTypeId,
+      subjectId: dto.subjectId,
       limit: dto.limit,
       durationMins: dto.durationMins,
     });

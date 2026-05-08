@@ -656,6 +656,7 @@ describe('ENT 120/140 consistency', () => {
     const regular = Array.from({ length: ENT_CONFIG.profileTier1Count }, (_, i) => ({
       id: `p1-r${i + 1}`,
       scoreWeight: 1,
+      _count: { answerOptions: 4 },
     }));
     const heavy = Array.from(
       {
@@ -664,7 +665,8 @@ describe('ENT 120/140 consistency', () => {
       },
       (_, i) => ({
         id: `p1-h${i + 1}`,
-        scoreWeight: ENT_CONFIG.profileTier2Points,
+        scoreWeight: null,
+        _count: { answerOptions: 5 },
       }),
     );
     const prismaMock = {

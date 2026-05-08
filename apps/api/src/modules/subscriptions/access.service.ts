@@ -278,6 +278,10 @@ export class AccessService {
     });
     if (!user) throw new BadRequestException('USER_NOT_FOUND');
 
+    if (user.timezone === timezone) {
+      return { timezone, timezoneChangedAt: user.timezoneChangedAt ?? now };
+    }
+
     if (!opts?.byAdmin && user.timezoneChangedAt) {
       const cooldownMs = this.timezoneCooldownDays * 24 * 60 * 60 * 1000;
       const nextAllowed = new Date(user.timezoneChangedAt.getTime() + cooldownMs);

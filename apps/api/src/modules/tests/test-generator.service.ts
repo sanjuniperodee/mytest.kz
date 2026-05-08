@@ -216,16 +216,20 @@ export class TestGeneratorService {
           ? [{ subjectId }, { isActive: true }, localeWhere]
           : [{ subjectId }, { isActive: true }],
       },
-      select: { id: true, scoreWeight: true },
+      select: {
+        id: true,
+        scoreWeight: true,
+        _count: { select: { answerOptions: true } },
+      },
     });
     if (questions.length === 0) return [];
 
     const allIds = questions.map((q) => q.id);
     const heavyIds = questions
-      .filter((q) => Number(q.scoreWeight ?? 0) === ENT_CONFIG.profileTier2Points)
+      .filter((q) => this.isEntProfileHeavyQuestion(q))
       .map((q) => q.id);
     const regularIds = questions
-      .filter((q) => Number(q.scoreWeight ?? 0) !== ENT_CONFIG.profileTier2Points)
+      .filter((q) => !this.isEntProfileHeavyQuestion(q))
       .map((q) => q.id);
 
     const orderedHeavy = await this.orderWithFreshFirst(heavyIds, userId);
@@ -236,21 +240,30 @@ export class TestGeneratorService {
     const tier2Count =
       ENT_CONFIG.profileQuestionsPerSubject - ENT_CONFIG.profileTier1Count;
 
+    const selectedTier1 = this.takeUnique([orderedRegular], tier1Count);
+    const selectedTier1Set = new Set(selectedTier1);
     const selectedTier2 = this.takeUnique(
-      [orderedHeavy, orderedRegular, orderedAll],
-      tier2Count,
-    );
-    const selectedTier2Set = new Set(selectedTier2);
-    const selectedTier1 = this.takeUnique(
       [
-        orderedRegular.filter((id) => !selectedTier2Set.has(id)),
-        orderedHeavy.filter((id) => !selectedTier2Set.has(id)),
-        orderedAll.filter((id) => !selectedTier2Set.has(id)),
+        orderedHeavy,
+        orderedRegular.filter((id) => !selectedTier1Set.has(id)),
+        orderedAll.filter((id) => !selectedTier1Set.has(id)),
       ],
-      tier1Count,
+      tier2Count,
     );
 
     return [...this.shuffle(selectedTier1), ...this.shuffle(selectedTier2)];
+  }
+
+  private isEntProfileHeavyQuestion(question: {
+    scoreWeight?: number | null;
+    _count?: { answerOptions?: number };
+  }): boolean {
+    const scoreWeight = Number(question.scoreWeight ?? 0);
+    const answerOptionsCount = question._count?.answerOptions ?? 0;
+    return (
+      scoreWeight === ENT_CONFIG.profileTier2Points ||
+      answerOptionsCount > 4
+    );
   }
 
   private async orderWithFreshFirst(

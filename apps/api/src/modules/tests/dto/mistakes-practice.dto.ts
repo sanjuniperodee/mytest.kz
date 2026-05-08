@@ -10,6 +10,10 @@ export class MistakesPracticeDto {
   examTypeId?: string;
 
   @IsOptional()
+  @IsUUID()
+  subjectId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

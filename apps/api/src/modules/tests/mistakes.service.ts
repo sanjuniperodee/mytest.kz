@@ -5,6 +5,7 @@ export type MistakeLatestRow = {
   questionId: string;
   isCorrect: boolean;
   examTypeId: string;
+  subjectId: string;
 };
 
 export type MistakeRecoveryRow = {
@@ -30,9 +31,11 @@ export class MistakesService {
       SELECT DISTINCT ON (ta.question_id)
         ta.question_id AS "questionId",
         ta.is_correct AS "isCorrect",
-        ts.exam_type_id AS "examTypeId"
+        ts.exam_type_id AS "examTypeId",
+        q.subject_id AS "subjectId"
       FROM test_answers ta
       INNER JOIN test_sessions ts ON ts.id = ta.session_id
+      INNER JOIN questions q ON q.id = ta.question_id
       WHERE ts.user_id = ${userId}::uuid
         AND ts.status IN ('completed', 'timed_out')
         AND ta.is_correct IS NOT NULL
@@ -84,16 +87,39 @@ export class MistakesService {
     const latest = await this.getLatestOutcomes(userId);
     const open = latest.filter((r) => r.isCorrect === false);
     const byExam = new Map<string, number>();
+    const bySubject = new Map<
+      string,
+      { examTypeId: string; subjectId: string; count: number }
+    >();
     for (const r of open) {
       byExam.set(r.examTypeId, (byExam.get(r.examTypeId) ?? 0) + 1);
+      const subjectKey = `${r.examTypeId}:${r.subjectId}`;
+      const current = bySubject.get(subjectKey);
+      if (current) {
+        current.count++;
+      } else {
+        bySubject.set(subjectKey, {
+          examTypeId: r.examTypeId,
+          subjectId: r.subjectId,
+          count: 1,
+        });
+      }
     }
 
     const examIds = [...byExam.keys()];
+    const subjectIds = [
+      ...new Set([...bySubject.values()].map((r) => r.subjectId)),
+    ];
     const exams = await this.prisma.examType.findMany({
       where: { id: { in: examIds } },
       select: { id: true, slug: true, name: true },
     });
+    const subjects = await this.prisma.subject.findMany({
+      where: { id: { in: subjectIds } },
+      select: { id: true, slug: true, name: true, examTypeId: true },
+    });
     const examMap = new Map(exams.map((e) => [e.id, e]));
+    const subjectMap = new Map(subjects.map((s) => [s.id, s]));
 
     const openByExam = examIds
       .map((id) => ({
@@ -102,6 +128,22 @@ export class MistakesService {
         examName: examMap.get(id)?.name ?? null,
         count: byExam.get(id) ?? 0,
       }))
+      .sort((a, b) => b.count - a.count);
+
+    const openBySubject = [...bySubject.values()]
+      .map((row) => {
+        const subject = subjectMap.get(row.subjectId);
+        const exam = examMap.get(row.examTypeId);
+        return {
+          examTypeId: row.examTypeId,
+          examSlug: exam?.slug ?? '',
+          examName: exam?.name ?? null,
+          subjectId: row.subjectId,
+          subjectSlug: subject?.slug ?? '',
+          subjectName: subject?.name ?? null,
+          count: row.count,
+        };
+      })
       .sort((a, b) => b.count - a.count);
 
     const rawRecoveries = await this.getRecentRecoveries(userId, 25);
@@ -119,6 +161,7 @@ export class MistakesService {
     return {
       openTotal: open.length,
       openByExam,
+      openBySubject,
       recentRecoveries,
     };
   }
@@ -126,11 +169,15 @@ export class MistakesService {
   getOpenMistakeQuestionIds(
     latest: MistakeLatestRow[],
     examTypeId?: string,
+    subjectId?: string,
   ): string[] {
     const open = latest.filter((r) => r.isCorrect === false);
     const filtered = examTypeId
       ? open.filter((r) => r.examTypeId === examTypeId)
       : open;
-    return filtered.map((r) => r.questionId);
+    const subjectFiltered = subjectId
+      ? filtered.filter((r) => r.subjectId === subjectId)
+      : filtered;
+    return subjectFiltered.map((r) => r.questionId);
   }
 }

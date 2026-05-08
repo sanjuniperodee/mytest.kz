@@ -520,7 +520,12 @@ export class TestSessionService {
   async startRemediationSession(
     userId: string,
     language: string,
-    options?: { examTypeId?: string; limit?: number; durationMins?: number },
+    options?: {
+      examTypeId?: string;
+      subjectId?: string;
+      limit?: number;
+      durationMins?: number;
+    },
   ) {
     const capped = Math.min(Math.max(options?.limit ?? 15, 1), 40);
     const durationMins = options?.durationMins ?? 45;
@@ -531,9 +536,20 @@ export class TestSessionService {
       throw new BadRequestException('NO_OPEN_MISTAKES');
     }
 
+    const scopedOpenRows = openRows.filter((r) => {
+      if (options?.examTypeId && r.examTypeId !== options.examTypeId) return false;
+      if (options?.subjectId && r.subjectId !== options.subjectId) return false;
+      return true;
+    });
+    if (scopedOpenRows.length === 0) {
+      throw new BadRequestException(
+        options?.subjectId ? 'NO_OPEN_MISTAKES_FOR_SUBJECT' : 'NO_OPEN_MISTAKES',
+      );
+    }
+
     let resolvedExamTypeId = options?.examTypeId;
     if (!resolvedExamTypeId) {
-      const types = new Set(openRows.map((r) => r.examTypeId));
+      const types = new Set(scopedOpenRows.map((r) => r.examTypeId));
       if (types.size > 1) {
         throw new BadRequestException('EXAM_TYPE_REQUIRED');
       }
@@ -544,6 +560,7 @@ export class TestSessionService {
     const questionIdsAll = this.mistakes.getOpenMistakeQuestionIds(
       latest,
       resolvedExamTypeId,
+      options?.subjectId,
     );
     this.shuffleInPlace(questionIdsAll);
     const questionIds = questionIdsAll.slice(0, capped);
