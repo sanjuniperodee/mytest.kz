@@ -27,10 +27,10 @@ export const BILLING_PLANS: BillingPlan[] = [
   {
     id: 'week',
     name: '5 пробных ЕНТ',
-    description: 'Пять полных пробных ЕНТ с Premium-разбором. Доступ действует 7 дней.',
+    description: 'Пять полных пробных ЕНТ с Premium-разбором. Доступ действует 30 дней.',
     priceKzt: 2400,
     originalPriceKzt: 4800,
-    durationDays: 7,
+    durationDays: 30,
     features: ['5 полных пробных ЕНТ', 'Premium-разбор вопросов', 'Статистика по попыткам'],
   },
   {
