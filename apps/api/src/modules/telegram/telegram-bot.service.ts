@@ -55,7 +55,7 @@ export class TelegramBotService implements OnModuleInit {
         ? leadNotifyFromEnv.trim()
         : DEFAULT_LEAD_NOTIFY_USER_ID;
     const raw =
-      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://www.my-test.kz/login';
+      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://mytest.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
   }
 
