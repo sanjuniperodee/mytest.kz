@@ -1,8 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { EntitlementSourceType } from '@prisma/client';
+import {
+  EntitlementSourceType,
+  EntitlementStatus,
+  EntitlementTier,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
-import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
+import { BILLING_PLANS, ENT_TRIAL_LIMIT } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
@@ -70,6 +74,11 @@ export class UsersService {
     const totalLimit = freeLimit + paidTrialLimit;
     const totalUsed = freeUsed + paidTrialUsed;
     const totalRemaining = freeRemaining + paidTrialRemaining;
+    const currentTariff = await this.getCurrentTariff(userId, {
+      freeLimit,
+      freeUsed,
+      freeRemaining,
+    });
 
     return {
       id: user.id,
@@ -86,6 +95,7 @@ export class UsersService {
       isChannelMember,
       // Premium in UI means paid plan; trial should not show "unlimited".
       hasActiveSubscription: activePaidAccess,
+      currentTariff,
       accessByExam,
       trialStatus: {
         ent: {
@@ -105,6 +115,151 @@ export class UsersService {
         },
       },
     };
+  }
+
+  private async getCurrentTariff(
+    userId: string,
+    free: { freeLimit: number; freeUsed: number; freeRemaining: number },
+  ) {
+    const now = new Date();
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: {
+        userId,
+        isActive: true,
+        startsAt: { lte: now },
+        expiresAt: { gt: now },
+      },
+      select: {
+        id: true,
+        planType: true,
+        startsAt: true,
+        expiresAt: true,
+        examType: { select: { id: true, slug: true, name: true } },
+      },
+    });
+    const activeSubscription = [...subscriptions].sort((a, b) => {
+      const aPaid = a.planType !== 'trial' ? 1 : 0;
+      const bPaid = b.planType !== 'trial' ? 1 : 0;
+      if (aPaid !== bPaid) return bPaid - aPaid;
+      return b.expiresAt.getTime() - a.expiresAt.getTime();
+    })[0];
+
+    if (activeSubscription) {
+      const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
+      const isPaid = activeSubscription.planType !== 'trial';
+      return {
+        code: activeSubscription.planType,
+        name: plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
+        description: plan?.description ?? null,
+        tier: isPaid ? 'paid' : 'trial',
+        sourceType: 'subscription',
+        subscriptionId: activeSubscription.id,
+        startsAt: activeSubscription.startsAt.toISOString(),
+        expiresAt: activeSubscription.expiresAt.toISOString(),
+        isActive: true,
+        isPaid,
+        examSlug: activeSubscription.examType?.slug ?? null,
+        totalAttemptsLimit: activeSubscription.planType === 'trial' ? 1 : null,
+        dailyAttemptsLimit: null,
+      };
+    }
+
+    const entitlements = await this.prisma.userExamEntitlement.findMany({
+      where: {
+        userId,
+        status: EntitlementStatus.active,
+        windowStartsAt: { lte: now },
+        OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: now } }],
+      },
+      select: {
+        id: true,
+        tier: true,
+        sourceType: true,
+        sourceRef: true,
+        totalAttemptsLimit: true,
+        dailyAttemptsLimit: true,
+        usedAttemptsTotal: true,
+        windowStartsAt: true,
+        windowEndsAt: true,
+        planTemplate: {
+          select: { id: true, code: true, name: true, description: true },
+        },
+        examType: { select: { id: true, slug: true, name: true } },
+      },
+    });
+    const activeEntitlement = [...entitlements].sort((a, b) => {
+      const rank = (tier: EntitlementTier) =>
+        tier === EntitlementTier.paid
+          ? 4
+          : tier === EntitlementTier.admin
+            ? 3
+            : tier === EntitlementTier.trial
+              ? 2
+              : 1;
+      const rankDiff = rank(b.tier) - rank(a.tier);
+      if (rankDiff !== 0) return rankDiff;
+      const aEnds = a.windowEndsAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bEnds = b.windowEndsAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aEnds - bEnds;
+    })[0];
+
+    if (activeEntitlement && activeEntitlement.tier !== EntitlementTier.free) {
+      return {
+        code:
+          activeEntitlement.planTemplate?.code ??
+          activeEntitlement.sourceType,
+        name:
+          activeEntitlement.planTemplate?.name ??
+          this.fallbackTariffName(activeEntitlement.tier),
+        description: activeEntitlement.planTemplate?.description ?? null,
+        tier: activeEntitlement.tier,
+        sourceType: activeEntitlement.sourceType,
+        entitlementId: activeEntitlement.id,
+        planTemplateId: activeEntitlement.planTemplate?.id ?? null,
+        startsAt: activeEntitlement.windowStartsAt.toISOString(),
+        expiresAt: activeEntitlement.windowEndsAt?.toISOString() ?? null,
+        isActive: true,
+        isPaid:
+          activeEntitlement.tier === EntitlementTier.paid ||
+          activeEntitlement.tier === EntitlementTier.admin,
+        examSlug: activeEntitlement.examType.slug,
+        totalAttemptsLimit: activeEntitlement.totalAttemptsLimit,
+        dailyAttemptsLimit: activeEntitlement.dailyAttemptsLimit,
+        usedAttemptsTotal: activeEntitlement.usedAttemptsTotal,
+        remainingAttempts:
+          activeEntitlement.totalAttemptsLimit == null
+            ? null
+            : Math.max(
+                0,
+                activeEntitlement.totalAttemptsLimit -
+                  activeEntitlement.usedAttemptsTotal,
+              ),
+      };
+    }
+
+    return {
+      code: 'free_ent_trial',
+      name: 'Бесплатный триал',
+      description: 'Бесплатные пробные попытки для ЕНТ',
+      tier: 'free',
+      sourceType: 'signup',
+      startsAt: null,
+      expiresAt: null,
+      isActive: free.freeRemaining > 0,
+      isPaid: false,
+      examSlug: 'ent',
+      totalAttemptsLimit: free.freeLimit,
+      dailyAttemptsLimit: null,
+      usedAttemptsTotal: free.freeUsed,
+      remainingAttempts: free.freeRemaining,
+    };
+  }
+
+  private fallbackTariffName(code: string) {
+    if (code === 'trial') return 'Пробный';
+    if (code === 'paid') return 'Premium';
+    if (code === 'admin') return 'Админ-доступ';
+    return code;
   }
 
   async updateProfile(
