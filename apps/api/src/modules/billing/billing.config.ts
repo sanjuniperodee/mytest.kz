@@ -18,20 +18,20 @@ export interface BillingPlan {
 export const BILLING_PLANS: BillingPlan[] = [
   {
     id: 'trial',
-    name: 'Пробный',
-    description: 'Одноразовое прохождение теста (действует только на 1 тест).',
+    name: 'Разовый доступ',
+    description: 'Один полный пробный ЕНТ с Premium-разбором после сдачи.',
     priceKzt: 750,
     durationDays: 1,
-    features: ['Доступ к 1 тесту', 'Разбор ошибок', 'Статистика'],
+    features: ['1 полный пробный ЕНТ', 'Premium-разбор вопросов', 'Статистика результата'],
   },
   {
     id: 'week',
-    name: 'Неделя',
-    description: 'Короткий интенсив для проверки своих сил.',
+    name: '5 пробных ЕНТ',
+    description: 'Пять полных пробных ЕНТ с Premium-разбором. Доступ действует 7 дней.',
     priceKzt: 2400,
     originalPriceKzt: 4800,
     durationDays: 7,
-    features: ['Все функции системы', 'Снятие ограничений'],
+    features: ['5 полных пробных ЕНТ', 'Premium-разбор вопросов', 'Статистика по попыткам'],
   },
   {
     id: 'month',

@@ -339,13 +339,14 @@ export class AccessService {
       });
       if (!sub) return;
 
+      const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
       const examScope =
         sub.examTypeId != null
           ? await tx.examType.findMany({
               where: { id: sub.examTypeId },
               select: { id: true },
             })
-          : sub.planType === 'trial'
+          : totalLimit != null
             ? await tx.examType.findMany({
                 where: { slug: 'ent' },
                 select: { id: true },
@@ -354,9 +355,7 @@ export class AccessService {
                 where: { isActive: true },
                 select: { id: true },
               });
-      const tier =
-        sub.planType === 'trial' ? EntitlementTier.trial : EntitlementTier.paid;
-      const totalLimit = sub.planType === 'trial' ? 1 : null;
+      const tier = this.subscriptionEntitlementTier(sub.planType);
       const status = !sub.isActive
         ? EntitlementStatus.revoked
         : sub.expiresAt <= new Date()
@@ -446,10 +445,23 @@ export class AccessService {
         });
         continue;
       }
-      const paid = activeSubscriptions.some((s) => s.planType !== 'trial');
-      const trialSubs = activeSubscriptions.filter((s) => s.planType === 'trial');
+      const unlimitedPaid = activeSubscriptions.some(
+        (s) =>
+          this.subscriptionTotalAttemptsLimit(s.planType) == null &&
+          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
+      );
+      const hasPaidSubscription = activeSubscriptions.some(
+        (s) => this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
+      );
+      const limitedPaidSubs = activeSubscriptions.filter(
+        (s) =>
+          this.subscriptionTotalAttemptsLimit(s.planType) != null &&
+          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
+      );
       let paidTrialRemaining = 0;
-      for (const sub of trialSubs) {
+      let paidTrialLimit = 0;
+      for (const sub of limitedPaidSubs) {
+        const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
         const taken = await this.prisma.testSession.count({
           where: {
             userId,
@@ -457,23 +469,24 @@ export class AccessService {
             startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
           },
         });
-        paidTrialRemaining += Math.max(0, 1 - Math.min(1, taken));
+        paidTrialLimit += limit;
+        paidTrialRemaining += Math.max(0, limit - Math.min(limit, taken));
       }
       const freeRemaining = Math.max(0, ENT_TRIAL_LIMIT - user.entTrialUsed);
-      const totalRemaining = paid ? null : freeRemaining + paidTrialRemaining;
+      const totalRemaining = unlimitedPaid ? null : freeRemaining + paidTrialRemaining;
       result.push({
         examTypeId: exam.id,
         examSlug: exam.slug,
-        hasAccess: paid || (totalRemaining ?? 0) > 0,
+        hasAccess: unlimitedPaid || (totalRemaining ?? 0) > 0,
         reasonCode:
-          paid || (totalRemaining ?? 0) > 0 ? null : 'TOTAL_LIMIT_EXHAUSTED',
+          unlimitedPaid || (totalRemaining ?? 0) > 0 ? null : 'TOTAL_LIMIT_EXHAUSTED',
         nextAllowedAt: null,
-        hasPaidTier: paid,
+        hasPaidTier: hasPaidSubscription,
         total: {
-          used: paid ? 0 : user.entTrialUsed + (trialSubs.length - paidTrialRemaining),
-          limit: paid ? null : ENT_TRIAL_LIMIT + trialSubs.length,
+          used: unlimitedPaid ? 0 : user.entTrialUsed + (paidTrialLimit - paidTrialRemaining),
+          limit: unlimitedPaid ? null : ENT_TRIAL_LIMIT + paidTrialLimit,
           remaining: totalRemaining,
-          isUnlimited: paid,
+          isUnlimited: unlimitedPaid,
         },
         daily: {
           used: 0,
@@ -506,9 +519,20 @@ export class AccessService {
       select: { planType: true, startsAt: true, expiresAt: true },
     });
 
-    if (activeSubscriptions.some((s) => s.planType !== 'trial')) return;
+    if (
+      activeSubscriptions.some(
+        (s) =>
+          this.subscriptionTotalAttemptsLimit(s.planType) == null &&
+          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
+      )
+    ) {
+      return;
+    }
 
-    for (const sub of activeSubscriptions.filter((s) => s.planType === 'trial')) {
+    for (const sub of activeSubscriptions.filter(
+      (s) => this.subscriptionTotalAttemptsLimit(s.planType) != null,
+    )) {
+      const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
       const used = await this.prisma.testSession.count({
         where: {
           userId,
@@ -516,7 +540,7 @@ export class AccessService {
           startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
         },
       });
-      if (used < 1) return;
+      if (used < limit) return;
     }
 
     const consumed = await this.prisma.user.updateMany({
@@ -532,6 +556,16 @@ export class AccessService {
     if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
     if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
     return fallback;
+  }
+
+  private subscriptionEntitlementTier(planType: string): EntitlementTier {
+    return planType === 'free' ? EntitlementTier.free : EntitlementTier.paid;
+  }
+
+  private subscriptionTotalAttemptsLimit(planType: string): number | null {
+    if (planType === 'trial') return 1;
+    if (planType === 'week') return 5;
+    return null;
   }
 
   private async expireEndedEntitlements(
@@ -586,9 +620,9 @@ export class AccessService {
       const sourceType = isTrial
         ? EntitlementSourceType.legacy_trial_subscription
         : EntitlementSourceType.legacy_paid_subscription;
-      const tier = isTrial ? EntitlementTier.trial : EntitlementTier.paid;
-      const totalLimit = isTrial ? 1 : null;
-      const countedUsed = isTrial
+      const tier = this.subscriptionEntitlementTier(sub.planType);
+      const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
+      const countedUsed = totalLimit != null
         ? await tx.testSession.count({
             where: {
               userId,

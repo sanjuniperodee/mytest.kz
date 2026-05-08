@@ -21,16 +21,17 @@ export const ENT_CONFIG = {
   maxTotalPoints: 140,
 };
 
+export const ENT_AVAILABLE_PROFILE_SUBJECT_SLUGS = [
+  'math',
+  'physics',
+  'informatics',
+  'geography',
+] as const;
+
 export const ENT_PROFILE_SUBJECT_PAIRS = [
   ['math', 'physics'],
   ['math', 'geography'],
   ['math', 'informatics'],
-  ['biology', 'chemistry'],
-  ['biology', 'geography'],
-  ['world_history', 'geography'],
-  ['world_history', 'english'],
-  ['geography', 'english'],
-  ['chemistry', 'physics'],
 ] as const;
 
 export type EntProfileSubjectPair = (typeof ENT_PROFILE_SUBJECT_PAIRS)[number];

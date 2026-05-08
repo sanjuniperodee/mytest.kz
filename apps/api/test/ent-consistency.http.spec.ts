@@ -548,7 +548,7 @@ describe('ENT 120/140 consistency', () => {
     const profile = await users.getProfile('user-1');
     const ent = profile?.trialStatus?.ent;
 
-    expect(profile?.hasActiveSubscription).toBe(false);
+    expect(profile?.hasActiveSubscription).toBe(true);
     expect(ent?.freeRemaining).toBe(1);
     expect(ent?.paidTrialRemaining).toBe(1);
     expect(ent?.totalRemaining).toBe(2);

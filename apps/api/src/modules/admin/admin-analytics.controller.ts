@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Header, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { AdminService } from './admin.service';
@@ -20,6 +20,13 @@ export class AdminAnalyticsController {
   @Get('ent-trials')
   async getEntTrials() {
     return this.adminService.getEntTrialAnalytics();
+  }
+
+  @Get('ent-trials/export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="ent-trials-analytics.csv"')
+  async exportEntTrials() {
+    return `\ufeff${await this.adminService.exportEntTrialAnalytics()}`;
   }
 
   @Get('funnel')
@@ -52,6 +59,18 @@ export class AdminAnalyticsController {
     });
   }
 
+  @Get('visitors/export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="visitors.csv"')
+  async exportVisitors(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('examTypeId') examTypeId?: string,
+    @Query('step') step?: string,
+  ) {
+    return `\ufeff${await this.analyticsService.exportVisitors({ from, to, examTypeId, step })}`;
+  }
+
   @Get('test-takers')
   async getTestTakers(
     @Query('page') page?: string,
@@ -67,5 +86,16 @@ export class AdminAnalyticsController {
       to,
       examTypeId,
     });
+  }
+
+  @Get('test-takers/export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="test-takers.csv"')
+  async exportTestTakers(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('examTypeId') examTypeId?: string,
+  ) {
+    return `\ufeff${await this.analyticsService.exportTestTakers({ from, to, examTypeId })}`;
   }
 }

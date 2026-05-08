@@ -1,5 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { EntitlementStatus, EntitlementTier } from '@prisma/client';
+import { AttemptLedgerAction, EntitlementStatus, EntitlementTier } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AccessService } from '../../modules/subscriptions/access.service';
 
@@ -19,16 +19,31 @@ export class PremiumGuard implements CanActivate {
       const paidEntitlement = await this.prisma.userExamEntitlement.findFirst({
         where: {
           userId: user.id,
-          tier: EntitlementTier.paid,
+          tier: { in: [EntitlementTier.paid, EntitlementTier.admin] },
           status: EntitlementStatus.active,
           windowStartsAt: { lte: now },
           OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: now } }],
         },
       });
-      if (!paidEntitlement) {
-        throw new ForbiddenException('Premium subscription required');
+      if (paidEntitlement) return true;
+
+      const sessionId = request.params?.id;
+      if (typeof sessionId === 'string' && sessionId.trim()) {
+        const paidSessionLedger = await this.prisma.attemptUsageLedger.findFirst({
+          where: {
+            userId: user.id,
+            sessionId,
+            action: AttemptLedgerAction.attempt_consumed,
+            entitlement: {
+              tier: { in: [EntitlementTier.paid, EntitlementTier.admin] },
+            },
+          },
+          select: { id: true },
+        });
+        if (paidSessionLedger) return true;
       }
-      return true;
+
+      throw new ForbiddenException('Premium subscription required');
     }
 
     const activeSubscription = await this.prisma.subscription.findFirst({
@@ -37,7 +52,7 @@ export class PremiumGuard implements CanActivate {
         isActive: true,
         expiresAt: { gt: now },
         startsAt: { lte: now },
-        planType: { not: 'trial' },
+        planType: { not: 'free' },
       },
     });
 

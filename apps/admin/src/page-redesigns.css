@@ -1374,6 +1374,29 @@
   color: rgba(60, 60, 67, 0.88);
 }
 
+.pg-ent__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pg-ent__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .pg-ent__head {
+    flex-direction: column;
+  }
+
+  .pg-ent__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pg-ent__strip {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

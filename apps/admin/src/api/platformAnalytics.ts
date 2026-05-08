@@ -109,3 +109,19 @@ export function fetchTestTakers(params?: {
 export function fetchPlatformOverview() {
   return api.get<PlatformOverview>('/admin/analytics/overview').then((r) => r.data);
 }
+
+export async function downloadAnalyticsCsv(
+  kind: 'visitors' | 'test-takers',
+  params?: { from?: string; to?: string; examTypeId?: string },
+) {
+  const response = await api.get(`/admin/analytics/${kind}/export`, {
+    params,
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${kind}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}

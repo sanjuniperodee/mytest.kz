@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button, Card, DatePicker, Statistic, Table, Tabs, Tag } from 'antd';
 import type { TablePaginationConfig } from 'antd';
 import {
+  DownloadOutlined,
   FileTextOutlined,
   QuestionCircleOutlined,
   UserOutlined,
@@ -11,6 +12,7 @@ import {
 import dayjs from 'dayjs';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
+  downloadAnalyticsCsv,
   fetchFunnel,
   fetchPlatformOverview,
   fetchTestTakers,
@@ -384,7 +386,18 @@ export function AnalyticsPage() {
             key: 'visitors',
             label: 'Посетители',
             children: (
-              <HigTableCard>
+              <HigTableCard
+                title="Посетители"
+                extra={
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() => downloadAnalyticsCsv('visitors', { from, to })}
+                  >
+                    Экспорт
+                  </Button>
+                }
+              >
                 <Table<Visitor>
                   size="small"
                   rowKey="visitorId"
@@ -401,7 +414,18 @@ export function AnalyticsPage() {
             key: 'takers',
             label: 'Тесты',
             children: (
-              <HigTableCard>
+              <HigTableCard
+                title="Тесты"
+                extra={
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() => downloadAnalyticsCsv('test-takers', { from, to })}
+                  >
+                    Экспорт
+                  </Button>
+                }
+              >
                 <Table<TestTaker>
                   size="small"
                   rowKey="userId"

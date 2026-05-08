@@ -71,7 +71,7 @@ const LEGACY_PLAN_TYPES = [
     label: 'trial — микропакет',
     hint: 'В коде как «разовая попытка»: 1 тест ЕНТ за период, как у платного пакета trial в биллинге.',
   },
-  { value: 'week', label: 'week', hint: 'Доступ как у тарифа «неделя» (подписка, безлимит попыток по ent-логике legacy).' },
+  { value: 'week', label: 'week — 5 пробных ЕНТ', hint: '5 полных попыток ЕНТ за период, с Premium-разбором.' },
   { value: 'month', label: 'month', hint: 'Как «месяц».' },
   { value: 'annual', label: 'annual', hint: 'Как «год».' },
 ];

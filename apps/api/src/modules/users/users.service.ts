@@ -79,6 +79,11 @@ export class UsersService {
       freeUsed,
       freeRemaining,
     });
+    const hasActivePaidSubscription =
+      activePaidAccess ||
+      (currentTariff?.sourceType === 'subscription' &&
+        currentTariff.isActive === true &&
+        currentTariff.isPaid === true);
 
     return {
       id: user.id,
@@ -93,8 +98,7 @@ export class UsersService {
       timezone: user.timezone,
       isAdmin: user.isAdmin,
       isChannelMember,
-      // Premium in UI means paid plan; trial should not show "unlimited".
-      hasActiveSubscription: activePaidAccess,
+      hasActiveSubscription: hasActivePaidSubscription,
       currentTariff,
       accessByExam,
       trialStatus: {
@@ -138,20 +142,22 @@ export class UsersService {
       },
     });
     const activeSubscription = [...subscriptions].sort((a, b) => {
-      const aPaid = a.planType !== 'trial' ? 1 : 0;
-      const bPaid = b.planType !== 'trial' ? 1 : 0;
+      const rank = (planType: string) =>
+        planType === 'free' ? 0 : planType === 'trial' ? 1 : 2;
+      const aPaid = rank(a.planType);
+      const bPaid = rank(b.planType);
       if (aPaid !== bPaid) return bPaid - aPaid;
       return b.expiresAt.getTime() - a.expiresAt.getTime();
     })[0];
 
     if (activeSubscription) {
       const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
-      const isPaid = activeSubscription.planType !== 'trial';
+      const isPaid = activeSubscription.planType !== 'free';
       return {
         code: activeSubscription.planType,
         name: plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
         description: plan?.description ?? null,
-        tier: isPaid ? 'paid' : 'trial',
+        tier: isPaid ? 'paid' : 'free',
         sourceType: 'subscription',
         subscriptionId: activeSubscription.id,
         startsAt: activeSubscription.startsAt.toISOString(),
@@ -159,7 +165,7 @@ export class UsersService {
         isActive: true,
         isPaid,
         examSlug: activeSubscription.examType?.slug ?? null,
-        totalAttemptsLimit: activeSubscription.planType === 'trial' ? 1 : null,
+        totalAttemptsLimit: this.subscriptionTotalAttemptsLimit(activeSubscription.planType),
         dailyAttemptsLimit: null,
       };
     }
@@ -239,8 +245,8 @@ export class UsersService {
 
     return {
       code: 'free_ent_trial',
-      name: 'Бесплатный триал',
-      description: 'Бесплатные пробные попытки для ЕНТ',
+      name: 'Стартовый доступ',
+      description: 'Пробные попытки для ЕНТ',
       tier: 'free',
       sourceType: 'signup',
       startsAt: null,
@@ -256,10 +262,17 @@ export class UsersService {
   }
 
   private fallbackTariffName(code: string) {
-    if (code === 'trial') return 'Пробный';
+    if (code === 'trial') return 'Разовый доступ';
+    if (code === 'week') return '5 пробных ЕНТ';
     if (code === 'paid') return 'Premium';
     if (code === 'admin') return 'Админ-доступ';
     return code;
+  }
+
+  private subscriptionTotalAttemptsLimit(planType: string): number | null {
+    if (planType === 'trial') return 1;
+    if (planType === 'week') return 5;
+    return null;
   }
 
   async updateProfile(
