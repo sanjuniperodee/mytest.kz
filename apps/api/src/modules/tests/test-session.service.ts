@@ -3,7 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
-import { ENT_CONFIG } from '@bilimland/shared';
+import { ENT_CONFIG, isEntProfileSubjectPairAllowed } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
 @Injectable()
@@ -56,8 +56,6 @@ export class TestSessionService {
 
     const examSlug = (template.examType as { slug?: string }).slug ?? '';
 
-    await this.accessService.assertAndConsumeAttempt(userId, template.examTypeId);
-
     let resolvedEntScope = entScope;
     if (examSlug === 'ent') {
       if (!resolvedEntScope) {
@@ -91,13 +89,19 @@ export class TestSessionService {
 
     // Validate profile subjects belong to this exam type
     if (profileSubjectIds && profileSubjectIds.length > 0) {
+      if (new Set(profileSubjectIds).size !== profileSubjectIds.length) {
+        throw new BadRequestException(
+          'Выберите 2 разных профильных предмета',
+        );
+      }
+
       const validSubjects = await this.prisma.subject.findMany({
         where: {
           id: { in: profileSubjectIds },
           examTypeId: template.examTypeId,
           isMandatory: false,
         },
-        select: { id: true },
+        select: { id: true, slug: true },
       });
 
       const validIds = new Set(validSubjects.map((s) => s.id));
@@ -106,7 +110,25 @@ export class TestSessionService {
           throw new BadRequestException(`Invalid profile subject: ${id}`);
         }
       }
+
+      if (
+        examSlug === 'ent' &&
+        resolvedEntScope &&
+        resolvedEntScope !== 'mandatory'
+      ) {
+        const subjectsById = new Map(validSubjects.map((s) => [s.id, s]));
+        const selectedSlugs = profileSubjectIds.map(
+          (id) => subjectsById.get(id)?.slug ?? '',
+        );
+        if (!isEntProfileSubjectPairAllowed(selectedSlugs)) {
+          throw new BadRequestException(
+            'Недопустимая пара профильных предметов для ЕНТ',
+          );
+        }
+      }
     }
+
+    await this.accessService.assertAndConsumeAttempt(userId, template.examTypeId);
 
     const mandatoryQuestionSum = template.sections.reduce(
       (s, sec) => s + ((sec.subject?.isMandatory ?? true) ? sec.questionCount : 0),

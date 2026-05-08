@@ -252,7 +252,12 @@ describe('ENT 120/140 consistency', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       subject: {
-        findMany: jest.fn().mockResolvedValue(profileSubjects.map((id) => ({ id }))),
+        findMany: jest.fn().mockResolvedValue(
+          profileSubjects.map((id) => ({
+            id,
+            slug: subjectMetaById[id].slug,
+          })),
+        ),
         findUnique: jest.fn().mockImplementation(({ where: { id } }: any) =>
           Promise.resolve({
             ...subjectMetaById[id],
@@ -311,6 +316,78 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).toHaveBeenCalled();
     const createData = prismaMock.testSession.create.mock.calls[0][0].data;
     expect(createData.totalQuestions).toBe(ENT_CONFIG.totalQuestions);
+  });
+
+  it('rejects unsupported ENT profile subject pairs before consuming an attempt', async () => {
+    const subjectMetaById: Record<string, { id: string; slug: string; isMandatory: boolean }> = {
+      history: { id: 'history', slug: 'history_kz', isMandatory: true },
+      reading: { id: 'reading', slug: 'reading_literacy', isMandatory: true },
+      'math-lit': { id: 'math-lit', slug: 'math_literacy', isMandatory: true },
+      'profile-1': { id: 'profile-1', slug: 'math', isMandatory: false },
+      'profile-2': { id: 'profile-2', slug: 'biology', isMandatory: false },
+    };
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: 20,
+              selectionMode: 'random',
+              sortOrder: 1,
+              subject: subjectMetaById.history,
+            },
+            {
+              subjectId: 'reading',
+              questionCount: 10,
+              selectionMode: 'random',
+              sortOrder: 2,
+              subject: subjectMetaById.reading,
+            },
+            {
+              subjectId: 'math-lit',
+              questionCount: 10,
+              selectionMode: 'random',
+              sortOrder: 3,
+              subject: subjectMetaById['math-lit'],
+            },
+          ],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'profile-1', slug: 'math' },
+          { id: 'profile-2', slug: 'biology' },
+        ]),
+      },
+      testSession: {
+        create: jest.fn(),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn(),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'ru', ['profile-1', 'profile-2'], 'full'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+    expect(generatorMock.generateFromTemplate).not.toHaveBeenCalled();
+    expect(prismaMock.testSession.create).not.toHaveBeenCalled();
   });
 
   it('excludes non-120/140 ENT sessions from profile analytics stats', async () => {
@@ -535,7 +612,10 @@ describe('ENT 120/140 consistency', () => {
       subject: {
         findMany: jest
           .fn()
-          .mockResolvedValue([{ id: 'profile-1' }, { id: 'profile-2' }]),
+          .mockResolvedValue([
+            { id: 'profile-1', slug: 'math' },
+            { id: 'profile-2', slug: 'physics' },
+          ]),
         findUnique: jest.fn().mockImplementation(({ where: { id } }: any) =>
           Promise.resolve({
             ...subjectMetaById[id],

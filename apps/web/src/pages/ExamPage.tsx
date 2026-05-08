@@ -11,7 +11,11 @@ import { useNoTranslateWhileMounted } from '../lib/useNoTranslate';
 import { localizedText } from '../lib/localizedText';
 import { formatCountdown } from '../lib/entitlements';
 import { BackArrowIcon } from '../components/common/AppIcons';
-import type { TestTemplate } from '../api/types';
+import {
+  ENT_PROFILE_SUBJECT_PAIRS,
+  getEntProfileSubjectPairKey,
+} from '@bilimland/shared';
+import type { Subject, TestTemplate } from '../api/types';
 
 /** Info icons used in ExamPage (not in AppIcons since they don't need `active` prop) */
 function ClockIcon() {
@@ -59,6 +63,32 @@ function entModePreview(
   return { totalQ, displayMins };
 }
 
+type EntProfilePairOption = {
+  key: string;
+  subjects: [Subject, Subject];
+};
+
+function buildEntProfilePairOptions(subjects: Subject[]): EntProfilePairOption[] {
+  const bySlug = new Map(subjects.map((subject) => [subject.slug, subject]));
+  return ENT_PROFILE_SUBJECT_PAIRS.flatMap((pair) => {
+    const first = bySlug.get(pair[0]);
+    const second = bySlug.get(pair[1]);
+    if (!first || !second) return [];
+    return [{ key: getEntProfileSubjectPairKey(pair), subjects: [first, second] }];
+  });
+}
+
+function getSelectedProfilePairKey(subjectIds: string[], subjects: Subject[]) {
+  if (subjectIds.length !== 2) return null;
+  const byId = new Map(subjects.map((subject) => [subject.id, subject]));
+  const slugs = subjectIds
+    .map((id) => byId.get(id)?.slug)
+    .filter((slug): slug is string => Boolean(slug));
+  if (slugs.length !== 2) return null;
+  const key = getEntProfileSubjectPairKey(slugs);
+  return buildEntProfilePairOptions(subjects).some((pair) => pair.key === key) ? key : null;
+}
+
 export function ExamPage() {
   const { examId } = useParams<{ examId: string }>();
   const { t, i18n } = useTranslation();
@@ -82,6 +112,14 @@ export function ExamPage() {
 
   const mandatorySubjects = useMemo(() => subjects?.filter((s) => s.isMandatory) || [], [subjects]);
   const electiveSubjects = useMemo(() => subjects?.filter((s) => !s.isMandatory) || [], [subjects]);
+  const entProfilePairs = useMemo(
+    () => buildEntProfilePairOptions(electiveSubjects),
+    [electiveSubjects],
+  );
+  const selectedProfilePairKey = useMemo(
+    () => getSelectedProfilePairKey(selectedProfiles, electiveSubjects),
+    [selectedProfiles, electiveSubjects],
+  );
 
   const examSlug = useMemo(() => examTypes?.find((et) => et.id === examId)?.slug, [examTypes, examId]);
   const examName = useMemo(
@@ -113,6 +151,11 @@ export function ExamPage() {
   }, [isEnt, entPassMode]);
 
   useEffect(() => {
+    if (!isEnt || !shouldRequireProfiles || selectedProfiles.length === 0) return;
+    if (!selectedProfilePairKey) setSelectedProfiles([]);
+  }, [isEnt, selectedProfilePairKey, selectedProfiles.length, shouldRequireProfiles]);
+
+  useEffect(() => {
     if (!isEnt) setPickedEntQuestionLang(null);
   }, [isEnt]);
 
@@ -142,6 +185,11 @@ export function ExamPage() {
     });
   };
 
+  const selectProfilePair = (key: string) => {
+    const pair = entProfilePairs.find((option) => option.key === key);
+    setSelectedProfiles(pair ? pair.subjects.map((subject) => subject.id) : []);
+  };
+
   const templateIdForStart = isEnt ? entTemplateId : selectedTemplate;
 
   const canStart =
@@ -149,8 +197,8 @@ export function ExamPage() {
     (examAccess ? examAccess.hasAccess : true) &&
     (isEnt
       ? entPassMode === 'mandatory' ||
-        (entPassMode === 'profile' && selectedProfiles.length === 2) ||
-        (entPassMode === 'full' && selectedProfiles.length === 2)
+        (entPassMode === 'profile' && !!selectedProfilePairKey) ||
+        (entPassMode === 'full' && !!selectedProfilePairKey)
       : !shouldRequireProfiles || selectedProfiles.length === requiredProfiles);
 
   const handleStartTest = async () => {
@@ -199,7 +247,7 @@ export function ExamPage() {
     if (isEnt) {
       if (
         (entPassMode === 'profile' || entPassMode === 'full') &&
-        selectedProfiles.length < 2
+        !selectedProfilePairKey
       ) {
         return t('exam.selectProfileFirst', { count: 2 });
       }
@@ -367,27 +415,60 @@ export function ExamPage() {
             </span>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
-            {shouldRequireProfiles ? t('exam.chooseProfileHint') : t('exam.chooseProfileOptionalHint')}
+            {isEnt
+              ? t('exam.chooseProfilePairHint')
+              : shouldRequireProfiles
+                ? t('exam.chooseProfileHint')
+                : t('exam.chooseProfileOptionalHint')}
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {electiveSubjects.map((subject) => {
-              const isSelected = selectedProfiles.includes(subject.id);
-              const isDisabled = !isSelected && selectedProfiles.length >= maxProfiles;
-              return (
-                <button
-                  key={subject.id}
-                  onClick={() => toggleProfile(subject.id)}
-                  disabled={isDisabled}
-                  className={`chip ${isSelected ? 'active' : ''}`}
-                >
-                  <div className="chip-check">
-                    {isSelected && <CheckCircle />}
-                  </div>
-                  {localizedText(subject.name, isEnt ? entQuestionLanguage : i18n.language)}
-                </button>
-              );
-            })}
-          </div>
+          {isEnt ? (
+            entProfilePairs.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {entProfilePairs.map((pair) => {
+                  const isSelected = selectedProfilePairKey === pair.key;
+                  return (
+                    <button
+                      key={pair.key}
+                      onClick={() => selectProfilePair(pair.key)}
+                      className={`chip ${isSelected ? 'active' : ''}`}
+                      style={{ flex: '1 1 220px', justifyContent: 'flex-start' }}
+                    >
+                      <div className="chip-check">
+                        {isSelected && <CheckCircle />}
+                      </div>
+                      {pair.subjects
+                        .map((subject) => localizedText(subject.name, entQuestionLanguage))
+                        .join(' + ')}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ fontSize: 14, color: 'var(--warning)', marginBottom: 0, lineHeight: 1.5 }}>
+                {t('exam.noProfilePairs')}
+              </p>
+            )
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {electiveSubjects.map((subject) => {
+                const isSelected = selectedProfiles.includes(subject.id);
+                const isDisabled = !isSelected && selectedProfiles.length >= maxProfiles;
+                return (
+                  <button
+                    key={subject.id}
+                    onClick={() => toggleProfile(subject.id)}
+                    disabled={isDisabled}
+                    className={`chip ${isSelected ? 'active' : ''}`}
+                  >
+                    <div className="chip-check">
+                      {isSelected && <CheckCircle />}
+                    </div>
+                    {localizedText(subject.name, i18n.language)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

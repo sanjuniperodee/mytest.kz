@@ -21,6 +21,34 @@ export const ENT_CONFIG = {
   maxTotalPoints: 140,
 };
 
+export const ENT_PROFILE_SUBJECT_PAIRS = [
+  ['math', 'physics'],
+  ['math', 'geography'],
+  ['math', 'informatics'],
+  ['biology', 'chemistry'],
+  ['biology', 'geography'],
+  ['world_history', 'geography'],
+  ['world_history', 'english'],
+  ['geography', 'english'],
+  ['chemistry', 'physics'],
+] as const;
+
+export type EntProfileSubjectPair = (typeof ENT_PROFILE_SUBJECT_PAIRS)[number];
+
+export function getEntProfileSubjectPairKey(slugs: readonly string[]): string {
+  return [...slugs].sort().join(':');
+}
+
+export const ENT_PROFILE_SUBJECT_PAIR_KEYS = ENT_PROFILE_SUBJECT_PAIRS.map((pair) =>
+  getEntProfileSubjectPairKey(pair),
+);
+
+export function isEntProfileSubjectPairAllowed(slugs: readonly string[]): boolean {
+  if (slugs.length !== 2) return false;
+  const key = getEntProfileSubjectPairKey(slugs);
+  return ENT_PROFILE_SUBJECT_PAIR_KEYS.some((allowedKey) => allowedKey === key);
+}
+
 // NUET config
 export const NUET_CONFIG = {
   durationMins: 240,
