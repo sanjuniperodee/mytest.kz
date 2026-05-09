@@ -86,4 +86,9 @@ export class UsersController {
   async getStats(@CurrentUser('id') userId: string) {
     return this.usersService.getStats(userId);
   }
+
+  @Get('me/ent-history')
+  async getEntHistory(@CurrentUser('id') userId: string) {
+    return this.usersService.getEntHistory(userId);
+  }
 }

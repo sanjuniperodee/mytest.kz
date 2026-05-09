@@ -121,7 +121,6 @@ export class TestsController {
   }
 
   @Get('sessions/:id/review/:questionId/explanation')
-  @UseGuards(PremiumGuard)
   async getExplanation(
     @CurrentUser('id') userId: string,
     @Param('id') sessionId: string,

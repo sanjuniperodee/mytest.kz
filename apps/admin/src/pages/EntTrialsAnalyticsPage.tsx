@@ -29,6 +29,15 @@ type EntAnalytics = {
   }>;
 };
 
+type EntProfilePairs = {
+  pairs: Array<{
+    profileSubjects: string;
+    sessions: number;
+    avgRawScore: number | null;
+    avgScore: number | null;
+  }>;
+};
+
 async function downloadCsv() {
   const response = await api.get('/admin/analytics/ent-trials/export', {
     responseType: 'blob',
@@ -45,6 +54,11 @@ export function EntTrialsAnalyticsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-analytics-ent'],
     queryFn: async () => (await api.get<EntAnalytics>('/admin/analytics/ent-trials')).data,
+  });
+
+  const { data: profilePairsData } = useQuery({
+    queryKey: ['admin-analytics-ent-profile-pairs'],
+    queryFn: async () => (await api.get<EntProfilePairs>('/admin/analytics/ent-profile-pairs')).data,
   });
 
   if (isLoading) {
@@ -159,6 +173,43 @@ export function EntTrialsAnalyticsPage() {
                   ]}
                 />
               </HigTableCard>
+
+              {profilePairsData && profilePairsData.pairs.length > 0 && (
+                <HigTableCard title="Профильные пары">
+                  <Table
+                    size="small"
+                    rowKey="profileSubjects"
+                    dataSource={profilePairsData.pairs}
+                    pagination={{ pageSize: 10, showSizeChanger: false }}
+                    columns={[
+                      {
+                        title: 'Профильные предметы',
+                        dataIndex: 'profileSubjects',
+                      },
+                      {
+                        title: 'Сессий',
+                        dataIndex: 'sessions',
+                        width: 100,
+                        align: 'right' as const,
+                      },
+                      {
+                        title: 'Средний балл',
+                        dataIndex: 'avgRawScore',
+                        width: 130,
+                        align: 'right' as const,
+                        render: (v: number | null) => (v != null ? Number(v).toFixed(1) : '—'),
+                      },
+                      {
+                        title: 'Средний %',
+                        dataIndex: 'avgScore',
+                        width: 110,
+                        align: 'right' as const,
+                        render: (v: number | null) => (v != null ? Number(v).toFixed(1) : '—'),
+                      },
+                    ]}
+                  />
+                </HigTableCard>
+              )}
             </div>
           </div>
         )}

@@ -306,4 +306,35 @@ export class QuestionsService {
       data: { isActive: false },
     });
   }
+
+  async exportQuestions(filters: {
+    examTypeId?: string;
+    subjectId?: string;
+    contentLocale?: 'kk' | 'ru' | 'unset';
+  }) {
+    const whereClause: Prisma.QuestionWhereInput = { isActive: true };
+
+    if (filters.examTypeId) whereClause.examTypeId = filters.examTypeId;
+    if (filters.subjectId) whereClause.subjectId = filters.subjectId;
+
+    if (filters.contentLocale === 'kk') {
+      whereClause.metadata = { path: [QUESTION_METADATA_LOCALE_KEY], equals: 'kk' };
+    } else if (filters.contentLocale === 'ru') {
+      whereClause.metadata = { path: [QUESTION_METADATA_LOCALE_KEY], equals: 'ru' };
+    } else if (filters.contentLocale === 'unset') {
+      whereClause.metadata = { equals: Prisma.DbNull };
+    }
+
+    const rows = await this.prisma.question.findMany({
+      where: whereClause,
+      include: {
+        answerOptions: { orderBy: { sortOrder: 'asc' } },
+        subject: { select: { name: true } },
+        examType: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows;
+  }
 }

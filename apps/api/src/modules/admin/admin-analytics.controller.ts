@@ -29,6 +29,11 @@ export class AdminAnalyticsController {
     return `\ufeff${await this.adminService.exportEntTrialAnalytics()}`;
   }
 
+  @Get('ent-profile-pairs')
+  async getEntProfilePairs() {
+    return this.adminService.getEntProfilePairsAnalytics();
+  }
+
   @Get('funnel')
   async getFunnel(
     @Query('from') from?: string,

@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -20,6 +21,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { QuestionsService } from './questions.service';
+import { QUESTION_METADATA_LOCALE_KEY } from '../../common/question-locale';
 
 const QUESTION_IMAGE_SUBDIR = 'question-images';
 const IMAGE_MIME = /^image\/(jpeg|jpg|png|gif|webp)$/i;
@@ -148,5 +150,94 @@ export class QuestionsController {
   @Delete(':id')
   async delete(@Param('id') id: string) {
     return this.questionsService.delete(id);
+  }
+
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="questions-export.csv"')
+  async exportQuestions(
+    @Query('examTypeId') examTypeId?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('contentLocale') contentLocale?: string,
+  ) {
+    const loc =
+      contentLocale === 'kk' || contentLocale === 'ru' || contentLocale === 'unset'
+        ? contentLocale
+        : undefined;
+
+    const questions = await this.questionsService.exportQuestions({
+      examTypeId,
+      subjectId,
+      contentLocale: loc as 'kk' | 'ru' | 'unset' | undefined,
+    });
+
+    const header = [
+      'ID',
+      'Предмет',
+      'Тип экзамена',
+      'Язык',
+      'Текст вопроса',
+      'Варианты ответов',
+      'Правильный ответ',
+      'Passage',
+      'Explanation',
+      'Баллы',
+      'Тип',
+      'Сложность',
+    ];
+
+    const localizedText = (val: unknown): string => {
+      if (typeof val === 'string') return val;
+      if (val && typeof val === 'object') {
+        const o = val as Record<string, unknown>;
+        return (o.ru as string) || (o.kk as string) || (o.en as string) || '';
+      }
+      return '';
+    };
+
+    const csvCell = (v: unknown): string => {
+      const raw = v == null ? '' : String(v);
+      return /[",\n\r]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
+    };
+
+    const lines: string[] = [
+      header.join(','),
+      ...questions.map((q) => {
+        const lang =
+          (q.metadata && typeof q.metadata === 'object'
+            ? (q.metadata as Record<string, unknown>)[QUESTION_METADATA_LOCALE_KEY]
+            : null) || '';
+        const content = q.content as Record<string, unknown>;
+        const passage = localizedText(content?.passage || '');
+        const stem = localizedText(content?.text || '');
+        const explanation = q.explanation
+          ? localizedText((q.explanation as Record<string, unknown>)[lang as string] || (q.explanation as Record<string, unknown>)?.ru || '')
+          : '';
+        const options = q.answerOptions
+          .map((o) => `${csvCell(localizedText(o.content))}${o.isCorrect ? ' ✓' : ''}`)
+          .join(' | ');
+        const subjectName = localizedText(q.subject?.name || '');
+        const examTypeName = localizedText(q.examType?.name || '');
+
+        return [
+          csvCell(q.id),
+          csvCell(subjectName),
+          csvCell(examTypeName),
+          csvCell(lang),
+          csvCell(stem),
+          csvCell(options),
+          csvCell(q.answerOptions.filter((o) => o.isCorrect).length > 0 ? q.answerOptions.find((o) => o.isCorrect)?.sortOrder : ''),
+          csvCell(passage),
+          csvCell(explanation),
+          csvCell(q.scoreWeight ?? ''),
+          csvCell(q.type),
+          csvCell(q.difficulty),
+        ].join(',');
+      }),
+    ];
+
+    const csv = '\ufeff' + lines.join('\n');
+
+    return `\ufeff${csv}`;
   }
 }

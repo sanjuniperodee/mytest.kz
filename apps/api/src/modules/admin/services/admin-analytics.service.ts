@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 
 function toNumber(value: unknown): number {
@@ -226,5 +227,71 @@ export class AdminAnalyticsService {
     }
 
     return `${lines.join('\n')}\n`;
+  }
+
+  async getEntProfilePairsAnalytics() {
+    const ent = await this.prisma.examType.findUnique({
+      where: { slug: 'ent' },
+      select: { id: true },
+    });
+    if (!ent) return { pairs: [] };
+
+    const finishedStatuses = ['completed', 'timed_out'] as const;
+    const sessions = await this.prisma.testSession.findMany({
+      where: {
+        examTypeId: ent.id,
+        status: { in: [...finishedStatuses] },
+        metadata: { not: Prisma.DbNull },
+      },
+      select: {
+        metadata: true,
+        language: true,
+        rawScore: true,
+        maxScore: true,
+        score: true,
+      },
+    });
+
+    const pairMap = new Map<
+      string,
+      {
+        profileSubjects: string
+        sessions: number
+        avgRawScore: number | null
+        avgScore: number | null
+      }
+    >()
+
+    for (const s of sessions) {
+      const meta = s.metadata as Record<string, unknown> | null
+      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined
+      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue
+      const key = profileSubjectIds.slice(0, 2).join('+')
+      const existing = pairMap.get(key)
+      if (existing) {
+        existing.sessions++
+        if (s.rawScore != null) {
+          existing.avgRawScore = ((existing.avgRawScore ?? 0) * (existing.sessions - 1) + s.rawScore) / existing.sessions
+        }
+      } else {
+        pairMap.set(key, {
+          profileSubjects: key,
+          sessions: 1,
+          avgRawScore: s.rawScore ?? null,
+          avgScore: s.score != null ? Number(s.score) : null,
+        })
+      }
+    }
+
+    const pairs = [...pairMap.entries()]
+      .map(([profileSubjects, stats]) => ({
+        profileSubjects,
+        sessions: stats.sessions,
+        avgRawScore: stats.avgRawScore,
+        avgScore: stats.avgScore,
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+
+    return { pairs }
   }
 }

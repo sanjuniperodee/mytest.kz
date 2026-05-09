@@ -528,4 +528,47 @@ export class UsersService {
       byExamType,
     };
   }
+
+  async getEntHistory(userId: string) {
+    const ent = await this.prisma.examType.findUnique({
+      where: { slug: 'ent' },
+      select: { id: true },
+    });
+    if (!ent) return { sessions: [] };
+
+    const sessions = await this.prisma.testSession.findMany({
+      where: {
+        userId,
+        examTypeId: ent.id,
+        status: { in: ['completed', 'timed_out'] },
+        score: { not: null },
+      },
+      select: {
+        id: true,
+        rawScore: true,
+        maxScore: true,
+        score: true,
+        correctCount: true,
+        totalQuestions: true,
+        language: true,
+        finishedAt: true,
+        metadata: true,
+      },
+      orderBy: { finishedAt: 'asc' },
+    });
+
+    return {
+      sessions: sessions.map((s) => ({
+        sessionId: s.id,
+        date: s.finishedAt?.toISOString() ?? null,
+        rawScore: s.rawScore,
+        maxScore: s.maxScore,
+        score: s.score != null ? Number(s.score) : null,
+        correctCount: s.correctCount,
+        totalQuestions: s.totalQuestions,
+        language: s.language,
+        metadata: s.metadata as { profileSubjectIds?: string[] } | null,
+      })),
+    };
+  }
 }

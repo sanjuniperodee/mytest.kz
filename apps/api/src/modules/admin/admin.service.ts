@@ -84,4 +84,8 @@ export class AdminService {
   async exportEntTrialAnalytics() {
     return this.analyticsService.exportEntTrialAnalytics();
   }
+
+  async getEntProfilePairsAnalytics() {
+    return this.analyticsService.getEntProfilePairsAnalytics();
+  }
 }

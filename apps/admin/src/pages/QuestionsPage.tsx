@@ -40,6 +40,7 @@ import {
   TableOutlined,
   FilterOutlined,
   FormOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
@@ -1063,6 +1064,19 @@ export function QuestionsPage() {
             </p>
           </div>
           <div className="pg-dash__hero-aside">
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (examTypeId) params.set('examTypeId', examTypeId);
+                if (subjectId) params.set('subjectId', subjectId);
+                if (contentLocale) params.set('contentLocale', contentLocale);
+                const query = params.toString() ? `?${params.toString()}` : '';
+                window.open(`/admin/questions/export${query}`, '_blank');
+              }}
+            >
+              Экспорт
+            </Button>
             <span className="pg-dash__date">{formatNowRu()}</span>
             <span
               className={examTypeId && isFetching ? 'pg-dash__pill pg-dash__pill--sync' : 'pg-dash__pill'}
