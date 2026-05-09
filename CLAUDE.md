@@ -29,9 +29,11 @@ cd apps/web && npm run build  # Build web (runs tsc -b && vite build)
 cd apps/api && npm run dev    # Start API (NestJS with watch mode)
 cd apps/api && npm run build  # Build API
 npm run db:migrate:dev  # Run Prisma migrations in dev
-npm run db:migrate       # Deploy migrations (safe)
+npm run db:migrate       # Deploy migrations (safe: checks migrations first)
 npm run db:seed         # Seed database
 npm run db:generate     # Generate Prisma client
+npm run test:api        # Run API e2e tests (Jest)
+npm run test:e2e        # Run Playwright e2e tests
 
 # Admin
 cd apps/admin && npm run dev
@@ -60,6 +62,10 @@ cd apps/admin && npm run dev
 ### apps/admin — Admin panel
 
 React + Vite + Ant Design. Used for managing landing settings, viewing user sessions, editing admission data.
+
+### apps/mytest-v2 — Next.js app
+
+Next.js 14 app (`app/` directory) under active development. Uses `next.config.mjs`. Not yet integrated into turbo dev pipeline.
 
 ### packages/shared
 
