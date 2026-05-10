@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "My Test",
+    "slug": "mytest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobile",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a252b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sanjuniperodee.mobile",
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDisplayName": "My Test"
+      }
+    },
+    "android": {
+      "package": "com.sanjuniperodee.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#1a252b"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Приложение использует фото для загрузки аватарки.",
+          "cameraPermission": "Приложение использует камеру для аватарки."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cdb0e735-5aa6-4490-9fd3-b491a0c7fb4e"
+      }
+    }
+  }
+}
