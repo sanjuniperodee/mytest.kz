@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../../modules/telegram/telegram-bot.service';
@@ -11,6 +17,30 @@ export class ChannelMemberGuard implements CanActivate {
     private config: ConfigService,
   ) {}
 
+  private telegramChannelForbidden() {
+    return new HttpException(
+      {
+        statusCode: HttpStatus.FORBIDDEN,
+        error: 'Forbidden',
+        code: 'TELEGRAM_CHANNEL_REQUIRED',
+        message: 'Channel subscription required',
+      },
+      HttpStatus.FORBIDDEN,
+    );
+  }
+
+  private telegramAccountForbidden() {
+    return new HttpException(
+      {
+        statusCode: HttpStatus.FORBIDDEN,
+        error: 'Forbidden',
+        code: 'TELEGRAM_ACCOUNT_REQUIRED',
+        message: 'Telegram channel membership required',
+      },
+      HttpStatus.FORBIDDEN,
+    );
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const required = this.isTelegramChannelRequired();
     if (!required) return true;
@@ -19,7 +49,7 @@ export class ChannelMemberGuard implements CanActivate {
     const user = request.user;
 
     if (!user?.id) {
-      throw new ForbiddenException('Channel subscription required');
+      throw this.telegramChannelForbidden();
     }
 
     // Fast path: token already says user is a member.
@@ -36,19 +66,17 @@ export class ChannelMemberGuard implements CanActivate {
     });
 
     if (!dbUser) {
-      throw new ForbiddenException('Channel subscription required');
+      throw this.telegramChannelForbidden();
     }
 
     // User with no Telegram account — only allow if channel is not required
     if (!dbUser.telegramId) {
       if (required) {
-        throw new ForbiddenException('Telegram channel membership required');
+        throw this.telegramAccountForbidden();
       }
       return true;
     }
 
-    // Must match UsersService: if DB says "not a member", always re-hit Telegram (user may
-    // have just subscribed). If DB says "member", only re-check when cache is older than 5m.
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
     const shouldRecheck =
       !dbUser.channelCheckedAt ||
@@ -68,18 +96,22 @@ export class ChannelMemberGuard implements CanActivate {
         },
       });
 
+      request.user.isChannelMember = isChannelMember;
+
       if (isChannelMember) {
-        request.user.isChannelMember = true;
         return true;
       }
+
+      throw this.telegramChannelForbidden();
     }
 
-    // Final deny when still not a member after refresh.
-    if (!request.user?.isChannelMember) {
-      throw new ForbiddenException('Channel subscription required');
+    // JWT может отставать позади БД после /users/me — доверяем свежему снимку isChannelMember
+    if (dbUser.isChannelMember) {
+      request.user.isChannelMember = true;
+      return true;
     }
 
-    return true;
+    throw this.telegramChannelForbidden();
   }
 
   private isTelegramChannelRequired(): boolean {
