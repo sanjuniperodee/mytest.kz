@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,7 +13,13 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { KaspiSessionSetupSecretGuard } from '../../common/guards/kaspi-session-setup-secret.guard';
 import { BillingService } from './billing.service';
+import {
+  KaspiSetupRequestCodeDto,
+  KaspiSetupVerifyOtpDto,
+} from './dto/kaspi-setup.dto';
+import { normalizeKzPhone } from '@bilimland/shared';
 
 @Controller('billing')
 export class BillingController {
@@ -40,6 +47,29 @@ export class BillingController {
     @Body('phoneNumber') phoneNumber: string,
   ) {
     return this.billingService.createKaspiCheckout(userId, planId, phoneNumber);
+  }
+
+  /** Одноразовая настройка сессии кассира (секрет в заголовке). Сессия пишется в Redis. */
+  @Post('kaspi/setup/request-code')
+  @UseGuards(KaspiSessionSetupSecretGuard)
+  kaspiSetupRequestCode(@Body() body: KaspiSetupRequestCodeDto) {
+    const normalized = normalizeKzPhone(body.phoneNumber || '');
+    if (!normalized) {
+      throw new BadRequestException('INVALID_PHONE');
+    }
+    return this.billingService.kaspiSetupRequestCode(normalized);
+  }
+
+  @Post('kaspi/setup/verify-otp')
+  @UseGuards(KaspiSessionSetupSecretGuard)
+  kaspiSetupVerifyOtp(@Body() body: KaspiSetupVerifyOtpDto) {
+    return this.billingService.kaspiSetupVerifyOtp(body.processId, body.otp);
+  }
+
+  @Get('kaspi/setup/status')
+  @UseGuards(KaspiSessionSetupSecretGuard)
+  kaspiSetupStatus() {
+    return this.billingService.kaspiSetupStatus();
   }
 
   /** Вызов из kaspi-pos-automation (webhooks.json). Требуется `rawBody: true` в main.ts. */

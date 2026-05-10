@@ -29,6 +29,49 @@ export class BillingService {
     return BILLING_PLANS;
   }
 
+  /** OTP-вход Kaspi POS; номер уже нормализован (normalizeKzPhone). */
+  async kaspiSetupRequestCode(phoneNumber: string) {
+    try {
+      return await this.kaspiPosService.initAuth(phoneNumber);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(
+        message.startsWith('KASPI_') ? message : `KASPI_SETUP_FAILED:${message}`,
+      );
+    }
+  }
+
+  async kaspiSetupVerifyOtp(processId: string, otp: string) {
+    try {
+      const auth = await this.kaspiPosService.verifyOtp(processId, otp.trim());
+      return {
+        ok: true as const,
+        profileId: auth.profileId,
+        organizationId: auth.organizationId,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        message === 'KASPI_NEEDS_PASSWORD' ||
+        message === 'KASPI_NEEDS_MOBILE_CONFIRMATION' ||
+        message === 'KASPI_OTP_FAILED'
+      ) {
+        throw new BadRequestException(message);
+      }
+      throw new BadRequestException(
+        message.startsWith('KASPI_') ? message : `KASPI_VERIFY_FAILED:${message}`,
+      );
+    }
+  }
+
+  async kaspiSetupStatus() {
+    const configured = this.kaspiPosService.isAuthenticated();
+    const sessionActive = configured
+      ? await this.kaspiPosService.checkSession()
+      : false;
+    return { configured, sessionActive };
+  }
+
   async createKaspiCheckout(userId: string, planId: string, phoneNumber: string) {
     const plan = BILLING_PLANS.find((p) => p.id === planId);
     if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');

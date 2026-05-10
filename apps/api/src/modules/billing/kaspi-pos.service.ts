@@ -1,5 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from '../../database/redis.module';
 
 /**
  * Клиент HTTP API [kaspi-pos-automation](https://github.com/tapter-dev/kaspi-pos-automation).
@@ -27,11 +29,15 @@ function asRecord(v: unknown): Record<string, unknown> | undefined {
 
 @Injectable()
 export class KaspiPosService implements OnModuleInit {
+  private readonly logger = new Logger(KaspiPosService.name);
   private auth: KaspiAuth | null = null;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const tokenSN = this.config.get<string>('KASPI_TOKEN_SN')?.trim();
     const vtokenSecret = this.config.get<string>('KASPI_VTOKEN_SECRET')?.trim();
     const profileRaw = this.config.get<string>('KASPI_PROFILE_ID')?.trim();
@@ -44,7 +50,47 @@ export class KaspiPosService implements OnModuleInit {
         profileId: profileRaw ? Number.parseInt(profileRaw, 10) : 0,
         organizationId: orgRaw ? Number.parseInt(orgRaw, 10) : 0,
       };
+      return;
     }
+
+    const fromRedis = await this.loadAuthFromRedis();
+    if (fromRedis) {
+      this.auth = fromRedis;
+      this.logger.log('Kaspi POS session loaded from Redis');
+    }
+  }
+
+  private redisKey(): string {
+    return (
+      this.config.get<string>('KASPI_SESSION_REDIS_KEY')?.trim() ||
+      'bilimland:kaspi-pos:session'
+    );
+  }
+
+  private async loadAuthFromRedis(): Promise<KaspiAuth | null> {
+    try {
+      const raw = await this.redis.get(this.redisKey());
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<KaspiAuth>;
+      if (!parsed.tokenSN || !parsed.vtokenSecret) return null;
+      return {
+        tokenSN: String(parsed.tokenSN),
+        vtokenSecret: String(parsed.vtokenSecret),
+        profileId: Number(parsed.profileId ?? 0),
+        organizationId: Number(parsed.organizationId ?? 0),
+      };
+    } catch (e) {
+      this.logger.warn(`Kaspi Redis load failed: ${e instanceof Error ? e.message : e}`);
+      return null;
+    }
+  }
+
+  private async persistAuth(): Promise<void> {
+    if (!this.auth) {
+      await this.redis.del(this.redisKey());
+      return;
+    }
+    await this.redis.set(this.redisKey(), JSON.stringify(this.auth));
   }
 
   private baseUrl(): string {
@@ -53,8 +99,9 @@ export class KaspiPosService implements OnModuleInit {
   }
 
   /** После OTP из ответа verify-otp (для ручной/админской привязки). */
-  setSessionAuth(auth: KaspiAuth) {
+  async setSessionAuth(auth: KaspiAuth) {
     this.auth = auth;
+    await this.persistAuth();
   }
 
   getSessionAuth(): KaspiAuth | null {
@@ -113,6 +160,7 @@ export class KaspiPosService implements OnModuleInit {
     }
 
     this.auth = { tokenSN, vtokenSecret, profileId, organizationId };
+    await this.persistAuth();
     return this.auth;
   }
 
