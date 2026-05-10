@@ -1,6 +1,9 @@
 import fetch from 'node-fetch';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const KASPI_API_BASE = process.env.KASPI_API_URL || 'http://localhost:3032';
+const AUTH_FILE = path.join(process.cwd(), 'kaspi-auth.json');
 
 interface KaspiAuth {
   tokenSN: string;
@@ -20,6 +23,33 @@ interface InvoiceResult {
 
 export class KaspiPosService {
   private auth: KaspiAuth | null = null;
+
+  constructor() {
+    this.loadAuth();
+  }
+
+  private saveAuth(auth: KaspiAuth): void {
+    try {
+      fs.writeFileSync(AUTH_FILE, JSON.stringify(auth, null, 2));
+    } catch {}
+  }
+
+  private loadAuth(): void {
+    try {
+      if (fs.existsSync(AUTH_FILE)) {
+        this.auth = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8')) as KaspiAuth;
+      }
+    } catch {
+      this.auth = null;
+    }
+  }
+
+  clearAuth(): void {
+    this.auth = null;
+    try {
+      if (fs.existsSync(AUTH_FILE)) fs.unlinkSync(AUTH_FILE);
+    } catch {}
+  }
 
   async initAuth(phoneNumber: string): Promise<{ processId: string }> {
     const initRes = await fetch(`${KASPI_API_BASE}/api/auth/init`, {
@@ -68,6 +98,7 @@ export class KaspiPosService {
       profileId: data.data.profileId,
       organizationId: data.data.organizationId,
     };
+    this.saveAuth(this.auth);
     return this.auth;
   }
 
@@ -84,7 +115,7 @@ export class KaspiPosService {
         'X-Vtoken-Secret': this.auth.vtokenSecret,
         'X-Profile-Id': String(this.auth.profileId),
       },
-      body: JSON.stringify({ phoneNumber, amount, comment }),
+      body: JSON.stringify({ PhoneNumber: phoneNumber, Amount: amount, Comment: comment || '' }),
     });
 
     const data = await res.json() as {
