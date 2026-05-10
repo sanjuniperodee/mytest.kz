@@ -443,7 +443,9 @@ export class TelegramBotService implements OnModuleInit {
         this.channelId,
         telegramUserId,
       );
-      return ['member', 'administrator', 'creator'].includes(member.status);
+      return ['member', 'administrator', 'creator', 'restricted'].includes(
+        member.status,
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to check channel membership for ${telegramUserId}: ${error}`,

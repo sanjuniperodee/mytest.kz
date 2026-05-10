@@ -97,8 +97,11 @@ export class AuthService {
   }
 
   async authenticateGoogle(credential: string, visitorId?: string) {
-    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
-    if (!clientId) {
+    const raw = this.config.get<string>('GOOGLE_CLIENT_ID');
+    const audiences = raw
+      ? raw.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+    if (!audiences.length) {
       throw new BadRequestException('Google sign-in is not configured');
     }
     if (!credential) {
@@ -109,7 +112,7 @@ export class AuthService {
     try {
       const ticket = await this.googleClient.verifyIdToken({
         idToken: credential,
-        audience: clientId,
+        audience: audiences.length === 1 ? audiences[0] : audiences,
       });
       payload = ticket.getPayload();
     } catch {

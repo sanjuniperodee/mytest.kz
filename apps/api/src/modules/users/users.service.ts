@@ -529,46 +529,111 @@ export class UsersService {
     };
   }
 
-  async getEntHistory(userId: string) {
+  async getEntHistory(
+    userId: string,
+    paging?: { page: number; limit: number },
+  ): Promise<
+    | { sessions: ReturnType<typeof this.mapEntHistoryRow>[] }
+    | {
+        sessions: ReturnType<typeof this.mapEntHistoryRow>[]
+        chartSessions: ReturnType<typeof this.mapEntHistoryRow>[]
+        total: number
+        page: number
+        limit: number
+      }
+  > {
     const ent = await this.prisma.examType.findUnique({
       where: { slug: 'ent' },
       select: { id: true },
     });
-    if (!ent) return { sessions: [] };
+    if (!ent) {
+      return paging
+        ? { sessions: [], chartSessions: [], total: 0, page: paging.page, limit: paging.limit }
+        : { sessions: [] };
+    }
 
-    const sessions = await this.prisma.testSession.findMany({
-      where: {
-        userId,
-        examTypeId: ent.id,
-        status: { in: ['completed', 'timed_out'] },
-        score: { not: null },
-      },
-      select: {
-        id: true,
-        rawScore: true,
-        maxScore: true,
-        score: true,
-        correctCount: true,
-        totalQuestions: true,
-        language: true,
-        finishedAt: true,
-        metadata: true,
-      },
-      orderBy: { finishedAt: 'asc' },
-    });
+    const where = {
+      userId,
+      examTypeId: ent.id,
+      status: { in: ['completed', 'timed_out'] },
+      score: { not: null },
+    };
+
+    const select = {
+      id: true,
+      rawScore: true,
+      maxScore: true,
+      score: true,
+      correctCount: true,
+      totalQuestions: true,
+      language: true,
+      finishedAt: true,
+      metadata: true,
+    } as const;
+
+    if (!paging) {
+      const sessions = await this.prisma.testSession.findMany({
+        where,
+        select,
+        orderBy: { finishedAt: 'asc' },
+      });
+      return {
+        sessions: sessions.map((s) => this.mapEntHistoryRow(s)),
+      };
+    }
+
+    const { page, limit } = paging;
+    const skip = (page - 1) * limit;
+
+    const [total, pageRows, chartRows] = await Promise.all([
+      this.prisma.testSession.count({ where }),
+      this.prisma.testSession.findMany({
+        where,
+        select,
+        orderBy: { finishedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.testSession.findMany({
+        where,
+        select,
+        orderBy: { finishedAt: 'desc' },
+        take: 120,
+      }),
+    ]);
+
+    const chartSessionsAsc = [...chartRows].reverse().map((s) => this.mapEntHistoryRow(s));
 
     return {
-      sessions: sessions.map((s) => ({
-        sessionId: s.id,
-        date: s.finishedAt?.toISOString() ?? null,
-        rawScore: s.rawScore,
-        maxScore: s.maxScore,
-        score: s.score != null ? Number(s.score) : null,
-        correctCount: s.correctCount,
-        totalQuestions: s.totalQuestions,
-        language: s.language,
-        metadata: s.metadata as { profileSubjectIds?: string[] } | null,
-      })),
+      sessions: pageRows.map((s) => this.mapEntHistoryRow(s)),
+      chartSessions: chartSessionsAsc,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  private mapEntHistoryRow(s: {
+    id: string;
+    rawScore: number | null;
+    maxScore: number | null;
+    score: unknown;
+    correctCount: number | null;
+    totalQuestions: number | null;
+    language: string | null;
+    finishedAt: Date | null;
+    metadata: unknown;
+  }) {
+    return {
+      sessionId: s.id,
+      date: s.finishedAt?.toISOString() ?? null,
+      rawScore: s.rawScore,
+      maxScore: s.maxScore,
+      score: s.score != null ? Number(s.score) : null,
+      correctCount: s.correctCount,
+      totalQuestions: s.totalQuestions ?? 0,
+      language: s.language,
+      metadata: s.metadata as { profileSubjectIds?: string[] } | null,
     };
   }
 }

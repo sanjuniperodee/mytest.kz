@@ -47,9 +47,13 @@ export class ChannelMemberGuard implements CanActivate {
       return true;
     }
 
-    // Re-check with Telegram if cached status is stale or currently false.
+    // Must match UsersService: if DB says "not a member", always re-hit Telegram (user may
+    // have just subscribed). If DB says "member", only re-check when cache is older than 5m.
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const shouldRecheck = !dbUser.channelCheckedAt || dbUser.channelCheckedAt < fiveMinAgo;
+    const shouldRecheck =
+      !dbUser.channelCheckedAt ||
+      dbUser.channelCheckedAt < fiveMinAgo ||
+      !dbUser.isChannelMember;
 
     if (shouldRecheck) {
       const isChannelMember = await this.telegramBot.checkChannelMembership(

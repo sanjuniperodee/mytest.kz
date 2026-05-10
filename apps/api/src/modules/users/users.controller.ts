@@ -6,6 +6,7 @@ import {
   Get,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -88,7 +89,28 @@ export class UsersController {
   }
 
   @Get('me/ent-history')
-  async getEntHistory(@CurrentUser('id') userId: string) {
-    return this.usersService.getEntHistory(userId);
+  async getEntHistory(
+    @CurrentUser('id') userId: string,
+    @Query('page') pageStr?: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const usePaging = pageStr !== undefined || limitStr !== undefined;
+    if (!usePaging) {
+      return this.usersService.getEntHistory(userId, undefined);
+    }
+
+    const parsePositiveInt = (raw: string | undefined, fallback: number, max?: number) => {
+      if (raw === undefined || raw.trim() === '') return fallback;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 1) throw new BadRequestException('Invalid page or limit');
+      const floored = Math.floor(n);
+      if (max !== undefined) return Math.min(max, floored);
+      return floored;
+    };
+
+    const page = parsePositiveInt(pageStr, 1);
+    const limit = parsePositiveInt(limitStr, 20, 100);
+
+    return this.usersService.getEntHistory(userId, { page, limit });
   }
 }
