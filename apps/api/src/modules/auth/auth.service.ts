@@ -25,6 +25,11 @@ import {
 } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
+/** Нормализованный KZ-телефон (11 цифр, с 7) → фиксированный OTP для теста / демо. */
+const WEB_AUTH_FIXED_OTP_BY_PHONE: Record<string, string> = {
+  '77082420482': '111111',
+};
+
 @Injectable()
 export class AuthService {
   private googleClient = new OAuth2Client();
@@ -219,10 +224,14 @@ export class AuthService {
     }
 
     const redisKey = `auth:code:${normalized}`;
+    const fixedOtp = WEB_AUTH_FIXED_OTP_BY_PHONE[normalized];
+    const useFixedOtp = fixedOtp != null && code === fixedOtp;
 
-    const storedCode = await this.redis.get(redisKey);
-    if (!storedCode || storedCode !== code) {
-      throw new UnauthorizedException('Неверный или истёкший код');
+    if (!useFixedOtp) {
+      const storedCode = await this.redis.get(redisKey);
+      if (!storedCode || storedCode !== code) {
+        throw new UnauthorizedException('Неверный или истёкший код');
+      }
     }
 
     await this.redis.del(redisKey);
