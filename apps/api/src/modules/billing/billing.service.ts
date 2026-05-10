@@ -52,7 +52,7 @@ export class BillingService {
         providerOrderId: invoiceId,
         checkoutUrl: receiptUrl,
         status: 'pending',
-        providerPayload: { orderNumber, provider: 'kaspi' } as unknown as Record<string, unknown>,
+        providerPayload: { orderNumber, provider: 'kaspi' },
       },
     });
 
