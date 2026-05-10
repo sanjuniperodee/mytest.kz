@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
 } from "react-native"
 import { router, useLocalSearchParams } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Calculator } from "@/components/exam/Calculator"
 import { ExamQuestionContent } from "@/components/exam/ExamQuestionContent"
 import { ExamQuestionGrid } from "@/components/exam/ExamQuestionGrid"
@@ -30,6 +31,11 @@ import {
   EXAM_WIDE_BREAKPOINT,
   EXAM_SIDEBAR_GRID_INNER,
 } from "@/lib/exam/layout"
+import {
+  clearLastQuestionIndex,
+  readLastQuestionIndex,
+  writeLastQuestionIndex,
+} from "@/lib/exam/session-question-index"
 import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
@@ -60,6 +66,7 @@ export default function ExamSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { colors } = useAppTheme()
   const { width: winW, height: winH } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
   const isWide = winW >= LG
   const navGridInner = Math.max(240, winW - 80)
 
@@ -75,6 +82,9 @@ export default function ExamSessionScreen() {
 
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [activeIdx, setActiveIdx] = useState(0)
+  /** Після async-відновлення індексу з AsyncStorage дозволяємо записувати зміни (щоб не затерти збережене «0» до read). */
+  const [questionIdxHydrated, setQuestionIdxHydrated] = useState(false)
+  const restoreQuestionIdxGenRef = useRef(0)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [remaining, setRemaining] = useState<number | null>(null)
   const [showFinish, setShowFinish] = useState(false)
@@ -112,15 +122,29 @@ export default function ExamSessionScreen() {
   }, [])
 
   useEffect(() => {
+    restoreQuestionIdxGenRef.current += 1
     initRef.current = false
     timeoutFinishRef.current = false
     timerEndMsRef.current = null
     syncedServerRemainingRef.current = null
     setRemaining(null)
     setAnswers({})
+    setQuestionIdxHydrated(false)
     setActiveIdx(0)
     setTimerEpoch((n) => n + 1)
   }, [sessionId])
+
+  useEffect(() => {
+    if (!sessionId || !session || session.id !== sessionId) return
+    if (session.status !== "in_progress") return
+    if (flat.length === 0) return
+    const gen = restoreQuestionIdxGenRef.current
+    void readLastQuestionIndex(user?.id, sessionId, flat.length).then((idx) => {
+      if (gen !== restoreQuestionIdxGenRef.current) return
+      setActiveIdx(idx)
+      setQuestionIdxHydrated(true)
+    })
+  }, [sessionId, session?.id, session?.status, flat.length, user?.id])
 
   useEffect(() => {
     if (!session || session.id !== sessionId || initRef.current) return
@@ -147,10 +171,17 @@ export default function ExamSessionScreen() {
   }, [session, sessionId, armCountdown])
 
   useEffect(() => {
-    if (session && session.status !== "in_progress") {
-      router.replace(`/exam/${sessionId}/review`)
-    }
-  }, [session, sessionId])
+    if (!questionIdxHydrated) return
+    if (!sessionId || !session || session.status !== "in_progress") return
+    void writeLastQuestionIndex(user?.id, sessionId, activeIdx)
+  }, [questionIdxHydrated, sessionId, session?.status, activeIdx, user?.id])
+
+  useEffect(() => {
+    if (!sessionId || !session || session.id !== sessionId) return
+    if (session.status === "in_progress") return
+    void clearLastQuestionIndex(user?.id, sessionId)
+    router.replace(`/exam/${sessionId}/review`)
+  }, [sessionId, session?.id, session?.status, user?.id])
 
   useEffect(() => {
     if (timerEndMsRef.current == null) return
@@ -194,6 +225,7 @@ export default function ExamSessionScreen() {
       setFinishing(true)
       try {
         await api(`/tests/sessions/${sessionId}/finish`, { method: "POST" })
+        void clearLastQuestionIndex(user?.id, sessionId)
         setShowFinish(false)
         if (reason === "timeout") {
           Alert.alert("Время вышло", "Тест завершён")
@@ -205,7 +237,7 @@ export default function ExamSessionScreen() {
         if (reason === "timeout") timeoutFinishRef.current = false
       }
     },
-    [finishing, sessionId],
+    [finishing, sessionId, user?.id],
   )
 
   useEffect(() => {
@@ -367,65 +399,78 @@ export default function ExamSessionScreen() {
       </View>
 
       <View style={styles.mainRow}>
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 24,
-            paddingBottom: isWide ? 48 : 120,
-            maxWidth: isWide ? undefined : 896,
-            alignSelf: "center",
-            width: "100%",
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <ExamQuestionContent
-            activeIdx={activeIdx}
-            total={total}
-            question={current}
-            selectedIds={selected}
-            saving={savingId === current.id}
-            locale={locale}
-            colors={examThemeColors}
-            onOptionPress={onOptionPress}
-          />
+        <View style={styles.mainCol}>
+          <ScrollView
+            style={styles.mainScroll}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 24,
+              paddingBottom: 24,
+              maxWidth: isWide ? undefined : 896,
+              alignSelf: "center",
+              width: "100%",
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <ExamQuestionContent
+              activeIdx={activeIdx}
+              total={total}
+              question={current}
+              selectedIds={selected}
+              saving={savingId === current.id}
+              locale={locale}
+              colors={examThemeColors}
+              onOptionPress={onOptionPress}
+            />
+          </ScrollView>
 
-          <View style={styles.bottomNav}>
-            <Pressable
-              onPress={() => setActiveIdx((i) => Math.max(0, i - 1))}
-              disabled={activeIdx === 0}
-              style={[
-                styles.bottomBtn,
-                styles.bottomBtnOutline,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.card,
-                  opacity: activeIdx === 0 ? 0.45 : 1,
-                },
-              ]}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={18} color={colors.foreground} />
-              <Text style={[styles.bottomBtnTxt, { color: colors.foreground }]}>Назад</Text>
-            </Pressable>
-            {activeIdx < total - 1 ? (
+          <View
+            style={[
+              styles.bottomNavBar,
+              {
+                borderTopColor: colors.border,
+                backgroundColor: colors.background,
+                paddingBottom: Math.max(insets.bottom, 10),
+              },
+            ]}
+          >
+            <View style={styles.bottomNavInner}>
               <Pressable
-                onPress={() => setActiveIdx((i) => Math.min(total - 1, i + 1))}
-                style={[styles.bottomBtn, { backgroundColor: colors.foreground }]}
+                onPress={() => setActiveIdx((i) => Math.max(0, i - 1))}
+                disabled={activeIdx === 0}
+                style={[
+                  styles.bottomBtn,
+                  styles.bottomBtnOutline,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                    opacity: activeIdx === 0 ? 0.45 : 1,
+                  },
+                ]}
               >
-                <Text style={[styles.bottomBtnTxt, { color: colors.background }]}>Далее</Text>
-                <MaterialCommunityIcons name="arrow-right" size={18} color={colors.background} />
+                <MaterialCommunityIcons name="arrow-left" size={18} color={colors.foreground} />
+                <Text style={[styles.bottomBtnTxt, { color: colors.foreground }]}>Назад</Text>
               </Pressable>
-            ) : (
-              <Pressable
-                onPress={() => setShowFinish(true)}
-                style={[styles.bottomBtn, { backgroundColor: colors.foreground }]}
-              >
-                <MaterialCommunityIcons name="flag-outline" size={18} color={colors.background} />
-                <Text style={[styles.bottomBtnTxt, { color: colors.background }]}>Завершить</Text>
-              </Pressable>
-            )}
+              {activeIdx < total - 1 ? (
+                <Pressable
+                  onPress={() => setActiveIdx((i) => Math.min(total - 1, i + 1))}
+                  style={[styles.bottomBtn, { backgroundColor: colors.foreground }]}
+                >
+                  <Text style={[styles.bottomBtnTxt, { color: colors.background }]}>Далее</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={18} color={colors.background} />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => setShowFinish(true)}
+                  style={[styles.bottomBtn, { backgroundColor: colors.foreground }]}
+                >
+                  <MaterialCommunityIcons name="flag-outline" size={18} color={colors.background} />
+                  <Text style={[styles.bottomBtnTxt, { color: colors.background }]}>Завершить</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
-        </ScrollView>
+        </View>
 
         {isWide ? (
           <View style={[styles.sidebar, { borderLeftColor: colors.border }]}>
@@ -588,18 +633,27 @@ const styles = StyleSheet.create({
   progressTrack: { height: 2, width: "100%" },
   progressFill: { height: 2 },
   mainRow: { flex: 1, flexDirection: "row" },
+  mainCol: { flex: 1, minWidth: 0 },
+  mainScroll: { flex: 1 },
+  bottomNavBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+  },
+  bottomNavInner: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    alignItems: "center",
+    maxWidth: 896,
+    width: "100%",
+    alignSelf: "center",
+  },
   sidebar: {
     width: SIDEBAR_W,
     borderLeftWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingTop: 24,
-  },
-  bottomNav: {
-    marginTop: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "center",
   },
   bottomBtn: {
     flexDirection: "row",

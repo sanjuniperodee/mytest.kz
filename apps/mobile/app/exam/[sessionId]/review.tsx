@@ -39,6 +39,8 @@ const CONTENT_MAX_W = 896
 const MD = 768
 const SM = 640
 const LG = 1024
+/** Горизонтальные отступы accBody (16+16) + exPanel (16+16) — ширина HTML под фактическую колонку. */
+const REVIEW_EXPLANATION_WIDTH_INSET = 64
 
 interface ExplanationData {
   questionId: string
@@ -542,23 +544,36 @@ function ExplanationBlock({
   }
 
   return (
-    <View>
+    <View style={styles.exRoot}>
       <Pressable
         onPress={() => {
           const next = !open
           setOpen(next)
           if (next) void load()
         }}
-        style={styles.exToggle}
+        style={({ pressed }) => [
+          styles.exToggle,
+          {
+            borderColor: colors.border,
+            backgroundColor: pressed ? colors.secondary : colors.card,
+          },
+        ]}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
       >
-        <MaterialCommunityIcons name="lightbulb-outline" size={18} color={colors.foreground} />
-        <Text style={[styles.exToggleLbl, { color: colors.foreground }]}>Объяснение</Text>
+        <View style={[styles.exToggleIconCircle, { backgroundColor: `${colors.foreground}18` }]}>
+          <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.foreground} />
+        </View>
+        <View style={styles.exToggleTextCol}>
+          <Text style={[styles.exToggleLbl, { color: colors.foreground }]}>Объяснение</Text>
+          <Text style={[styles.exToggleHint, { color: colors.mutedForeground }]}>
+            Разбор задания и формулы
+          </Text>
+        </View>
         <MaterialCommunityIcons
           name="chevron-down"
-          size={16}
-          color={colors.foreground}
+          size={22}
+          color={colors.mutedForeground}
           style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}
         />
       </Pressable>
@@ -568,7 +583,7 @@ function ExplanationBlock({
             styles.exPanel,
             {
               borderColor: colors.border,
-              backgroundColor: `${colors.secondary}99`,
+              backgroundColor: colors.secondary,
             },
           ]}
         >
@@ -591,10 +606,21 @@ function ExplanationBlock({
 }
 
 function formatExplanation(explanation: unknown, locale: Locale): string {
-  if (typeof explanation === "string") return explanation
-  const localized = localize(explanation as LocalizedText, locale)
+  if (typeof explanation === "string") return explanation.trim()
+  const localized = localize(explanation as LocalizedText, locale)?.trim()
   if (localized) return localized
-  return JSON.stringify(explanation, null, 2) || ""
+  if (explanation && typeof explanation === "object") {
+    const o = explanation as Record<string, unknown>
+    const ru = typeof o.ru === "string" ? o.ru.trim() : ""
+    const kk = typeof o.kk === "string" ? o.kk.trim() : ""
+    const en = typeof o.en === "string" ? o.en.trim() : ""
+    if (locale === "kk" && kk) return kk
+    if (locale === "en" && en) return en
+    if (ru) return ru
+    if (kk) return kk
+    if (en) return en
+  }
+  return ""
 }
 
 function ExplanationBody({
@@ -606,24 +632,35 @@ function ExplanationBody({
   locale: Locale
   innerCol: number
 }) {
+  const { colors } = useAppTheme()
   const explanationText = formatExplanation(data.explanation, locale)
   const detachedImageUrls = getDetachedImageUrls(data.imageUrls, [explanationText])
-  const { width: winW } = useWindowDimensions()
-  const imgHalf = winW >= MD ? "48%" as const : "100%" as const
+  const explanationHtmlW = Math.max(120, Math.floor(innerCol - REVIEW_EXPLANATION_WIDTH_INSET))
+
+  if (!explanationText && detachedImageUrls.length === 0) {
+    return (
+      <Text style={{ fontSize: 15, lineHeight: 22, color: colors.mutedForeground, fontStyle: "italic" }}>
+        Текст объяснения недоступен.
+      </Text>
+    )
+  }
 
   return (
-    <View style={{ gap: 12 }}>
-      <RichHtml
-        value={explanationText}
-        locale={locale}
-        imageUrls={data.imageUrls}
-        minHeight={40}
-        fixedContentWidth={innerCol}
-      />
+    <View style={{ gap: 14 }}>
+      {explanationText ? (
+        <RichHtml
+          value={explanationText}
+          locale={locale}
+          imageUrls={data.imageUrls}
+          minHeight={48}
+          fixedContentWidth={explanationHtmlW}
+          readingComfort
+        />
+      ) : null}
       {detachedImageUrls.length > 0 ? (
-        <View style={styles.exImgGrid}>
+        <View style={styles.exImgStack}>
           {detachedImageUrls.map((u, i) => (
-            <View key={i} style={{ width: imgHalf, maxWidth: "100%" }}>
+            <View key={i} style={styles.exImgItem}>
               <QuestionMedia src={u} />
             </View>
           ))}
@@ -854,30 +891,45 @@ const styles = StyleSheet.create({
   },
   premiumTitle: { fontSize: 15, fontFamily: fonts.sansSemi },
   premiumBody: { fontSize: 14, lineHeight: 20 },
+  exRoot: { marginTop: 4, gap: 10 },
   exToggle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  exToggleLbl: { fontSize: 14, fontWeight: "500" },
-  exPanel: {
-    marginTop: 12,
-    borderRadius: 10,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
+  },
+  exToggleIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exToggleTextCol: { flex: 1, minWidth: 0, gap: 2 },
+  exToggleLbl: { fontSize: 16, fontFamily: fonts.sansSemi },
+  exToggleHint: { fontSize: 13, lineHeight: 18 },
+  exPanel: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 18,
   },
   exLoading: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  exLoadingTxt: { fontSize: 14 },
-  exErrTxt: { fontSize: 14 },
-  exImgGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+  exLoadingTxt: { fontSize: 15 },
+  exErrTxt: { fontSize: 15, lineHeight: 22 },
+  exImgStack: {
+    gap: 12,
+    width: "100%",
+  },
+  exImgItem: {
+    width: "100%",
+    borderRadius: 10,
+    overflow: "hidden",
   },
 })

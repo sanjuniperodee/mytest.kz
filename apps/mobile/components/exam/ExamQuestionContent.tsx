@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { Card } from "@/components/ui/card"
 import { QuestionMedia } from "@/components/exam/QuestionMedia"
+import { ExamAnswerOptionsWebView } from "@/components/exam/ExamAnswerOptionsWebView"
 import { RichHtml } from "@/components/exam/RichHtml"
 import { RichHtmlLayoutGateContext } from "@/lib/exam/rich-html-layout-gate"
 import { examRichColumnWidth } from "@/lib/exam/layout"
@@ -46,29 +47,37 @@ export const ExamQuestionContent = memo(
     colors,
     onOptionPress,
   }: Props) {
-    const { width: winW } = useWindowDimensions()
+    const { width: winW, height: winH } = useWindowDimensions()
     const richColW = useMemo(() => examRichColumnWidth(winW), [winW])
+    /** Пока WebView замеряют высоту, ограничиваем карточку — иначе ScrollView дёргается на каждом шаге. */
+    const questionLoadClampH = Math.min(460, Math.max(280, Math.floor(winH * 0.44)))
 
     const richSlotCount = useMemo(() => {
       let n = 0
-      if (question.display.passage) n++
-      if (question.display.stem) n++
-      n += question.answerOptions.length
+      const hasPassage = Boolean(question.display.passage)
+      const hasStem = Boolean(question.display.stem)
+      if (hasPassage && hasStem) n += 1
+      else {
+        if (hasPassage) n += 1
+        if (hasStem) n += 1
+      }
+      if (question.answerOptions.length > 0) n += 1
       return n
     }, [question.display.passage, question.display.stem, question.answerOptions.length])
 
-    const richSlotsNeedRef = useRef(richSlotCount)
-    richSlotsNeedRef.current = richSlotCount
-    const richSlotsReadyRef = useRef(0)
+    const reportedSlotsRef = useRef(new Set<string>())
     const [cardContentVisible, setCardContentVisible] = useState(richSlotCount === 0)
 
-    const reportRichSlotReady = useCallback(() => {
-      if (richSlotsReadyRef.current >= richSlotsNeedRef.current) return
-      richSlotsReadyRef.current++
-      if (richSlotsReadyRef.current >= richSlotsNeedRef.current) {
-        setCardContentVisible(true)
-      }
-    }, [])
+    const reportRichSlotReady = useCallback(
+      (slotId: string) => {
+        if (!slotId || reportedSlotsRef.current.has(slotId)) return
+        reportedSlotsRef.current.add(slotId)
+        if (reportedSlotsRef.current.size >= richSlotCount) {
+          setCardContentVisible(true)
+        }
+      },
+      [richSlotCount],
+    )
 
     const layoutGateValue = useMemo(
       () => ({ reportSlotReady: reportRichSlotReady }),
@@ -76,13 +85,13 @@ export const ExamQuestionContent = memo(
     )
 
     useEffect(() => {
-      richSlotsReadyRef.current = 0
+      reportedSlotsRef.current.clear()
       if (richSlotCount === 0) setCardContentVisible(true)
       else setCardContentVisible(false)
     }, [question.id, richSlotCount])
 
     useEffect(() => {
-      const t = setTimeout(() => setCardContentVisible(true), 3200)
+      const t = setTimeout(() => setCardContentVisible(true), 900)
       return () => clearTimeout(t)
     }, [question.id])
 
@@ -96,6 +105,11 @@ export const ExamQuestionContent = memo(
           imageReferenceText(question.explanation),
         ]),
       [question, locale],
+    )
+
+    const optionsMinH = useMemo(
+      () => Math.max(72, 36 * Math.max(1, question.answerOptions.length)),
+      [question.answerOptions.length],
     )
 
     return (
@@ -122,7 +136,17 @@ export const ExamQuestionContent = memo(
 
         <Card padded={false} style={styles.cardOuter}>
           <RichHtmlLayoutGateContext.Provider value={layoutGateValue}>
-            <View style={styles.cardBodyWrap}>
+            <View
+              style={[
+                styles.cardBodyWrap,
+                richSlotCount > 0 &&
+                  !cardContentVisible && {
+                    minHeight: 268,
+                    maxHeight: questionLoadClampH,
+                    overflow: "hidden",
+                  },
+              ]}
+            >
               {richSlotCount > 0 && !cardContentVisible ? (
                 <View
                   style={[styles.cardLoadingOverlay, { backgroundColor: colors.card }]}
@@ -132,15 +156,23 @@ export const ExamQuestionContent = memo(
                 </View>
               ) : null}
               <View
-                style={[
-                  styles.cardInner,
-                  {
-                    opacity: richSlotCount === 0 || cardContentVisible ? 1 : 0,
-                    pointerEvents: richSlotCount === 0 || cardContentVisible ? "auto" : "none",
-                  },
-                ]}
+                style={styles.cardInner}
+                pointerEvents={richSlotCount === 0 || cardContentVisible ? "auto" : "none"}
               >
-                {question.display.passage ? (
+                {question.display.passage && question.display.stem ? (
+                  <RichHtml
+                    layoutSlotId={`${question.id}-qbody`}
+                    passageStemSplit={{
+                      passage: question.display.passage,
+                      stem: question.display.stem,
+                    }}
+                    locale={locale}
+                    imageUrls={question.imageUrls}
+                    minHeight={48}
+                    fixedContentWidth={richColW}
+                  />
+                ) : null}
+                {question.display.passage && !question.display.stem ? (
                   <View
                     style={[
                       styles.passageBox,
@@ -148,6 +180,7 @@ export const ExamQuestionContent = memo(
                     ]}
                   >
                     <RichHtml
+                      layoutSlotId={`${question.id}-passage`}
                       value={question.display.passage}
                       locale={locale}
                       imageUrls={question.imageUrls}
@@ -156,8 +189,9 @@ export const ExamQuestionContent = memo(
                     />
                   </View>
                 ) : null}
-                {question.display.stem ? (
+                {!question.display.passage && question.display.stem ? (
                   <RichHtml
+                    layoutSlotId={`${question.id}-stem`}
                     value={question.display.stem}
                     locale={locale}
                     imageUrls={question.imageUrls}
@@ -169,50 +203,20 @@ export const ExamQuestionContent = memo(
                   <QuestionMedia key={`${question.id}-det-${index}`} src={url} />
                 ))}
 
-                <View style={styles.optionsCol}>
-                  {question.answerOptions.map((opt, i) => {
-                    const checked = selectedIds.includes(opt.id)
-                    const rowBg = checked ? colors.foreground : colors.card
-                    const rowBorder = checked ? colors.foreground : colors.border
-                    const letterBg = checked ? colors.background : colors.secondary
-                    const letterBorder = checked ? colors.background : colors.border
-                    const letterFg = checked ? colors.foreground : colors.mutedForeground
-                    const htmlColor = checked ? colors.background : colors.foreground
-
-                    return (
-                      <Pressable
-                        key={opt.id}
-                        onPress={() => onOptionPress(opt.id)}
-                        style={[styles.option, { borderColor: rowBorder, backgroundColor: rowBg }]}
-                      >
-                        <View
-                          style={[
-                            styles.letterCircle,
-                            {
-                              borderColor: letterBorder,
-                              backgroundColor: letterBg,
-                            },
-                          ]}
-                        >
-                          <Text style={[styles.letterTxt, { color: letterFg }]}>
-                            {String.fromCharCode(65 + i)}
-                          </Text>
-                        </View>
-                        <View style={styles.optionBody}>
-                          <RichHtml
-                            value={opt.content ?? opt.text}
-                            locale={locale}
-                            imageUrls={question.imageUrls}
-                            minHeight={36}
-                            bodyColor={htmlColor}
-                            fixedContentWidth={Math.max(160, richColW - 68)}
-                          />
-                          {opt.imageUrl ? <QuestionMedia src={opt.imageUrl} /> : null}
-                        </View>
-                      </Pressable>
-                    )
-                  })}
-                </View>
+                {question.answerOptions.length > 0 ? (
+                  <ExamAnswerOptionsWebView
+                    questionId={question.id}
+                    layoutSlotId={`${question.id}-options`}
+                    options={question.answerOptions}
+                    locale={locale}
+                    imageUrls={question.imageUrls}
+                    fixedContentWidth={richColW}
+                    colors={colors}
+                    selectedIds={selectedIds}
+                    minHeight={optionsMinH}
+                    onOptionPress={onOptionPress}
+                  />
+                ) : null}
 
                 {question.multiSelect ? (
                   <Text style={[styles.multiHint, { color: colors.mutedForeground }]}>
@@ -281,42 +285,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
-  },
-  optionsCol: { gap: 8, width: "100%", alignSelf: "stretch" },
-  option: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    maxWidth: "100%",
-    alignSelf: "stretch",
-    flexShrink: 1,
-    overflow: "hidden",
-  },
-  letterCircle: {
-    marginTop: 2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  letterTxt: {
-    fontSize: 11,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  optionBody: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: "100%",
-    overflow: "hidden",
-    alignSelf: "stretch",
   },
   multiHint: { fontSize: 11, marginTop: 4 },
 })

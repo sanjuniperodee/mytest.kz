@@ -5,7 +5,7 @@ import type { WebView as WebViewType } from "react-native-webview"
 import { useRichHtmlLayoutGate } from "@/lib/exam/rich-html-layout-gate"
 import { useAppTheme } from "@/lib/theme/provider"
 import type { Locale } from "@/lib/api/i18n"
-import { renderRichTextHtml } from "@/lib/exam/rich-html"
+import { bodyHtmlNeedsKatexAssets, renderRichTextHtml } from "@/lib/exam/rich-html"
 import { KATEX_MIN_CSS } from "@/lib/exam/katex-inline-css"
 
 function fnv1a32(input: string): string {
@@ -18,26 +18,38 @@ function fnv1a32(input: string): string {
 }
 
 type Props = {
-  value: unknown
+  /** Plain rich fragment (mutually exclusive with `passageStemSplit`). */
+  value?: unknown
+  /**
+   * One WebView for passage + stem — halves cold start vs two instances when both exist.
+   */
+  passageStemSplit?: { passage: string; stem: string }
   locale: Locale
   imageUrls?: string[]
   minHeight?: number
   /** Override body text color (e.g. selected answer row). */
   bodyColor?: string
+  /** Режим чтения: крупнее шрифт и интерлиньяж (разбор после теста). */
+  readingComfort?: boolean
   /**
    * Pixel width for HTML viewport / layout — prefer parent-measured column width so WebView
    * does not feed layout loops (options growing wider on each re-render / selection).
    */
   fixedContentWidth?: number
+  /** Унікальний id слота для RichHtmlLayoutGate (ідемпотентний звіт «готово»). */
+  layoutSlotId?: string
 }
 
 export function RichHtml({
   value,
+  passageStemSplit,
   locale,
   imageUrls,
   minHeight = 80,
   bodyColor,
   fixedContentWidth,
+  layoutSlotId,
+  readingComfort = false,
 }: Props) {
   const { colors } = useAppTheme()
   const layoutGate = useRichHtmlLayoutGate()
@@ -47,7 +59,6 @@ export function RichHtml({
   const heightBurstMaxRef = useRef(minHeight)
   const heightDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const quietAfterHeightRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const slotReportedRef = useRef(false)
   const webRef = useRef<WebViewType>(null)
 
   const useFixed = typeof fixedContentWidth === "number" && fixedContentWidth > 0
@@ -57,21 +68,27 @@ export function RichHtml({
     ? Math.max(1, Math.floor(fixedContentWidth))
     : Math.max(240, Math.floor(screenW) - 48)
 
-  const bodyHtml = useMemo(
-    () => renderRichTextHtml(value, { locale, imageUrls }),
-    [value, locale, imageUrls],
-  )
+  const bodyHtml = useMemo(() => {
+    if (passageStemSplit) {
+      const pHtml = renderRichTextHtml(passageStemSplit.passage, { locale, imageUrls })
+      const sHtml = renderRichTextHtml(passageStemSplit.stem, { locale, imageUrls })
+      if (!pHtml && !sHtml) return ""
+      if (!pHtml) return sHtml
+      if (!sHtml) return pHtml
+      return `<div class="exam-passage">${pHtml}</div><div class="exam-stem">${sHtml}</div>`
+    }
+    return renderRichTextHtml(value ?? "", { locale, imageUrls })
+  }, [value, passageStemSplit, locale, imageUrls])
 
   /** Текст і KaTeX — окремо від кольору рядка відповіді, щоб WebView не remount при виборі (без стрибків висоти). */
   const htmlDoc = useMemo(() => {
     if (!bodyHtml) return null
+    const katexCss = bodyHtmlNeedsKatexAssets(bodyHtml) ? KATEX_MIN_CSS : ""
     return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=${viewportWidth}, initial-scale=1, maximum-scale=1"/>
-<style>
-${KATEX_MIN_CSS}
-</style>
+${katexCss ? `<style>\n${katexCss}\n</style>` : ""}
 <style>
   * { box-sizing: border-box; }
   html {
@@ -89,24 +106,49 @@ ${KATEX_MIN_CSS}
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 16px;
-    line-height: 1.45;
+    font-size: ${readingComfort ? "17px" : "16px"};
+    line-height: ${readingComfort ? "1.55" : "1.45"};
+    letter-spacing: ${readingComfort ? "-0.012em" : "0"};
     color: var(--exam-fg, ${colors.foreground});
     background: transparent;
     overflow-wrap: anywhere;
     word-break: break-word;
+    -webkit-font-smoothing: antialiased;
   }
-  img.markdown-inline-image { max-width: 100% !important; height: auto; border-radius: 8px; margin: 8px 0; }
-  .katex-display { margin: 8px 0; overflow-x: auto; max-width: 100%; box-sizing: border-box; }
+  img.markdown-inline-image { max-width: 100% !important; height: auto; border-radius: 10px; margin: ${readingComfort ? "12px" : "8px"} 0; }
+  .katex-display { margin: ${readingComfort ? "12px" : "8px"} 0; overflow-x: auto; max-width: 100%; box-sizing: border-box; }
+  .katex { font-size: ${readingComfort ? "1.05em" : "1em"}; }
+  .exam-passage {
+    border-radius: 10px;
+    border: 1px solid ${colors.border};
+    background: ${colors.secondary}99;
+    padding: 16px;
+    margin: 0 0 16px 0;
+    box-sizing: border-box;
+  }
+  .exam-stem { margin: 0; padding: 0; }
 </style></head><body>${bodyHtml}</body></html>`
-  }, [bodyHtml, colors.foreground, viewportWidth])
+  }, [bodyHtml, colors.foreground, colors.border, colors.secondary, viewportWidth, readingComfort])
 
   const webViewInstanceKey = useMemo(
-    () => `${viewportWidth}:${bodyHtml.length}:${fnv1a32(bodyHtml)}`,
-    [viewportWidth, bodyHtml],
+    () =>
+      `${readingComfort ? "rc1" : "rc0"}:${passageStemSplit ? "ps1" : "ps0"}:${viewportWidth}:${bodyHtml.length}:${fnv1a32(bodyHtml)}`,
+    [readingComfort, passageStemSplit, viewportWidth, bodyHtml],
   )
 
+  const reportingId = layoutSlotId ?? webViewInstanceKey
+
   const examFg = bodyColor ?? colors.foreground
+
+  /** Только колір — без postMessage, інакше WKWebView після кожного tap дає scrollHeight +1–2 px і рядок «росте». */
+  const applyExamFgOnly = useCallback(() => {
+    return `(function(){
+      try {
+        document.documentElement.style.setProperty('--exam-fg', ${JSON.stringify(examFg)});
+      } catch (e) {}
+      true;
+    })();`
+  }, [examFg])
 
   const applyExamFgAndMeasure = useCallback(() => {
     return `(function(){
@@ -124,20 +166,17 @@ ${KATEX_MIN_CSS}
   }, [examFg])
 
   useEffect(() => {
-    webRef.current?.injectJavaScript(applyExamFgAndMeasure())
-  }, [applyExamFgAndMeasure])
+    webRef.current?.injectJavaScript(applyExamFgOnly())
+  }, [applyExamFgOnly])
 
   useEffect(() => {
-    if (!bodyHtml && layoutGate) {
-      layoutGate.reportSlotReady()
-    }
-  }, [bodyHtml, layoutGate])
+    if (!bodyHtml) layoutGate?.reportSlotReady(reportingId)
+  }, [bodyHtml, layoutGate, reportingId])
 
   useEffect(() => {
     settledHeightRef.current = minHeight
     heightBurstMaxRef.current = minHeight
     setContentHeight(minHeight)
-    slotReportedRef.current = false
     if (heightDebounceRef.current) {
       clearTimeout(heightDebounceRef.current)
       heightDebounceRef.current = null
@@ -156,18 +195,16 @@ ${KATEX_MIN_CSS}
   }, [])
 
   const scheduleQuietReport = useCallback(() => {
-    if (!layoutGate || slotReportedRef.current) return
+    if (!layoutGate) return
     if (quietAfterHeightRef.current) {
       clearTimeout(quietAfterHeightRef.current)
       quietAfterHeightRef.current = null
     }
     quietAfterHeightRef.current = setTimeout(() => {
       quietAfterHeightRef.current = null
-      if (slotReportedRef.current) return
-      slotReportedRef.current = true
-      layoutGate.reportSlotReady()
-    }, 480)
-  }, [layoutGate])
+      layoutGate?.reportSlotReady(reportingId)
+    }, 180)
+  }, [layoutGate, reportingId])
 
   const onHeightMessage = useCallback(
     (raw: string) => {
@@ -190,7 +227,7 @@ ${KATEX_MIN_CSS}
         }
         heightBurstMaxRef.current = minHeight
         scheduleQuietReport()
-      }, 160)
+      }, 72)
     },
     [minHeight, scheduleQuietReport],
   )
@@ -237,7 +274,7 @@ ${KATEX_MIN_CSS}
         injectedJavaScriptBeforeContentLoaded={beforeLoaded}
         injectedJavaScript={`
           (function(){
-            var debounceMs = 100;
+            var debounceMs = 48;
             var t = null;
             function measure(){
               try {
@@ -263,9 +300,9 @@ ${KATEX_MIN_CSS}
               imgs[i].addEventListener('load', schedule);
               imgs[i].addEventListener('error', schedule);
             }
-            requestAnimationFrame(function(){ schedule(); });
-            setTimeout(schedule, 250);
-            setTimeout(schedule, 700);
+            requestAnimationFrame(function(){ requestAnimationFrame(schedule); });
+            setTimeout(schedule, 120);
+            setTimeout(schedule, 420);
           })();
           true;
         `}

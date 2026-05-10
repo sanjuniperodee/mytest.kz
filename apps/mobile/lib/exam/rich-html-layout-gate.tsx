@@ -1,7 +1,8 @@
 import { createContext, useContext } from "react"
 
 export type RichHtmlLayoutGateValue = {
-  reportSlotReady: () => void
+  /** Idempotent: one slotId считается один раз (Strict Mode / повторные измерения). */
+  reportSlotReady: (slotId: string) => void
 }
 
 export const RichHtmlLayoutGateContext = createContext<RichHtmlLayoutGateValue | null>(null)

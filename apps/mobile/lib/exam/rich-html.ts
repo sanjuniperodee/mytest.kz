@@ -28,14 +28,45 @@ function createHtmlChunkStore() {
   }
 }
 
-export function renderRichTextHtml(
-  value: unknown,
-  options: { locale: Locale; imageUrls?: string[] },
-): string {
-  const raw =
-    typeof value === "string" ? value : localize(value as LocalizedText, options.locale)
-  if (!raw) return ""
+const RICH_HTML_CACHE_MAX = 360
+const richHtmlCache = new Map<string, string>()
 
+function cacheKey(locale: Locale, imageUrls: string[] | undefined, raw: string): string {
+  const pool = Array.isArray(imageUrls) ? imageUrls.join("\x1e") : ""
+  return `${locale}\x1e${pool}\x1e${raw}`
+}
+
+function rememberRichHtml(key: string, html: string) {
+  if (richHtmlCache.size >= RICH_HTML_CACHE_MAX) {
+    const first = richHtmlCache.keys().next().value as string | undefined
+    if (first !== undefined) richHtmlCache.delete(first)
+  }
+  richHtmlCache.set(key, html)
+}
+
+/**
+ * true — для відображення потрібен WebView (формули, картинки в тексті, HTML-теги).
+ * Якщо false — достатньо нативного Text (швидше за екзамен-варіанти без формул).
+ */
+export function richValueNeedsWebView(value: unknown, locale: Locale): boolean {
+  const raw = typeof value === "string" ? value : localize(value as LocalizedText, locale)
+  if (!raw.trim()) return false
+  if (/\[\[img:/i.test(raw)) return true
+  if (/!\[[^\]]*\]\(/.test(raw) || /\[![^\]]*\]\(/.test(raw)) return true
+  if (/\$\$[\s\S]+?\$\$/.test(raw)) return true
+  if (/\\\[[\s\S]+?\\\]/.test(raw)) return true
+  if (/\\\([\s\S]+?\\\)/.test(raw)) return true
+  if (/(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$/.test(raw)) return true
+  if (/<[a-zA-Z][a-zA-Z0-9-]*(\s|>|\/)/.test(raw)) return true
+  return false
+}
+
+/** Чи вставляти повний KATEX_MIN_CSS у WebView (економія парсингу ~десятки KB, якщо лише текст + br). */
+export function bodyHtmlNeedsKatexAssets(html: string): boolean {
+  return html.includes('class="katex') || html.includes("katex-error")
+}
+
+function renderRichTextHtmlFromRaw(raw: string, options: { locale: Locale; imageUrls?: string[] }): string {
   const htmlChunks = createHtmlChunkStore()
   const pool = Array.isArray(options.imageUrls) ? options.imageUrls : []
   let result = raw.replace(/\[\[img:(\d+)\]\]/gi, (_match, nRaw: string) => {
@@ -115,6 +146,23 @@ export function renderRichTextHtml(
       .replace(/\r\n/g, "\n")
       .replace(/\n/g, "<br />"),
   )
+}
+
+export function renderRichTextHtml(
+  value: unknown,
+  options: { locale: Locale; imageUrls?: string[] },
+): string {
+  const raw =
+    typeof value === "string" ? value : localize(value as LocalizedText, options.locale)
+  if (!raw) return ""
+
+  const key = cacheKey(options.locale, options.imageUrls, raw)
+  const hit = richHtmlCache.get(key)
+  if (hit !== undefined) return hit
+
+  const html = renderRichTextHtmlFromRaw(raw, options)
+  rememberRichHtml(key, html)
+  return html
 }
 
 export function getDetachedImageUrls(imageUrls: string[] | undefined, sources: string[]) {
