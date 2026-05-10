@@ -1,7 +1,15 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHmac, timingSafeEqual } from 'crypto';
+import { normalizeKzPhone } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
-import { BILLING_PLANS, ENT_TRIAL_LIMIT, type BillingPlan } from './billing.config';
+import { BILLING_PLANS, ENT_TRIAL_LIMIT } from './billing.config';
 import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './freedompay-signature';
 import { AccessService } from '../subscriptions/access.service';
 import { KaspiPosService } from './kaspi-pos.service';
@@ -25,6 +33,11 @@ export class BillingService {
     const plan = BILLING_PLANS.find((p) => p.id === planId);
     if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
 
+    const normalized = normalizeKzPhone(phoneNumber || '');
+    if (!normalized) {
+      throw new BadRequestException('INVALID_PHONE');
+    }
+
     const comment = `MyTest ${plan.name} - ${userId.slice(0, 8)}`;
 
     let invoiceId: string;
@@ -32,7 +45,11 @@ export class BillingService {
     let orderNumber: string;
 
     try {
-      const invoice = await this.kaspiPosService.createInvoice(phoneNumber, plan.priceKzt, comment);
+      const invoice = await this.kaspiPosService.createInvoice(
+        normalized,
+        Number(plan.priceKzt),
+        comment,
+      );
       invoiceId = String(invoice.id);
       receiptUrl = invoice.receiptUrl;
       orderNumber = invoice.orderNumber;
@@ -49,6 +66,7 @@ export class BillingService {
         userId,
         planCode: plan.id,
         amount: plan.priceKzt,
+        provider: 'kaspi',
         providerOrderId: invoiceId,
         checkoutUrl: receiptUrl,
         status: 'pending',
@@ -57,6 +75,109 @@ export class BillingService {
     });
 
     return { invoiceId, receiptUrl, orderNumber };
+  }
+
+  /**
+   * Вебхук от kaspi-pos-automation (webhooks.json → payment.success / failed / expired).
+   * Подпись: заголовок X-Webhook-Signature, секрет KASPI_WEBHOOK_SECRET.
+   */
+  async handleKaspiWebhook(
+    rawBody: Buffer,
+    signatureHeader: string | string[] | undefined,
+    payload: Record<string, unknown>,
+  ) {
+    const secret = this.config.get<string>('KASPI_WEBHOOK_SECRET')?.trim();
+    const sig = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
+    if (secret) {
+      if (!sig || !this.verifyKaspiWebhookSignature(rawBody, sig, secret)) {
+        throw new UnauthorizedException('INVALID_WEBHOOK_SIGNATURE');
+      }
+    }
+
+    const event = String(payload.event ?? '');
+    const paymentId = String(payload.paymentId ?? '');
+    const type = String(payload.type ?? '');
+
+    if (!paymentId) {
+      return { ok: false, reason: 'PAYMENT_ID_REQUIRED' };
+    }
+
+    if (event === 'payment.success' && type === 'invoice') {
+      return this.finalizeKaspiInvoicePaid(paymentId, payload);
+    }
+
+    if (event === 'payment.failed' || event === 'payment.expired') {
+      await this.prisma.paymentOrder.updateMany({
+        where: { providerOrderId: paymentId, provider: 'kaspi' },
+        data: {
+          status: 'failed',
+          providerPayload: payload as object,
+        },
+      });
+      return { ok: true, status: 'failed' };
+    }
+
+    return { ok: true, ignored: true };
+  }
+
+  private verifyKaspiWebhookSignature(rawBody: Buffer, signature: string, secret: string): boolean {
+    const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
+    try {
+      const a = Buffer.from(signature);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length) return false;
+      return timingSafeEqual(a, b);
+    } catch {
+      return false;
+    }
+  }
+
+  private async finalizeKaspiInvoicePaid(paymentId: string, payload: Record<string, unknown>) {
+    const order = await this.prisma.paymentOrder.findUnique({
+      where: { providerOrderId: paymentId },
+    });
+    if (!order) {
+      return { ok: false, reason: 'ORDER_NOT_FOUND' };
+    }
+    if (order.provider !== 'kaspi') {
+      return { ok: false, reason: 'NOT_KASPI_ORDER' };
+    }
+
+    if (order.status === 'paid') {
+      return { ok: true, status: 'paid' };
+    }
+
+    const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
+    if (!plan) {
+      return { ok: false, reason: 'PLAN_NOT_FOUND' };
+    }
+
+    const now = new Date();
+    const expiresAt = this.addDays(now, plan.durationDays);
+
+    const createdSubscription = await this.prisma.$transaction(async (tx) => {
+      await tx.paymentOrder.update({
+        where: { id: order.id },
+        data: {
+          status: 'paid',
+          paidAt: now,
+          providerPayload: payload as object,
+          providerPaymentId: paymentId,
+        },
+      });
+      return tx.subscription.create({
+        data: {
+          userId: order.userId,
+          planType: plan.id,
+          startsAt: now,
+          expiresAt,
+          paymentNote: `Kaspi:${order.providerOrderId}`,
+        },
+      });
+    });
+    await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+
+    return { ok: true, status: 'paid' };
   }
 
   getEntTrialStatus(entTrialUsed: number) {

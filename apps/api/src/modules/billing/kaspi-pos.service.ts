@@ -1,18 +1,18 @@
-import fetch from 'node-fetch';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-const KASPI_API_BASE = process.env.KASPI_API_URL || 'http://localhost:3032';
-const AUTH_FILE = path.join(process.cwd(), 'kaspi-auth.json');
-
-interface KaspiAuth {
+/**
+ * Клиент HTTP API [kaspi-pos-automation](https://github.com/tapter-dev/kaspi-pos-automation).
+ * Контракт полей — docs/API.md репозитория (camelCase, success/processId на верхнем уровне auth).
+ */
+export interface KaspiAuth {
   tokenSN: string;
   vtokenSecret: string;
   profileId: number;
   organizationId: number;
 }
 
-interface InvoiceResult {
+export interface InvoiceResult {
   id: string | number;
   status: string;
   amount: number;
@@ -21,141 +21,167 @@ interface InvoiceResult {
   orderNumber: string;
 }
 
-export class KaspiPosService {
+function asRecord(v: unknown): Record<string, unknown> | undefined {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+}
+
+@Injectable()
+export class KaspiPosService implements OnModuleInit {
   private auth: KaspiAuth | null = null;
 
-  constructor() {
-    this.loadAuth();
-  }
+  constructor(private readonly config: ConfigService) {}
 
-  private saveAuth(auth: KaspiAuth): void {
-    try {
-      fs.writeFileSync(AUTH_FILE, JSON.stringify(auth, null, 2));
-    } catch {}
-  }
+  onModuleInit() {
+    const tokenSN = this.config.get<string>('KASPI_TOKEN_SN')?.trim();
+    const vtokenSecret = this.config.get<string>('KASPI_VTOKEN_SECRET')?.trim();
+    const profileRaw = this.config.get<string>('KASPI_PROFILE_ID')?.trim();
+    const orgRaw = this.config.get<string>('KASPI_ORGANIZATION_ID')?.trim();
 
-  private loadAuth(): void {
-    try {
-      if (fs.existsSync(AUTH_FILE)) {
-        this.auth = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8')) as KaspiAuth;
-      }
-    } catch {
-      this.auth = null;
+    if (tokenSN && vtokenSecret) {
+      this.auth = {
+        tokenSN,
+        vtokenSecret,
+        profileId: profileRaw ? Number.parseInt(profileRaw, 10) : 0,
+        organizationId: orgRaw ? Number.parseInt(orgRaw, 10) : 0,
+      };
     }
   }
 
-  clearAuth(): void {
-    this.auth = null;
-    try {
-      if (fs.existsSync(AUTH_FILE)) fs.unlinkSync(AUTH_FILE);
-    } catch {}
+  private baseUrl(): string {
+    const u = this.config.get<string>('KASPI_API_URL') || 'http://localhost:3000';
+    return u.replace(/\/+$/, '');
+  }
+
+  /** После OTP из ответа verify-otp (для ручной/админской привязки). */
+  setSessionAuth(auth: KaspiAuth) {
+    this.auth = auth;
+  }
+
+  getSessionAuth(): KaspiAuth | null {
+    return this.auth;
   }
 
   async initAuth(phoneNumber: string): Promise<{ processId: string }> {
-    const initRes = await fetch(`${KASPI_API_BASE}/api/auth/init`, {
-      method: 'POST',
-    });
-    const initData = await initRes.json() as { data: { processId: string } };
-    const processId = initData.data.processId;
+    const base = this.baseUrl();
+    const initRes = await fetch(`${base}/api/auth/init`, { method: 'POST' });
+    if (!initRes.ok) {
+      throw new Error(`KASPI_AUTH_INIT:${initRes.status}`);
+    }
+    const initJson = (await initRes.json()) as Record<string, unknown>;
+    const nested = asRecord(initJson.data);
+    const processId = String(initJson.processId ?? nested?.processId ?? '');
+    if (!processId) {
+      throw new Error('KASPI_AUTH_NO_PROCESS_ID');
+    }
 
-    await fetch(`${KASPI_API_BASE}/api/auth/send-phone`, {
+    const sendRes = await fetch(`${base}/api/auth/send-phone`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneNumber, processId }),
     });
+    if (!sendRes.ok) {
+      throw new Error(`KASPI_SEND_PHONE:${sendRes.status}`);
+    }
 
     return { processId };
   }
 
-  async verifyOtp(processId: string, otpCode: string): Promise<KaspiAuth> {
-    const res = await fetch(`${KASPI_API_BASE}/api/auth/verify-otp`, {
+  async verifyOtp(processId: string, otp: string): Promise<KaspiAuth> {
+    const res = await fetch(`${this.baseUrl()}/api/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ processId, otpCode }),
+      body: JSON.stringify({ processId, otp }),
     });
-    const data = await res.json() as {
-      data: {
-        tokenSN: string;
-        vtokenSecret: string;
-        profileId: number;
-        organizationId: number;
-      };
-      type: string;
-      view?: { code: string };
-    };
+    const data = (await res.json()) as Record<string, unknown>;
 
-    if (data.view?.code === 'KPEnterLoginPassword') {
+    const view = asRecord(data.view);
+    if (view?.code === 'KPEnterLoginPassword') {
       throw new Error('KASPI_NEEDS_PASSWORD');
     }
-
-    if (data.view?.code === 'KPMobileCall') {
+    if (view?.code === 'KPMobileCall') {
       throw new Error('KASPI_NEEDS_MOBILE_CONFIRMATION');
     }
 
-    this.auth = {
-      tokenSN: data.data.tokenSN,
-      vtokenSecret: data.data.vtokenSecret,
-      profileId: data.data.profileId,
-      organizationId: data.data.organizationId,
-    };
-    this.saveAuth(this.auth);
+    const inner = asRecord(data.data) ?? data;
+    const tokenSN = String(inner.tokenSN ?? '');
+    const vtokenSecret = String(inner.vtokenSecret ?? '');
+    const profileId = Number(inner.profileId ?? 0);
+    const organizationId = Number(inner.organizationId ?? 0);
+
+    if (!tokenSN || !vtokenSecret) {
+      throw new Error('KASPI_OTP_FAILED');
+    }
+
+    this.auth = { tokenSN, vtokenSecret, profileId, organizationId };
     return this.auth;
   }
 
-  async createInvoice(phoneNumber: string, amount: number, comment: string): Promise<InvoiceResult> {
+  async createInvoice(
+    phoneNumber: string,
+    amount: number,
+    comment: string,
+  ): Promise<InvoiceResult> {
     if (!this.auth) {
       throw new Error('KASPI_NOT_AUTHENTICATED');
     }
 
-    const res = await fetch(`${KASPI_API_BASE}/api/invoice/create`, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Token-SN': this.auth.tokenSN,
+      'X-Vtoken-Secret': this.auth.vtokenSecret,
+    };
+    if (this.auth.profileId > 0) {
+      headers['X-Profile-Id'] = String(this.auth.profileId);
+    }
+
+    const res = await fetch(`${this.baseUrl()}/api/invoice/create`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Token-SN': this.auth.tokenSN,
-        'X-Vtoken-Secret': this.auth.vtokenSecret,
-        'X-Profile-Id': String(this.auth.profileId),
-      },
-      body: JSON.stringify({ PhoneNumber: phoneNumber, Amount: amount, Comment: comment || '' }),
+      headers,
+      body: JSON.stringify({
+        phoneNumber,
+        amount,
+        comment: comment || '',
+      }),
     });
 
-    const data = await res.json() as {
-      StatusCode: number;
-      Data: {
-        Id: string | number;
-        Status: string;
-        Amount: number;
-        ClientMobile: string;
-        ReceiptUrl: string;
-        OrderNumber: string;
+    const data = (await res.json()) as {
+      StatusCode?: number;
+      Data?: {
+        Id?: string | number;
+        Status?: string;
+        Amount?: number;
+        ClientMobile?: string;
+        ReceiptUrl?: string;
+        OrderNumber?: string;
       };
     };
 
-    if (data.StatusCode !== 0) {
-      throw new Error(`KASPI_INVOICE_ERROR:${data.StatusCode}`);
+    if (data.StatusCode !== 0 || !data.Data) {
+      throw new Error(`KASPI_INVOICE_ERROR:${data.StatusCode ?? res.status}`);
     }
 
+    const d = data.Data;
     return {
-      id: data.Data.Id,
-      status: data.Data.Status,
-      amount: data.Data.Amount,
-      clientMobile: data.Data.ClientMobile,
-      receiptUrl: data.Data.ReceiptUrl,
-      orderNumber: data.Data.OrderNumber,
+      id: d.Id as string | number,
+      status: String(d.Status ?? ''),
+      amount: Number(d.Amount ?? 0),
+      clientMobile: String(d.ClientMobile ?? ''),
+      receiptUrl: String(d.ReceiptUrl ?? ''),
+      orderNumber: String(d.OrderNumber ?? ''),
     };
   }
 
-  async getInvoiceDetails(invoiceId: string): Promise<unknown> {
+  async getInvoiceDetails(operationId: string): Promise<unknown> {
     if (!this.auth) throw new Error('KASPI_NOT_AUTHENTICATED');
 
-    const res = await fetch(`${KASPI_API_BASE}/api/invoice/details`, {
-      method: 'POST',
+    const q = new URLSearchParams({ operationId: String(operationId) });
+    const res = await fetch(`${this.baseUrl()}/api/invoice/details?${q.toString()}`, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'X-Token-SN': this.auth.tokenSN,
         'X-Vtoken-Secret': this.auth.vtokenSecret,
-        'X-Profile-Id': String(this.auth.profileId),
+        ...(this.auth.profileId > 0 ? { 'X-Profile-Id': String(this.auth.profileId) } : {}),
       },
-      body: JSON.stringify({ id: invoiceId }),
     });
 
     return res.json();
@@ -168,13 +194,16 @@ export class KaspiPosService {
   async checkSession(): Promise<boolean> {
     if (!this.auth) return false;
     try {
-      const res = await fetch(`${KASPI_API_BASE}/api/session/check`, {
+      const res = await fetch(`${this.baseUrl()}/api/session/check`, {
+        method: 'GET',
         headers: {
           'X-Token-SN': this.auth.tokenSN,
           'X-Vtoken-Secret': this.auth.vtokenSecret,
         },
       });
-      return res.ok;
+      if (!res.ok) return false;
+      const j = (await res.json()) as { active?: boolean };
+      return j.active === true;
     } catch {
       return false;
     }

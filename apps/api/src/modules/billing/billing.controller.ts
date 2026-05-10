@@ -1,5 +1,16 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+  type RawBodyRequest,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { BillingService } from './billing.service';
 
@@ -29,6 +40,25 @@ export class BillingController {
     @Body('phoneNumber') phoneNumber: string,
   ) {
     return this.billingService.createKaspiCheckout(userId, planId, phoneNumber);
+  }
+
+  /** Вызов из kaspi-pos-automation (webhooks.json). Требуется `rawBody: true` в main.ts. */
+  @Post('kaspi/webhook')
+  kaspiWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-webhook-signature') signature: string | string[] | undefined,
+  ) {
+    const raw = req.rawBody;
+    if (!raw?.length) {
+      return { ok: false, reason: 'EMPTY_BODY' };
+    }
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(raw.toString('utf8')) as Record<string, unknown>;
+    } catch {
+      return { ok: false, reason: 'INVALID_JSON' };
+    }
+    return this.billingService.handleKaspiWebhook(raw, signature, payload);
   }
 
   @Post('freedompay/callback')

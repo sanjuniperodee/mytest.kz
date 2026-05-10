@@ -9,7 +9,9 @@ import { AppModule } from './app.module';
 import { I18nInterceptor } from './common/interceptors/i18n.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
 
   const uploadRoot = join(process.cwd(), 'uploads');
   if (!existsSync(uploadRoot)) {
