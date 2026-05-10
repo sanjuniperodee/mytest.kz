@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { BILLING_PLANS, ENT_TRIAL_LIMIT, type BillingPlan } from './billing.config';
 import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './freedompay-signature';
 import { AccessService } from '../subscriptions/access.service';
+import { KaspiPosService } from './kaspi-pos.service';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 
@@ -13,10 +14,49 @@ export class BillingService {
     private prisma: PrismaService,
     private config: ConfigService,
     private accessService: AccessService,
+    private kaspiPosService: KaspiPosService,
   ) {}
 
   getPlans() {
     return BILLING_PLANS;
+  }
+
+  async createKaspiCheckout(userId: string, planId: string, phoneNumber: string) {
+    const plan = BILLING_PLANS.find((p) => p.id === planId);
+    if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
+
+    const comment = `MyTest ${plan.name} - ${userId.slice(0, 8)}`;
+
+    let invoiceId: string;
+    let receiptUrl: string;
+    let orderNumber: string;
+
+    try {
+      const invoice = await this.kaspiPosService.createInvoice(phoneNumber, plan.priceKzt, comment);
+      invoiceId = String(invoice.id);
+      receiptUrl = invoice.receiptUrl;
+      orderNumber = invoice.orderNumber;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message === 'KASPI_NOT_AUTHENTICATED') {
+        throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
+      }
+      throw new BadRequestException(`KASPI_INVOICE_ERROR:${message}`);
+    }
+
+    await this.prisma.paymentOrder.create({
+      data: {
+        userId,
+        planCode: plan.id,
+        amount: plan.priceKzt,
+        providerOrderId: invoiceId,
+        checkoutUrl: receiptUrl,
+        status: 'pending',
+        providerPayload: { orderNumber, provider: 'kaspi' } as Record<string, unknown>,
+      },
+    });
+
+    return { invoiceId, receiptUrl, orderNumber };
   }
 
   getEntTrialStatus(entTrialUsed: number) {

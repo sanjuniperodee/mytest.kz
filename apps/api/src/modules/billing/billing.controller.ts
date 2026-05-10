@@ -21,6 +21,16 @@ export class BillingController {
     return this.billingService.createCheckout(userId, planId);
   }
 
+  @Post('kaspi/checkout')
+  @UseGuards(AuthGuard('jwt'))
+  createKaspiCheckout(
+    @CurrentUser('id') userId: string,
+    @Body('planId') planId: string,
+    @Body('phoneNumber') phoneNumber: string,
+  ) {
+    return this.billingService.createKaspiCheckout(userId, planId, phoneNumber);
+  }
+
   @Post('freedompay/callback')
   freedomPayCallback(@Body() payload: Record<string, unknown>) {
     return this.billingService.handleFreedomPayCallback(payload);
