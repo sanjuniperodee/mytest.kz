@@ -198,6 +198,7 @@ export class KaspiPosService implements OnModuleInit {
       StatusCode?: number;
       Data?: {
         Id?: string | number;
+        QrOperationId?: string | number;
         Status?: string;
         Amount?: number;
         ClientMobile?: string;
@@ -216,9 +217,11 @@ export class KaspiPosService implements OnModuleInit {
     }
 
     const d = data.Data;
-    this.logger.log(`Invoice created: id=${d.Id}, status=${d.Status}, receiptUrl=${d.ReceiptUrl}`);
+    // Prefer Id, fall back to QrOperationId (used when invoice is QR-based)
+    const invoiceId = d.Id != null ? String(d.Id) : String(d.QrOperationId ?? '');
+    this.logger.log(`Invoice created: id=${invoiceId}, status=${d.Status}, receiptUrl=${d.ReceiptUrl}`);
     return {
-      id: d.Id != null ? d.Id : `unknown-${text.slice(0, 50)}`,
+      id: invoiceId || `unknown-${text.slice(0, 50)}`,
       status: String(d.Status ?? ''),
       amount: Number(d.Amount ?? 0),
       clientMobile: String(d.ClientMobile ?? ''),
