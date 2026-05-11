@@ -15,4 +15,7 @@ apps/api/prisma/extracted-pdf/
 # Загруженные картинки к вопросам (локально)
 apps/api/uploads/
 
+# Отдельный frontend-проект, не часть основного git-репозитория
+/apps/web/
+
 .minimax

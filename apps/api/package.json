@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "prebuild": "prisma generate && npm -w @bilimland/shared run build",
+    "prebuild": "prisma generate && npm --prefix ../../packages/shared run build",
     "build": "nest build",
     "migrate:check-safe": "ts-node prisma/scripts/check-migrations-safe.ts",
     "migrate:deploy:safe": "npm run migrate:check-safe && prisma migrate deploy",
