@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="MyTest - probny ENT online">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#05070d"/>
+      <stop offset=".62" stop-color="#111827"/>
+      <stop offset="1" stop-color="#172033"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="90" y1="86" x2="1090" y2="544" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe18a"/>
+      <stop offset=".48" stop-color="#d6a533"/>
+      <stop offset="1" stop-color="#9b6b13"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="108" y1="142" x2="770" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#32e6d9"/>
+      <stop offset="1" stop-color="#7c6cff"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <path d="M0 515h1200v115H0z" fill="#080b13" opacity=".72"/>
+  <path d="M82 88h1036v454H82z" fill="none" stroke="url(#gold)" stroke-width="3" opacity=".38"/>
+  <path d="M112 118h976v394H112z" fill="none" stroke="#ffffff" stroke-width="1" opacity=".08"/>
+
+  <g opacity=".2" fill="none" stroke="url(#gold)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M74 92c28 0 50 22 50 50s-22 50-50 50M1126 92c-28 0-50 22-50 50s22 50 50 50"/>
+    <path d="M74 438c28 0 50 22 50 50s-22 50-50 50M1126 438c-28 0-50 22-50 50s22 50 50 50"/>
+    <path d="M236 88c0 30 24 54 54 54s54-24 54-54M856 88c0 30 24 54 54 54s54-24 54-54"/>
+    <path d="M236 542c0-30 24-54 54-54s54 24 54 54M856 542c0-30 24-54 54-54s54 24 54 54"/>
+  </g>
+
+  <g transform="translate(92 146)" filter="url(#softShadow)">
+    <rect width="148" height="148" rx="34" fill="#0b1020" stroke="url(#gold)" stroke-width="5"/>
+    <path d="M31 55c0-17 13-30 30-30 12 0 22 6 28 15 6-9 16-15 28-15 17 0 30 13 30 30 0 20-17 34-38 34H96v49H82V89H69c-21 0-38-14-38-34Z" fill="none" stroke="url(#gold)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M57 58c0-7 6-13 13-13s13 6 13 13v79H57V58Zm40 0c0-7 6-13 13-13s13 6 13 13v79H97V58Z" fill="url(#accent)"/>
+  </g>
+
+  <g transform="translate(284 168)">
+    <text x="0" y="66" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="76" font-weight="800" letter-spacing="0">MyTest</text>
+    <text x="2" y="126" fill="url(#gold)" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Probny ENT online</text>
+    <text x="2" y="178" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="500">120 voprosov · timer · razbor oshibok · orientir na grant</text>
+  </g>
+
+  <g transform="translate(96 504)">
+    <text x="0" y="0" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">2 besplatnye popytki</text>
+    <text x="350" y="0" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="600">my-test.kz</text>
+    <path d="M296-11h28" stroke="url(#gold)" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

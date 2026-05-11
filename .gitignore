@@ -5,6 +5,7 @@ dist/
 .turbo/
 *.log
 .DS_Store
+.idea/
 coverage/
 .next/
 *.tsbuildinfo
@@ -15,7 +16,7 @@ apps/api/prisma/extracted-pdf/
 # Загруженные картинки к вопросам (локально)
 apps/api/uploads/
 
-# Отдельный frontend-проект, не часть основного git-репозитория
-/apps/web/
+# Локальные mobile credentials
+/apps/mobile/keys/
 
 .minimax
