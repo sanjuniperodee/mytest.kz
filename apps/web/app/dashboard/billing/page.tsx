@@ -46,6 +46,58 @@ interface KaspiOrder {
     paidAt?: string | null
 }
 
+interface KaspiCheckoutResponse {
+    invoiceId?: string | number | null
+    providerOrderId?: string | number | null
+    orderId?: string | number | null
+    receiptUrl?: string | null
+    checkoutUrl?: string | null
+    data?: KaspiCheckoutResponse
+    Data?: {
+        Id?: string | number | null
+        ReceiptUrl?: string | null
+    }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function getString(value: unknown): string | null {
+    if (typeof value === "string" && value.trim()) return value.trim()
+    if (typeof value === "number" && Number.isFinite(value)) return String(value)
+    return null
+}
+
+function normalizeKaspiCheckoutResponse(value: unknown): {
+    invoiceId: string | null
+    receiptUrl: string | null
+} {
+    if (!isRecord(value)) return { invoiceId: null, receiptUrl: null }
+
+    const nested = isRecord(value.data) ? value.data : isRecord(value.Data) ? value.Data : null
+    const invoiceId =
+        getString(value.invoiceId) ||
+        getString(value.providerOrderId) ||
+        getString(value.orderId) ||
+        getString(nested?.invoiceId) ||
+        getString(nested?.providerOrderId) ||
+        getString(nested?.orderId) ||
+        getString(nested?.Id)
+    const receiptUrl =
+        getString(value.receiptUrl) ||
+        getString(value.checkoutUrl) ||
+        getString(nested?.receiptUrl) ||
+        getString(nested?.checkoutUrl) ||
+        getString(nested?.ReceiptUrl)
+
+    return { invoiceId, receiptUrl }
+}
+
+function resolveOrderInvoiceId(order: KaspiOrder): string | null {
+    return getString(order.invoiceId) || getString(order.providerOrderId)
+}
+
 function pickNumber(...values: unknown[]): number | null {
     for (const v of values) {
         if (typeof v === "number" && Number.isFinite(v)) return v
@@ -197,22 +249,27 @@ function PendingKaspiOrders({
                         Откройте счёт и оплатите его в приложении Kaspi. После оплаты доступ включится автоматически.
                     </p>
                 </div>
-                {orders.map((order) => (
-                    <div key={order.invoiceId} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="text-sm">
-                            <p className="font-medium">{order.planName}</p>
-                            <p className="text-muted-foreground">
-                                {order.amount.toLocaleString("ru-RU")} {order.currency}
-                            </p>
+                {orders.map((order) => {
+                    const invoiceId = resolveOrderInvoiceId(order)
+                    return (
+                        <div key={invoiceId || order.createdAt} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-sm">
+                                <p className="font-medium">{order.planName}</p>
+                                <p className="text-muted-foreground">
+                                    {order.amount.toLocaleString("ru-RU")} {order.currency}
+                                </p>
+                            </div>
+                            {invoiceId ? (
+                                <Button size="sm" asChild>
+                                    <Link href={`/dashboard/billing/kaspi/${encodeURIComponent(invoiceId)}`}>
+                                        Продолжить оплату
+                                        <ArrowRight className="size-4" />
+                                    </Link>
+                                </Button>
+                            ) : null}
                         </div>
-                        <Button size="sm" asChild>
-                            <Link href={`/dashboard/billing/kaspi/${encodeURIComponent(order.invoiceId)}`}>
-                                Продолжить оплату
-                                <ArrowRight className="size-4" />
-                            </Link>
-                        </Button>
-                    </div>
-                ))}
+                    )
+                })}
             </CardContent>
         </Card>
     )
@@ -252,7 +309,12 @@ function PlanCard({
 
     const onCheckout = async () => {
         if (pendingOrder) {
-            router.push(`/dashboard/billing/kaspi/${encodeURIComponent(pendingOrder.invoiceId)}`)
+            const invoiceId = resolveOrderInvoiceId(pendingOrder)
+            if (invoiceId) {
+                router.push(`/dashboard/billing/kaspi/${encodeURIComponent(invoiceId)}`)
+                return
+            }
+            setError("Не удалось открыть активный счёт. Обновите страницу и попробуйте ещё раз.")
             return
         }
         const userPhone = typeof user?.phone === "string" ? user.phone.trim() : ""
@@ -270,11 +332,16 @@ function PlanCard({
         setLoading(true)
         setError(null)
         try {
-            const result = await api<{ invoiceId: string; receiptUrl: string | null }>("/billing/kaspi/checkout", {
+            const rawResult = await api<KaspiCheckoutResponse>("/billing/kaspi/checkout", {
                 method: "POST",
                 body: { planId: plan.id, phoneNumber: digits },
             })
+            const result = normalizeKaspiCheckoutResponse(rawResult)
             await mutate("/billing/kaspi/orders/active")
+            if (!result.invoiceId) {
+                setError("Счёт создан, но сервер не вернул номер счёта. Обновите страницу и откройте его из блока активных счетов.")
+                return
+            }
             setShowModal(false)
             router.push(`/dashboard/billing/kaspi/${encodeURIComponent(result.invoiceId)}`)
         } catch (err: unknown) {
