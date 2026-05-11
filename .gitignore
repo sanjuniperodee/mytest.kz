@@ -2,9 +2,11 @@ node_modules/
 dist/
 .env
 .env.local
+.env.production
 .turbo/
 *.log
 .DS_Store
+._*
 .idea/
 coverage/
 .next/
@@ -16,7 +18,13 @@ apps/api/prisma/extracted-pdf/
 # Загруженные картинки к вопросам (локально)
 apps/api/uploads/
 
+# Локальные бэкапы БД на сервере
+apps/api/backups/db-snapshots/*.dump
+
 # Локальные mobile credentials
 /apps/mobile/keys/
+
+# Старый standalone web deploy, теперь используется apps/web
+/apps/mytest-v2/
 
 .minimax
