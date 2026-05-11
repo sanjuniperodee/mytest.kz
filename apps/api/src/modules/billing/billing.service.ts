@@ -411,6 +411,26 @@ export class BillingService {
     return order;
   }
 
+  async getActiveKaspiOrders(userId: string) {
+    const orders = await this.prisma.paymentOrder.findMany({
+      where: {
+        userId,
+        provider: 'kaspi',
+        status: 'pending',
+      },
+      select: {
+        id: true,
+        providerOrderId: true,
+        planCode: true,
+        amount: true,
+        checkoutUrl: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders;
+  }
+
   private resolveFreedomPayApiUrl() {
     const explicit = this.config.get<string>('FREEDOMPAY_API_URL');
     if (explicit) return explicit.replace(/\/+$/, '');

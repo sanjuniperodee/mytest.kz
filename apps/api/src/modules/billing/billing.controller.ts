@@ -104,4 +104,10 @@ export class BillingController {
   ) {
     return this.billingService.getOrder(userId, orderId);
   }
+
+  @Get('kaspi/orders/active')
+  @UseGuards(AuthGuard('jwt'))
+  getActiveKaspiOrders(@CurrentUser('id') userId: string) {
+    return this.billingService.getActiveKaspiOrders(userId);
+  }
 }
