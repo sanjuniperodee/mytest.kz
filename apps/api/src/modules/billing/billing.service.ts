@@ -76,6 +76,14 @@ export class BillingService {
     const plan = BILLING_PLANS.find((p) => p.id === planId);
     if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
 
+    // Block if user already has a pending Kaspi order for this plan
+    const pending = await this.prisma.paymentOrder.findFirst({
+      where: { userId, provider: 'kaspi', status: 'pending', planCode: plan.id },
+    });
+    if (pending) {
+      throw new BadRequestException('PENDING_ORDER_EXISTS');
+    }
+
     const normalized = normalizeKzPhone(phoneNumber || '');
     if (!normalized) {
       throw new BadRequestException('INVALID_PHONE');
