@@ -25,6 +25,7 @@ async function bootstrap() {
   );
   app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
+  app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/pub/' });
   app.setGlobalPrefix('api/v1');
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,https://my-test.kz,https://www.my-test.kz,https://admin.my-test.kz')
     .split(',')
