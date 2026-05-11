@@ -192,7 +192,9 @@ export class KaspiPosService implements OnModuleInit {
       }),
     });
 
-    const data = (await res.json()) as {
+    const text = await res.text();
+    this.logger.debug(`Invoice create raw response: ${text}`);
+    let data: {
       StatusCode?: number;
       Data?: {
         Id?: string | number;
@@ -203,14 +205,20 @@ export class KaspiPosService implements OnModuleInit {
         OrderNumber?: string;
       };
     };
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`KASPI_INVOICE_PARSE_ERROR:${text.slice(0, 200)}`);
+    }
 
     if (data.StatusCode !== 0 || !data.Data) {
       throw new Error(`KASPI_INVOICE_ERROR:${data.StatusCode ?? res.status}`);
     }
 
     const d = data.Data;
+    this.logger.log(`Invoice created: id=${d.Id}, status=${d.Status}, receiptUrl=${d.ReceiptUrl}`);
     return {
-      id: d.Id as string | number,
+      id: d.Id != null ? d.Id : `unknown-${text.slice(0, 50)}`,
       status: String(d.Status ?? ''),
       amount: Number(d.Amount ?? 0),
       clientMobile: String(d.ClientMobile ?? ''),
