@@ -104,8 +104,9 @@ export class BillingService {
       throw new BadRequestException(`KASPI_INVOICE_ERROR:${message}`);
     }
 
-    await this.prisma.paymentOrder.create({
-      data: {
+    await this.prisma.paymentOrder.upsert({
+      where: { providerOrderId: invoiceId },
+      create: {
         userId,
         planCode: plan.id,
         amount: plan.priceKzt,
@@ -114,6 +115,10 @@ export class BillingService {
         checkoutUrl: receiptUrl,
         status: 'pending',
         providerPayload: { orderNumber, provider: 'kaspi' },
+      },
+      update: {
+        status: 'pending',
+        checkoutUrl: receiptUrl,
       },
     });
 
