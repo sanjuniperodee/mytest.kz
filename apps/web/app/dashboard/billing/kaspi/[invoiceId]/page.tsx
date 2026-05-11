@@ -76,7 +76,8 @@ function statusView(status: PaymentOrder["status"]) {
 
 export default function KaspiPaymentPage() {
   const params = useParams<{ invoiceId: string }>()
-  const invoiceId = Array.isArray(params.invoiceId) ? params.invoiceId[0] : params.invoiceId
+  const rawInvoiceId = Array.isArray(params.invoiceId) ? params.invoiceId[0] : params.invoiceId
+  const invoiceId = rawInvoiceId && rawInvoiceId !== "undefined" && rawInvoiceId !== "null" ? rawInvoiceId : null
   const { refresh } = useAuth()
   const refreshedAfterPaid = useRef(false)
   const { data: order, isLoading, mutate, isValidating } = useSWR<PaymentOrder>(
@@ -93,6 +94,38 @@ export default function KaspiPaymentPage() {
       void refresh()
     }
   }, [order?.status, refresh])
+
+  if (!invoiceId) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <Link
+          href="/dashboard/billing"
+          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          <ArrowLeft className="size-4" />
+          Тарифы
+        </Link>
+        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+          <CardContent className="flex flex-col gap-4 p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80">
+                <Clock3 className="size-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Счёт не найден</h1>
+                <p className="mt-1 text-sm opacity-80">
+                  Вернитесь к тарифам: если счёт был выставлен, он появится в блоке активных счетов.
+                </p>
+              </div>
+            </div>
+            <Button asChild className="h-11 w-fit">
+              <Link href="/dashboard/billing">Открыть тарифы</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (isLoading || !order) {
     return (
