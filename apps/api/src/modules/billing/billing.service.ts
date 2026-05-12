@@ -926,6 +926,132 @@ export class BillingService {
     };
   }
 
+  async verifyAppleReceipt(userId: string, receiptData: string, requestedProductId?: string) {
+    const secret = this.config.get<string>('APPLE_IAP_SHARED_SECRET')?.trim();
+    if (!secret) throw new InternalServerErrorException('APPLE_IAP_NOT_CONFIGURED');
+    if (!receiptData?.trim()) throw new BadRequestException('RECEIPT_REQUIRED');
+
+    const verifyBody = {
+      'receipt-data': receiptData.trim(),
+      password: secret,
+      'exclude-old-transactions': true,
+    };
+
+    let response = await this.verifyAppleWithUrl('https://buy.itunes.apple.com/verifyReceipt', verifyBody);
+    if (response.status === 21007) {
+      response = await this.verifyAppleWithUrl('https://sandbox.itunes.apple.com/verifyReceipt', verifyBody);
+    }
+    if (response.status !== 0) {
+      throw new BadRequestException(`APPLE_RECEIPT_INVALID:${String(response.status)}`);
+    }
+
+    const receipt = asRecord(response.receipt);
+    const inAppRaw = Array.isArray(response.latest_receipt_info)
+      ? response.latest_receipt_info
+      : Array.isArray(receipt?.in_app)
+        ? receipt.in_app
+        : [];
+    const inApp = inAppRaw
+      .map((item) => asRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item));
+    if (!inApp.length) throw new BadRequestException('APPLE_RECEIPT_EMPTY');
+
+    const matched = requestedProductId
+      ? inApp.filter((item) => getString(item.product_id) === requestedProductId)
+      : inApp;
+    if (!matched.length) throw new BadRequestException('APPLE_PRODUCT_NOT_FOUND');
+
+    const selected = [...matched].sort((a, b) => {
+      const am = Number(getString(a.expires_date_ms) || getString(a.purchase_date_ms) || 0);
+      const bm = Number(getString(b.expires_date_ms) || getString(b.purchase_date_ms) || 0);
+      return bm - am;
+    })[0];
+
+    const productId = getString(selected.product_id);
+    const transactionId = getString(selected.transaction_id);
+    const originalTransactionId = getString(selected.original_transaction_id);
+    if (!productId || !transactionId) throw new BadRequestException('APPLE_TRANSACTION_INVALID');
+
+    const planId = this.mapAppleProductToPlan(productId);
+    const plan = BILLING_PLANS.find((p) => p.id === planId);
+    if (!plan) throw new BadRequestException('APPLE_PLAN_NOT_MAPPED');
+
+    const existingOrder = await this.prisma.paymentOrder.findFirst({
+      where: {
+        provider: 'apple_iap',
+        OR: [{ providerPaymentId: transactionId }, { providerOrderId: transactionId }],
+      },
+    });
+    if (existingOrder) return { ok: true, reused: true, planId };
+
+    const now = new Date();
+    const expiresMs = Number(getString(selected.expires_date_ms) || 0);
+    const expiresAt = Number.isFinite(expiresMs) && expiresMs > 0 ? new Date(expiresMs) : this.addDays(now, plan.durationDays);
+
+    const createdSubscription = await this.prisma.$transaction(async (tx) => {
+      await tx.paymentOrder.create({
+        data: {
+          userId,
+          planCode: plan.id,
+          amount: plan.priceKzt,
+          provider: 'apple_iap',
+          providerOrderId: transactionId,
+          providerPaymentId: transactionId,
+          status: 'paid',
+          paidAt: now,
+          providerPayload: {
+            provider: 'apple_iap',
+            productId,
+            transactionId,
+            originalTransactionId,
+            receipt: response,
+          } as Prisma.InputJsonObject,
+        },
+      });
+      return tx.subscription.create({
+        data: {
+          userId,
+          planType: plan.id,
+          startsAt: now,
+          expiresAt,
+          paymentNote: `AppleIAP:${productId}:${transactionId}`,
+        },
+      });
+    });
+    await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+
+    return { ok: true, reused: false, planId, expiresAt };
+  }
+
+  private mapAppleProductToPlan(productId: string): string {
+    const mappingRaw = this.config.get<string>('APPLE_IAP_PRODUCT_PLAN_MAP')?.trim();
+    if (mappingRaw) {
+      try {
+        const parsed = JSON.parse(mappingRaw) as Record<string, string>;
+        if (parsed[productId]) return parsed[productId];
+      } catch {
+        // no-op
+      }
+    }
+    const defaults: Record<string, string> = {
+      'com.sanjuniperodee.mobile.premium.trial': 'trial',
+      'com.sanjuniperodee.mobile.premium.week': 'week',
+      'com.sanjuniperodee.mobile.premium.month': 'month',
+      'com.sanjuniperodee.mobile.premium.annual': 'annual',
+    };
+    return defaults[productId] || '';
+  }
+
+  private async verifyAppleWithUrl(url: string, payload: Record<string, unknown>) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new BadRequestException(`APPLE_VERIFY_HTTP_${res.status}`);
+    return (await res.json()) as Record<string, unknown>;
+  }
+
   private resolveFreedomPayApiUrl() {
     const explicit = this.config.get<string>('FREEDOMPAY_API_URL');
     if (explicit) return explicit.replace(/\/+$/, '');

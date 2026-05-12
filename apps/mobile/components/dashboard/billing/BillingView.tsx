@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  Platform,
 } from "react-native"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,7 +36,7 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale, type UiLocale } from "@/lib/i18n/ui"
-import { isAppStoreReviewLikeUser } from "@/lib/review-account"
+import { APPLE_IAP_PRODUCTS, isAppleIapAvailable } from "@/lib/billing/apple-iap"
 
 function formatPrice(plan: NormalizedPlan, ui: UiLocale): string {
   if (plan.price == null) return "—"
@@ -72,10 +73,10 @@ function normalizeOrders(data: KaspiOrder[] | { items: KaspiOrder[] } | null | u
 export function BillingView() {
   const { colors } = useAppTheme()
   const { locale: ui } = useUiLocale()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const { isInKZ } = useLocation()
-  const isReviewLike = isAppStoreReviewLikeUser(user)
-  const hidePlans = !mayAccessKaspiCommerce(isInKZ) || isReviewLike
+  const canUseKaspi = mayAccessKaspiCommerce(isInKZ)
+  const useAppleIap = isAppleIapAvailable() && !canUseKaspi
   const { mutate: mutateGlobal } = useSWRConfig()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const { data, isLoading } = useSWR<BillingPlan[] | { items: BillingPlan[] }>("/billing/plans")
@@ -129,25 +130,16 @@ export function BillingView() {
         colors={colors}
       />
 
-      <PendingKaspiOrders
-        orders={pendingOrders}
-        isLoading={ordersLoading}
-        ui={ui}
-        onCancel={cancelOrder}
-      />
+      {canUseKaspi ? (
+        <PendingKaspiOrders
+          orders={pendingOrders}
+          isLoading={ordersLoading}
+          ui={ui}
+          onCancel={cancelOrder}
+        />
+      ) : null}
 
-      {hidePlans ? (
-        <Card>
-          <View style={styles.footerRow}>
-            <View style={[styles.footerIcon, { backgroundColor: colors.secondary }]}>
-              <MaterialCommunityIcons name="information-outline" size={20} color={colors.foreground} />
-            </View>
-            <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
-              {t("billIosNotice", ui)}
-            </Text>
-          </View>
-        </Card>
-      ) : isLoading ? (
+      {isLoading ? (
         <View style={[styles.skelGrid, { gap: 12 }]}>
           {Array.from({ length: 4 }).map((_, i) => (
             <View key={i} style={[styles.skelCard, { backgroundColor: colors.card }]} />
@@ -174,6 +166,8 @@ export function BillingView() {
               }
               pendingOrder={pendingOrders.find((o) => o.planCode === plan.id)}
               onOrderChanged={() => void mutateGlobal("/billing/kaspi/orders/active")}
+              onRefreshUser={() => void refresh()}
+              useAppleIap={useAppleIap}
               colors={colors}
             />
           ))}
@@ -309,6 +303,8 @@ function PlanCard({
   user,
   locale,
   onOrderChanged,
+  onRefreshUser,
+  useAppleIap,
   colors,
   ui,
 }: {
@@ -319,6 +315,8 @@ function PlanCard({
   user: User | null
   locale: Locale
   onOrderChanged: () => void
+  onRefreshUser: () => void
+  useAppleIap: boolean
   colors: ThemeColors
   ui: UiLocale
 }) {
@@ -328,6 +326,10 @@ function PlanCard({
   const [error, setError] = useState<string | null>(null)
 
   const onCheckout = () => {
+    if (useAppleIap) {
+      void handleAppleCheckout()
+      return
+    }
     if (pendingOrder) {
       const invoiceId = resolveOrderInvoiceId(pendingOrder)
       if (invoiceId) {
@@ -343,6 +345,44 @@ function PlanCard({
     setPhone(userPhone)
     setError(null)
     setShowModal(true)
+  }
+
+  const handleAppleCheckout = async () => {
+    const productId = APPLE_IAP_PRODUCTS[plan.id]
+    if (!productId) {
+      setError(ui === "kk" ? "Бұл тариф App Store үшін бапталмаған" : "Этот тариф не настроен для App Store")
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const IAP = await import("react-native-iap")
+      await IAP.initConnection()
+      const purchase = await IAP.requestSubscription({ sku: productId } as never)
+      const first = Array.isArray(purchase) ? purchase[0] : purchase
+      const receiptData =
+        (first as any)?.transactionReceipt ||
+        (first as any)?.transactionReceiptIOS ||
+        (first as any)?.originalJson
+      if (!receiptData) {
+        throw new Error("IAP_RECEIPT_MISSING")
+      }
+
+      await api("/billing/apple/verify-receipt", {
+        method: "POST",
+        body: { receiptData, productId },
+      })
+      await IAP.finishTransaction({ purchase: first, isConsumable: false } as never)
+      onRefreshUser()
+      Alert.alert(ui === "kk" ? "Дайын" : "Готово", ui === "kk" ? "Premium қосылды" : "Premium подключён")
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : String(err)
+      if (!message.includes("E_USER_CANCELLED")) {
+        setError(ui === "kk" ? "Сатып алу сәтсіз аяқталды. Қайта көріңіз." : "Покупка не завершена. Попробуйте снова.")
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleKaspiCheckout = async () => {
@@ -498,6 +538,8 @@ function PlanCard({
           <Button variant={highlighted ? "primary" : "outline"} disabled={current} onPress={onCheckout}>
             {current
               ? t("billCurrentTariff", ui)
+              : useAppleIap
+                ? (ui === "kk" ? "App Store арқылы алу" : "Купить через App Store")
               : pendingOrder
                 ? (ui === "kk" ? "Төлемді жалғастыру" : "Продолжить оплату")
                 : t("billCheckout", ui)}

@@ -7,14 +7,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { router, usePathname } from "expo-router"
 import { useAuth } from "@/lib/api/auth-context"
 import { resolveMediaUrl } from "@/lib/api/client"
-import { useLocation } from "@/lib/location"
 import type { SessionListItem } from "@/lib/api/types"
 import { useTopInset } from "@/lib/use-top-inset"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { fonts } from "@/lib/theme/fonts"
-import { mayAccessKaspiCommerce } from "@/lib/billing-region"
 import { useUiLocale, t } from "@/lib/i18n/ui"
-import { isAppStoreReviewLikeUser } from "@/lib/review-account"
 import { useAppTheme } from "@/lib/theme/provider"
 
 /** Порядок як у веб DashboardShell + «Динамика ЕНТ» після лідерборду. */
@@ -37,7 +34,6 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
   const topInset = useTopInset()
   const { colors, resolved } = useAppTheme()
   const { user, signOut } = useAuth()
-  const { isInKZ } = useLocation()
   const { locale: uiLocale, setLocale } = useUiLocale()
   const pathname = usePathname()
   const navLocale = ((user?.preferredLanguage as Locale) || uiLocale || "ru") as Locale
@@ -172,11 +168,7 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
       ) : null}
 
       <View style={styles.nav}>
-        {ROUTES.filter((r) => {
-          if (r.href === "/dashboard/billing" && (!mayAccessKaspiCommerce(isInKZ) || isAppStoreReviewLikeUser(user)))
-            return false
-          return true
-        }).map((item) => {
+        {ROUTES.map((item) => {
           const label = t(item.labelKey, uiLocale)
           const focused =
             item.href === "/dashboard"

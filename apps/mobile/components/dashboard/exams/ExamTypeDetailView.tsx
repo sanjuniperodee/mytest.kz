@@ -28,10 +28,7 @@ import {
 import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
-import { mayAccessKaspiCommerce } from "@/lib/billing-region"
 import { t as tr, useUiLocale, type UiLocale } from "@/lib/i18n/ui"
-import { useLocation } from "@/lib/location"
-import { isAppStoreReviewLikeUser } from "@/lib/review-account"
 
 function entModePreview(
   mode: "mandatory" | "profile" | "full",
@@ -137,7 +134,6 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
   const { colors } = useAppTheme()
   const { width: winW } = useWindowDimensions()
   const { user } = useAuth()
-  const { isInKZ } = useLocation()
   const { locale: ui } = useUiLocale()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
 
@@ -242,28 +238,12 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
       router.push(`/exam/${session.id}`)
     } catch (err) {
       const message = err instanceof ApiError ? err.message : ""
-      if (
-        message === "TRIAL_LIMIT_EXCEEDED" ||
-        message === "TOTAL_LIMIT_EXHAUSTED" ||
-        message === "NO_ENTITLEMENT"
-      ) {
-        if (isAppStoreReviewLikeUser(user)) {
-          router.push("/dashboard/ent-limit-reached?kind=total" as never)
-        } else if (mayAccessKaspiCommerce(isInKZ)) {
-          router.push("/dashboard/billing?reason=limit_exhausted")
-        } else {
-          router.replace("/dashboard")
-        }
+      if (message === "TRIAL_LIMIT_EXCEEDED" || message === "TOTAL_LIMIT_EXHAUSTED" || message === "NO_ENTITLEMENT") {
+        router.push("/dashboard/billing?reason=limit_exhausted")
         return
       }
       if (message === "DAILY_LIMIT_REACHED") {
-        if (isAppStoreReviewLikeUser(user)) {
-          router.push("/dashboard/ent-limit-reached?kind=daily" as never)
-        } else if (mayAccessKaspiCommerce(isInKZ)) {
-          router.push("/dashboard/billing?reason=daily_limit")
-        } else {
-          router.replace("/dashboard")
-        }
+        router.push("/dashboard/billing?reason=daily_limit")
         return
       }
       Alert.alert(tr("examAlertErrorTitle", ui), message || tr("examAlertStartFail", ui))

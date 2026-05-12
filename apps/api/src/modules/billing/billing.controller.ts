@@ -119,4 +119,14 @@ export class BillingController {
   ) {
     return this.billingService.cancelKaspiOrder(userId, orderId);
   }
+
+  @Post('apple/verify-receipt')
+  @UseGuards(AuthGuard('jwt'))
+  verifyAppleReceipt(
+    @CurrentUser('id') userId: string,
+    @Body('receiptData') receiptData: string,
+    @Body('productId') productId?: string,
+  ) {
+    return this.billingService.verifyAppleReceipt(userId, receiptData, productId);
+  }
 }

@@ -8,15 +8,11 @@ import { useAuth } from "@/lib/api/auth-context"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale } from "@/lib/i18n/ui"
-import { mayAccessKaspiCommerce } from "@/lib/billing-region"
-import { useLocation } from "@/lib/location"
-import { isAppStoreReviewLikeUser } from "@/lib/review-account"
 
 export default function EntLimitReachedScreen() {
   const { colors } = useAppTheme()
   const { locale: ui } = useUiLocale()
   const { user } = useAuth()
-  const { isInKZ } = useLocation()
   const params = useLocalSearchParams<{ kind?: string | string[] }>()
   const rawKind = params.kind
   const kind = Array.isArray(rawKind) ? rawKind[0] : rawKind
@@ -24,16 +20,8 @@ export default function EntLimitReachedScreen() {
 
   useEffect(() => {
     if (!user) return
-    if (!isAppStoreReviewLikeUser(user)) {
-      if (mayAccessKaspiCommerce(isInKZ)) {
-        router.replace(
-          isDaily ? "/dashboard/billing?reason=daily_limit" : "/dashboard/billing?reason=limit_exhausted",
-        )
-      } else {
-        router.replace("/dashboard")
-      }
-    }
-  }, [user, isDaily, isInKZ])
+    router.replace(isDaily ? "/dashboard/billing?reason=daily_limit" : "/dashboard/billing?reason=limit_exhausted")
+  }, [user, isDaily])
 
   const title = isDaily ? t("entLimitTitleDaily", ui) : t("entLimitTitleTotal", ui)
   const body = isDaily ? t("entLimitBodyDaily", ui) : t("entLimitBodyTotal", ui)

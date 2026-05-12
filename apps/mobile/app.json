@@ -44,6 +44,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "react-native-iap",
       [
         "expo-location",
         {

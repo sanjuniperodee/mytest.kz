@@ -65,8 +65,9 @@ function paymentStatusKind(status: unknown): PaymentStatusKind {
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return ""
-  return new Date(value).toLocaleString("ru-RU", {
+  const parsed = parseTimestamp(value)
+  if (parsed == null) return ""
+  return new Date(parsed).toLocaleString("ru-RU", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -74,9 +75,25 @@ function formatDateTime(value: string | null | undefined) {
   })
 }
 
+function parseTimestamp(value: string | null | undefined): number | null {
+  if (!value) return null
+  const raw = value.trim()
+  if (!raw) return null
+
+  const direct = Date.parse(raw)
+  if (!Number.isNaN(direct)) return direct
+
+  const withUtc = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? raw : `${raw}Z`
+  const asUtc = Date.parse(withUtc)
+  if (!Number.isNaN(asUtc)) return asUtc
+
+  return null
+}
+
 function formatTimeLeft(target: string | null | undefined, nowMs: number) {
-  if (!target) return null
-  const diffMs = new Date(target).getTime() - nowMs
+  const targetMs = parseTimestamp(target)
+  if (targetMs == null) return null
+  const diffMs = targetMs - nowMs
   if (!Number.isFinite(diffMs)) return null
   if (diffMs <= 0) return "Истёк"
   const totalSeconds = Math.floor(diffMs / 1000)
@@ -147,7 +164,7 @@ export default function KaspiPaymentPage() {
 
   useEffect(() => {
     if (!order?.expiresAt || paymentStatusKind(order.status) !== "pending") return
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
+    const timer = window.setInterval(() => setNowMs((prev) => prev + 1000), 1000)
     return () => window.clearInterval(timer)
   }, [order?.expiresAt, order?.status])
 
