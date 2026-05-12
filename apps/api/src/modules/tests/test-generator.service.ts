@@ -64,7 +64,7 @@ export class TestGeneratorService {
     const includeTemplateSections = !entScope || entScope !== 'profile';
     if (includeTemplateSections) {
       for (const section of template.sections) {
-        const questionIds =
+        let questionIds =
           strictEntFull && section.subject?.slug === 'history_kz'
             ? await this.selectStrictEntHistoryQuestions(
                 section.subjectId,
@@ -79,6 +79,15 @@ export class TestGeneratorService {
                 language,
                 strictEntFull,
               );
+        if (strictEntFull && questionIds.length < section.questionCount) {
+          questionIds = await this.padSubjectQuestionIds(
+            section.subjectId,
+            questionIds,
+            section.questionCount,
+            userId,
+            language,
+          );
+        }
         if (strictEntFull && questionIds.length !== section.questionCount) {
           throw new BadRequestException(
             `ENT full question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
@@ -106,7 +115,7 @@ export class TestGeneratorService {
         const subjectId = profileSubjectIds![i];
         if (sections.some((s) => s.subjectId === subjectId)) continue;
 
-        const questionIds = strictEntFull
+        let questionIds = strictEntFull
           ? await this.selectStrictEntProfileQuestions(subjectId, userId, language)
           : await this.selectQuestions(
               subjectId,
@@ -116,6 +125,15 @@ export class TestGeneratorService {
               language,
               false,
             );
+        if (strictEntFull && questionIds.length < profileQuestionCount) {
+          questionIds = await this.padSubjectQuestionIds(
+            subjectId,
+            questionIds,
+            profileQuestionCount,
+            userId,
+            language,
+          );
+        }
         if (strictEntFull && questionIds.length !== profileQuestionCount) {
           throw new BadRequestException(
             `ENT full question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
@@ -179,6 +197,47 @@ export class TestGeneratorService {
       return selected;
     }
     return fallbackSelected;
+  }
+
+  /** Добирает вопросы того же предмета до targetCount (строгий отбор уже взял часть пула). */
+  private async padSubjectQuestionIds(
+    subjectId: string,
+    selectedIds: string[],
+    targetCount: number,
+    userId?: string,
+    language?: string,
+  ): Promise<string[]> {
+    if (selectedIds.length >= targetCount) return selectedIds;
+    const used = new Set(selectedIds);
+    const collectIds = async (withLocaleFilter: boolean) => {
+      const localeWhere =
+        withLocaleFilter && language ? questionWhereForTestLanguage(language) : null;
+      const rows = await this.prisma.question.findMany({
+        where: {
+          AND: localeWhere
+            ? [{ subjectId }, { isActive: true }, localeWhere]
+            : [{ subjectId }, { isActive: true }],
+        },
+        select: { id: true },
+      });
+      return rows.map((r) => r.id).filter((id) => !used.has(id));
+    };
+
+    let pool = await collectIds(true);
+    if (pool.length < targetCount - selectedIds.length && language) {
+      const more = await collectIds(false);
+      const seen = new Set(pool);
+      for (const id of more) {
+        if (!seen.has(id)) {
+          pool.push(id);
+          seen.add(id);
+        }
+      }
+    }
+
+    const ordered = await this.orderWithFreshFirst(pool, userId);
+    const need = targetCount - selectedIds.length;
+    return [...selectedIds, ...ordered.slice(0, need)];
   }
 
   /**

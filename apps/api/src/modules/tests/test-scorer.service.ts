@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { ENT_CONFIG, earnEntQuestionPoints } from '@bilimland/shared';
+import {
+  ENT_CONFIG,
+  earnEntQuestionPoints,
+  getEntProfileIntrinsicMaxPoints,
+} from '@bilimland/shared';
 
 export interface SectionScore {
   subjectId: string;
@@ -178,7 +182,12 @@ export class TestScorerService {
       const wMax =
         entWeightedActive && pos
           ? strictEntFullActive
-            ? entStrictFullMaxPoints(pos)
+            ? pos.isMandatory
+              ? entStrictFullMaxPoints(pos)
+              : Math.min(
+                  entStrictFullMaxPoints(pos),
+                  getEntProfileIntrinsicMaxPoints(answer.question.answerOptions),
+                )
             : entMaxPointsForPlacement(pos, qSw)
           : 1;
 

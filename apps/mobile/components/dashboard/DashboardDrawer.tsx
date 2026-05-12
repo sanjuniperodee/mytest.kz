@@ -10,19 +10,24 @@ import { resolveMediaUrl } from "@/lib/api/client"
 import type { SessionListItem } from "@/lib/api/types"
 import { useTopInset } from "@/lib/use-top-inset"
 import { localize, type Locale } from "@/lib/api/i18n"
+import { fonts } from "@/lib/theme/fonts"
 import { useUiLocale, t } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 
 /** Порядок як у веб DashboardShell + «Динамика ЕНТ» після лідерборду. */
-const ROUTES: { href: `/dashboard${string}`; labelKey: string }[] = [
-  { href: "/dashboard", labelKey: "overview" },
-  { href: "/dashboard/exams", labelKey: "exams" },
-  { href: "/dashboard/mistakes", labelKey: "mistakes" },
-  { href: "/dashboard/admission", labelKey: "admission" },
-  { href: "/dashboard/leaderboard", labelKey: "leaderboard" },
-  { href: "/dashboard/stats", labelKey: "stats" },
-  { href: "/dashboard/billing", labelKey: "billing" },
-  { href: "/dashboard/profile", labelKey: "profile" },
+const ROUTES: {
+  href: `/dashboard${string}`
+  labelKey: string
+  icon: keyof typeof MaterialCommunityIcons.glyphMap
+}[] = [
+  { href: "/dashboard", labelKey: "overview", icon: "view-grid-outline" },
+  { href: "/dashboard/exams", labelKey: "exams", icon: "book-open-page-variant-outline" },
+  { href: "/dashboard/mistakes", labelKey: "mistakes", icon: "target" },
+  { href: "/dashboard/admission", labelKey: "admission", icon: "school-outline" },
+  { href: "/dashboard/leaderboard", labelKey: "leaderboard", icon: "trophy-outline" },
+  { href: "/dashboard/stats", labelKey: "stats", icon: "chart-line" },
+  { href: "/dashboard/billing", labelKey: "billing", icon: "credit-card-outline" },
+  { href: "/dashboard/profile", labelKey: "profile", icon: "account-circle-outline" },
 ]
 
 export function DashboardDrawerContent(props: DrawerContentComponentProps) {
@@ -65,15 +70,59 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
       ]}
     >
       <View style={[styles.brand, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.brandText, { color: colors.foreground }]}>mytest</Text>
         <Pressable
-          onPress={cycleUiLang}
-          style={[styles.langChip, { borderColor: colors.border }]}
+          onPress={() => {
+            router.push("/dashboard")
+            props.navigation.closeDrawer()
+          }}
+          style={styles.brandRow}
         >
-          <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-            {t("language", uiLocale)} · {uiLocale.toUpperCase()}
-          </Text>
+          <View style={[styles.brandMark, { backgroundColor: colors.foreground }]}>
+            <MaterialCommunityIcons
+              name="star-four-points-small"
+              size={18}
+              color={colors.background}
+            />
+          </View>
+          <View style={styles.brandCopy}>
+            <Text style={[styles.brandText, { color: colors.foreground }]}>mytest</Text>
+            <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>
+              my-test.kz
+            </Text>
+          </View>
         </Pressable>
+
+        <View
+          style={[
+            styles.langSwitch,
+            { borderColor: colors.border, backgroundColor: colors.secondary },
+          ]}
+        >
+          {(["ru", "kk"] as const).map((lang) => {
+            const active = uiLocale === lang
+            return (
+              <Pressable
+                key={lang}
+                onPress={() => {
+                  if (!active) cycleUiLang()
+                }}
+                style={[
+                  styles.langOption,
+                  active ? { backgroundColor: colors.foreground } : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.langOptionText,
+                    { color: active ? colors.background : colors.foreground },
+                  ]}
+                >
+                  {lang.toUpperCase()}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </View>
       </View>
 
       {currentSession ? (
@@ -134,9 +183,26 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
               }}
               style={[
                 styles.navRow,
-                focused ? { backgroundColor: colors.foreground } : null,
+                {
+                  backgroundColor: focused ? colors.foreground : "transparent",
+                  borderColor: focused ? colors.foreground : "transparent",
+                },
               ]}
             >
+              <View
+                style={[
+                  styles.navIconWrap,
+                  {
+                    backgroundColor: focused ? `${colors.background}22` : colors.secondary,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={item.icon}
+                  size={18}
+                  color={focused ? colors.background : colors.foreground}
+                />
+              </View>
               <Text
                 style={[
                   styles.navLabel,
@@ -145,6 +211,11 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
               >
                 {label}
               </Text>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={18}
+                color={focused ? colors.background : colors.mutedForeground}
+              />
             </Pressable>
           )
         })}
@@ -152,7 +223,13 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
 
       <View style={[styles.footer, { borderTopColor: colors.border }]}>
         <Pressable
-          style={styles.profileRow}
+          style={[
+            styles.profileRow,
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.secondary,
+            },
+          ]}
           onPress={() => {
             router.push("/dashboard/profile")
             props.navigation.closeDrawer()
@@ -176,6 +253,7 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
               {user?.phone || user?.telegramUsername || ""}
             </Text>
           </View>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.mutedForeground} />
         </Pressable>
 
         <Pressable
@@ -184,8 +262,9 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
             props.navigation.closeDrawer()
             router.replace("/landing")
           }}
-          style={styles.logout}
+          style={[styles.logout, { backgroundColor: colors.secondary }]}
         >
+          <MaterialCommunityIcons name="logout" size={18} color={colors.mutedForeground} />
           <Text style={{ color: colors.mutedForeground, fontWeight: "600" }}>
             {t("logout", uiLocale)}
           </Text>
@@ -204,20 +283,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 10,
+    gap: 14,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  brandMark: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandCopy: {
+    flex: 1,
   },
   brandText: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.sansSemi,
     letterSpacing: -0.5,
     textTransform: "lowercase",
   },
-  langChip: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+  brandSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  langSwitch: {
+    flexDirection: "row",
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
+    padding: 4,
+    gap: 4,
+  },
+  langOption: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  langOptionText: {
+    fontSize: 13,
+    fontFamily: fonts.sansSemi,
   },
   nav: {
     paddingVertical: 8,
@@ -225,13 +334,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   navRow: {
+    minHeight: 52,
     borderRadius: 10,
-    paddingVertical: 12,
     paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  navIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   navLabel: {
+    flex: 1,
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sansSemi,
   },
   footer: {
     marginTop: "auto",
@@ -247,6 +368,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   avatar: {
     width: 40,
@@ -269,8 +391,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   logout: {
+    minHeight: 44,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   currentExamCard: {
     marginHorizontal: 12,

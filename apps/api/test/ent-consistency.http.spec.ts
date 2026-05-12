@@ -49,21 +49,82 @@ function buildEntFullSessionForScoring(params?: {
   for (const sec of ENT_FULL_SECTIONS) {
     const ids = makeQuestionIds(sec.subjectId, sec.questionCount);
     questionIdsBySubject.set(sec.subjectId, ids);
-    for (const qid of ids) {
+    for (let idx = 0; idx < ids.length; idx++) {
+      const qid = ids[idx];
+      const indexInSection = idx + 1;
       questionOrder.push(qid);
       const shouldBeCorrect =
         params?.allCorrect === true || (params?.correctQuestionIds?.has(qid) ?? false);
+
+      let answerOptions: Array<{ id: string; isCorrect: boolean }>;
+      let selectedIds: string[];
+      if (!sec.isMandatory) {
+        if (indexInSection <= ENT_CONFIG.profileTier1Count) {
+          answerOptions = [
+            { id: `opt-${qid}`, isCorrect: true },
+            ...Array.from({ length: ENT_CONFIG.profileTier1OptionCount - 1 }, (_, i) => ({
+              id: `wrong-${qid}-${i}`,
+              isCorrect: false,
+            })),
+          ];
+          selectedIds = shouldBeCorrect ? [answerOptions[0].id] : [];
+        } else if (indexInSection <= ENT_CONFIG.profileTier1Count + ENT_CONFIG.profileTier2ACount) {
+          answerOptions = [
+            ...Array.from({ length: ENT_CONFIG.profileTier2ACorrectCount }, (_, i) => ({
+              id: `opt-${qid}-${i}`,
+              isCorrect: true,
+            })),
+            ...Array.from(
+              {
+                length:
+                  ENT_CONFIG.profileTier2AOptionCount - ENT_CONFIG.profileTier2ACorrectCount,
+              },
+              (_, i) => ({
+                id: `wrong-${qid}-a-${i}`,
+                isCorrect: false,
+              }),
+            ),
+          ];
+          selectedIds = shouldBeCorrect
+            ? answerOptions.filter((o) => o.isCorrect).map((o) => o.id)
+            : [];
+        } else {
+          answerOptions = [
+            ...Array.from({ length: ENT_CONFIG.profileTier2BCorrectCount }, (_, i) => ({
+              id: `opt-${qid}-b-${i}`,
+              isCorrect: true,
+            })),
+            ...Array.from(
+              {
+                length:
+                  ENT_CONFIG.profileTier2BOptionCount - ENT_CONFIG.profileTier2BCorrectCount,
+              },
+              (_, i) => ({
+                id: `wrong-${qid}-b-${i}`,
+                isCorrect: false,
+              }),
+            ),
+          ];
+          selectedIds = shouldBeCorrect
+            ? answerOptions.filter((o) => o.isCorrect).map((o) => o.id)
+            : [];
+        }
+      } else {
+        answerOptions = [
+          { id: `opt-${qid}`, isCorrect: true },
+          { id: `wrong-${qid}`, isCorrect: false },
+        ];
+        selectedIds = shouldBeCorrect ? [`opt-${qid}`] : [];
+      }
+
       answers.push({
         id: `ans-${qid}`,
         questionId: qid,
-        selectedIds: shouldBeCorrect ? [`opt-${qid}`] : [],
+        selectedIds,
         question: {
           subjectId: sec.subjectId,
           scoreWeight: sec.isMandatory ? null : 5,
-          answerOptions: [
-            { id: `opt-${qid}`, isCorrect: true },
-            { id: `wrong-${qid}`, isCorrect: false },
-          ],
+          answerOptions,
           subject: {
             id: sec.subjectId,
             name: sec.slug,
@@ -371,6 +432,13 @@ describe('ENT 120/140 consistency', () => {
           metadata: built.session.metadata,
         }),
       },
+      question: {
+        findUnique: jest.fn().mockResolvedValue({
+          answerOptions: Array.from({ length: ENT_CONFIG.profileTier2AOptionCount }, (_, i) => ({
+            isCorrect: i < ENT_CONFIG.profileTier2ACorrectCount,
+          })),
+        }),
+      },
       testAnswer: {
         findFirst: jest.fn(),
       },
@@ -387,6 +455,120 @@ describe('ENT 120/140 consistency', () => {
       service.submitAnswer('session-1', 'user-1', tier2AId, ['a', 'b', 'c']),
     ).rejects.toThrow('MAX_SELECTIONS_EXCEEDED:2');
     expect(prismaMock.testAnswer.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('pads ENT full profile subject when tier-2 pools are empty', async () => {
+    const tier1Only = Array.from({ length: 50 }, (_, i) => ({
+      id: `p1-r${i + 1}`,
+      answerOptions: makeAnswerOptions(4, 1),
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(tier1Only),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(new Set(result[0].questionIds).size).toBe(ENT_CONFIG.profileQuestionsPerSubject);
+  });
+
+  it('pads Kazakhstan history ENT full when strict pools yield fewer than 20', async () => {
+    const noText = Array.from({ length: 15 }, (_, i) => ({
+      id: `history-no-text-${i + 1}`,
+      content: { text: `${i + 1}) Қарапайым сұрақ` },
+    }));
+    const withText = Array.from({ length: 5 }, (_, i) => ({
+      id: `history-text-${i + 1}`,
+      content: { text: `${i + 11}) ТЕКСТ: Исторический материал. Вопрос:` },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: 20,
+              selectionMode: 'random',
+              sortOrder: 1,
+              profileHeavyFrom: null,
+              subject: { slug: 'history_kz', isMandatory: true },
+            },
+          ],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...noText, ...withText]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(20);
+    expect(new Set(result[0].questionIds).size).toBe(20);
+  });
+
+  it('caps max points when profile question 31 is tier-1 shaped (padded bank)', async () => {
+    const prismaMock = {
+      testSession: {
+        findUnique: jest.fn(),
+      },
+      testAnswer: {
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    } as any;
+    const scorer = new TestScorerService(prismaMock);
+
+    const built = buildEntFullSessionForScoring({ allCorrect: true });
+    const profile1Ids = built.questionIdsBySubject.get('profile-1')!;
+    const slot31Id = profile1Ids[30];
+    const ans = built.session.answers.find((a: any) => a.questionId === slot31Id)!;
+    ans.question.answerOptions = [
+      { id: `opt-${slot31Id}`, isCorrect: true },
+      ...Array.from({ length: ENT_CONFIG.profileTier1OptionCount - 1 }, (_, i) => ({
+        id: `w-${slot31Id}-${i}`,
+        isCorrect: false,
+      })),
+    ];
+    ans.selectedIds = [`opt-${slot31Id}`];
+    prismaMock.testSession.findUnique.mockResolvedValue(built.session);
+
+    const result = await scorer.calculateScore('ent-full-session');
+
+    expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints - 1);
+    expect(result.rawScore).toBe(ENT_CONFIG.maxTotalPoints - 1);
   });
 
   it('rejects unsupported ENT profile subject pairs before consuming an attempt', async () => {

@@ -3,7 +3,11 @@ import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
-import { ENT_CONFIG, isEntProfileSubjectPairAllowed } from '@bilimland/shared';
+import {
+  ENT_CONFIG,
+  clampEntProfileHeavySlotSelections,
+  isEntProfileSubjectPairAllowed,
+} from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
 @Injectable()
@@ -367,10 +371,16 @@ export class TestSessionService {
 
     if (!session) throw new BadRequestException('Session not available');
 
-    const maxSelections = this.getEntFullProfileMaxSelections(
-      session.metadata,
-      questionId,
-    );
+    const slotCap = this.getEntFullProfileSlotSelectionCap(session.metadata, questionId);
+    let maxSelections: number | null = slotCap;
+    if (slotCap !== null) {
+      const q = await this.prisma.question.findUnique({
+        where: { id: questionId },
+        select: { answerOptions: { select: { isCorrect: true } } },
+      });
+      const opts = q?.answerOptions ?? [];
+      maxSelections = clampEntProfileHeavySlotSelections(slotCap, opts);
+    }
     if (maxSelections !== null && selectedIds.length > maxSelections) {
       throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
     }
@@ -696,7 +706,8 @@ export class TestSessionService {
     }
   }
 
-  private getEntFullProfileMaxSelections(
+  /** Лимит слота 31–40 по позиции (2 или 3), без учёта фактического числа верных у вопроса. */
+  private getEntFullProfileSlotSelectionCap(
     metadata: unknown,
     questionId: string,
   ): number | null {

@@ -61,3 +61,46 @@ export function getEntProfileMaxSelections(opts: {
   if (rel0 < ENT_CONFIG.profileTier2ACount) return ENT_CONFIG.profileTier2ACorrectCount;
   return ENT_CONFIG.profileTier2BCorrectCount;
 }
+
+/**
+ * Верхняя граница веса вопроса по структуре ответов (независимо от позиции в варианте).
+ * Нужна при доборе вопросов из банка: слот 31–40 не должен давать 2 балла за типичный 4×1.
+ */
+export function getEntProfileIntrinsicMaxPoints(
+  answerOptions: ReadonlyArray<{ isCorrect: boolean }>,
+): number {
+  const n = answerOptions.length;
+  const c = answerOptions.filter((o) => o.isCorrect).length;
+  if (
+    n === ENT_CONFIG.profileTier1OptionCount &&
+    c === ENT_CONFIG.profileTier1CorrectCount
+  ) {
+    return ENT_CONFIG.profileTier1Points;
+  }
+  if (
+    n === ENT_CONFIG.profileTier2AOptionCount &&
+    c >= 1 &&
+    c <= ENT_CONFIG.profileTier2ACorrectCount
+  ) {
+    return ENT_CONFIG.profileTier2Points;
+  }
+  if (
+    n === ENT_CONFIG.profileTier2BOptionCount &&
+    c >= 1 &&
+    c <= ENT_CONFIG.profileTier2BCorrectCount
+  ) {
+    return ENT_CONFIG.profileTier2Points;
+  }
+  if (c <= 1) return ENT_CONFIG.profileTier1Points;
+  return ENT_CONFIG.profileTier2Points;
+}
+
+/** Лимит выбора в тяжёлом слоте с учётом числа верных ответов у конкретного вопроса. */
+export function clampEntProfileHeavySlotSelections(
+  slotCap: number,
+  answerOptions: ReadonlyArray<{ isCorrect: boolean }>,
+): number {
+  const c = answerOptions.filter((o) => o.isCorrect).length;
+  if (c <= 0) return slotCap;
+  return Math.min(slotCap, c);
+}

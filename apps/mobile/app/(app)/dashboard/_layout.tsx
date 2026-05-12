@@ -9,10 +9,15 @@ export default function DashboardLayout() {
   return (
     <View style={[styles.root, { backgroundColor: colors.secondary }]}>
       <MobileHeader />
-      <View style={{ flex: 1 }}>
-        <Stack
-          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.secondary } }}
-        />
+      <View style={styles.contentShell}>
+        <View style={styles.contentWrap}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.secondary },
+            }}
+          />
+        </View>
       </View>
       <WhatsAppFab />
     </View>
@@ -21,4 +26,13 @@ export default function DashboardLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  contentShell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  contentWrap: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 1200,
+  },
 })

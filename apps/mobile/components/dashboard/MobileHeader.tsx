@@ -3,6 +3,8 @@ import { useMemo } from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { usePathname } from "expo-router"
 import { useTopInset } from "@/lib/use-top-inset"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { fonts } from "@/lib/theme/fonts"
 import { dashboardScreenTitle, t, useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 
@@ -10,7 +12,7 @@ export function MobileHeader({ title }: { title?: string }) {
   const { colors } = useAppTheme()
   const topInset = useTopInset()
   const navigation = useNavigation()
-  const { locale } = useUiLocale()
+  const { locale, setLocale } = useUiLocale()
   const pathname = usePathname()
 
   const resolvedTitle = useMemo(
@@ -43,15 +45,40 @@ export function MobileHeader({ title }: { title?: string }) {
           onPress={openDrawer}
           style={[styles.iconBtn, { borderColor: colors.border }]}
         >
-          <Text style={{ fontSize: 18, color: colors.foreground }}>☰</Text>
+          <MaterialCommunityIcons name="menu" size={20} color={colors.foreground} />
         </Pressable>
-        <Text
-          style={[styles.title, isBrand && styles.titleBrand, { color: colors.foreground }]}
-          numberOfLines={1}
+        {isBrand ? (
+          <View style={styles.brandLockup}>
+            <View style={[styles.brandMark, { backgroundColor: colors.foreground }]}>
+              <MaterialCommunityIcons
+                name="star-four-points-small"
+                size={16}
+                color={colors.background}
+              />
+            </View>
+            <Text style={[styles.title, styles.titleBrand, { color: colors.foreground }]} numberOfLines={1}>
+              {resolvedTitle}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+            {resolvedTitle}
+          </Text>
+        )}
+        <Pressable
+          accessibilityLabel={t("language", locale)}
+          hitSlop={12}
+          onPress={() => setLocale(locale === "ru" ? "kk" : "ru")}
+          style={[
+            styles.langBtn,
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.secondary,
+            },
+          ]}
         >
-          {resolvedTitle}
-        </Text>
-        <View style={{ width: 40 }} />
+          <Text style={[styles.langText, { color: colors.foreground }]}>{locale.toUpperCase()}</Text>
+        </Pressable>
       </View>
     </View>
   )
@@ -62,28 +89,57 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   bar: {
-    height: 52,
-    paddingHorizontal: 12,
+    width: "100%",
+    maxWidth: 1200,
+    alignSelf: "center",
+    minHeight: 56,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
   },
   iconBtn: {
     width: 40,
-    height: 36,
-    borderRadius: 8,
+    height: 40,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandLockup: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  brandMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
     flex: 1,
-    textAlign: "center",
     fontSize: 16,
-    fontWeight: "700",
-    marginHorizontal: 8,
+    fontFamily: fonts.sansSemi,
+    letterSpacing: -0.2,
   },
   titleBrand: {
     textTransform: "lowercase",
+  },
+  langBtn: {
+    minWidth: 52,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  langText: {
+    fontSize: 12,
+    fontFamily: fonts.sansSemi,
   },
 })
