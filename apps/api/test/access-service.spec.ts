@@ -1,4 +1,5 @@
 import { AccessService } from '../src/modules/subscriptions/access.service';
+import { EntitlementSourceType, EntitlementStatus } from '@prisma/client';
 
 describe('AccessService', () => {
   it('returns NO access for ENT in legacy when free limit exhausted', async () => {
@@ -131,5 +132,82 @@ describe('AccessService', () => {
     await expect(service.assertAndConsumeAttempt('user-1', 'exam-ent')).rejects.toMatchObject({
       response: { message: 'DAILY_LIMIT_REACHED' },
     });
+  });
+
+  it('does not create legacy subscription entitlements when v2 subscription entitlement exists', async () => {
+    const tx = {
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'user-1' })
+          .mockResolvedValueOnce({
+            id: 'user-1',
+            entTrialUsed: 0,
+            timezone: 'Asia/Almaty',
+            createdAt: new Date(),
+          })
+          .mockResolvedValueOnce({ id: 'user-1', timezone: 'Asia/Almaty' }),
+      },
+      examType: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'exam-ent', slug: 'ent' }]),
+      },
+      subscriptionPlanTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-1',
+          code: 'free_ent_trial',
+          isActive: true,
+          examRules: [],
+        }),
+      },
+      subscription: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sub-trial',
+            planType: 'trial',
+            startsAt: new Date(Date.now() - 1000),
+            expiresAt: new Date(Date.now() + 86400000),
+          },
+        ]),
+      },
+      userExamEntitlement: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'canonical-entitlement' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        upsert: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const prismaMock = {
+      $transaction: jest.fn().mockImplementation(async (cb: any) => cb(tx)),
+    } as any;
+    const cfg = {
+      get: jest.fn((key: string) => {
+        if (key === 'SUBSCRIPTION_ENGINE_V2') return 'true';
+        return undefined;
+      }),
+    } as any;
+    const service = new AccessService(prismaMock, cfg);
+
+    await service.getUserAccessByExam('user-1');
+
+    expect(tx.userExamEntitlement.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          sourceType: EntitlementSourceType.legacy_trial_subscription,
+        }),
+      }),
+    );
+    expect(tx.userExamEntitlement.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sourceType: EntitlementSourceType.legacy_trial_subscription,
+          sourceRef: 'subscription:sub-trial:exam:exam-ent',
+          status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+        }),
+        data: expect.objectContaining({
+          status: EntitlementStatus.revoked,
+          revokedAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 });

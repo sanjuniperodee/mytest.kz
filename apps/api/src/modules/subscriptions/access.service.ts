@@ -633,6 +633,34 @@ export class AccessService {
       const sourceType = isTrial
         ? EntitlementSourceType.legacy_trial_subscription
         : EntitlementSourceType.legacy_paid_subscription;
+      const sourceRef = `subscription:${sub.id}:exam:${exam.id}`;
+      const canonical = await tx.userExamEntitlement.findUnique({
+        where: {
+          sourceType_sourceRef: {
+            sourceType: EntitlementSourceType.subscription,
+            sourceRef,
+          },
+        },
+        select: { id: true },
+      });
+      if (canonical) {
+        await tx.userExamEntitlement.updateMany({
+          where: {
+            sourceType,
+            sourceRef,
+            status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+          },
+          data: {
+            status: EntitlementStatus.revoked,
+            revokedAt: now,
+            metadata: {
+              supersededBySourceType: EntitlementSourceType.subscription,
+              supersededByEntitlementId: canonical.id,
+            },
+          },
+        });
+        continue;
+      }
       const tier = this.subscriptionEntitlementTier(sub.planType);
       const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
       const dailyLimit = this.subscriptionDailyAttemptsLimit(sub.planType);
@@ -649,7 +677,7 @@ export class AccessService {
         where: {
           sourceType_sourceRef: {
             sourceType,
-            sourceRef: `subscription:${sub.id}:exam:${exam.id}`,
+            sourceRef,
           },
         },
         select: { usedAttemptsTotal: true },
@@ -664,7 +692,7 @@ export class AccessService {
         where: {
           sourceType_sourceRef: {
             sourceType,
-            sourceRef: `subscription:${sub.id}:exam:${exam.id}`,
+            sourceRef,
           },
         },
         update: {
@@ -687,7 +715,7 @@ export class AccessService {
           tier,
           status,
           sourceType,
-          sourceRef: `subscription:${sub.id}:exam:${exam.id}`,
+          sourceRef,
           totalAttemptsLimit: totalLimit,
           dailyAttemptsLimit: dailyLimit,
           usedAttemptsTotal: used,
