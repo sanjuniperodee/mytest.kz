@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { normalizeKzPhone } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
@@ -24,8 +25,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function getString(value: unknown): string | null {
-  if (typeof value === 'string' && value.trim()) return value;
+  if (typeof value === 'string' && value.trim()) return value.trim();
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const str = getString(value);
+    if (str) return str;
+  }
   return null;
 }
 
@@ -94,10 +103,14 @@ export class BillingService {
       orderBy: { createdAt: 'desc' },
     });
     if (pending) {
-      const payload = asRecord(pending.providerPayload);
+      const reconciled = (await this.reconcileKaspiOrder(pending.providerOrderId)) ?? pending;
+      const payload = asRecord(reconciled.providerPayload);
+      const checkoutUrl = reconciled.checkoutUrl ?? pending.checkoutUrl;
       return {
-        invoiceId: pending.providerOrderId,
-        receiptUrl: pending.checkoutUrl,
+        invoiceId: reconciled.providerOrderId,
+        providerOrderId: reconciled.providerOrderId,
+        checkoutUrl,
+        receiptUrl: checkoutUrl,
         orderNumber: getString(payload?.orderNumber),
         reused: true,
       };
@@ -127,6 +140,27 @@ export class BillingService {
       orderNumber = invoice.orderNumber;
       invoiceStatus = invoice.status;
       clientMobile = invoice.clientMobile;
+      if (!receiptUrl) {
+        try {
+          const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(invoiceId));
+          const details = asRecord(detailsPayload?.Data) ?? asRecord(detailsPayload?.data) ?? detailsPayload;
+          receiptUrl =
+            firstString(
+              details?.ReceiptUrl,
+              details?.receiptUrl,
+              details?.CheckoutUrl,
+              details?.checkoutUrl,
+              details?.PaymentUrl,
+              details?.paymentUrl,
+              details?.Url,
+              details?.url,
+            ) ?? '';
+          orderNumber = firstString(orderNumber, details?.OrderNumber, details?.orderNumber) ?? orderNumber;
+          invoiceStatus = firstString(invoiceStatus, details?.Status, details?.status) ?? invoiceStatus;
+        } catch {
+          // The invoice is already created; keep it and let polling/webhook reconcile details later.
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message === 'KASPI_NOT_AUTHENTICATED') {
@@ -166,7 +200,14 @@ export class BillingService {
       },
     });
 
-    return { invoiceId, receiptUrl, orderNumber, reused: false };
+    return {
+      invoiceId,
+      providerOrderId: invoiceId,
+      checkoutUrl: receiptUrl,
+      receiptUrl,
+      orderNumber,
+      reused: false,
+    };
   }
 
   /**
@@ -248,12 +289,16 @@ export class BillingService {
     const expiresAt = this.addDays(now, plan.durationDays);
 
     const createdSubscription = await this.prisma.$transaction(async (tx) => {
+      const previousPayload = asRecord(order.providerPayload);
       const updated = await tx.paymentOrder.updateMany({
         where: { id: order.id, status: { not: 'paid' } },
         data: {
           status: 'paid',
           paidAt: now,
-          providerPayload: payload as object,
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            ...payload,
+          } as Prisma.InputJsonObject,
           providerPaymentId: paymentId,
         },
       });
@@ -502,6 +547,32 @@ export class BillingService {
     const data = asRecord(payload?.Data) ?? payload;
     const status = getString(data?.Status);
     const normalized = this.normalizeKaspiInvoiceStatus(status);
+    const receiptUrl = firstString(
+      data?.ReceiptUrl,
+      data?.receiptUrl,
+      data?.CheckoutUrl,
+      data?.checkoutUrl,
+      data?.PaymentUrl,
+      data?.paymentUrl,
+      data?.Url,
+      data?.url,
+    );
+    const orderNumber = firstString(data?.OrderNumber, data?.orderNumber, data?.OrderNo, data?.orderNo);
+    if (receiptUrl || orderNumber) {
+      const previousPayload = asRecord(order.providerPayload);
+      await this.prisma.paymentOrder.updateMany({
+        where: { id: order.id, status: 'pending' },
+        data: {
+          ...(receiptUrl ? { checkoutUrl: receiptUrl } : {}),
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            ...(payload ?? {}),
+            ...(orderNumber ? { orderNumber } : {}),
+            ...(receiptUrl ? { receiptUrl } : {}),
+          } as Prisma.InputJsonObject,
+        },
+      });
+    }
     if (normalized === 'paid') {
       await this.finalizeKaspiInvoicePaid(providerOrderId, {
         event: 'payment.success',
@@ -530,12 +601,23 @@ export class BillingService {
   }
 
   private normalizeKaspiInvoiceStatus(status: string | null): KaspiOrderStatus {
-    if (status === 'Processed') return 'paid';
+    const normalized = status?.trim().toLowerCase();
     if (
-      status === 'RemotePaymentCanceled' ||
-      status === 'RemotePaymentRejected' ||
-      status === 'Expired' ||
-      status === 'SessionExpired'
+      normalized === 'processed' ||
+      normalized === 'paid' ||
+      normalized === 'success' ||
+      normalized === 'succeeded'
+    ) {
+      return 'paid';
+    }
+    if (
+      normalized === 'remotepaymentcanceled' ||
+      normalized === 'remotepaymentrejected' ||
+      normalized === 'expired' ||
+      normalized === 'sessionexpired' ||
+      normalized === 'failed' ||
+      normalized === 'cancelled' ||
+      normalized === 'canceled'
     ) {
       return 'failed';
     }
@@ -555,6 +637,20 @@ export class BillingService {
     updatedAt: Date;
   }) {
     const payload = asRecord(order.providerPayload);
+    const data = asRecord(payload?.Data) ?? asRecord(payload?.data);
+    const checkoutUrl = firstString(
+      order.checkoutUrl,
+      payload?.receiptUrl,
+      payload?.checkoutUrl,
+      data?.ReceiptUrl,
+      data?.receiptUrl,
+      data?.CheckoutUrl,
+      data?.checkoutUrl,
+      data?.PaymentUrl,
+      data?.paymentUrl,
+      data?.Url,
+      data?.url,
+    );
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
     return {
       invoiceId: order.providerOrderId,
@@ -564,9 +660,9 @@ export class BillingService {
       currency: order.currency,
       planCode: order.planCode,
       planName: plan?.name ?? order.planCode,
-      checkoutUrl: order.checkoutUrl,
-      receiptUrl: order.checkoutUrl,
-      orderNumber: getString(payload?.orderNumber),
+      checkoutUrl,
+      receiptUrl: checkoutUrl,
+      orderNumber: firstString(payload?.orderNumber, data?.OrderNumber, data?.orderNumber),
       paidAt: order.paidAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,

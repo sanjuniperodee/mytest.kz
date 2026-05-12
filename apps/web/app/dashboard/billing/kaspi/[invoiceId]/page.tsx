@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
+import { useSWRConfig } from "swr"
 import { useEffect, useRef } from "react"
 import {
   ArrowLeft,
@@ -17,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/lib/api/client"
+import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -79,21 +80,25 @@ export default function KaspiPaymentPage() {
   const rawInvoiceId = Array.isArray(params.invoiceId) ? params.invoiceId[0] : params.invoiceId
   const invoiceId = rawInvoiceId && rawInvoiceId !== "undefined" && rawInvoiceId !== "null" ? rawInvoiceId : null
   const { refresh } = useAuth()
+  const { mutate: mutateGlobal } = useSWRConfig()
   const refreshedAfterPaid = useRef(false)
-  const { data: order, isLoading, mutate, isValidating } = useSWR<PaymentOrder>(
+  const { data: order, error, isLoading, mutate, isValidating } = useSWR<PaymentOrder>(
     invoiceId ? `/billing/orders/${encodeURIComponent(invoiceId)}` : null,
     (url: string) => api(url),
     {
       refreshInterval: (current) => (current?.status === "pending" ? 5000 : 0),
+      keepPreviousData: true,
     },
   )
 
   useEffect(() => {
     if (order?.status === "paid" && !refreshedAfterPaid.current) {
       refreshedAfterPaid.current = true
-      void refresh()
+      void refresh({ silent: true }).then(() => {
+        void mutateGlobal("/billing/kaspi/orders/active")
+      })
     }
-  }, [order?.status, refresh])
+  }, [mutateGlobal, order?.status, refresh])
 
   if (!invoiceId) {
     return (
@@ -127,11 +132,51 @@ export default function KaspiPaymentPage() {
     )
   }
 
-  if (isLoading || !order) {
+  if (isLoading && !order) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <Skeleton className="h-8 w-36" />
         <Skeleton className="h-72 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (!order) {
+    const message =
+      error instanceof ApiError && error.status === 404
+        ? "Мы не нашли этот счёт. Вернитесь к тарифам: активные счета появятся там автоматически."
+        : "Не удалось получить статус счёта. Проверьте оплату ещё раз через несколько секунд."
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <Link
+          href="/dashboard/billing"
+          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          <ArrowLeft className="size-4" />
+          Тарифы
+        </Link>
+        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+          <CardContent className="flex flex-col gap-4 p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80">
+                <Clock3 className="size-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Статус пока недоступен</h1>
+                <p className="mt-1 text-sm opacity-80">{message}</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button className="h-11 flex-1" onClick={() => mutate()} disabled={isValidating}>
+                {isValidating ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                Проверить ещё раз
+              </Button>
+              <Button asChild variant="outline" className="h-11 flex-1">
+                <Link href="/dashboard/billing">Открыть тарифы</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -203,6 +248,11 @@ export default function KaspiPaymentPage() {
                 Открыть счёт Kaspi
                 <ExternalLink className="size-4" />
               </Button>
+            )}
+            {!payUrl && order.status === "pending" && (
+              <div className="rounded-md border border-current/10 bg-white/70 p-3 text-sm text-foreground sm:flex-1">
+                Счёт выставлен в Kaspi, но ссылка на оплату пока не пришла. Откройте приложение Kaspi или проверьте статус через несколько секунд.
+              </div>
             )}
             {order.status === "paid" ? (
               <Button asChild className="h-11 flex-1">

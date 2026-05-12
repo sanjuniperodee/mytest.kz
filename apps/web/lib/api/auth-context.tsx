@@ -18,7 +18,7 @@ interface AuthContextValue {
   scope: Scope
   signOut: () => void
   setSession: (data: AuthResponse) => void
-  refresh: () => Promise<User | null>
+  refresh: (options?: { silent?: boolean }) => Promise<User | null>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -102,12 +102,12 @@ export function AuthProvider({
     setLoading(false)
   }, [scope])
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true)
     try {
       return await loadCurrentUser()
     } finally {
-      setLoading(false)
+      if (!options?.silent) setLoading(false)
     }
   }, [loadCurrentUser])
 

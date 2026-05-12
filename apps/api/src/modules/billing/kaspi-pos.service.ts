@@ -27,6 +27,14 @@ function asRecord(v: unknown): Record<string, unknown> | undefined {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
 }
 
+function getString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
 @Injectable()
 export class KaspiPosService implements OnModuleInit {
   private readonly logger = new Logger(KaspiPosService.name);
@@ -194,39 +202,53 @@ export class KaspiPosService implements OnModuleInit {
 
     const text = await res.text();
     this.logger.debug(`Invoice create raw response: ${text}`);
-    let data: {
-      StatusCode?: number;
-      Data?: {
-        Id?: string | number;
-        QrOperationId?: string | number;
-        Status?: string;
-        Amount?: number;
-        ClientMobile?: string;
-        ReceiptUrl?: string;
-        OrderNumber?: string;
-      };
-    };
+    let data: Record<string, unknown>;
     try {
       data = JSON.parse(text);
     } catch (e) {
       throw new Error(`KASPI_INVOICE_PARSE_ERROR:${text.slice(0, 200)}`);
     }
 
-    if (data.StatusCode !== 0 || !data.Data) {
-      throw new Error(`KASPI_INVOICE_ERROR:${data.StatusCode ?? res.status}`);
+    const statusCode = Number(data.StatusCode ?? data.statusCode ?? 0);
+    const d = asRecord(data.Data) ?? asRecord(data.data);
+    if (statusCode !== 0 || !d) {
+      throw new Error(`KASPI_INVOICE_ERROR:${data.StatusCode ?? data.statusCode ?? res.status}`);
     }
 
-    const d = data.Data;
-    // Prefer Id, fall back to QrOperationId (used when invoice is QR-based)
-    const invoiceId = d.Id != null ? String(d.Id) : String(d.QrOperationId ?? '');
-    this.logger.log(`Invoice created: id=${invoiceId}, status=${d.Status}, receiptUrl=${d.ReceiptUrl}`);
+    const invoiceId = getString(
+      d.Id,
+      d.id,
+      d.QrOperationId,
+      d.qrOperationId,
+      d.OperationId,
+      d.operationId,
+      data.invoiceId,
+      data.paymentId,
+    );
+    if (!invoiceId) {
+      throw new Error(`KASPI_INVOICE_NO_ID:${text.slice(0, 200)}`);
+    }
+
+    const receiptUrl = getString(
+      d.ReceiptUrl,
+      d.receiptUrl,
+      d.CheckoutUrl,
+      d.checkoutUrl,
+      d.PaymentUrl,
+      d.paymentUrl,
+      d.Url,
+      d.url,
+    );
+    const orderNumber = getString(d.OrderNumber, d.orderNumber, d.OrderNo, d.orderNo);
+    const status = getString(d.Status, d.status);
+    this.logger.log(`Invoice created: id=${invoiceId}, status=${status}, receiptUrl=${receiptUrl}`);
     return {
-      id: invoiceId || `unknown-${text.slice(0, 50)}`,
-      status: String(d.Status ?? ''),
-      amount: Number(d.Amount ?? 0),
-      clientMobile: String(d.ClientMobile ?? ''),
-      receiptUrl: String(d.ReceiptUrl ?? ''),
-      orderNumber: String(d.OrderNumber ?? ''),
+      id: invoiceId,
+      status,
+      amount: Number(d.Amount ?? d.amount ?? 0),
+      clientMobile: getString(d.ClientMobile, d.clientMobile),
+      receiptUrl,
+      orderNumber,
     };
   }
 
