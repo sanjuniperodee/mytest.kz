@@ -39,8 +39,11 @@ interface KaspiOrder {
     currency: string
     planCode: string
     planName: string
+    paymentType?: "invoice" | "qr" | string
     checkoutUrl: string | null
     receiptUrl: string | null
+    qrToken?: string | null
+    expiresAt?: string | null
     orderNumber?: string | null
     createdAt: string
     paidAt?: string | null
@@ -251,18 +254,32 @@ function PendingKaspiOrders({
                 <div className="flex flex-col gap-1">
                     <p className="font-semibold text-amber-900">Ожидает оплаты в Kaspi</p>
                     <p className="text-sm text-amber-800">
-                        Откройте счёт и оплатите его в приложении Kaspi. После оплаты доступ включится автоматически.
+                        Откройте счёт или Kaspi QR и завершите оплату. После подтверждения доступ включится автоматически.
                     </p>
                 </div>
                 {orders.map((order) => {
                     const invoiceId = resolveOrderInvoiceId(order)
+                    const canCancel = order.paymentType !== "qr"
                     return (
                         <div key={invoiceId || order.createdAt} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm">
-                                <p className="font-medium">{order.planName}</p>
+                                <p className="font-medium">
+                                    {order.planName}
+                                    {order.paymentType === "qr" ? " · Kaspi QR" : ""}
+                                </p>
                                 <p className="text-muted-foreground">
                                     {order.amount.toLocaleString("ru-RU")} {order.currency}
                                 </p>
+                                {order.paymentType === "qr" && order.expiresAt ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        Активен до {new Date(order.expiresAt).toLocaleString("ru-RU", {
+                                            day: "2-digit",
+                                            month: "short",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </p>
+                                ) : null}
                             </div>
                             {invoiceId ? (
                               <div className="flex flex-col gap-2 sm:flex-row">
@@ -272,7 +289,7 @@ function PendingKaspiOrders({
                                         <ArrowRight className="size-4" />
                                     </Link>
                                 </Button>
-                                <CancelKaspiOrderButton invoiceId={invoiceId} />
+                                {canCancel ? <CancelKaspiOrderButton invoiceId={invoiceId} /> : null}
                               </div>
                             ) : null}
                         </div>

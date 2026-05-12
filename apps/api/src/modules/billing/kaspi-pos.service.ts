@@ -23,6 +23,15 @@ export interface InvoiceResult {
   orderNumber: string;
 }
 
+export interface QrResult {
+  id: string | number;
+  status: string;
+  amount: number;
+  qrToken: string;
+  receiptUrl: string;
+  expiresAt: string;
+}
+
 function asRecord(v: unknown): Record<string, unknown> | undefined {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
 }
@@ -106,6 +115,24 @@ export class KaspiPosService implements OnModuleInit {
     return u.replace(/\/+$/, '');
   }
 
+  private sessionHeaders(contentType?: string): Record<string, string> {
+    if (!this.auth) {
+      throw new Error('KASPI_NOT_AUTHENTICATED');
+    }
+
+    const headers: Record<string, string> = {
+      'X-Token-SN': this.auth.tokenSN,
+      'X-Vtoken-Secret': this.auth.vtokenSecret,
+    };
+    if (contentType) {
+      headers['Content-Type'] = contentType;
+    }
+    if (this.auth.profileId > 0) {
+      headers['X-Profile-Id'] = String(this.auth.profileId);
+    }
+    return headers;
+  }
+
   /** После OTP из ответа verify-otp (для ручной/админской привязки). */
   async setSessionAuth(auth: KaspiAuth) {
     this.auth = auth;
@@ -177,22 +204,9 @@ export class KaspiPosService implements OnModuleInit {
     amount: number,
     comment: string,
   ): Promise<InvoiceResult> {
-    if (!this.auth) {
-      throw new Error('KASPI_NOT_AUTHENTICATED');
-    }
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Token-SN': this.auth.tokenSN,
-      'X-Vtoken-Secret': this.auth.vtokenSecret,
-    };
-    if (this.auth.profileId > 0) {
-      headers['X-Profile-Id'] = String(this.auth.profileId);
-    }
-
     const res = await fetch(`${this.baseUrl()}/api/invoice/create`, {
       method: 'POST',
-      headers,
+      headers: this.sessionHeaders('application/json'),
       body: JSON.stringify({
         phoneNumber,
         amount,
@@ -252,33 +266,75 @@ export class KaspiPosService implements OnModuleInit {
     };
   }
 
-  async getInvoiceDetails(operationId: string): Promise<unknown> {
-    if (!this.auth) throw new Error('KASPI_NOT_AUTHENTICATED');
+  async createQr(amount: number): Promise<QrResult> {
+    const res = await fetch(`${this.baseUrl()}/api/qr/create`, {
+      method: 'POST',
+      headers: this.sessionHeaders('application/json'),
+      body: JSON.stringify({ amount }),
+    });
 
+    const text = await res.text();
+    this.logger.debug(`QR create raw response: ${text}`);
+
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`KASPI_QR_PARSE_ERROR:${text.slice(0, 200)}`);
+    }
+
+    const statusCode = Number(data.StatusCode ?? data.statusCode ?? 0);
+    const d = asRecord(data.Data) ?? asRecord(data.data);
+    if (statusCode !== 0 || !d) {
+      throw new Error(`KASPI_QR_ERROR:${data.StatusCode ?? data.statusCode ?? res.status}`);
+    }
+
+    const qrOperationId = getString(
+      d.QrOperationId,
+      d.qrOperationId,
+      d.Id,
+      d.id,
+      data.qrOperationId,
+      data.paymentId,
+    );
+    if (!qrOperationId) {
+      throw new Error(`KASPI_QR_NO_ID:${text.slice(0, 200)}`);
+    }
+
+    return {
+      id: qrOperationId,
+      status: getString(d.Status, d.status),
+      amount: Number(d.Amount ?? d.amount ?? amount),
+      qrToken: getString(d.QrToken, d.qrToken, d.PaymentUrl, d.paymentUrl, d.Url, d.url),
+      receiptUrl: getString(d.ReceiptUrl, d.receiptUrl),
+      expiresAt: getString(d.ExpireDate, d.expireDate, d.ExpiresAt, d.expiresAt),
+    };
+  }
+
+  async getInvoiceDetails(operationId: string): Promise<unknown> {
     const q = new URLSearchParams({ operationId: String(operationId) });
     const res = await fetch(`${this.baseUrl()}/api/invoice/details?${q.toString()}`, {
       method: 'GET',
-      headers: {
-        'X-Token-SN': this.auth.tokenSN,
-        'X-Vtoken-Secret': this.auth.vtokenSecret,
-        ...(this.auth.profileId > 0 ? { 'X-Profile-Id': String(this.auth.profileId) } : {}),
-      },
+      headers: this.sessionHeaders(),
+    });
+
+    return res.json();
+  }
+
+  async getQrStatus(qrOperationId: string): Promise<unknown> {
+    const q = new URLSearchParams({ qrOperationId: String(qrOperationId) });
+    const res = await fetch(`${this.baseUrl()}/api/qr/status?${q.toString()}`, {
+      method: 'GET',
+      headers: this.sessionHeaders(),
     });
 
     return res.json();
   }
 
   async cancelInvoice(operationId: string): Promise<unknown> {
-    if (!this.auth) throw new Error('KASPI_NOT_AUTHENTICATED');
-
     const res = await fetch(`${this.baseUrl()}/api/invoice/cancel`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Token-SN': this.auth.tokenSN,
-        'X-Vtoken-Secret': this.auth.vtokenSecret,
-        ...(this.auth.profileId > 0 ? { 'X-Profile-Id': String(this.auth.profileId) } : {}),
-      },
+      headers: this.sessionHeaders('application/json'),
       body: JSON.stringify({ operationId: String(operationId) }),
     });
 
@@ -300,10 +356,7 @@ export class KaspiPosService implements OnModuleInit {
     try {
       const res = await fetch(`${this.baseUrl()}/api/session/check`, {
         method: 'GET',
-        headers: {
-          'X-Token-SN': this.auth.tokenSN,
-          'X-Vtoken-Secret': this.auth.vtokenSecret,
-        },
+        headers: this.sessionHeaders(),
       });
       if (!res.ok) return false;
       const j = (await res.json()) as { active?: boolean };

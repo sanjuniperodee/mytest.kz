@@ -17,6 +17,7 @@ import { KaspiPosService } from './kaspi-pos.service';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 type KaspiOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
+type KaspiPaymentType = 'invoice' | 'qr';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -132,11 +133,17 @@ export class BillingService {
 
     const comment = `MyTest ${plan.name} - ${userId.slice(0, 8)}`;
 
-    let invoiceId: string;
-    let receiptUrl: string;
-    let orderNumber: string;
-    let invoiceStatus: string;
-    let clientMobile: string;
+    let providerOrderId = '';
+    let checkoutUrl = '';
+    let receiptUrl = '';
+    let orderNumber = '';
+    let paymentStatus = '';
+    let clientMobile = '';
+    let qrToken = '';
+    let expiresAt = '';
+    let paymentType: KaspiPaymentType = 'invoice';
+    let fallbackToQr = false;
+    let fallbackReason = '';
 
     try {
       const invoice = await this.kaspiPosService.createInvoice(
@@ -144,14 +151,14 @@ export class BillingService {
         Number(plan.priceKzt),
         comment,
       );
-      invoiceId = String(invoice.id);
+      providerOrderId = String(invoice.id);
       receiptUrl = invoice.receiptUrl;
       orderNumber = invoice.orderNumber;
-      invoiceStatus = invoice.status;
+      paymentStatus = invoice.status;
       clientMobile = invoice.clientMobile;
       if (!receiptUrl) {
         try {
-          const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(invoiceId));
+          const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
           const details = asRecord(detailsPayload?.Data) ?? asRecord(detailsPayload?.data) ?? detailsPayload;
           receiptUrl =
             firstString(
@@ -165,56 +172,100 @@ export class BillingService {
               details?.url,
             ) ?? '';
           orderNumber = firstString(orderNumber, details?.OrderNumber, details?.orderNumber) ?? orderNumber;
-          invoiceStatus = firstString(invoiceStatus, details?.Status, details?.status) ?? invoiceStatus;
+          paymentStatus = firstString(paymentStatus, details?.Status, details?.status) ?? paymentStatus;
         } catch {
           // The invoice is already created; keep it and let polling/webhook reconcile details later.
         }
       }
+      checkoutUrl = receiptUrl;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message === 'KASPI_NOT_AUTHENTICATED') {
         throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
       }
-      throw new BadRequestException(`KASPI_INVOICE_ERROR:${message}`);
+      fallbackReason = message;
+
+      try {
+        const qr = await this.kaspiPosService.createQr(Number(plan.priceKzt));
+        paymentType = 'qr';
+        fallbackToQr = true;
+        providerOrderId = String(qr.id);
+        paymentStatus = qr.status;
+        qrToken = qr.qrToken;
+        receiptUrl = qr.receiptUrl;
+        expiresAt = qr.expiresAt;
+        checkoutUrl = firstString(qrToken, receiptUrl) ?? '';
+
+        if (!checkoutUrl || !expiresAt || !paymentStatus) {
+          try {
+            const statusPayload = asRecord(await this.kaspiPosService.getQrStatus(providerOrderId));
+            const details = asRecord(statusPayload?.Data) ?? asRecord(statusPayload?.data) ?? statusPayload;
+            qrToken = firstString(qrToken, details?.QrToken, details?.qrToken, details?.PaymentUrl, details?.paymentUrl) ?? qrToken;
+            receiptUrl = firstString(receiptUrl, details?.ReceiptUrl, details?.receiptUrl) ?? receiptUrl;
+            expiresAt = firstString(expiresAt, details?.ExpireDate, details?.expireDate, details?.ExpiresAt, details?.expiresAt) ?? expiresAt;
+            paymentStatus = firstString(paymentStatus, details?.Status, details?.status) ?? paymentStatus;
+            checkoutUrl = firstString(checkoutUrl, qrToken, receiptUrl) ?? checkoutUrl;
+          } catch {
+            // QR is already created; let polling/webhook reconcile the rest.
+          }
+        }
+      } catch (qrErr) {
+        const qrMessage = qrErr instanceof Error ? qrErr.message : String(qrErr);
+        throw new BadRequestException(`KASPI_PAYMENT_CREATE_ERROR:invoice=${message};qr=${qrMessage}`);
+      }
     }
 
     await this.prisma.paymentOrder.upsert({
-      where: { providerOrderId: invoiceId },
+      where: { providerOrderId },
       create: {
         userId,
         planCode: plan.id,
         amount: plan.priceKzt,
         provider: 'kaspi',
-        providerOrderId: invoiceId,
-        checkoutUrl: receiptUrl,
+        providerOrderId,
+        checkoutUrl,
         status: 'pending',
         providerPayload: {
           orderNumber,
           provider: 'kaspi',
-          status: invoiceStatus,
+          paymentType,
+          status: paymentStatus,
           receiptUrl,
+          qrToken,
+          expiresAt,
           clientMobile,
+          fallbackToQr,
+          fallbackReason,
         },
       },
       update: {
         status: 'pending',
-        checkoutUrl: receiptUrl,
+        checkoutUrl,
         providerPayload: {
           orderNumber,
           provider: 'kaspi',
-          status: invoiceStatus,
+          paymentType,
+          status: paymentStatus,
           receiptUrl,
+          qrToken,
+          expiresAt,
           clientMobile,
+          fallbackToQr,
+          fallbackReason,
         },
       },
     });
 
     return {
-      invoiceId,
-      providerOrderId: invoiceId,
-      checkoutUrl: receiptUrl,
+      invoiceId: providerOrderId,
+      providerOrderId,
+      checkoutUrl,
       receiptUrl,
       orderNumber,
+      paymentType,
+      qrToken,
+      expiresAt,
+      fallbackToQr,
       reused: false,
     };
   }
@@ -244,16 +295,29 @@ export class BillingService {
       return { ok: false, reason: 'PAYMENT_ID_REQUIRED' };
     }
 
-    if (event === 'payment.success' && type === 'invoice') {
-      return this.finalizeKaspiInvoicePaid(paymentId, payload);
+    if (event === 'payment.success' && (type === 'invoice' || type === 'qr')) {
+      return this.finalizeKaspiPaymentPaid(paymentId, payload);
     }
 
     if (event === 'payment.failed' || event === 'payment.expired') {
-      await this.prisma.paymentOrder.updateMany({
-        where: { providerOrderId: paymentId, provider: 'kaspi', status: { not: 'paid' } },
+      const order = await this.prisma.paymentOrder.findUnique({
+        where: { providerOrderId: paymentId },
+      });
+      if (!order || order.provider !== 'kaspi' || order.status === 'paid') {
+        return { ok: true, ignored: true };
+      }
+      const previousPayload = asRecord(order.providerPayload);
+      await this.prisma.paymentOrder.update({
+        where: { id: order.id },
         data: {
-          status: 'failed',
-          providerPayload: payload as object,
+          status:
+            this.normalizeKaspiPaymentStatus(getString(payload.status)).status === 'pending'
+              ? 'failed'
+              : this.normalizeKaspiPaymentStatus(getString(payload.status)).status,
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            ...payload,
+          } as Prisma.InputJsonObject,
         },
       });
       return { ok: true, status: 'failed' };
@@ -274,7 +338,7 @@ export class BillingService {
     }
   }
 
-  private async finalizeKaspiInvoicePaid(paymentId: string, payload: Record<string, unknown>) {
+  private async finalizeKaspiPaymentPaid(paymentId: string, payload: Record<string, unknown>) {
     const order = await this.prisma.paymentOrder.findUnique({
       where: { providerOrderId: paymentId },
     });
@@ -571,6 +635,9 @@ export class BillingService {
     if (reconciled.status !== 'pending') {
       return this.presentPaymentOrder(reconciled);
     }
+    if (this.getKaspiPaymentType(reconciled.providerPayload) === 'qr') {
+      throw new BadRequestException('KASPI_QR_CANCEL_NOT_SUPPORTED');
+    }
 
     let cancelPayload: Record<string, unknown> | null = null;
     try {
@@ -582,9 +649,9 @@ export class BillingService {
 
     const cancelData = asRecord(cancelPayload?.Data) ?? asRecord(cancelPayload?.data) ?? cancelPayload;
     const cancelStatus = getString(cancelData?.Status ?? cancelData?.status);
-    const normalized = this.normalizeKaspiInvoiceStatus(cancelStatus);
-    if (normalized === 'paid') {
-      await this.finalizeKaspiInvoicePaid(reconciled.providerOrderId, {
+    const normalized = this.normalizeKaspiPaymentStatus(cancelStatus);
+    if (normalized.kind === 'paid') {
+      await this.finalizeKaspiPaymentPaid(reconciled.providerOrderId, {
         event: 'payment.success',
         paymentId: reconciled.providerOrderId,
         type: 'invoice',
@@ -596,7 +663,7 @@ export class BillingService {
       const paid = await this.prisma.paymentOrder.findUnique({ where: { id: reconciled.id } });
       return this.presentPaymentOrder(paid ?? reconciled);
     }
-    if (normalized !== 'failed' && normalized !== 'cancelled') {
+    if (normalized.kind !== 'failed' && normalized.kind !== 'cancelled') {
       throw new BadRequestException(`KASPI_CANCEL_NOT_CONFIRMED:${cancelStatus ?? 'UNKNOWN'}`);
     }
 
@@ -644,16 +711,28 @@ export class BillingService {
       return order;
     }
 
+    const paymentType = this.getKaspiPaymentType(order.providerPayload);
     let payload: Record<string, unknown> | null = null;
     try {
-      payload = asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
+      payload =
+        paymentType === 'qr'
+          ? asRecord(await this.kaspiPosService.getQrStatus(providerOrderId))
+          : asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
     } catch {
       return order;
     }
 
     const data = asRecord(payload?.Data) ?? payload;
     const status = getString(data?.Status);
-    const normalized = this.normalizeKaspiInvoiceStatus(status);
+    const normalized = this.normalizeKaspiPaymentStatus(status);
+    const qrToken = firstString(
+      data?.QrToken,
+      data?.qrToken,
+      data?.PaymentUrl,
+      data?.paymentUrl,
+      data?.Url,
+      data?.url,
+    );
     const receiptUrl = firstString(
       data?.ReceiptUrl,
       data?.receiptUrl,
@@ -664,39 +743,57 @@ export class BillingService {
       data?.Url,
       data?.url,
     );
+    const expiresAt = firstString(
+      data?.ExpireDate,
+      data?.expireDate,
+      data?.ExpiresAt,
+      data?.expiresAt,
+    );
     const orderNumber = firstString(data?.OrderNumber, data?.orderNumber, data?.OrderNo, data?.orderNo);
-    if (receiptUrl || orderNumber) {
+    const checkoutUrl =
+      paymentType === 'qr'
+        ? firstString(qrToken, receiptUrl, order.checkoutUrl)
+        : firstString(receiptUrl, order.checkoutUrl);
+    if (checkoutUrl || receiptUrl || orderNumber || qrToken || expiresAt) {
       const previousPayload = asRecord(order.providerPayload);
       await this.prisma.paymentOrder.updateMany({
         where: { id: order.id, status: 'pending' },
         data: {
-          ...(receiptUrl ? { checkoutUrl: receiptUrl } : {}),
+          ...(checkoutUrl ? { checkoutUrl } : {}),
           providerPayload: {
             ...(previousPayload ?? {}),
             ...(payload ?? {}),
+            paymentType,
             ...(orderNumber ? { orderNumber } : {}),
             ...(receiptUrl ? { receiptUrl } : {}),
+            ...(qrToken ? { qrToken } : {}),
+            ...(expiresAt ? { expiresAt } : {}),
           } as Prisma.InputJsonObject,
         },
       });
     }
-    if (normalized === 'paid') {
-      await this.finalizeKaspiInvoicePaid(providerOrderId, {
+    if (normalized.kind === 'paid') {
+      await this.finalizeKaspiPaymentPaid(providerOrderId, {
         event: 'payment.success',
         paymentId: providerOrderId,
-        type: 'invoice',
+        type: paymentType,
         status,
         data: payload,
         source: 'reconcile',
         timestamp: new Date().toISOString(),
       });
     }
-    if (normalized === 'failed' || normalized === 'cancelled') {
+    if (normalized.kind === 'failed' || normalized.kind === 'cancelled') {
+      const previousPayload = asRecord(order.providerPayload);
       await this.prisma.paymentOrder.updateMany({
         where: { id: order.id, status: { not: 'paid' } },
         data: {
-          status: normalized,
-          providerPayload: payload as object,
+          status: normalized.status,
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            ...(payload ?? {}),
+            paymentType,
+          } as Prisma.InputJsonObject,
         },
       });
     }
@@ -707,7 +804,10 @@ export class BillingService {
     );
   }
 
-  private normalizeKaspiInvoiceStatus(status: string | null): KaspiOrderStatus {
+  private normalizeKaspiPaymentStatus(status: string | null): {
+    status: KaspiOrderStatus;
+    kind: 'paid' | 'failed' | 'cancelled' | 'pending';
+  } {
     const normalized = status?.trim().toLowerCase();
     if (
       normalized === 'processed' ||
@@ -715,24 +815,47 @@ export class BillingService {
       normalized === 'success' ||
       normalized === 'succeeded'
     ) {
-      return 'paid';
+      return { status: 'paid', kind: 'paid' };
     }
     if (
+      normalized === 'cancelledbyuser' ||
+      normalized === 'cancelledbyexternalsource' ||
       normalized === 'remotepaymentcanceled' ||
       normalized === 'cancelled' ||
       normalized === 'canceled'
     ) {
-      return 'cancelled';
+      return { status: 'cancelled', kind: 'cancelled' };
     }
     if (
+      normalized === 'notconfirmedbyuser' ||
+      normalized === 'processingfailed' ||
+      normalized === 'rejected' ||
+      normalized === 'insufficientfunds' ||
+      normalized === 'insufficientfundserror' ||
+      normalized === 'error' ||
+      normalized === 'qertokendiscarded' ||
+      normalized === 'qrtokendiscarded' ||
       normalized === 'remotepaymentrejected' ||
       normalized === 'expired' ||
       normalized === 'sessionexpired' ||
       normalized === 'failed'
     ) {
-      return 'failed';
+      return { status: 'failed', kind: 'failed' };
     }
-    return 'pending';
+    return { status: 'pending', kind: 'pending' };
+  }
+
+  private getKaspiPaymentType(payload: unknown): KaspiPaymentType {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    const raw = firstString(
+      view?.paymentType,
+      view?.type,
+      data?.paymentType,
+      data?.type,
+      data?.Type,
+    );
+    return raw?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
   }
 
   private presentPaymentOrder(order: {
@@ -749,10 +872,18 @@ export class BillingService {
   }) {
     const payload = asRecord(order.providerPayload);
     const data = asRecord(payload?.Data) ?? asRecord(payload?.data);
-    const checkoutUrl = firstString(
-      order.checkoutUrl,
+    const paymentType = this.getKaspiPaymentType(payload);
+    const qrToken = firstString(
+      payload?.qrToken,
+      data?.QrToken,
+      data?.qrToken,
+      data?.PaymentUrl,
+      data?.paymentUrl,
+      data?.Url,
+      data?.url,
+    );
+    const receiptUrl = firstString(
       payload?.receiptUrl,
-      payload?.checkoutUrl,
       data?.ReceiptUrl,
       data?.receiptUrl,
       data?.CheckoutUrl,
@@ -762,6 +893,10 @@ export class BillingService {
       data?.Url,
       data?.url,
     );
+    const checkoutUrl =
+      paymentType === 'qr'
+        ? firstString(order.checkoutUrl, qrToken, receiptUrl)
+        : firstString(order.checkoutUrl, receiptUrl);
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
     return {
       invoiceId: order.providerOrderId,
@@ -771,9 +906,20 @@ export class BillingService {
       currency: order.currency,
       planCode: order.planCode,
       planName: plan?.name ?? order.planCode,
+      paymentType,
       checkoutUrl,
-      receiptUrl: checkoutUrl,
+      receiptUrl,
+      qrToken,
+      expiresAt: firstString(
+        payload?.expiresAt,
+        data?.ExpireDate,
+        data?.expireDate,
+        data?.ExpiresAt,
+        data?.expiresAt,
+      ),
+      fallbackToQr: Boolean(payload?.fallbackToQr),
       orderNumber: firstString(payload?.orderNumber, data?.OrderNumber, data?.orderNumber),
+      statusDesc: firstString(payload?.statusDesc, data?.StatusDesc, data?.statusDesc),
       paidAt: order.paidAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
