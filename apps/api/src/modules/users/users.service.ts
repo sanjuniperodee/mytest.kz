@@ -141,16 +141,17 @@ export class UsersService {
         examType: { select: { id: true, slug: true, name: true } },
       },
     });
-    const activeSubscription = [...subscriptions].sort((a, b) => {
+    const sortedSubscriptions = [...subscriptions].sort((a, b) => {
       const rank = (planType: string) =>
         planType === 'free' ? 0 : planType === 'trial' ? 1 : 2;
       const aPaid = rank(a.planType);
       const bPaid = rank(b.planType);
       if (aPaid !== bPaid) return bPaid - aPaid;
       return b.expiresAt.getTime() - a.expiresAt.getTime();
-    })[0];
+    });
 
-    if (activeSubscription) {
+    let exhaustedSubscriptionTariff: Record<string, unknown> | null = null;
+    for (const activeSubscription of sortedSubscriptions) {
       const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
       const isPaid = activeSubscription.planType !== 'free';
       const totalLimit = this.subscriptionTotalAttemptsLimit(activeSubscription.planType);
@@ -160,7 +161,8 @@ export class UsersService {
           where: {
             userId,
             subscriptionId: activeSubscription.id,
-            status: EntitlementStatus.active,
+            sourceType: EntitlementSourceType.subscription,
+            status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
           },
           _sum: { usedAttemptsTotal: true },
         });
@@ -168,7 +170,7 @@ export class UsersService {
       }
       const exhausted = totalLimit != null && usedAttemptsTotal >= totalLimit;
       const isActive = !exhausted;
-      return {
+      const tariff = {
         code: activeSubscription.planType,
         name: plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
         description: plan?.description ?? null,
@@ -188,6 +190,8 @@ export class UsersService {
             ? null
             : Math.max(0, totalLimit - usedAttemptsTotal),
       };
+      if (isActive) return tariff;
+      exhaustedSubscriptionTariff ??= tariff;
     }
 
     const entitlements = await this.prisma.userExamEntitlement.findMany({
@@ -265,6 +269,8 @@ export class UsersService {
               ),
       };
     }
+
+    if (exhaustedSubscriptionTariff) return exhaustedSubscriptionTariff;
 
     return {
       code: 'free_ent_trial',
