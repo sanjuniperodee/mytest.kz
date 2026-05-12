@@ -11,14 +11,20 @@ import { Spinner } from "@/components/ui/spinner"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import type { AuthResponse } from "@/lib/api/types"
+import { useLocation } from "@/lib/location"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale } from "@/lib/i18n/ui"
+
+const googleIosConfigured = Boolean(
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim(),
+)
 
 export default function LoginScreen() {
   const { colors, resolved } = useAppTheme()
   const { locale: ui } = useUiLocale()
   const { isAuthenticated, isLoading, setSession } = useAuth()
+  const { isInKZ } = useLocation()
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) router.replace("/dashboard")
@@ -58,14 +64,27 @@ export default function LoginScreen() {
         </Text>
 
         <Card style={{ marginTop: 20 }}>
-          <Text style={[styles.section, { color: colors.foreground }]}>{t("loginEmail", ui)}</Text>
-          <EmailLoginForm />
-          <View style={{ height: 20 }} />
-          <Text style={[styles.section, { color: colors.foreground }]}>{t("loginGoogle", ui)}</Text>
-          <GoogleSignInButton onIdToken={onGoogleToken} />
-          <View style={{ height: 20 }} />
-          <Text style={[styles.section, { color: colors.foreground }]}>{t("loginPhone", ui)}</Text>
-          <PhoneLoginForm />
+          {isInKZ !== false ? (
+            <>
+              <Text style={[styles.section, { color: colors.foreground }]}>{t("loginPhone", ui)}</Text>
+              <PhoneLoginForm />
+              {googleIosConfigured && (
+                <>
+                  <View style={{ height: 20 }} />
+                  <Text style={[styles.section, { color: colors.foreground }]}>{t("loginGoogle", ui)}</Text>
+                  <GoogleSignInButton onIdToken={onGoogleToken} />
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={[styles.section, { color: colors.foreground }]}>{t("loginEmail", ui)}</Text>
+              <EmailLoginForm />
+              <View style={{ height: 20 }} />
+              <Text style={[styles.section, { color: colors.foreground }]}>{t("loginGoogle", ui)}</Text>
+              <GoogleSignInButton onIdToken={onGoogleToken} />
+            </>
+          )}
         </Card>
 
         <Text style={[styles.footer, { color: colors.mutedForeground }]} onPress={() => router.replace("/landing")}>

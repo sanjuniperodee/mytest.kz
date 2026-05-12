@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { router, usePathname } from "expo-router"
 import { useAuth } from "@/lib/api/auth-context"
 import { resolveMediaUrl } from "@/lib/api/client"
+import { useLocation } from "@/lib/location"
 import type { SessionListItem } from "@/lib/api/types"
 import { useTopInset } from "@/lib/use-top-inset"
 import { localize, type Locale } from "@/lib/api/i18n"
@@ -34,6 +35,7 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
   const topInset = useTopInset()
   const { colors, resolved } = useAppTheme()
   const { user, signOut } = useAuth()
+  const { isInKZ } = useLocation()
   const { locale: uiLocale, setLocale } = useUiLocale()
   const pathname = usePathname()
   const navLocale = ((user?.preferredLanguage as Locale) || uiLocale || "ru") as Locale
@@ -169,7 +171,7 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
 
       <View style={styles.nav}>
         {ROUTES.filter((r) => {
-          if (r.href === "/dashboard/billing" && user?.email === "apple-review@my-test.kz") return false
+          if (r.href === "/dashboard/billing" && (isInKZ === false || user?.email === "apple-review@my-test.kz")) return false
           return true
         }).map((item) => {
           const label = t(item.labelKey, uiLocale)
