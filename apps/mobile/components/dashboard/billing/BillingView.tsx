@@ -19,6 +19,7 @@ import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { useLocation } from "@/lib/location"
+import { mayAccessKaspiCommerce } from "@/lib/billing-region"
 import type { AccessByExamItem, BillingPlan, CurrentTariff, TrialStatusItem, User } from "@/lib/api/types"
 import {
   normalizeBillingPlan,
@@ -34,6 +35,7 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale, type UiLocale } from "@/lib/i18n/ui"
+import { isAppStoreReviewLikeUser } from "@/lib/review-account"
 
 function formatPrice(plan: NormalizedPlan, ui: UiLocale): string {
   if (plan.price == null) return "—"
@@ -72,8 +74,8 @@ export function BillingView() {
   const { locale: ui } = useUiLocale()
   const { user } = useAuth()
   const { isInKZ } = useLocation()
-  const isAppleReview = user?.email === "apple-review@my-test.kz"
-  const hidePlans = isInKZ === false || isAppleReview
+  const isReviewLike = isAppStoreReviewLikeUser(user)
+  const hidePlans = !mayAccessKaspiCommerce(isInKZ) || isReviewLike
   const { mutate: mutateGlobal } = useSWRConfig()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const { data, isLoading } = useSWR<BillingPlan[] | { items: BillingPlan[] }>("/billing/plans")

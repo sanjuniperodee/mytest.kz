@@ -22,7 +22,9 @@ import {
   paymentStatusKind,
   type KaspiOrder,
 } from "@/lib/billing/kaspi"
+import { mayAccessKaspiCommerce } from "@/lib/billing-region"
 import { t, useUiLocale } from "@/lib/i18n/ui"
+import { useLocation } from "@/lib/location"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
 
@@ -78,6 +80,7 @@ function statusMeta(status: string) {
 export default function KaspiInvoiceScreen() {
   const { colors } = useAppTheme()
   const { locale: ui } = useUiLocale()
+  const { isInKZ } = useLocation()
   const { refresh } = useAuth()
   const { mutate: mutateGlobal } = useSWRConfig()
   const refreshedAfterPaid = useRef(false)
@@ -111,6 +114,12 @@ export default function KaspiInvoiceScreen() {
     return () => clearInterval(timer)
   }, [order?.expiresAt, order?.status])
 
+  useEffect(() => {
+    if (isInKZ !== null && !mayAccessKaspiCommerce(isInKZ)) {
+      router.replace("/dashboard")
+    }
+  }, [isInKZ])
+
   const onCancelOrder = () => {
     if (!invoiceId) return
     Alert.alert(
@@ -140,6 +149,14 @@ export default function KaspiInvoiceScreen() {
           },
         },
       ],
+    )
+  }
+
+  if (!mayAccessKaspiCommerce(isInKZ)) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.secondary }]}>
+        <Spinner size="large" />
+      </View>
     )
   }
 

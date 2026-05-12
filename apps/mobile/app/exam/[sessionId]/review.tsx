@@ -29,6 +29,10 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { reviewContentColumnWidth } from "@/lib/exam/layout"
+import { isAppStoreReviewLikeUser } from "@/lib/review-account"
+import { mayAccessKaspiCommerce } from "@/lib/billing-region"
+import { useLocation } from "@/lib/location"
+import { t, useUiLocale } from "@/lib/i18n/ui"
 
 /** Tailwind emerald / rose / amber — match apps/web review borders & badges */
 const EM = { 50: "#ECFDF5", 200: "#A7F3D0", 300: "#6EE7B7", 600: "#059669" }
@@ -500,6 +504,9 @@ function ExplanationBlock({
   innerCol: number
 }) {
   const { colors } = useAppTheme()
+  const { user } = useAuth()
+  const { locale: ui } = useUiLocale()
+  const { isInKZ } = useLocation()
   const [open, setOpen] = useState(false)
   const [payload, setPayload] = useState<ExplanationData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -527,6 +534,30 @@ function ExplanationBlock({
   }
 
   if (err === "premium") {
+    if (isAppStoreReviewLikeUser(user)) {
+      return (
+        <View style={[styles.premiumBox, { borderColor: AM[200], backgroundColor: AM[50] }]}>
+          <MaterialCommunityIcons name="information-outline" size={18} color={AM[600]} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={[styles.premiumTitle, { color: AM[900] }]}>{t("reviewExplBlockedTitle", ui)}</Text>
+            <Text style={[styles.premiumBody, { color: AM[800] }]}>{t("reviewExplBlockedBody", ui)}</Text>
+            <Button onPress={() => router.replace("/dashboard")}>{t("overview", ui)}</Button>
+          </View>
+        </View>
+      )
+    }
+    if (!mayAccessKaspiCommerce(isInKZ)) {
+      return (
+        <View style={[styles.premiumBox, { borderColor: AM[200], backgroundColor: AM[50] }]}>
+          <MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={AM[600]} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={[styles.premiumTitle, { color: AM[900] }]}>{t("billingOutsideKzTitle", ui)}</Text>
+            <Text style={[styles.premiumBody, { color: AM[800] }]}>{t("billingOutsideKzBody", ui)}</Text>
+            <Button onPress={() => router.replace("/dashboard")}>{t("overview", ui)}</Button>
+          </View>
+        </View>
+      )
+    }
     return (
       <View style={[styles.premiumBox, { borderColor: AM[200], backgroundColor: AM[50] }]}>
         <MaterialCommunityIcons name="crown" size={18} color={AM[600]} style={{ marginTop: 2 }} />

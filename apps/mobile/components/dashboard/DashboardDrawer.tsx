@@ -12,7 +12,9 @@ import type { SessionListItem } from "@/lib/api/types"
 import { useTopInset } from "@/lib/use-top-inset"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { fonts } from "@/lib/theme/fonts"
+import { mayAccessKaspiCommerce } from "@/lib/billing-region"
 import { useUiLocale, t } from "@/lib/i18n/ui"
+import { isAppStoreReviewLikeUser } from "@/lib/review-account"
 import { useAppTheme } from "@/lib/theme/provider"
 
 /** Порядок як у веб DashboardShell + «Динамика ЕНТ» після лідерборду. */
@@ -171,7 +173,8 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
 
       <View style={styles.nav}>
         {ROUTES.filter((r) => {
-          if (r.href === "/dashboard/billing" && (isInKZ === false || user?.email === "apple-review@my-test.kz")) return false
+          if (r.href === "/dashboard/billing" && (!mayAccessKaspiCommerce(isInKZ) || isAppStoreReviewLikeUser(user)))
+            return false
           return true
         }).map((item) => {
           const label = t(item.labelKey, uiLocale)

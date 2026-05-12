@@ -38,6 +38,28 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   drawerCurrentExam: { ru: "Текущий пробник", kk: "Ағымдағы сынақ" },
   stats: { ru: "Динамика ЕНТ", kk: "ЕНТ динамикасы" },
   channelGate: { ru: "Подписка", kk: "Жазылу" },
+  entLimitReached: { ru: "Лимит попыток", kk: "Әрекет шегі" },
+  entLimitTitleDaily: { ru: "На сегодня достаточно", kk: "Бүгін үшін жеткілікті" },
+  entLimitBodyDaily: {
+    ru: "Дневной лимит пробных попыток по ЕНТ исчерпан. Зайдите позже или выберите другой экзамен.",
+    kk: "ЕНТ бойынша сынақ әрекеттерінің күнделікті шегі таусылды. Кейінірек қайталып немесе басқа емтихан таңдаңыз.",
+  },
+  entLimitTitleTotal: { ru: "Попытки закончились", kk: "Әрекеттер таусылды" },
+  entLimitBodyTotal: {
+    ru: "Пробный лимит по этому направлению пока исчерпан. Можно вернуться в каталог экзаменов.",
+    kk: "Бұл бағыттағы сынақ шегі әзірге таусылды. Емтихан каталогына оралуға болады.",
+  },
+  entLimitCtaExams: { ru: "К каталогу экзаменов", kk: "Емтихан каталогына" },
+  reviewExplBlockedTitle: { ru: "Разбор недоступен", kk: "Талдау қолжетімсіз" },
+  reviewExplBlockedBody: {
+    ru: "Детальные объяснения для этого входа сейчас не отображаются.",
+    kk: "Бұл кіру үшін толық талдаулар әзір көрсетілмейді.",
+  },
+  billingOutsideKzTitle: { ru: "Тарифы в приложении", kk: "Қолданбадағы тарифтер" },
+  billingOutsideKzBody: {
+    ru: "Оформление подписки в приложении доступно при нахождении в Казахстане.",
+    kk: "Қолданбада жазылманы рәсімдеу Қазақстан аумағында болғанда қолжетімді.",
+  },
   login: { ru: "Вход", kk: "Кіру" },
   logout: { ru: "Выйти", kk: "Шығу" },
   menu: { ru: "Меню", kk: "Мәзір" },
@@ -601,6 +623,7 @@ export function useUiLocale() {
 export function dashboardScreenTitle(pathname: string, locale: UiLocale): string {
   const p = pathname.replace(/\/$/, "") || "/dashboard"
   if (p === "/dashboard/channel-gate") return t("channelGate", locale)
+  if (p === "/dashboard/ent-limit-reached") return t("entLimitReached", locale)
   if (p === "/dashboard") return t("overview", locale)
   const segments: { prefix: string; key: string }[] = [
     { prefix: "/dashboard/exams", key: "exams" },
