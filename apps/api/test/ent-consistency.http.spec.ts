@@ -452,8 +452,8 @@ describe('ENT 120/140 consistency', () => {
     );
 
     await expect(
-      service.submitAnswer('session-1', 'user-1', tier2AId, ['a', 'b', 'c']),
-    ).rejects.toThrow('MAX_SELECTIONS_EXCEEDED:2');
+      service.submitAnswer('session-1', 'user-1', tier2AId, ['a', 'b', 'c', 'd']),
+    ).rejects.toThrow('MAX_SELECTIONS_EXCEEDED:3');
     expect(prismaMock.testAnswer.findFirst).not.toHaveBeenCalled();
   });
 

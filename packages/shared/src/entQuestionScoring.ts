@@ -16,6 +16,10 @@ export function computeEntTotalErrors(
 /**
  * Баллы за один вопрос по правилам weighted ENT.
  * При пустом ответе (ничего не отмечено) — 0 баллов даже если wMax положительный.
+ *
+ * Правила для двухбалльных задач (max === 2):
+ * - 1 правильный ответ: только точное совпадение даёт 2 балла, иначе 0.
+ * - 2+ правильных ответа: 0 ошибок → 2 балла, 1 ошибка → 1 балл, 2+ ошибок → 0 баллов.
  */
 export function earnEntQuestionPoints(
   wMax: number,
@@ -28,8 +32,14 @@ export function earnEntQuestionPoints(
   if (selectedIds.length > 0) {
     if (errors === 0) {
       earned = max;
-    } else if (errors === 1 && max === 2) {
-      earned = 1;
+    } else if (max === 2) {
+      // Двухбалльные задачи: если 1 правильный — только exact match
+      if (correctIds.length === 1) {
+        earned = 0;
+      } else if (errors === 1) {
+        earned = 1;
+      }
+      // errors >= 2 → earned = 0
     }
   }
   return { earned, max: wMax <= 0 ? 0 : max, errors };
@@ -95,12 +105,10 @@ export function getEntProfileIntrinsicMaxPoints(
   return ENT_CONFIG.profileTier2Points;
 }
 
-/** Лимит выбора в тяжёлом слоте с учётом числа верных ответов у конкретного вопроса. */
+/** Лимит выбора в тяжёлом слоте — всегда равен slotCap, без зажатия до числа верных ответов. */
 export function clampEntProfileHeavySlotSelections(
   slotCap: number,
-  answerOptions: ReadonlyArray<{ isCorrect: boolean }>,
+  _answerOptions?: ReadonlyArray<{ isCorrect: boolean }>,
 ): number {
-  const c = answerOptions.filter((o) => o.isCorrect).length;
-  if (c <= 0) return slotCap;
-  return Math.min(slotCap, c);
+  return slotCap;
 }

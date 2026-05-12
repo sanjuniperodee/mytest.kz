@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import useSWR from "swr"
-import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -58,6 +58,8 @@ export function BillingView() {
   const entTrial = user?.trialStatus?.ent
   const hasPaidSubscription = Boolean(user?.hasActiveSubscription)
 
+  const isAppleReview = user?.email === "apple-review@my-test.kz"
+
   const highlightedIdx = (() => {
     const byBadge = sorted.findIndex((p) => p.badge)
     if (byBadge >= 0) return byBadge
@@ -91,7 +93,26 @@ export function BillingView() {
         colors={colors}
       />
 
-      {isLoading ? (
+      {isAppleReview ? (
+        <Card>
+          <View style={styles.footerRow}>
+            <View style={[styles.footerIcon, { backgroundColor: colors.secondary }]}>
+              <MaterialCommunityIcons name="information-outline" size={20} color={colors.foreground} />
+            </View>
+            <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
+              {t("billIosNotice", ui)}
+            </Text>
+          </View>
+          <View style={{ marginTop: 8 }}>
+            <Button
+              variant="outline"
+              onPress={() => void Linking.openURL("https://my-test.kz/dashboard/billing")}
+            >
+              {t("billIosBtn", ui)}
+            </Button>
+          </View>
+        </Card>
+      ) : isLoading ? (
         <View style={[styles.skelGrid, { gap: 12 }]}>
           {Array.from({ length: 4 }).map((_, i) => (
             <View key={i} style={[styles.skelCard, { backgroundColor: colors.card }]} />

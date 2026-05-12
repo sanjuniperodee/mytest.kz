@@ -168,7 +168,10 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
       ) : null}
 
       <View style={styles.nav}>
-        {ROUTES.map((item) => {
+        {ROUTES.filter((r) => {
+          if (r.href === "/dashboard/billing" && user?.email === "apple-review@my-test.kz") return false
+          return true
+        }).map((item) => {
           const label = t(item.labelKey, uiLocale)
           const focused =
             item.href === "/dashboard"

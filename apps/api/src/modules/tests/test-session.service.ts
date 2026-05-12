@@ -5,7 +5,6 @@ import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
 import {
   ENT_CONFIG,
-  clampEntProfileHeavySlotSelections,
   isEntProfileSubjectPairAllowed,
 } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
@@ -371,16 +370,7 @@ export class TestSessionService {
 
     if (!session) throw new BadRequestException('Session not available');
 
-    const slotCap = this.getEntFullProfileSlotSelectionCap(session.metadata, questionId);
-    let maxSelections: number | null = slotCap;
-    if (slotCap !== null) {
-      const q = await this.prisma.question.findUnique({
-        where: { id: questionId },
-        select: { answerOptions: { select: { isCorrect: true } } },
-      });
-      const opts = q?.answerOptions ?? [];
-      maxSelections = clampEntProfileHeavySlotSelections(slotCap, opts);
-    }
+    const maxSelections = this.getEntFullProfileSlotSelectionCap(session.metadata, questionId);
     if (maxSelections !== null && selectedIds.length > maxSelections) {
       throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
     }
