@@ -50,4 +50,18 @@ export class AuthController {
   async refreshToken(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
   }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('register')
+  async register(
+    @Body() dto: { email: string; password: string; firstName?: string; lastName?: string },
+  ) {
+    return this.authService.registerEmail(dto);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('login')
+  async login(@Body('email') email: string, @Body('password') password: string) {
+    return this.authService.loginEmail(email, password);
+  }
 }

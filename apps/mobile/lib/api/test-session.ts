@@ -175,7 +175,7 @@ function entProfileMaxSelections(
   const from = section.profileHeavyFrom ?? 31
   const rel0 = indexInSection + 1 - from
   if (rel0 < 0 || rel0 >= 10) return null
-  const slotCap = rel0 < 5 ? 2 : 3
+  const slotCap = 3
   const correctCount = answerOptions.filter((option) => option.isCorrect).length
   if (correctCount <= 0) return slotCap
   return Math.min(slotCap, correctCount)

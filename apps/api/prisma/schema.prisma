@@ -138,6 +138,7 @@ model User {
   googleId          String?   @unique @map("google_id") @db.VarChar(255)
   email             String?   @unique @map("email") @db.VarChar(255)
   emailVerified     Boolean   @default(false) @map("email_verified")
+  passwordHash      String?   @map("password_hash") @db.VarChar(255)
   /// E.164 digits without +, e.g. 77001234567 — set when user shares contact in bot; used for web login
   phone             String?   @unique @map("phone") @db.VarChar(20)
   firstName         String?   @map("first_name") @db.VarChar(100)

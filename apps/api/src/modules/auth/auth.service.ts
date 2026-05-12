@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
-import { randomInt } from 'crypto';
+import { randomInt, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import Redis from 'ioredis';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramAuthService } from './telegram-auth.service';
@@ -272,6 +272,77 @@ export class AuthService {
     });
   }
 
+  async registerEmail(dto: {
+    email: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+  }) {
+    const email = dto.email.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      throw new BadRequestException('Введите корректный email');
+    }
+    if (!dto.password || dto.password.length < 6) {
+      throw new BadRequestException('Пароль должен быть не менее 6 символов');
+    }
+
+    const existing = await this.prisma.user.findFirst({
+      where: { email },
+    });
+    if (existing) {
+      throw new BadRequestException('Пользователь с таким email уже существует');
+    }
+
+    const passwordHash = await hashPassword(dto.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        emailVerified: false,
+        passwordHash,
+        firstName: dto.firstName?.trim() || null,
+        lastName: dto.lastName?.trim() || null,
+        preferredLanguage: 'ru',
+        isChannelMember: true,
+      },
+    });
+
+    await this.accessService.ensureSignupEntitlementsForUser(user.id);
+
+    return this.generateTokens({
+      ...user,
+      telegramId: null,
+      isChannelMember: true,
+    });
+  }
+
+  async loginEmail(email: string, password: string) {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !normalized.includes('@')) {
+      throw new BadRequestException('Введите корректный email');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalized },
+    });
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Неверный email или пароль');
+    }
+
+    const valid = await verifyPassword(password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Неверный email или пароль');
+    }
+
+    await this.accessService.ensureSignupEntitlementsForUser(user.id);
+
+    return this.generateTokens({
+      ...user,
+      telegramId: user.telegramId ? Number(user.telegramId) : null,
+      isChannelMember: user.telegramId ? user.isChannelMember : true,
+    });
+  }
+
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwt.verify(refreshToken, {
@@ -388,4 +459,22 @@ export class AuthService {
       }
     }
   }
+}
+
+const SALT_LEN = 32;
+const KEY_LEN = 64;
+const HASH_SEP = ':';
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(SALT_LEN).toString('hex');
+  const key = scryptSync(password, salt, KEY_LEN);
+  return `${salt}${HASH_SEP}${key.toString('hex')}`;
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const [salt, keyHex] = hash.split(HASH_SEP);
+  if (!salt || !keyHex) return false;
+  const expected = Buffer.from(keyHex, 'hex');
+  const actual = scryptSync(password, salt, KEY_LEN);
+  return timingSafeEqual(expected, actual);
 }

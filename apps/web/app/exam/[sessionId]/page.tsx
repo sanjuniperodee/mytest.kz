@@ -309,7 +309,6 @@ export default function ExamSessionPage({
     let next: string[]
     if (q.multiSelect) {
       if (q.maxSelections && !current.includes(optionId) && current.length >= q.maxSelections) {
-        toast.message(`Можно выбрать максимум ${q.maxSelections} варианта`)
         return
       }
       next = current.includes(optionId)
@@ -544,14 +543,6 @@ export default function ExamSessionPage({
                   )
                 })}
               </div>
-
-              {current.multiSelect && (
-                <p className="text-xs text-muted-foreground">
-                  {current.maxSelections
-                    ? `Можно выбрать до ${current.maxSelections} вариантов`
-                    : "Можно выбрать несколько вариантов"}
-                </p>
-              )}
             </CardContent>
           </Card>
 

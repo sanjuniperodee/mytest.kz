@@ -83,6 +83,12 @@ export class UsersController {
     return this.usersService.updateProfile(userId, { avatarUrl: null });
   }
 
+  @Delete('me')
+  async deleteAccount(@CurrentUser('id') userId: string) {
+    await this.usersService.deleteAccount(userId);
+    return { message: 'Account deleted' };
+  }
+
   @Get('me/stats')
   async getStats(@CurrentUser('id') userId: string) {
     return this.usersService.getStats(userId);

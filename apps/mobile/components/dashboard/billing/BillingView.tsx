@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import useSWR from "swr"
-import { Linking, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"

@@ -650,6 +650,70 @@ export class UsersService {
     };
   }
 
+  async deleteAccount(userId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      // Delete funnel steps for user's visit events
+      const visitIds = (
+        await tx.visitEvent.findMany({
+          where: { userId },
+          select: { id: true },
+        })
+      ).map((v) => v.id);
+      if (visitIds.length > 0) {
+        await tx.funnelStep.deleteMany({ where: { visitId: { in: visitIds } } });
+        await tx.visitEvent.deleteMany({ where: { userId } });
+      }
+
+      // Daily usage
+      await tx.userExamDailyUsage.deleteMany({ where: { userId } });
+      // Usage ledger
+      await tx.attemptUsageLedger.deleteMany({ where: { userId } });
+      // Delete test answers for user's sessions
+      const sessionIds = (
+        await tx.testSession.findMany({
+          where: { userId },
+          select: { id: true },
+        })
+      ).map((s) => s.id);
+      if (sessionIds.length > 0) {
+        await tx.testAnswer.deleteMany({ where: { sessionId: { in: sessionIds } } });
+        // Nullify ledger references to these sessions
+        await tx.attemptUsageLedger.updateMany({
+          where: { sessionId: { in: sessionIds } },
+          data: { sessionId: null },
+        });
+      }
+      // Test sessions
+      await tx.testSession.deleteMany({ where: { userId } });
+      // Entitlements granted by this user
+      await tx.userExamEntitlement.updateMany({
+        where: { createdBy: userId },
+        data: { createdBy: null },
+      });
+      // Entitlements for this user
+      await tx.userExamEntitlement.deleteMany({ where: { userId } });
+      // Granted subscriptions
+      await tx.subscription.updateMany({
+        where: { grantedBy: userId },
+        data: { grantedBy: null },
+      });
+      // Subscriptions
+      await tx.subscription.deleteMany({ where: { userId } });
+      // Payment orders
+      await tx.paymentOrder.deleteMany({ where: { userId } });
+      // Plan templates created by user
+      await tx.subscriptionPlanTemplate.updateMany({
+        where: { createdBy: userId },
+        data: { createdBy: null },
+      });
+      // Notification deliveries
+      await tx.notificationDelivery.deleteMany({ where: { userId } });
+
+      // Finally delete the user
+      await tx.user.delete({ where: { id: userId } });
+    });
+  }
+
   private mapEntHistoryRow(s: {
     id: string;
     rawScore: number | null;

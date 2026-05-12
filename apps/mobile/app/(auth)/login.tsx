@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
+import { EmailLoginForm } from "@/components/auth/EmailLoginForm"
 import { PhoneLoginForm } from "@/components/auth/PhoneLoginForm"
 import { Card } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
@@ -57,11 +58,14 @@ export default function LoginScreen() {
         </Text>
 
         <Card style={{ marginTop: 20 }}>
-          <Text style={[styles.section, { color: colors.foreground }]}>{t("loginPhone", ui)}</Text>
-          <PhoneLoginForm />
+          <Text style={[styles.section, { color: colors.foreground }]}>{t("loginEmail", ui)}</Text>
+          <EmailLoginForm />
           <View style={{ height: 20 }} />
           <Text style={[styles.section, { color: colors.foreground }]}>{t("loginGoogle", ui)}</Text>
           <GoogleSignInButton onIdToken={onGoogleToken} />
+          <View style={{ height: 20 }} />
+          <Text style={[styles.section, { color: colors.foreground }]}>{t("loginPhone", ui)}</Text>
+          <PhoneLoginForm />
         </Card>
 
         <Text style={[styles.footer, { color: colors.mutedForeground }]} onPress={() => router.replace("/landing")}>
