@@ -344,6 +344,7 @@ export class AccessService {
       if (!sub) return;
 
       const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
+      const dailyLimit = this.subscriptionDailyAttemptsLimit(sub.planType);
       const examScope =
         sub.examTypeId != null
           ? await tx.examType.findMany({
@@ -381,7 +382,7 @@ export class AccessService {
             tier,
             status,
             totalAttemptsLimit: totalLimit,
-            dailyAttemptsLimit: null,
+            dailyAttemptsLimit: dailyLimit,
             windowStartsAt: sub.startsAt,
             windowEndsAt: sub.expiresAt,
             revokedAt: status === EntitlementStatus.revoked ? new Date() : null,
@@ -396,7 +397,7 @@ export class AccessService {
             tier,
             status,
             totalAttemptsLimit: totalLimit,
-            dailyAttemptsLimit: null,
+            dailyAttemptsLimit: dailyLimit,
             windowStartsAt: sub.startsAt,
             windowEndsAt: sub.expiresAt,
           },
@@ -572,6 +573,14 @@ export class AccessService {
     return null;
   }
 
+  private subscriptionDailyAttemptsLimit(planType: string): number | null {
+    if (planType === 'trial') return 1;
+    if (planType === 'week') return 5;
+    if (planType === 'month') return 5;
+    if (planType === 'annual') return 5;
+    return null;
+  }
+
   private async expireEndedEntitlements(
     tx: Prisma.TransactionClient,
     userId: string,
@@ -626,6 +635,7 @@ export class AccessService {
         : EntitlementSourceType.legacy_paid_subscription;
       const tier = this.subscriptionEntitlementTier(sub.planType);
       const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
+      const dailyLimit = this.subscriptionDailyAttemptsLimit(sub.planType);
       const countedUsed = totalLimit != null
         ? await tx.testSession.count({
             where: {
@@ -664,7 +674,7 @@ export class AccessService {
           tier,
           status,
           totalAttemptsLimit: totalLimit,
-          dailyAttemptsLimit: null,
+          dailyAttemptsLimit: dailyLimit,
           usedAttemptsTotal: used,
           windowStartsAt: sub.startsAt,
           windowEndsAt: sub.expiresAt,
@@ -679,7 +689,7 @@ export class AccessService {
           sourceType,
           sourceRef: `subscription:${sub.id}:exam:${exam.id}`,
           totalAttemptsLimit: totalLimit,
-          dailyAttemptsLimit: null,
+          dailyAttemptsLimit: dailyLimit,
           usedAttemptsTotal: used,
           windowStartsAt: sub.startsAt,
           windowEndsAt: sub.expiresAt,
@@ -883,6 +893,7 @@ export class AccessService {
         usedAttemptsTotal: true,
         dailyAttemptsLimit: true,
         timezone: true,
+        subscription: { select: { planType: true } },
       },
     });
 
@@ -912,7 +923,10 @@ export class AccessService {
         usedTotal += ent.usedAttemptsTotal;
       }
 
-      if (ent.dailyAttemptsLimit == null) {
+      const dailyAttemptsLimit =
+        ent.dailyAttemptsLimit ??
+        (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
+      if (dailyAttemptsLimit == null) {
         dailyUnlimited = true;
         if (remTotal == null || remTotal > 0) anyAllowed = true;
         continue;
@@ -929,9 +943,9 @@ export class AccessService {
         select: { attemptsUsed: true },
       });
       const dailyUsed = usage?.attemptsUsed ?? 0;
-      const remDaily = Math.max(0, ent.dailyAttemptsLimit - dailyUsed);
+      const remDaily = Math.max(0, dailyAttemptsLimit - dailyUsed);
       usedDaily += dailyUsed;
-      dailyLimit = (dailyLimit ?? 0) + ent.dailyAttemptsLimit;
+      dailyLimit = (dailyLimit ?? 0) + dailyAttemptsLimit;
       if (remDaily === 0) {
         anyDailyBlocked = true;
         const next = this.getNextLocalMidnightUtc(now, ent.timezone);
@@ -1011,6 +1025,7 @@ export class AccessService {
         tier: true,
         windowEndsAt: true,
         createdAt: true,
+        subscription: { select: { planType: true } },
       },
       orderBy: [{ createdAt: 'asc' }],
     });
@@ -1048,7 +1063,10 @@ export class AccessService {
       const localDay = this.getLocalDayKey(now, ent.timezone);
       let remToday: number | null = null;
       let nextResetAt: Date | null = null;
-      if (ent.dailyAttemptsLimit != null) {
+      const dailyAttemptsLimit =
+        ent.dailyAttemptsLimit ??
+        (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
+      if (dailyAttemptsLimit != null) {
         const usage = await tx.userExamDailyUsage.findUnique({
           where: {
             entitlementId_localDay: { entitlementId: ent.id, localDay },
@@ -1056,7 +1074,7 @@ export class AccessService {
           select: { attemptsUsed: true },
         });
         const used = usage?.attemptsUsed ?? 0;
-        remToday = Math.max(0, ent.dailyAttemptsLimit - used);
+        remToday = Math.max(0, dailyAttemptsLimit - used);
         if (remToday <= 0) {
           hasDailyBlocked = true;
           nextResetAt = this.getNextLocalMidnightUtc(now, ent.timezone);
@@ -1073,7 +1091,7 @@ export class AccessService {
             id: ent.id,
             sourceType: ent.sourceType,
             totalAttemptsLimit: ent.totalAttemptsLimit,
-            dailyAttemptsLimit: ent.dailyAttemptsLimit,
+            dailyAttemptsLimit,
             usedAttemptsTotal: ent.usedAttemptsTotal,
             timezone: ent.timezone,
             windowEndsAt: ent.windowEndsAt,

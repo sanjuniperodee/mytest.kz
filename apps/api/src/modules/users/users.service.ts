@@ -166,7 +166,7 @@ export class UsersService {
         isPaid,
         examSlug: activeSubscription.examType?.slug ?? null,
         totalAttemptsLimit: this.subscriptionTotalAttemptsLimit(activeSubscription.planType),
-        dailyAttemptsLimit: null,
+        dailyAttemptsLimit: this.subscriptionDailyAttemptsLimit(activeSubscription.planType),
       };
     }
 
@@ -272,6 +272,14 @@ export class UsersService {
   private subscriptionTotalAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
     if (planType === 'week') return 5;
+    return null;
+  }
+
+  private subscriptionDailyAttemptsLimit(planType: string): number | null {
+    if (planType === 'trial') return 1;
+    if (planType === 'week') return 5;
+    if (planType === 'month') return 5;
+    if (planType === 'annual') return 5;
     return null;
   }
 
