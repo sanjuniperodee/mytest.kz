@@ -779,6 +779,9 @@ describe('ENT 120/140 consistency', () => {
           totalAttemptsLimit: 2,
           usedAttemptsTotal: 1,
         }),
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: { usedAttemptsTotal: 0 },
+        }),
       },
     } as any;
     const accessMock = {

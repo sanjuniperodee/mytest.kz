@@ -43,9 +43,9 @@ export function MobileHeader({ title }: { title?: string }) {
           accessibilityLabel={t("openMenu", locale)}
           hitSlop={12}
           onPress={openDrawer}
-          style={[styles.iconBtn, { borderColor: colors.border }]}
+          style={styles.iconBtn}
         >
-          <MaterialCommunityIcons name="menu" size={20} color={colors.foreground} />
+          <MaterialCommunityIcons name="menu" size={22} color={colors.foreground} />
         </Pressable>
         {isBrand ? (
           <View style={styles.brandLockup}>
@@ -57,7 +57,7 @@ export function MobileHeader({ title }: { title?: string }) {
               />
             </View>
             <Text style={[styles.title, styles.titleBrand, { color: colors.foreground }]} numberOfLines={1}>
-              {resolvedTitle}
+              mytest
             </Text>
           </View>
         ) : (
@@ -69,15 +69,9 @@ export function MobileHeader({ title }: { title?: string }) {
           accessibilityLabel={t("language", locale)}
           hitSlop={12}
           onPress={() => setLocale(locale === "ru" ? "kk" : "ru")}
-          style={[
-            styles.langBtn,
-            {
-              borderColor: colors.border,
-              backgroundColor: colors.secondary,
-            },
-          ]}
+          style={styles.langBtn}
         >
-          <Text style={[styles.langText, { color: colors.foreground }]}>{locale.toUpperCase()}</Text>
+          <Text style={[styles.langText, { color: colors.mutedForeground }]}>{locale.toUpperCase()}</Text>
         </Pressable>
       </View>
     </View>
@@ -102,7 +96,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -130,16 +123,15 @@ const styles = StyleSheet.create({
     textTransform: "lowercase",
   },
   langBtn: {
-    minWidth: 52,
+    minWidth: 44,
     height: 40,
     borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   langText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.sansSemi,
   },
 })

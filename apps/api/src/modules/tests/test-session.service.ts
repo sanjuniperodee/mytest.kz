@@ -168,8 +168,8 @@ export class TestSessionService {
 
     const totalQuestions = allAnswerData.length;
 
-    if (examSlug === 'ent' && resolvedEntScope === 'full') {
-      this.assertStrictEntFullComposition(template.sections, sections, totalQuestions);
+    if (examSlug === 'ent' && (resolvedEntScope === 'full' || resolvedEntScope === 'profile')) {
+      this.assertStrictEntComposition(template.sections, sections, totalQuestions, resolvedEntScope);
     }
 
     const mandatoryQ = template.sections.reduce(
@@ -723,7 +723,7 @@ export class TestSessionService {
         profileHeavyFrom?: number | null;
       }>;
     };
-    if (meta.entScope !== 'full') return null;
+    if (meta.entScope !== 'full' && meta.entScope !== 'profile') return null;
     if (!Array.isArray(meta.questionOrder) || !Array.isArray(meta.sections)) {
       return null;
     }
@@ -800,7 +800,7 @@ export class TestSessionService {
     entScope?: 'mandatory' | 'profile' | 'full',
   ): number {
     if (examSlug === 'ent') {
-      if (entScope === 'full') return ENT_CONFIG.profileQuestionsPerSubject;
+      if (entScope === 'full' || entScope === 'profile') return ENT_CONFIG.profileQuestionsPerSubject;
       if (mandatoryQuestionSum >= 35) return 40;
       if (mandatoryQuestionSum >= 20) return 20;
       return 10;
@@ -907,7 +907,7 @@ export class TestSessionService {
     }
   }
 
-  private assertStrictEntFullComposition(
+  private assertStrictEntComposition(
     templateSections: Array<{
       subjectId: string;
       questionCount: number;
@@ -918,51 +918,59 @@ export class TestSessionService {
       questionIds: string[];
     }>,
     totalQuestions: number,
+    entScope: 'full' | 'profile',
   ): void {
-    const mandatoryExpectedBySubject = new Map<string, number>();
-    for (const sec of templateSections) {
-      const isMandatory = sec.subject?.isMandatory ?? true;
-      if (!isMandatory) continue;
-      mandatoryExpectedBySubject.set(
-        sec.subjectId,
-        (mandatoryExpectedBySubject.get(sec.subjectId) ?? 0) + sec.questionCount,
-      );
-    }
+    const includeMandatory = entScope === 'full';
 
-    let mandatoryActualTotal = 0;
-    for (const [subjectId, expectedCount] of mandatoryExpectedBySubject.entries()) {
-      const generated = generatedSections.find((s) => s.subjectId === subjectId);
-      const got = generated?.questionIds.length ?? 0;
-      mandatoryActualTotal += got;
-      if (got !== expectedCount) {
+    if (includeMandatory) {
+      const mandatoryExpectedBySubject = new Map<string, number>();
+      for (const sec of templateSections) {
+        const isMandatory = sec.subject?.isMandatory ?? true;
+        if (!isMandatory) continue;
+        mandatoryExpectedBySubject.set(
+          sec.subjectId,
+          (mandatoryExpectedBySubject.get(sec.subjectId) ?? 0) + sec.questionCount,
+        );
+      }
+
+      let mandatoryActualTotal = 0;
+      for (const [subjectId, expectedCount] of mandatoryExpectedBySubject.entries()) {
+        const generated = generatedSections.find((s) => s.subjectId === subjectId);
+        const got = generated?.questionIds.length ?? 0;
+        mandatoryActualTotal += got;
+        if (got !== expectedCount) {
+          throw new BadRequestException(
+            `ENT ${entScope} requires exact mandatory question counts, but subject ${subjectId} has ${got}/${expectedCount}`,
+          );
+        }
+      }
+      if (mandatoryActualTotal !== ENT_CONFIG.maxMandatoryPoints) {
         throw new BadRequestException(
-          `ENT full requires exact mandatory question counts, but subject ${subjectId} has ${got}/${expectedCount}`,
+          `ENT ${entScope} mandatory total must be ${ENT_CONFIG.maxMandatoryPoints}`,
         );
       }
     }
-    if (mandatoryActualTotal !== ENT_CONFIG.maxMandatoryPoints) {
-      throw new BadRequestException(
-        `ENT full mandatory total must be ${ENT_CONFIG.maxMandatoryPoints}`,
-      );
-    }
 
-    const profileSections = generatedSections.filter(
-      (s) => !mandatoryExpectedBySubject.has(s.subjectId),
-    );
+    const profileSections = includeMandatory
+      ? generatedSections.filter((s) => !templateSections.some((t) => t.subjectId === s.subjectId))
+      : generatedSections;
     if (profileSections.length !== 2) {
-      throw new BadRequestException('ENT full requires exactly 2 profile subjects');
+      throw new BadRequestException(`ENT ${entScope} requires exactly 2 profile subjects`);
     }
     for (const sec of profileSections) {
       if (sec.questionIds.length !== ENT_CONFIG.profileQuestionsPerSubject) {
         throw new BadRequestException(
-          `ENT full profile subject must contain exactly ${ENT_CONFIG.profileQuestionsPerSubject} questions`,
+          `ENT ${entScope} profile subject must contain exactly ${ENT_CONFIG.profileQuestionsPerSubject} questions`,
         );
       }
     }
 
-    if (totalQuestions !== ENT_CONFIG.totalQuestions) {
+    const expectedTotal = includeMandatory
+      ? ENT_CONFIG.totalQuestions
+      : 2 * ENT_CONFIG.profileQuestionsPerSubject;
+    if (totalQuestions !== expectedTotal) {
       throw new BadRequestException(
-        `ENT full must contain exactly ${ENT_CONFIG.totalQuestions} questions`,
+        `ENT ${entScope} must contain exactly ${expectedTotal} questions`,
       );
     }
   }

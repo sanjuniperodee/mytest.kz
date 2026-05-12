@@ -185,24 +185,14 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
                 styles.navRow,
                 {
                   backgroundColor: focused ? colors.foreground : "transparent",
-                  borderColor: focused ? colors.foreground : "transparent",
                 },
               ]}
             >
-              <View
-                style={[
-                  styles.navIconWrap,
-                  {
-                    backgroundColor: focused ? `${colors.background}22` : colors.secondary,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={item.icon}
-                  size={18}
-                  color={focused ? colors.background : colors.foreground}
-                />
-              </View>
+              <MaterialCommunityIcons
+                name={item.icon}
+                size={20}
+                color={focused ? colors.background : colors.foreground}
+              />
               <Text
                 style={[
                   styles.navLabel,
@@ -211,11 +201,6 @@ export function DashboardDrawerContent(props: DrawerContentComponentProps) {
               >
                 {label}
               </Text>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={18}
-                color={focused ? colors.background : colors.mutedForeground}
-              />
             </Pressable>
           )
         })}
@@ -334,24 +319,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   navRow: {
-    minHeight: 52,
+    minHeight: 44,
     borderRadius: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  navIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
   },
   navLabel: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: fonts.sansSemi,
   },
   footer: {

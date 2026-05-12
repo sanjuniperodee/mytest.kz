@@ -29,7 +29,7 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },

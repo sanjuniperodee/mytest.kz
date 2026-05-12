@@ -52,12 +52,18 @@ export class TestGeneratorService {
     const examSlug = template.examType?.slug ?? '';
     const entScope = examSlug === 'ent' ? opts?.entScope : undefined;
     const strictEntFull = examSlug === 'ent' && entScope === 'full';
+    /** Строгая выборка истории Казахстана для любого ENT (full или mandatory). */
+    const strictEntHistory = examSlug === 'ent' && entScope !== 'profile';
+    /** Строгая выборка профильных предметов для ENT (full или profile). */
+    const strictEntProfile = examSlug === 'ent' && (entScope === 'full' || entScope === 'profile');
+    /** Все шаблонные секции ENT подчиняются строгой padding/validation. */
+    const strictEntSections = examSlug === 'ent' && entScope !== 'profile';
 
     const sections: GeneratedSection[] = [];
 
-    if (strictEntFull && profileQuestionCount !== ENT_CONFIG.profileQuestionsPerSubject) {
+    if (strictEntProfile && profileQuestionCount !== ENT_CONFIG.profileQuestionsPerSubject) {
       throw new BadRequestException(
-        `ENT full requires ${ENT_CONFIG.profileQuestionsPerSubject} questions per profile subject`,
+        `ENT ${entScope} requires ${ENT_CONFIG.profileQuestionsPerSubject} questions per profile subject`,
       );
     }
 
@@ -65,7 +71,7 @@ export class TestGeneratorService {
     if (includeTemplateSections) {
       for (const section of template.sections) {
         let questionIds =
-          strictEntFull && section.subject?.slug === 'history_kz'
+          strictEntHistory && section.subject?.slug === 'history_kz'
             ? await this.selectStrictEntHistoryQuestions(
                 section.subjectId,
                 userId,
@@ -77,9 +83,9 @@ export class TestGeneratorService {
                 section.selectionMode,
                 userId,
                 language,
-                strictEntFull,
+                strictEntHistory,
               );
-        if (strictEntFull && questionIds.length < section.questionCount) {
+        if (strictEntSections && questionIds.length < section.questionCount) {
           questionIds = await this.padSubjectQuestionIds(
             section.subjectId,
             questionIds,
@@ -88,7 +94,7 @@ export class TestGeneratorService {
             language,
           );
         }
-        if (strictEntFull && questionIds.length !== section.questionCount) {
+        if (strictEntSections && questionIds.length !== section.questionCount) {
           throw new BadRequestException(
             `ENT full question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
           );
@@ -115,7 +121,7 @@ export class TestGeneratorService {
         const subjectId = profileSubjectIds![i];
         if (sections.some((s) => s.subjectId === subjectId)) continue;
 
-        let questionIds = strictEntFull
+        let questionIds = strictEntProfile
           ? await this.selectStrictEntProfileQuestions(subjectId, userId, language)
           : await this.selectQuestions(
               subjectId,
@@ -125,7 +131,7 @@ export class TestGeneratorService {
               language,
               false,
             );
-        if (strictEntFull && questionIds.length < profileQuestionCount) {
+        if (strictEntProfile && questionIds.length < profileQuestionCount) {
           questionIds = await this.padSubjectQuestionIds(
             subjectId,
             questionIds,
@@ -134,9 +140,9 @@ export class TestGeneratorService {
             language,
           );
         }
-        if (strictEntFull && questionIds.length !== profileQuestionCount) {
+        if (strictEntProfile && questionIds.length !== profileQuestionCount) {
           throw new BadRequestException(
-            `ENT full question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
+            `ENT ${entScope} question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
           );
         }
         sections.push({
