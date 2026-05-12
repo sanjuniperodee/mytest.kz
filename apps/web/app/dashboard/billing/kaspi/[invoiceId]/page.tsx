@@ -37,6 +37,27 @@ interface PaymentOrder {
   createdAt: string
 }
 
+type PaymentStatusKind = "pending" | "paid" | "inactive"
+
+function paymentStatusKind(status: unknown): PaymentStatusKind {
+  const normalized = String(status || "").trim().toLowerCase()
+  if (normalized === "paid" || normalized === "processed" || normalized === "success" || normalized === "succeeded") {
+    return "paid"
+  }
+  if (
+    normalized === "failed" ||
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "expired" ||
+    normalized === "sessionexpired" ||
+    normalized === "remotepaymentcanceled" ||
+    normalized === "remotepaymentrejected"
+  ) {
+    return "inactive"
+  }
+  return "pending"
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return ""
   return new Date(value).toLocaleString("ru-RU", {
@@ -48,7 +69,8 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function statusView(status: PaymentOrder["status"]) {
-  if (status === "paid") {
+  const kind = paymentStatusKind(status)
+  if (kind === "paid") {
     return {
       title: "Оплата прошла",
       description: "Подписка уже активирована. Можно возвращаться к пробникам.",
@@ -57,12 +79,12 @@ function statusView(status: PaymentOrder["status"]) {
       className: "border-emerald-200 bg-emerald-50 text-emerald-950",
     }
   }
-  if (status === "failed" || status === "cancelled") {
+  if (kind === "inactive") {
     return {
-      title: "Счёт не оплачен",
-      description: "Этот счёт отменён или истёк. Вернитесь к тарифам и выставьте новый.",
+      title: "Счёт отменён",
+      description: "Этот счёт уже не активен. Вернитесь к тарифам и выставьте новый.",
       icon: XCircle,
-      badge: "Неактивен",
+      badge: "Отменён",
       className: "border-red-200 bg-red-50 text-red-950",
     }
   }
@@ -87,7 +109,7 @@ export default function KaspiPaymentPage() {
     invoiceId ? `/billing/orders/${encodeURIComponent(invoiceId)}` : null,
     (url: string) => api(url),
     {
-      refreshInterval: (current) => (current?.status === "pending" ? 5000 : 0),
+      refreshInterval: (current) => (paymentStatusKind(current?.status) === "pending" ? 5000 : 0),
       keepPreviousData: true,
     },
   )
@@ -185,7 +207,8 @@ export default function KaspiPaymentPage() {
   const view = statusView(order.status)
   const StatusIcon = view.icon
   const payUrl = order.receiptUrl || order.checkoutUrl
-  const canCancel = order.status === "pending"
+  const statusKind = paymentStatusKind(order.status)
+  const canCancel = statusKind === "pending"
 
   const cancelOrder = async () => {
     if (!invoiceId || !window.confirm("Отменить этот счёт Kaspi? После отмены можно будет выставить новый.")) {
@@ -198,7 +221,7 @@ export default function KaspiPaymentPage() {
       })
       await mutate(updated, false)
       await mutateGlobal("/billing/kaspi/orders/active")
-      if (updated.status === "paid") {
+      if (paymentStatusKind(updated.status) === "paid") {
         void refresh({ silent: true })
       }
     } finally {
@@ -261,7 +284,7 @@ export default function KaspiPaymentPage() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            {payUrl && order.status === "pending" && (
+            {payUrl && statusKind === "pending" && (
               <Button
                 className="h-11 flex-1"
                 onClick={() => window.open(payUrl, "_blank", "noopener,noreferrer")}
@@ -270,12 +293,12 @@ export default function KaspiPaymentPage() {
                 <ExternalLink className="size-4" />
               </Button>
             )}
-            {!payUrl && order.status === "pending" && (
+            {!payUrl && statusKind === "pending" && (
               <div className="rounded-md border border-current/10 bg-white/70 p-3 text-sm text-foreground sm:flex-1">
                 Счёт выставлен в Kaspi, но ссылка на оплату пока не пришла. Откройте приложение Kaspi или проверьте статус через несколько секунд.
               </div>
             )}
-            {order.status === "paid" ? (
+            {statusKind === "paid" ? (
               <Button asChild className="h-11 flex-1">
                 <Link href="/dashboard">Перейти в кабинет</Link>
               </Button>

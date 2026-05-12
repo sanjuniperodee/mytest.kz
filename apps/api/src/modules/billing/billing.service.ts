@@ -16,7 +16,7 @@ import { AccessService } from '../subscriptions/access.service';
 import { KaspiPosService } from './kaspi-pos.service';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
-type KaspiOrderStatus = 'pending' | 'paid' | 'failed';
+type KaspiOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -36,6 +36,11 @@ function firstString(...values: unknown[]): string | null {
     if (str) return str;
   }
   return null;
+}
+
+function isInvalidKaspiOperationId(value: string | null | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return !normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'unknown';
 }
 
 @Injectable()
@@ -103,17 +108,21 @@ export class BillingService {
       orderBy: { createdAt: 'desc' },
     });
     if (pending) {
-      const reconciled = (await this.reconcileKaspiOrder(pending.providerOrderId)) ?? pending;
-      const payload = asRecord(reconciled.providerPayload);
-      const checkoutUrl = reconciled.checkoutUrl ?? pending.checkoutUrl;
-      return {
-        invoiceId: reconciled.providerOrderId,
-        providerOrderId: reconciled.providerOrderId,
-        checkoutUrl,
-        receiptUrl: checkoutUrl,
-        orderNumber: getString(payload?.orderNumber),
-        reused: true,
-      };
+      if (isInvalidKaspiOperationId(pending.providerOrderId)) {
+        await this.cancelInvalidKaspiOrder(pending, 'invalid-provider-order-before-checkout');
+      } else {
+        const reconciled = (await this.reconcileKaspiOrder(pending.providerOrderId)) ?? pending;
+        const payload = asRecord(reconciled.providerPayload);
+        const checkoutUrl = reconciled.checkoutUrl ?? pending.checkoutUrl;
+        return {
+          invoiceId: reconciled.providerOrderId,
+          providerOrderId: reconciled.providerOrderId,
+          checkoutUrl,
+          receiptUrl: checkoutUrl,
+          orderNumber: getString(payload?.orderNumber),
+          reused: true,
+        };
+      }
     }
 
     const normalized = normalizeKzPhone(phoneNumber || '');
@@ -515,7 +524,11 @@ export class BillingService {
     });
 
     for (const order of pendingOrders) {
-      await this.reconcileKaspiOrder(order.providerOrderId);
+      if (isInvalidKaspiOperationId(order.providerOrderId)) {
+        await this.cancelInvalidKaspiOrder(order, 'invalid-provider-order-active-list');
+      } else {
+        await this.reconcileKaspiOrder(order.providerOrderId);
+      }
     }
 
     const orders = await this.prisma.paymentOrder.findMany({
@@ -538,6 +551,14 @@ export class BillingService {
       },
     });
     if (!found) throw new NotFoundException('ORDER_NOT_FOUND');
+
+    if (isInvalidKaspiOperationId(found.providerOrderId)) {
+      if (found.status === 'pending') {
+        const updated = await this.cancelInvalidKaspiOrder(found, 'invalid-provider-order-cancel');
+        return this.presentPaymentOrder(updated);
+      }
+      return this.presentPaymentOrder(found);
+    }
 
     const reconciled =
       found.status === 'pending'
@@ -575,7 +596,7 @@ export class BillingService {
       const paid = await this.prisma.paymentOrder.findUnique({ where: { id: reconciled.id } });
       return this.presentPaymentOrder(paid ?? reconciled);
     }
-    if (normalized !== 'failed') {
+    if (normalized !== 'failed' && normalized !== 'cancelled') {
       throw new BadRequestException(`KASPI_CANCEL_NOT_CONFIRMED:${cancelStatus ?? 'UNKNOWN'}`);
     }
 
@@ -594,6 +615,25 @@ export class BillingService {
     });
 
     return this.presentPaymentOrder(updated);
+  }
+
+  private async cancelInvalidKaspiOrder(
+    order: { id: string; providerPayload: unknown },
+    source: string,
+  ) {
+    const previousPayload = asRecord(order.providerPayload);
+    return this.prisma.paymentOrder.update({
+      where: { id: order.id },
+      data: {
+        status: 'cancelled',
+        providerPayload: {
+          ...(previousPayload ?? {}),
+          cancelledAt: new Date().toISOString(),
+          cancelSource: source,
+          cancelReason: 'invalid_provider_order_id',
+        } as Prisma.InputJsonObject,
+      },
+    });
   }
 
   private async reconcileKaspiOrder(providerOrderId: string) {
@@ -651,11 +691,11 @@ export class BillingService {
         timestamp: new Date().toISOString(),
       });
     }
-    if (normalized === 'failed') {
+    if (normalized === 'failed' || normalized === 'cancelled') {
       await this.prisma.paymentOrder.updateMany({
         where: { id: order.id, status: { not: 'paid' } },
         data: {
-          status: 'failed',
+          status: normalized,
           providerPayload: payload as object,
         },
       });
@@ -679,12 +719,16 @@ export class BillingService {
     }
     if (
       normalized === 'remotepaymentcanceled' ||
+      normalized === 'cancelled' ||
+      normalized === 'canceled'
+    ) {
+      return 'cancelled';
+    }
+    if (
       normalized === 'remotepaymentrejected' ||
       normalized === 'expired' ||
       normalized === 'sessionexpired' ||
-      normalized === 'failed' ||
-      normalized === 'cancelled' ||
-      normalized === 'canceled'
+      normalized === 'failed'
     ) {
       return 'failed';
     }

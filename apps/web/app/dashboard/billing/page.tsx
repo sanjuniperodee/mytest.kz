@@ -64,7 +64,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getString(value: unknown): string | null {
-    if (typeof value === "string" && value.trim()) return value.trim()
+    if (typeof value === "string" && value.trim()) {
+        const normalized = value.trim()
+        const lower = normalized.toLowerCase()
+        if (lower === "undefined" || lower === "null" || lower === "unknown") return null
+        return normalized
+    }
     if (typeof value === "number" && Number.isFinite(value)) return String(value)
     return null
 }
