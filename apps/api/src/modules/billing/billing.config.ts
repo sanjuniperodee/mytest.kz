@@ -19,10 +19,10 @@ export const BILLING_PLANS: BillingPlan[] = [
   {
     id: 'trial',
     name: 'Разовый доступ',
-    description: 'Один полный пробный ЕНТ с Premium-разбором после сдачи.',
+    description: 'Один полный пробный ЕНТ с Premium-разбором. Доступ действует 7 дней.',
     priceKzt: 750,
-    durationDays: 1,
-    features: ['1 полный пробный ЕНТ', 'Premium-разбор вопросов', 'Статистика результата'],
+    durationDays: 7,
+    features: ['1 полный пробный ЕНТ', 'Premium-разбор вопросов', 'Доступ 7 дней'],
   },
   {
     id: 'week',

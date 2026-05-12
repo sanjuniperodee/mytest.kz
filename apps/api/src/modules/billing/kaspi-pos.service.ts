@@ -268,6 +268,29 @@ export class KaspiPosService implements OnModuleInit {
     return res.json();
   }
 
+  async cancelInvoice(operationId: string): Promise<unknown> {
+    if (!this.auth) throw new Error('KASPI_NOT_AUTHENTICATED');
+
+    const res = await fetch(`${this.baseUrl()}/api/invoice/cancel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Token-SN': this.auth.tokenSN,
+        'X-Vtoken-Secret': this.auth.vtokenSecret,
+        ...(this.auth.profileId > 0 ? { 'X-Profile-Id': String(this.auth.profileId) } : {}),
+      },
+      body: JSON.stringify({ operationId: String(operationId) }),
+    });
+
+    const text = await res.text();
+    this.logger.debug(`Invoice cancel raw response: ${text}`);
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`KASPI_CANCEL_PARSE_ERROR:${text.slice(0, 200)}`);
+    }
+  }
+
   isAuthenticated(): boolean {
     return this.auth !== null;
   }

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
 import { useSWRConfig } from "swr"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ArrowLeft,
   CheckCircle2,
@@ -82,6 +82,7 @@ export default function KaspiPaymentPage() {
   const { refresh } = useAuth()
   const { mutate: mutateGlobal } = useSWRConfig()
   const refreshedAfterPaid = useRef(false)
+  const [cancelling, setCancelling] = useState(false)
   const { data: order, error, isLoading, mutate, isValidating } = useSWR<PaymentOrder>(
     invoiceId ? `/billing/orders/${encodeURIComponent(invoiceId)}` : null,
     (url: string) => api(url),
@@ -184,6 +185,26 @@ export default function KaspiPaymentPage() {
   const view = statusView(order.status)
   const StatusIcon = view.icon
   const payUrl = order.receiptUrl || order.checkoutUrl
+  const canCancel = order.status === "pending"
+
+  const cancelOrder = async () => {
+    if (!invoiceId || !window.confirm("Отменить этот счёт Kaspi? После отмены можно будет выставить новый.")) {
+      return
+    }
+    setCancelling(true)
+    try {
+      const updated = await api<PaymentOrder>(`/billing/kaspi/orders/${encodeURIComponent(invoiceId)}/cancel`, {
+        method: "POST",
+      })
+      await mutate(updated, false)
+      await mutateGlobal("/billing/kaspi/orders/active")
+      if (updated.status === "paid") {
+        void refresh({ silent: true })
+      }
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -267,6 +288,17 @@ export default function KaspiPaymentPage() {
               >
                 {isValidating ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                 Проверить оплату
+              </Button>
+            )}
+            {canCancel && (
+              <Button
+                variant="outline"
+                className="h-11 flex-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                onClick={cancelOrder}
+                disabled={cancelling || isValidating}
+              >
+                {cancelling ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
+                Отменить счёт
               </Button>
             )}
           </div>

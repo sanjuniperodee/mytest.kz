@@ -3,7 +3,7 @@
 import useSWR from "swr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Check, Crown, Sparkles, ShieldCheck, Loader2, ExternalLink } from "lucide-react"
+import { ArrowRight, Check, Crown, Sparkles, ShieldCheck, Loader2, ExternalLink, XCircle } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { useSWRConfig } from "swr"
 import { Card, CardContent } from "@/components/ui/card"
@@ -260,18 +260,55 @@ function PendingKaspiOrders({
                                 </p>
                             </div>
                             {invoiceId ? (
+                              <div className="flex flex-col gap-2 sm:flex-row">
                                 <Button size="sm" asChild>
                                     <Link href={`/dashboard/billing/kaspi/${encodeURIComponent(invoiceId)}`}>
                                         Продолжить оплату
                                         <ArrowRight className="size-4" />
                                     </Link>
                                 </Button>
+                                <CancelKaspiOrderButton invoiceId={invoiceId} />
+                              </div>
                             ) : null}
                         </div>
                     )
                 })}
             </CardContent>
         </Card>
+    )
+}
+
+function CancelKaspiOrderButton({ invoiceId }: { invoiceId: string }) {
+    const { mutate } = useSWRConfig()
+    const [loading, setLoading] = useState(false)
+
+    const cancelOrder = async () => {
+        if (!window.confirm("Отменить этот счёт Kaspi? После отмены можно будет выставить новый.")) {
+            return
+        }
+        setLoading(true)
+        try {
+            await api(`/billing/kaspi/orders/${encodeURIComponent(invoiceId)}/cancel`, {
+                method: "POST",
+            })
+            await mutate("/billing/kaspi/orders/active")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={cancelOrder}
+            disabled={loading}
+            className="border-amber-300 bg-white/80 text-amber-950 hover:bg-amber-100"
+        >
+            {loading ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
+            Отменить
+        </Button>
     )
 }
 

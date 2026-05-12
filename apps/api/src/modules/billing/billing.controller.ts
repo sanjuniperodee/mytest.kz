@@ -110,4 +110,13 @@ export class BillingController {
   getActiveKaspiOrders(@CurrentUser('id') userId: string) {
     return this.billingService.getActiveKaspiOrders(userId);
   }
+
+  @Post('kaspi/orders/:orderId/cancel')
+  @UseGuards(AuthGuard('jwt'))
+  cancelKaspiOrder(
+    @CurrentUser('id') userId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.billingService.cancelKaspiOrder(userId, orderId);
+  }
 }

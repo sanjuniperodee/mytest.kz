@@ -529,6 +529,73 @@ export class BillingService {
     return orders.map((order) => this.presentPaymentOrder(order));
   }
 
+  async cancelKaspiOrder(userId: string, orderId: string) {
+    const found = await this.prisma.paymentOrder.findFirst({
+      where: {
+        userId,
+        provider: 'kaspi',
+        providerOrderId: orderId,
+      },
+    });
+    if (!found) throw new NotFoundException('ORDER_NOT_FOUND');
+
+    const reconciled =
+      found.status === 'pending'
+        ? (await this.reconcileKaspiOrder(found.providerOrderId)) ?? found
+        : found;
+
+    if (reconciled.status === 'paid') {
+      return this.presentPaymentOrder(reconciled);
+    }
+    if (reconciled.status !== 'pending') {
+      return this.presentPaymentOrder(reconciled);
+    }
+
+    let cancelPayload: Record<string, unknown> | null = null;
+    try {
+      cancelPayload = asRecord(await this.kaspiPosService.cancelInvoice(reconciled.providerOrderId));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(`KASPI_CANCEL_ERROR:${message}`);
+    }
+
+    const cancelData = asRecord(cancelPayload?.Data) ?? asRecord(cancelPayload?.data) ?? cancelPayload;
+    const cancelStatus = getString(cancelData?.Status ?? cancelData?.status);
+    const normalized = this.normalizeKaspiInvoiceStatus(cancelStatus);
+    if (normalized === 'paid') {
+      await this.finalizeKaspiInvoicePaid(reconciled.providerOrderId, {
+        event: 'payment.success',
+        paymentId: reconciled.providerOrderId,
+        type: 'invoice',
+        status: cancelStatus,
+        data: cancelPayload,
+        source: 'cancel-reconcile',
+        timestamp: new Date().toISOString(),
+      });
+      const paid = await this.prisma.paymentOrder.findUnique({ where: { id: reconciled.id } });
+      return this.presentPaymentOrder(paid ?? reconciled);
+    }
+    if (normalized !== 'failed') {
+      throw new BadRequestException(`KASPI_CANCEL_NOT_CONFIRMED:${cancelStatus ?? 'UNKNOWN'}`);
+    }
+
+    const previousPayload = asRecord(reconciled.providerPayload);
+    const updated = await this.prisma.paymentOrder.update({
+      where: { id: reconciled.id },
+      data: {
+        status: 'cancelled',
+        providerPayload: {
+          ...(previousPayload ?? {}),
+          cancelResponse: cancelPayload,
+          cancelledAt: new Date().toISOString(),
+          cancelSource: 'user',
+        } as Prisma.InputJsonObject,
+      },
+    });
+
+    return this.presentPaymentOrder(updated);
+  }
+
   private async reconcileKaspiOrder(providerOrderId: string) {
     const order = await this.prisma.paymentOrder.findUnique({
       where: { providerOrderId },
