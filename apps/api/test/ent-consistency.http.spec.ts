@@ -5,6 +5,12 @@ import { TestSessionService } from '../src/modules/tests/test-session.service';
 import { TestGeneratorService } from '../src/modules/tests/test-generator.service';
 import { UsersService } from '../src/modules/users/users.service';
 
+function makeAnswerOptions(optionCount: number, correctCount: number) {
+  return Array.from({ length: optionCount }, (_, i) => ({
+    isCorrect: i < correctCount,
+  }));
+}
+
 type EntSectionSeed = {
   subjectId: string;
   slug: string;
@@ -84,7 +90,9 @@ function buildEntFullSessionForScoring(params?: {
   };
 }
 
-function buildGeneratedSections(profile2Count = ENT_CONFIG.profileQuestionsPerSubject) {
+function buildGeneratedSections(
+  profile2Count: number = ENT_CONFIG.profileQuestionsPerSubject,
+) {
   return [
     {
       subjectId: 'history',
@@ -194,6 +202,36 @@ describe('ENT 120/140 consistency', () => {
     expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints);
     expect(result.rawScore).toBe(3);
     expect(result.correctCount).toBe(2);
+  });
+
+  it('scores 2-point ENT multiple-answer questions by TotalErrors', async () => {
+    const prismaMock = {
+      testSession: {
+        findUnique: jest.fn(),
+      },
+      testAnswer: {
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    } as any;
+    const scorer = new TestScorerService(prismaMock);
+
+    const built = buildEntFullSessionForScoring();
+    const profile1Ids = built.questionIdsBySubject.get('profile-1')!;
+    const heavyId = profile1Ids[30];
+    const heavyAnswer = built.session.answers.find((a: any) => a.questionId === heavyId);
+    heavyAnswer.selectedIds = [`opt-${heavyId}-a`];
+    heavyAnswer.question.answerOptions = [
+      { id: `opt-${heavyId}-a`, isCorrect: true },
+      { id: `opt-${heavyId}-b`, isCorrect: true },
+      { id: `wrong-${heavyId}`, isCorrect: false },
+    ];
+    prismaMock.testSession.findUnique.mockResolvedValue(built.session);
+
+    const result = await scorer.calculateScore('ent-full-session');
+
+    expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints);
+    expect(result.rawScore).toBe(1);
+    expect(result.correctCount).toBe(0);
   });
 
   it('starts ENT full with exactly 120 questions and 40 profile questions per subject', async () => {
@@ -316,6 +354,39 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).toHaveBeenCalled();
     const createData = prismaMock.testSession.create.mock.calls[0][0].data;
     expect(createData.totalQuestions).toBe(ENT_CONFIG.totalQuestions);
+  });
+
+  it('rejects too many selected answers in ENT profile multi-answer slots', async () => {
+    const built = buildEntFullSessionForScoring();
+    const profile1Ids = built.questionIdsBySubject.get('profile-1')!;
+    const tier2AId = profile1Ids[30];
+    const prismaMock = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          status: 'in_progress',
+          startedAt: new Date(),
+          templateId: null,
+          metadata: built.session.metadata,
+        }),
+      },
+      testAnswer: {
+        findFirst: jest.fn(),
+      },
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    await expect(
+      service.submitAnswer('session-1', 'user-1', tier2AId, ['a', 'b', 'c']),
+    ).rejects.toThrow('MAX_SELECTIONS_EXCEEDED:2');
+    expect(prismaMock.testAnswer.findFirst).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported ENT profile subject pairs before consuming an attempt', async () => {
@@ -652,23 +723,19 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).not.toHaveBeenCalled();
   });
 
-  it('keeps ENT profile 31-40 as isolated 2-point block (shuffle only inside block)', async () => {
+  it('keeps ENT profile 31-35 as 8-option and 36-40 as 6-option blocks', async () => {
     const regular = Array.from({ length: ENT_CONFIG.profileTier1Count }, (_, i) => ({
       id: `p1-r${i + 1}`,
-      scoreWeight: 1,
-      _count: { answerOptions: 4 },
+      answerOptions: makeAnswerOptions(4, 1),
     }));
-    const heavy = Array.from(
-      {
-        length:
-          ENT_CONFIG.profileQuestionsPerSubject - ENT_CONFIG.profileTier1Count,
-      },
-      (_, i) => ({
-        id: `p1-h${i + 1}`,
-        scoreWeight: null,
-        _count: { answerOptions: 5 },
-      }),
-    );
+    const tier2A = Array.from({ length: ENT_CONFIG.profileTier2ACount }, (_, i) => ({
+      id: `p1-a${i + 1}`,
+      answerOptions: makeAnswerOptions(8, i === 0 ? 1 : 2),
+    }));
+    const tier2B = Array.from({ length: ENT_CONFIG.profileTier2BCount }, (_, i) => ({
+      id: `p1-b${i + 1}`,
+      answerOptions: makeAnswerOptions(6, i === 0 ? 1 : 3),
+    }));
     const prismaMock = {
       testTemplate: {
         findUnique: jest.fn().mockResolvedValue({
@@ -678,7 +745,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       question: {
-        findMany: jest.fn().mockResolvedValue([...regular, ...heavy]),
+        findMany: jest.fn().mockResolvedValue([...regular, ...tier2A, ...tier2B]),
       },
       testAnswer: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -701,7 +768,66 @@ describe('ENT 120/140 consistency', () => {
     expect(ids.slice(0, ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-r'))).toBe(
       true,
     );
-    expect(ids.slice(ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-h'))).toBe(
+    expect(ids.slice(30, 35).every((id) => id.startsWith('p1-a'))).toBe(
+      true,
+    );
+    expect(ids.slice(35, 40).every((id) => id.startsWith('p1-b'))).toBe(
+      true,
+    );
+  });
+
+  it('keeps Kazakhstan history 1-10 without text and 11-20 with text in ENT full', async () => {
+    const noText = Array.from({ length: 10 }, (_, i) => ({
+      id: `history-no-text-${i + 1}`,
+      content: { text: `${i + 1}) Қарапайым сұрақ` },
+    }));
+    const withText = Array.from({ length: 10 }, (_, i) => ({
+      id: `history-text-${i + 1}`,
+      content:
+        i === 0
+          ? { passage: { ru: 'Отдельный текст' }, text: 'Вопрос по тексту' }
+          : { text: `${i + 11}) ТЕКСТ: Исторический материал. Вопрос:` },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: 20,
+              selectionMode: 'random',
+              sortOrder: 1,
+              profileHeavyFrom: null,
+              subject: { slug: 'history_kz', isMandatory: true },
+            },
+          ],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...noText, ...withText]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(20);
+    expect(result[0].questionIds.slice(0, 10).every((id) => id.startsWith('history-no-text'))).toBe(
+      true,
+    );
+    expect(result[0].questionIds.slice(10).every((id) => id.startsWith('history-text'))).toBe(
       true,
     );
   });
@@ -709,13 +835,23 @@ describe('ENT 120/140 consistency', () => {
   it('falls back to active profile questions when locale-tagged ENT full pool is too small', async () => {
     const localeTagged = Array.from({ length: 12 }, (_, i) => ({
       id: `p1-locale-${i + 1}`,
-      scoreWeight: 1,
+      answerOptions: makeAnswerOptions(4, 1),
     }));
     const allActive = Array.from(
       { length: ENT_CONFIG.profileQuestionsPerSubject },
       (_, i) => ({
-        id: i < 30 ? `p1-any-r${i + 1}` : `p1-any-h${i - 29}`,
-        scoreWeight: i < 30 ? 1 : ENT_CONFIG.profileTier2Points,
+        id:
+          i < 30
+            ? `p1-any-r${i + 1}`
+            : i < 35
+              ? `p1-any-a${i - 29}`
+              : `p1-any-b${i - 34}`,
+        answerOptions:
+          i < 30
+            ? makeAnswerOptions(4, 1)
+            : i < 35
+              ? makeAnswerOptions(8, 2)
+              : makeAnswerOptions(6, 3),
       }),
     );
     const prismaMock = {

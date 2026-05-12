@@ -26,6 +26,7 @@ export interface FlatSessionQuestion {
   explanation: unknown
   hasExplanation: boolean
   multiSelect: boolean
+  maxSelections: number | null
   sectionId: string
   sectionTitle: string
   sectionIndex: number
@@ -163,6 +164,19 @@ function isMultiSelect(type: string | undefined, answerOptions: AnswerOption[]) 
   return correctCount > 1
 }
 
+function entProfileMaxSelections(
+  session: TestSession,
+  section: SessionMetadataSection | null,
+  indexInSection: number,
+): number | null {
+  if (session.metadata?.entScope !== "full") return null
+  if (section?.isMandatory !== false) return null
+  const from = section.profileHeavyFrom ?? 31
+  const rel0 = indexInSection + 1 - from
+  if (rel0 < 0 || rel0 >= 10) return null
+  return rel0 < 5 ? 2 : 3
+}
+
 export function flattenSessionQuestions(
   session: TestSession,
   locale: Locale,
@@ -170,6 +184,10 @@ export function flattenSessionQuestions(
   const sections = sortedMetadataSections(session)
   return orderedAnswers(session).map((answer, index) => {
     const { section, sectionIndex } = sectionForIndex(sections, index)
+    const sectionStart = sections
+      .slice(0, sectionIndex)
+      .reduce((sum, item) => sum + Math.max(0, item.questionCount ?? 0), 0)
+    const indexInSection = index - sectionStart
     const question = answer.question
     const subject = question.subject
     const subjectName = section?.subjectName ?? subject?.name ?? ""
@@ -181,6 +199,8 @@ export function flattenSessionQuestions(
     const options = [...(question.answerOptions || [])].sort(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
     )
+
+    const maxSelections = entProfileMaxSelections(session, section, indexInSection)
 
     return {
       id: question.id,
@@ -194,7 +214,8 @@ export function flattenSessionQuestions(
       isCorrect: answer.isCorrect,
       explanation: question.explanation,
       hasExplanation: question.explanation != null,
-      multiSelect: isMultiSelect(question.type, options),
+      multiSelect: (maxSelections ?? 0) > 1 || isMultiSelect(question.type, options),
+      maxSelections,
       sectionId: section?.subjectId ?? subject?.id ?? `section-${sectionIndex}`,
       sectionTitle,
       sectionIndex,

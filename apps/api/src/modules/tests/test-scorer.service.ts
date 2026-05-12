@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { ENT_CONFIG } from '@bilimland/shared';
+import { ENT_CONFIG, earnEntQuestionPoints } from '@bilimland/shared';
 
 export interface SectionScore {
   subjectId: string;
@@ -171,10 +171,6 @@ export class TestScorerService {
 
       const selectedIds = answer.selectedIds;
 
-      let errors = 0;
-      for (const id of correctOptionIds) if (!selectedIds.includes(id)) errors++;
-      for (const id of selectedIds) if (!correctOptionIds.includes(id)) errors++;
-
       const subject = (answer.question as { subject?: { id: string; name: unknown; slug: string; isMandatory: boolean } }).subject;
       const subjectId = subject?.id || answer.question.subjectId;
       const pos = entWeightedActive ? placement!.get(answer.questionId) : undefined;
@@ -186,14 +182,11 @@ export class TestScorerService {
             : entMaxPointsForPlacement(pos, qSw)
           : 1;
 
-      let wEarned = 0;
-      if (selectedIds.length > 0) {
-        if (errors === 0) {
-          wEarned = wMax;
-        } else if (errors === 1 && wMax === 2) {
-          wEarned = 1;
-        }
-      }
+      const { earned: wEarned, errors } = earnEntQuestionPoints(
+        wMax,
+        correctOptionIds,
+        selectedIds,
+      );
 
       const isPerfectlyCorrect = selectedIds.length > 0 && errors === 0;
 

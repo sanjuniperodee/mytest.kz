@@ -284,6 +284,10 @@ export default function ExamSessionScreen() {
       const current = answers[q.id] || []
       let next: string[]
       if (q.multiSelect) {
+        if (q.maxSelections && !current.includes(optionId) && current.length >= q.maxSelections) {
+          Alert.alert("Лимит выбора", `Можно выбрать максимум ${q.maxSelections} варианта`)
+          return
+        }
         next = current.includes(optionId) ? current.filter((x) => x !== optionId) : [...current, optionId]
       } else {
         next = [optionId]

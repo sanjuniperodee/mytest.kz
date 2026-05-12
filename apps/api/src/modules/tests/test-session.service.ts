@@ -367,6 +367,14 @@ export class TestSessionService {
 
     if (!session) throw new BadRequestException('Session not available');
 
+    const maxSelections = this.getEntFullProfileMaxSelections(
+      session.metadata,
+      questionId,
+    );
+    if (maxSelections !== null && selectedIds.length > maxSelections) {
+      throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
+    }
+
     const durationMins = await this.getDurationMinsForSession(session);
     let serverTimeRemaining: number | null = null;
 
@@ -686,6 +694,58 @@ export class TestSessionService {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+  }
+
+  private getEntFullProfileMaxSelections(
+    metadata: unknown,
+    questionId: string,
+  ): number | null {
+    if (!metadata || typeof metadata !== 'object') return null;
+    const meta = metadata as {
+      entScope?: unknown;
+      questionOrder?: string[];
+      sections?: Array<{
+        subjectId?: string;
+        isMandatory?: boolean;
+        questionCount?: number;
+        sortOrder?: number;
+        profileHeavyFrom?: number | null;
+      }>;
+    };
+    if (meta.entScope !== 'full') return null;
+    if (!Array.isArray(meta.questionOrder) || !Array.isArray(meta.sections)) {
+      return null;
+    }
+
+    const questionIndex = meta.questionOrder.indexOf(questionId);
+    if (questionIndex < 0) return null;
+
+    const sections = [...meta.sections].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+    );
+    let start = 0;
+    for (const section of sections) {
+      const count = Math.max(0, Math.floor(Number(section.questionCount) || 0));
+      if (questionIndex < start || questionIndex >= start + count) {
+        start += count;
+        continue;
+      }
+      if (section.isMandatory !== false) return null;
+      const indexInSection = questionIndex - start + 1;
+      const from = section.profileHeavyFrom ?? ENT_CONFIG.profileTier1Count + 1;
+      const rel0 = indexInSection - from;
+      if (
+        rel0 < 0 ||
+        rel0 >= ENT_CONFIG.profileTier2ACount + ENT_CONFIG.profileTier2BCount
+      ) {
+        return null;
+      }
+      return rel0 < ENT_CONFIG.profileTier2ACount
+        ? ENT_CONFIG.profileTier2ACorrectCount
+        : ENT_CONFIG.profileTier2BCorrectCount;
+    }
+
+    return null;
   }
 
   private async getDurationMinsForSession(session: {

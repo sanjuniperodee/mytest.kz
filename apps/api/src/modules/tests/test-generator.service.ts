@@ -39,6 +39,9 @@ export class TestGeneratorService {
       include: {
         sections: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            subject: { select: { slug: true, isMandatory: true } },
+          },
         },
         examType: { select: { slug: true } },
       },
@@ -61,14 +64,21 @@ export class TestGeneratorService {
     const includeTemplateSections = !entScope || entScope !== 'profile';
     if (includeTemplateSections) {
       for (const section of template.sections) {
-        const questionIds = await this.selectQuestions(
-          section.subjectId,
-          section.questionCount,
-          section.selectionMode,
-          userId,
-          language,
-          strictEntFull,
-        );
+        const questionIds =
+          strictEntFull && section.subject?.slug === 'history_kz'
+            ? await this.selectStrictEntHistoryQuestions(
+                section.subjectId,
+                userId,
+                language,
+              )
+            : await this.selectQuestions(
+                section.subjectId,
+                section.questionCount,
+                section.selectionMode,
+                userId,
+                language,
+                strictEntFull,
+              );
         if (strictEntFull && questionIds.length !== section.questionCount) {
           throw new BadRequestException(
             `ENT full question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
@@ -174,8 +184,9 @@ export class TestGeneratorService {
   /**
    * Strict ENT full profile generation:
    * - first 30 questions stay in 1-point tier
-   * - last 10 questions stay in 2-point tier
-   * - shuffle is allowed only inside each tier block
+   * - questions 31-35 are 8-option 2-point tasks with max 2 correct answers
+   * - questions 36-40 are 6-option 2-point tasks with max 3 correct answers
+   * - shuffle is allowed only inside each exact tier block
    */
   private async selectStrictEntProfileQuestions(
     subjectId: string,
@@ -218,51 +229,176 @@ export class TestGeneratorService {
       },
       select: {
         id: true,
-        scoreWeight: true,
-        _count: { select: { answerOptions: true } },
+        answerOptions: { select: { isCorrect: true } },
       },
     });
     if (questions.length === 0) return [];
 
-    const allIds = questions.map((q) => q.id);
-    const heavyIds = questions
-      .filter((q) => this.isEntProfileHeavyQuestion(q))
-      .map((q) => q.id);
     const regularIds = questions
-      .filter((q) => !this.isEntProfileHeavyQuestion(q))
+      .filter((q) => this.isStrictEntProfileTier1Question(q))
+      .map((q) => q.id);
+    const tier2AIds = questions
+      .filter((q) => this.isStrictEntProfileTier2AQuestion(q))
+      .map((q) => q.id);
+    const tier2BIds = questions
+      .filter((q) => this.isStrictEntProfileTier2BQuestion(q))
       .map((q) => q.id);
 
-    const orderedHeavy = await this.orderWithFreshFirst(heavyIds, userId);
     const orderedRegular = await this.orderWithFreshFirst(regularIds, userId);
-    const orderedAll = await this.orderWithFreshFirst(allIds, userId);
+    const orderedTier2A = await this.orderWithFreshFirst(tier2AIds, userId);
+    const orderedTier2B = await this.orderWithFreshFirst(tier2BIds, userId);
 
-    const tier1Count = ENT_CONFIG.profileTier1Count;
-    const tier2Count =
-      ENT_CONFIG.profileQuestionsPerSubject - ENT_CONFIG.profileTier1Count;
-
-    const selectedTier1 = this.takeUnique([orderedRegular], tier1Count);
-    const selectedTier1Set = new Set(selectedTier1);
-    const selectedTier2 = this.takeUnique(
-      [
-        orderedHeavy,
-        orderedRegular.filter((id) => !selectedTier1Set.has(id)),
-        orderedAll.filter((id) => !selectedTier1Set.has(id)),
-      ],
-      tier2Count,
+    const selectedTier1 = this.takeUnique(
+      [orderedRegular],
+      ENT_CONFIG.profileTier1Count,
+    );
+    const selectedTier2A = this.takeUnique(
+      [orderedTier2A],
+      ENT_CONFIG.profileTier2ACount,
+    );
+    const selectedTier2B = this.takeUnique(
+      [orderedTier2B],
+      ENT_CONFIG.profileTier2BCount,
     );
 
-    return [...this.shuffle(selectedTier1), ...this.shuffle(selectedTier2)];
+    return [
+      ...this.shuffle(selectedTier1),
+      ...this.shuffle(selectedTier2A),
+      ...this.shuffle(selectedTier2B),
+    ];
   }
 
-  private isEntProfileHeavyQuestion(question: {
-    scoreWeight?: number | null;
-    _count?: { answerOptions?: number };
+  private async selectStrictEntHistoryQuestions(
+    subjectId: string,
+    userId?: string,
+    language?: string,
+  ): Promise<string[]> {
+    const selectedWithLocale = await this.selectStrictEntHistoryQuestionsFromPool(
+      subjectId,
+      userId,
+      language,
+    );
+    const expected = ENT_CONFIG.mandatoryQuestionCounts.history_kz;
+    if (selectedWithLocale.length >= expected || !language) {
+      return selectedWithLocale;
+    }
+
+    const selectedWithFallback = await this.selectStrictEntHistoryQuestionsFromPool(
+      subjectId,
+      userId,
+    );
+    if (selectedWithFallback.length <= selectedWithLocale.length) {
+      return selectedWithLocale;
+    }
+    return selectedWithFallback;
+  }
+
+  private async selectStrictEntHistoryQuestionsFromPool(
+    subjectId: string,
+    userId?: string,
+    language?: string,
+  ): Promise<string[]> {
+    const localeWhere = questionWhereForTestLanguage(language);
+    const questions = await this.prisma.question.findMany({
+      where: {
+        AND: language
+          ? [{ subjectId }, { isActive: true }, localeWhere]
+          : [{ subjectId }, { isActive: true }],
+      },
+      select: {
+        id: true,
+        content: true,
+      },
+    });
+    if (questions.length === 0) return [];
+
+    const noTextIds = questions
+      .filter((q) => !this.isHistoryTextQuestion(q.content))
+      .map((q) => q.id);
+    const textIds = questions
+      .filter((q) => this.isHistoryTextQuestion(q.content))
+      .map((q) => q.id);
+
+    const orderedNoText = await this.orderWithFreshFirst(noTextIds, userId);
+    const orderedText = await this.orderWithFreshFirst(textIds, userId);
+
+    return [
+      ...this.shuffle(this.takeUnique([orderedNoText], 10)),
+      ...this.shuffle(this.takeUnique([orderedText], 10)),
+    ];
+  }
+
+  private isStrictEntProfileTier1Question(question: {
+    answerOptions?: Array<{ isCorrect: boolean }>;
   }): boolean {
-    const scoreWeight = Number(question.scoreWeight ?? 0);
-    const answerOptionsCount = question._count?.answerOptions ?? 0;
     return (
-      scoreWeight === ENT_CONFIG.profileTier2Points ||
-      answerOptionsCount > 4
+      this.countAnswerOptions(question) === ENT_CONFIG.profileTier1OptionCount &&
+      this.countCorrectOptions(question) === ENT_CONFIG.profileTier1CorrectCount
+    );
+  }
+
+  private isStrictEntProfileTier2AQuestion(question: {
+    answerOptions?: Array<{ isCorrect: boolean }>;
+  }): boolean {
+    const correctCount = this.countCorrectOptions(question);
+    return (
+      this.countAnswerOptions(question) === ENT_CONFIG.profileTier2AOptionCount &&
+      correctCount >= 1 &&
+      correctCount <= ENT_CONFIG.profileTier2ACorrectCount
+    );
+  }
+
+  private isStrictEntProfileTier2BQuestion(question: {
+    answerOptions?: Array<{ isCorrect: boolean }>;
+  }): boolean {
+    const correctCount = this.countCorrectOptions(question);
+    return (
+      this.countAnswerOptions(question) === ENT_CONFIG.profileTier2BOptionCount &&
+      correctCount >= 1 &&
+      correctCount <= ENT_CONFIG.profileTier2BCorrectCount
+    );
+  }
+
+  private countAnswerOptions(question: {
+    answerOptions?: Array<{ isCorrect: boolean }>;
+  }): number {
+    return Array.isArray(question.answerOptions) ? question.answerOptions.length : 0;
+  }
+
+  private countCorrectOptions(question: {
+    answerOptions?: Array<{ isCorrect: boolean }>;
+  }): number {
+    return Array.isArray(question.answerOptions)
+      ? question.answerOptions.filter((o) => o.isCorrect).length
+      : 0;
+  }
+
+  private isHistoryTextQuestion(content: unknown): boolean {
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+      return false;
+    }
+    const root = content as Record<string, unknown>;
+    if (this.hasNonEmptyString(root.passage)) return true;
+    const candidateText = this.collectLocalizedContentText(root).join('\n');
+    const normalized = candidateText.toLocaleUpperCase('ru');
+    return normalized.includes('ТЕКСТ') || normalized.includes('МӘТІН');
+  }
+
+  private collectLocalizedContentText(value: unknown): string[] {
+    if (typeof value === 'string') return [value];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const out: string[] = [];
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      out.push(...this.collectLocalizedContentText(child));
+    }
+    return out;
+  }
+
+  private hasNonEmptyString(value: unknown): boolean {
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return Object.values(value as Record<string, unknown>).some(
+      (child) => typeof child === 'string' && child.trim().length > 0,
     );
   }
 

@@ -220,7 +220,9 @@ export const ExamQuestionContent = memo(
 
                 {question.multiSelect ? (
                   <Text style={[styles.multiHint, { color: colors.mutedForeground }]}>
-                    Можно выбрать несколько вариантов
+                    {question.maxSelections
+                      ? `Можно выбрать до ${question.maxSelections} вариантов`
+                      : "Можно выбрать несколько вариантов"}
                   </Text>
                 ) : null}
               </View>
