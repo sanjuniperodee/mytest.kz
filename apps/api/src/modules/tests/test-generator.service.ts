@@ -432,13 +432,22 @@ export class TestGeneratorService {
       : 0;
   }
 
-  /** 11–20: только вопросы с непустым контекстом в поле `passage` (строка или локализованный объект). */
+  /** 11–20: только вопросы с непустым контекстом в поле `passage` (строка или локализованный объект).
+   *  passage может быть на верхнем уровне (e.g. `{ passage: { kk, ru } }`)
+   *  или внутри языкового ключа (e.g. `{ kk: { passage, text } }`). */
   private isHistoryTextQuestion(content: unknown): boolean {
     if (!content || typeof content !== 'object' || Array.isArray(content)) {
       return false;
     }
     const root = content as Record<string, unknown>;
-    return this.hasNonEmptyString(root.passage);
+    if (this.hasNonEmptyString(root.passage)) return true;
+    for (const locale of ['kk', 'ru', 'en']) {
+      const slot = root[locale];
+      if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
+        if (this.hasNonEmptyString((slot as Record<string, unknown>).passage)) return true;
+      }
+    }
+    return false;
   }
 
   private hasNonEmptyString(value: unknown): boolean {

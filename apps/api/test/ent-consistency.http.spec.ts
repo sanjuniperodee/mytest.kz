@@ -1014,6 +1014,62 @@ describe('ENT 120/140 consistency', () => {
     );
   });
 
+  it('keeps Kazakhstan history 1-10 without text and 11-20 with text when passage is inside locale key', async () => {
+    const noText = Array.from({ length: 10 }, (_, i) => ({
+      id: `history-no-text-${i + 1}`,
+      content: { kk: { text: `${i + 1}) Қарапайым сұрақ` } },
+    }));
+    const withText = Array.from({ length: 10 }, (_, i) => ({
+      id: `history-text-${i + 1}`,
+      content: {
+        kk: { passage: 'Тарихи мәтін', text: `${i + 11}) Вопрос по контексту` },
+        ru: { passage: 'Исторический текст', text: `${i + 11}) Контекстный вопрос` },
+      },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: 20,
+              selectionMode: 'random',
+              sortOrder: 1,
+              profileHeavyFrom: null,
+              subject: { slug: 'history_kz', isMandatory: true },
+            },
+          ],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...noText, ...withText]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(20);
+    expect(result[0].questionIds.slice(0, 10).every((id) => id.startsWith('history-no-text'))).toBe(
+      true,
+    );
+    expect(result[0].questionIds.slice(10).every((id) => id.startsWith('history-text'))).toBe(
+      true,
+    );
+  });
+
   it('falls back to active profile questions when locale-tagged ENT full pool is too small', async () => {
     const localeTagged = Array.from({ length: 12 }, (_, i) => ({
       id: `p1-locale-${i + 1}`,
