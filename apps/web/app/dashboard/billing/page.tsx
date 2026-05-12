@@ -77,6 +77,21 @@ function getString(value: unknown): string | null {
     return null
 }
 
+function parseTimestamp(value: string | null | undefined): number | null {
+    if (!value) return null
+    const raw = value.trim()
+    if (!raw) return null
+
+    const direct = Date.parse(raw)
+    if (!Number.isNaN(direct)) return direct
+
+    const withUtc = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? raw : `${raw}Z`
+    const asUtc = Date.parse(withUtc)
+    if (!Number.isNaN(asUtc)) return asUtc
+
+    return null
+}
+
 function normalizeKaspiCheckoutResponse(value: unknown): {
     invoiceId: string | null
     receiptUrl: string | null
@@ -242,11 +257,18 @@ function PendingKaspiOrders({
     orders?: KaspiOrder[]
     isLoading: boolean
 }) {
+    const visibleOrders = (orders ?? []).filter((order) => {
+        const expiresMs = parseTimestamp(order.expiresAt)
+        if (expiresMs == null) return true
+        const normalized = String(order.status || "").trim().toLowerCase()
+        return !(expiresMs <= Date.now() && (normalized === "" || normalized === "pending" || normalized === "created"))
+    })
+
     if (isLoading) {
         return <Skeleton className="h-20 rounded-xl" />
     }
 
-    if (!orders?.length) return null
+    if (!visibleOrders.length) return null
 
     return (
         <Card className="border-amber-300 bg-amber-50">
@@ -257,7 +279,7 @@ function PendingKaspiOrders({
                         Откройте счёт или Kaspi QR и завершите оплату. После подтверждения доступ включится автоматически.
                     </p>
                 </div>
-                {orders.map((order) => {
+                {visibleOrders.map((order) => {
                     const invoiceId = resolveOrderInvoiceId(order)
                     const canCancel = order.paymentType !== "qr"
                     return (

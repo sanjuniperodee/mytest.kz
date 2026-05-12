@@ -45,7 +45,14 @@ interface PaymentOrder {
 
 type PaymentStatusKind = "pending" | "paid" | "inactive"
 
-function paymentStatusKind(status: unknown): PaymentStatusKind {
+function paymentStatusKind(status: unknown, expiresAt?: string | null): PaymentStatusKind {
+  const expiresMs = parseTimestamp(expiresAt)?.getTime() ?? null
+  if (expiresMs != null && expiresMs <= Date.now()) {
+    const normalizedStatus = String(status || "").trim().toLowerCase()
+    if (!normalizedStatus || normalizedStatus === "pending" || normalizedStatus === "created") {
+      return "inactive"
+    }
+  }
   const normalized = String(status || "").trim().toLowerCase()
   if (normalized === "paid" || normalized === "processed" || normalized === "success" || normalized === "succeeded") {
     return "paid"
@@ -107,6 +114,16 @@ function formatTimeLeft(target: string | null | undefined, nowMs: number) {
 }
 
 function statusView(status: PaymentOrder["status"]) {
+  const normalizedStatus = String(status || "").trim().toLowerCase()
+  if (normalizedStatus === "expired") {
+    return {
+      title: "Срок оплаты истёк",
+      description: "Этот Kaspi QR уже просрочен. Вернитесь к тарифам и выставьте новый.",
+      icon: XCircle,
+      badge: "Истёк",
+      className: "border-red-200 bg-red-50 text-red-950",
+    }
+  }
   const kind = paymentStatusKind(status)
   if (kind === "paid") {
     return {
@@ -148,7 +165,7 @@ export default function KaspiPaymentPage() {
     invoiceId ? `/billing/orders/${encodeURIComponent(invoiceId)}` : null,
     (url: string) => api(url),
     {
-      refreshInterval: (current) => (paymentStatusKind(current?.status) === "pending" ? 5000 : 0),
+      refreshInterval: (current) => (paymentStatusKind(current?.status, current?.expiresAt) === "pending" ? 5000 : 0),
       keepPreviousData: true,
     },
   )
@@ -163,7 +180,7 @@ export default function KaspiPaymentPage() {
   }, [mutateGlobal, order?.status, refresh])
 
   useEffect(() => {
-    if (!order?.expiresAt || paymentStatusKind(order.status) !== "pending") return
+    if (!order?.expiresAt || paymentStatusKind(order.status, order.expiresAt) !== "pending") return
     const timer = window.setInterval(() => setNowMs((prev) => prev + 1000), 1000)
     return () => window.clearInterval(timer)
   }, [order?.expiresAt, order?.status])
@@ -249,10 +266,10 @@ export default function KaspiPaymentPage() {
     )
   }
 
-  const view = statusView(order.status)
+  const statusKind = paymentStatusKind(order.status, order.expiresAt)
+  const view = statusView(statusKind === "inactive" && order.status === "pending" ? "expired" : order.status)
   const StatusIcon = view.icon
   const payUrl = order.checkoutUrl || order.qrToken || order.receiptUrl
-  const statusKind = paymentStatusKind(order.status)
   const canCancel = statusKind === "pending" && order.paymentType !== "qr"
   const expiresIn = formatTimeLeft(order.expiresAt, nowMs)
   const isQrPayment = order.paymentType === "qr"

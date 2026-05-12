@@ -44,6 +44,21 @@ function isInvalidKaspiOperationId(value: string | null | undefined): boolean {
   return !normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'unknown';
 }
 
+function parseTimestamp(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const direct = Date.parse(raw);
+  if (!Number.isNaN(direct)) return new Date(direct);
+
+  const withUtc = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? raw : `${raw}Z`;
+  const asUtc = Date.parse(withUtc);
+  if (!Number.isNaN(asUtc)) return new Date(asUtc);
+
+  return null;
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -574,6 +589,11 @@ export class BillingService {
         ? (await this.reconcileKaspiOrder(found.providerOrderId)) ?? found
         : found;
 
+    if (order.provider === 'kaspi' && order.status === 'pending') {
+      const locallyExpired = await this.expireStaleKaspiOrder(order);
+      return this.presentPaymentOrder(locallyExpired ?? order);
+    }
+
     return this.presentPaymentOrder(order);
   }
 
@@ -591,7 +611,8 @@ export class BillingService {
       if (isInvalidKaspiOperationId(order.providerOrderId)) {
         await this.cancelInvalidKaspiOrder(order, 'invalid-provider-order-active-list');
       } else {
-        await this.reconcileKaspiOrder(order.providerOrderId);
+        const reconciled = (await this.reconcileKaspiOrder(order.providerOrderId)) ?? order;
+        await this.expireStaleKaspiOrder(reconciled);
       }
     }
 
@@ -804,6 +825,52 @@ export class BillingService {
     );
   }
 
+  private async expireStaleKaspiOrder(order: {
+    id: string;
+    provider: string;
+    providerOrderId: string;
+    amount: unknown;
+    currency: string;
+    planCode: string;
+    checkoutUrl: string | null;
+    providerPayload: unknown;
+    status: string;
+    paidAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    if (order.provider !== 'kaspi' || order.status !== 'pending') {
+      return order;
+    }
+
+    const expiresAt = this.getKaspiPaymentExpiry(order.providerPayload);
+    if (!expiresAt || expiresAt.getTime() > Date.now()) {
+      return order;
+    }
+
+    const previousPayload = asRecord(order.providerPayload);
+    const updated = await this.prisma.paymentOrder.updateMany({
+      where: { id: order.id, status: 'pending' },
+      data: {
+        status: 'failed',
+        providerPayload: {
+          ...(previousPayload ?? {}),
+          status: 'expired',
+          statusDesc: firstString(
+            previousPayload?.statusDesc,
+            'Expired locally by my-test after payment window elapsed',
+          ),
+          locallyExpiredAt: new Date().toISOString(),
+        } as Prisma.InputJsonObject,
+      },
+    });
+
+    if (updated.count === 0) {
+      return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
+    }
+    return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
+  }
+
   private normalizeKaspiPaymentStatus(status: string | null): {
     status: KaspiOrderStatus;
     kind: 'paid' | 'failed' | 'cancelled' | 'pending';
@@ -856,6 +923,20 @@ export class BillingService {
       data?.Type,
     );
     return raw?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
+  }
+
+  private getKaspiPaymentExpiry(payload: unknown): Date | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    return parseTimestamp(
+      firstString(
+        view?.expiresAt,
+        data?.ExpireDate,
+        data?.expireDate,
+        data?.ExpiresAt,
+        data?.expiresAt,
+      ),
+    );
   }
 
   private presentPaymentOrder(order: {
