@@ -153,6 +153,21 @@ export class UsersService {
     if (activeSubscription) {
       const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
       const isPaid = activeSubscription.planType !== 'free';
+      const totalLimit = this.subscriptionTotalAttemptsLimit(activeSubscription.planType);
+      let usedAttemptsTotal = 0;
+      if (totalLimit != null) {
+        const agg = await this.prisma.userExamEntitlement.aggregate({
+          where: {
+            userId,
+            subscriptionId: activeSubscription.id,
+            status: EntitlementStatus.active,
+          },
+          _sum: { usedAttemptsTotal: true },
+        });
+        usedAttemptsTotal = Math.max(0, agg._sum.usedAttemptsTotal ?? 0);
+      }
+      const exhausted = totalLimit != null && usedAttemptsTotal >= totalLimit;
+      const isActive = !exhausted;
       return {
         code: activeSubscription.planType,
         name: plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
@@ -162,11 +177,16 @@ export class UsersService {
         subscriptionId: activeSubscription.id,
         startsAt: activeSubscription.startsAt.toISOString(),
         expiresAt: activeSubscription.expiresAt.toISOString(),
-        isActive: true,
+        isActive,
         isPaid,
         examSlug: activeSubscription.examType?.slug ?? null,
-        totalAttemptsLimit: this.subscriptionTotalAttemptsLimit(activeSubscription.planType),
+        totalAttemptsLimit: totalLimit,
         dailyAttemptsLimit: this.subscriptionDailyAttemptsLimit(activeSubscription.planType),
+        usedAttemptsTotal,
+        remainingAttempts:
+          totalLimit == null
+            ? null
+            : Math.max(0, totalLimit - usedAttemptsTotal),
       };
     }
 
@@ -210,6 +230,9 @@ export class UsersService {
     })[0];
 
     if (activeEntitlement && activeEntitlement.tier !== EntitlementTier.free) {
+      const limit = activeEntitlement.totalAttemptsLimit;
+      const used = activeEntitlement.usedAttemptsTotal;
+      const hasAttemptsLeft = limit == null || used < limit;
       return {
         code:
           activeEntitlement.planTemplate?.code ??
@@ -224,7 +247,7 @@ export class UsersService {
         planTemplateId: activeEntitlement.planTemplate?.id ?? null,
         startsAt: activeEntitlement.windowStartsAt.toISOString(),
         expiresAt: activeEntitlement.windowEndsAt?.toISOString() ?? null,
-        isActive: true,
+        isActive: hasAttemptsLeft,
         isPaid:
           activeEntitlement.tier === EntitlementTier.paid ||
           activeEntitlement.tier === EntitlementTier.admin,
