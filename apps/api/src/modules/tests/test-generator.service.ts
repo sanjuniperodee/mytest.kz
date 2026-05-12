@@ -432,25 +432,13 @@ export class TestGeneratorService {
       : 0;
   }
 
+  /** 11–20: только вопросы с непустым контекстом в поле `passage` (строка или локализованный объект). */
   private isHistoryTextQuestion(content: unknown): boolean {
     if (!content || typeof content !== 'object' || Array.isArray(content)) {
       return false;
     }
     const root = content as Record<string, unknown>;
-    if (this.hasNonEmptyString(root.passage)) return true;
-    const candidateText = this.collectLocalizedContentText(root).join('\n');
-    const normalized = candidateText.toLocaleUpperCase('ru');
-    return normalized.includes('ТЕКСТ') || normalized.includes('МӘТІН');
-  }
-
-  private collectLocalizedContentText(value: unknown): string[] {
-    if (typeof value === 'string') return [value];
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
-    const out: string[] = [];
-    for (const child of Object.values(value as Record<string, unknown>)) {
-      out.push(...this.collectLocalizedContentText(child));
-    }
-    return out;
+    return this.hasNonEmptyString(root.passage);
   }
 
   private hasNonEmptyString(value: unknown): boolean {

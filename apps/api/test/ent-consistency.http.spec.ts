@@ -499,7 +499,7 @@ describe('ENT 120/140 consistency', () => {
     }));
     const withText = Array.from({ length: 5 }, (_, i) => ({
       id: `history-text-${i + 1}`,
-      content: { text: `${i + 11}) ТЕКСТ: Исторический материал. Вопрос:` },
+      content: { passage: { ru: `Контекст ${i + 11}` }, text: `${i + 11}) Вопрос` },
     }));
     const prismaMock = {
       testTemplate: {
@@ -968,7 +968,7 @@ describe('ENT 120/140 consistency', () => {
       content:
         i === 0
           ? { passage: { ru: 'Отдельный текст' }, text: 'Вопрос по тексту' }
-          : { text: `${i + 11}) ТЕКСТ: Исторический материал. Вопрос:` },
+          : { passage: { ru: `Контекст ${i + 11}` }, text: `${i + 11}) Вопрос по контексту` },
     }));
     const prismaMock = {
       testTemplate: {
