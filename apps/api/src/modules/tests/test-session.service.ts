@@ -525,6 +525,147 @@ export class TestSessionService {
     };
   }
 
+  async startEntRetakeSession(userId: string, sourceSessionId: string) {
+    const source = await this.prisma.testSession.findFirst({
+      where: { id: sourceSessionId, userId },
+      include: {
+        examType: true,
+        answers: {
+          include: {
+            question: {
+              select: {
+                id: true,
+                difficulty: true,
+                type: true,
+                content: true,
+                imageUrls: true,
+                subjectId: true,
+                subject: { select: { id: true, name: true, slug: true } },
+                answerOptions: {
+                  select: { id: true, content: true, sortOrder: true },
+                  orderBy: { sortOrder: 'asc' },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!source) throw new NotFoundException('Session not found');
+    if ((source.examType as { slug?: string } | null)?.slug !== 'ent') {
+      throw new BadRequestException('ENT_RETAKE_ONLY');
+    }
+    if (source.status === 'in_progress') {
+      throw new BadRequestException('SOURCE_SESSION_NOT_FINISHED');
+    }
+
+    const metadata = this.asPlainMetadata(source.metadata);
+    if (metadata.kind === 'remediation') {
+      throw new BadRequestException('ENT_RETAKE_SOURCE_MUST_BE_ENT_SESSION');
+    }
+
+    const answerQuestionIds = source.answers
+      .map((answer) => answer.questionId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const availableIds = new Set(answerQuestionIds);
+    const orderedIds: string[] = [];
+    const metadataOrder = Array.isArray(metadata.questionOrder)
+      ? metadata.questionOrder.filter((id): id is string => typeof id === 'string')
+      : [];
+
+    for (const id of metadataOrder) {
+      if (availableIds.has(id) && !orderedIds.includes(id)) orderedIds.push(id);
+    }
+    for (const id of answerQuestionIds) {
+      if (!orderedIds.includes(id)) orderedIds.push(id);
+    }
+
+    if (orderedIds.length === 0) {
+      throw new BadRequestException('SOURCE_SESSION_HAS_NO_QUESTIONS');
+    }
+
+    const durationMins = await this.getDurationMinsForSession(source);
+    const fallbackMins = Math.max(
+      5,
+      Math.ceil((source.timeRemaining ?? 0) / 60) || ENT_CONFIG.durationMins,
+    );
+    const visit = await this.prisma.visitEvent.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const retakeMetadata = {
+      ...metadata,
+      questionOrder: orderedIds,
+      retakeOfSessionId: source.id,
+      retakeStartedAt: new Date().toISOString(),
+    };
+
+    const session = await this.prisma.testSession.create({
+      data: {
+        userId,
+        templateId: source.templateId,
+        examTypeId: source.examTypeId,
+        language: source.language,
+        totalQuestions: orderedIds.length,
+        timeRemaining: (durationMins ?? fallbackMins) * 60,
+        visitId: visit?.id ?? null,
+        metadata: retakeMetadata,
+        answers: {
+          create: orderedIds.map((questionId) => ({
+            questionId,
+            selectedIds: [],
+          })),
+        },
+      } as any,
+      include: {
+        examType: true,
+        answers: {
+          include: {
+            question: {
+              select: {
+                id: true,
+                difficulty: true,
+                type: true,
+                content: true,
+                imageUrls: true,
+                subjectId: true,
+                subject: { select: { id: true, name: true, slug: true } },
+                answerOptions: {
+                  select: { id: true, content: true, sortOrder: true },
+                  orderBy: { sortOrder: 'asc' },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (visit) {
+      const existingStep = await this.prisma.funnelStep.findFirst({
+        where: { visitId: visit.id, step: 'started_test', sessionId: session.id },
+      });
+      if (!existingStep) {
+        await this.prisma.funnelStep.create({
+          data: {
+            visitId: visit.id,
+            step: 'started_test',
+            sessionId: session.id,
+            metadata: {
+              examTypeId: source.examTypeId,
+              kind: 'ent_retake',
+              sourceSessionId: source.id,
+            },
+          },
+        });
+      }
+    }
+
+    return this.normalizeSessionScore(session);
+  }
+
   async startRemediationSession(
     userId: string,
     language: string,
@@ -563,7 +704,6 @@ export class TestSessionService {
       }
       resolvedExamTypeId = [...types][0];
     }
-    await this.accessService.assertAndConsumeAttempt(userId, resolvedExamTypeId);
 
     const questionIdsAll = this.mistakes.getOpenMistakeQuestionIds(
       latest,
@@ -694,6 +834,13 @@ export class TestSessionService {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+  }
+
+  private asPlainMetadata(metadata: unknown): Record<string, unknown> {
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      return {};
+    }
+    return { ...(metadata as Record<string, unknown>) };
   }
 
   /** Лимит слота 31–40 по позиции (2 или 3), без учёта фактического числа верных у вопроса. */

@@ -112,6 +112,14 @@ export class TestsController {
     return this.testSessionService.finishTest(sessionId, userId);
   }
 
+  @Post('sessions/:id/retake')
+  async retakeEntSession(
+    @CurrentUser('id') userId: string,
+    @Param('id') sessionId: string,
+  ) {
+    return this.testSessionService.startEntRetakeSession(userId, sessionId);
+  }
+
   @Get('sessions/:id/review')
   async getReview(
     @CurrentUser('id') userId: string,

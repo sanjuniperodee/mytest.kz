@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import {
   ArrowLeft,
@@ -9,9 +10,11 @@ import {
   ChevronDown,
   Crown,
   Lightbulb,
+  RefreshCw,
   Trophy,
   XCircle,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +39,7 @@ import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import { buildReviewSections, type ReviewSectionModel } from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
-import type { ReviewResponse } from "@/lib/api/types"
+import type { ReviewResponse, TestSession } from "@/lib/api/types"
 
 interface ExplanationData {
   questionId: string
@@ -50,11 +53,13 @@ export default function ReviewPage({
   params: Promise<{ sessionId: string }>
 }) {
   const { sessionId } = use(params)
+  const router = useRouter()
   const { user } = useAuth()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const { data, isLoading, error } = useSWR<ReviewResponse>(
     `/tests/sessions/${sessionId}/review`,
   )
+  const [retaking, setRetaking] = useState(false)
 
   const sections: ReviewSectionModel[] = useMemo(() => {
     if (!data) return []
@@ -68,6 +73,24 @@ export default function ReviewPage({
   const displayScore = data?.rawScore ?? data?.score ?? overallCorrect
   const displayMax = data?.maxScore ?? overallTotal
   const accuracy = overallTotal ? Math.round((overallCorrect / overallTotal) * 100) : 0
+  const canRetakeEnt =
+    data?.examType?.slug === "ent" && data.metadata?.kind !== "remediation"
+
+  const startRetake = async () => {
+    if (!data || retaking) return
+    setRetaking(true)
+    try {
+      const session = await api<TestSession>(`/tests/sessions/${sessionId}/retake`, {
+        method: "POST",
+      })
+      toast.success("Повтор ЕНТ создан бесплатно")
+      router.push(`/exam/${session.id}`)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Не удалось создать повтор")
+    } finally {
+      setRetaking(false)
+    }
+  }
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -124,6 +147,21 @@ export default function ReviewPage({
                   <p className="text-sm text-muted-foreground">
                     Правильных ответов: {overallCorrect} из {overallTotal}
                   </p>
+                  {canRetakeEnt && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <Button onClick={startRetake} disabled={retaking}>
+                        {retaking ? (
+                          <Spinner className="size-4" />
+                        ) : (
+                          <RefreshCw className="size-4" />
+                        )}
+                        Повторить этот ЕНТ
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Бесплатно, без списания попытки
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex size-24 items-center justify-center rounded-full bg-foreground text-background">
                   <Trophy className="size-10" />

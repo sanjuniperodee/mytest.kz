@@ -774,6 +774,129 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).toHaveBeenCalled();
   });
 
+  it('starts remediation practice without consuming an attempt', async () => {
+    const prismaMock = {
+      question: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'q-1',
+            subjectId: 'math',
+            subject: {
+              id: 'math',
+              slug: 'math',
+              name: { ru: 'Математика', kk: 'Математика', en: 'Math' },
+              isMandatory: false,
+            },
+          },
+        ]),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            id: 'remediation-session',
+            score: null,
+            ...data,
+          }),
+        ),
+      },
+    } as any;
+    const mistakesMock = {
+      getLatestOutcomes: jest.fn().mockResolvedValue([
+        {
+          questionId: 'q-1',
+          examTypeId: 'exam-ent',
+          subjectId: 'math',
+          isCorrect: false,
+        },
+      ]),
+      getOpenMistakeQuestionIds: jest.fn().mockReturnValue(['q-1']),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      {} as any,
+      mistakesMock,
+      accessMock,
+    );
+
+    await expect(
+      service.startRemediationSession('user-1', 'kk', { examTypeId: 'exam-ent' }),
+    ).resolves.toMatchObject({ id: 'remediation-session' });
+    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it('starts a free ENT retake from a finished session with the same question order', async () => {
+    const prismaMock = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'source-session',
+          userId: 'user-1',
+          templateId: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          examType: { slug: 'ent' },
+          status: 'completed',
+          language: 'kk',
+          timeRemaining: 0,
+          metadata: {
+            entScope: 'profile',
+            entSessionDurationMins: 80,
+            questionOrder: ['q-2', 'q-1'],
+            sections: [],
+            profileSubjectIds: ['biology', 'geography'],
+          },
+          answers: [
+            { questionId: 'q-1' },
+            { questionId: 'q-2' },
+          ],
+        }),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            id: 'retake-session',
+            score: null,
+            ...data,
+          }),
+        ),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startEntRetakeSession('user-1', 'source-session'),
+    ).resolves.toMatchObject({ id: 'retake-session' });
+    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+
+    const createData = prismaMock.testSession.create.mock.calls[0][0].data;
+    expect(createData.timeRemaining).toBe(80 * 60);
+    expect(createData.metadata).toMatchObject({
+      entScope: 'profile',
+      retakeOfSessionId: 'source-session',
+      questionOrder: ['q-2', 'q-1'],
+    });
+    expect(createData.answers.create.map((answer: any) => answer.questionId)).toEqual([
+      'q-2',
+      'q-1',
+    ]);
+  });
+
   it('excludes non-120/140 ENT sessions from profile analytics stats', async () => {
     const entValidFinished = {
       examTypeId: 'exam-ent',
