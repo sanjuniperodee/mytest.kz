@@ -643,6 +643,137 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).not.toHaveBeenCalled();
   });
 
+  it('rejects Biology + Geography ENT profile pair for Russian before consuming an attempt', async () => {
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'biology', slug: 'biology' },
+          { id: 'geography', slug: 'geography' },
+        ]),
+      },
+      testSession: {
+        create: jest.fn(),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn(),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'ru', ['biology', 'geography'], 'profile'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+    expect(generatorMock.generateFromTemplate).not.toHaveBeenCalled();
+    expect(prismaMock.testSession.create).not.toHaveBeenCalled();
+  });
+
+  it('allows Biology + Geography ENT profile pair for Kazakh and reaches generation', async () => {
+    const biologyIds = makeQuestionIds('biology', ENT_CONFIG.profileQuestionsPerSubject);
+    const geographyIds = makeQuestionIds('geography', ENT_CONFIG.profileQuestionsPerSubject);
+    const rows = [...biologyIds, ...geographyIds].map((id) => {
+      const subjectId = id.startsWith('biology') ? 'biology' : 'geography';
+      return {
+        id,
+        subjectId,
+        examTypeId: 'exam-ent',
+        topic: { subjectId },
+      };
+    });
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'biology', slug: 'biology' },
+          { id: 'geography', slug: 'geography' },
+        ]),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            slug: where.id,
+            name: { ru: where.id, kk: where.id, en: where.id },
+            isMandatory: false,
+          }),
+        ),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-1', score: null }),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue([
+        {
+          subjectId: 'biology',
+          questionIds: biologyIds,
+          sortOrder: 1,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+        {
+          subjectId: 'geography',
+          questionIds: geographyIds,
+          sortOrder: 2,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+      ]),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'kk', ['biology', 'geography'], 'profile'),
+    ).resolves.toMatchObject({ id: 'session-1' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      ['biology', 'geography'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
+      { entScope: 'profile' },
+    );
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
   it('excludes non-120/140 ENT sessions from profile analytics stats', async () => {
     const entValidFinished = {
       examTypeId: 'exam-ent',

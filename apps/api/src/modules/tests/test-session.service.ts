@@ -123,7 +123,7 @@ export class TestSessionService {
         const selectedSlugs = profileSubjectIds.map(
           (id) => subjectsById.get(id)?.slug ?? '',
         );
-        if (!isEntProfileSubjectPairAllowed(selectedSlugs)) {
+        if (!isEntProfileSubjectPairAllowed(selectedSlugs, language)) {
           throw new BadRequestException(
             'Недопустимая пара профильных предметов для ЕНТ',
           );

@@ -37,6 +37,7 @@ export const ENT_AVAILABLE_PROFILE_SUBJECT_SLUGS = [
   'physics',
   'informatics',
   'geography',
+  'biology',
 ] as const;
 
 export const ENT_PROFILE_SUBJECT_PAIRS = [
@@ -47,6 +48,10 @@ export const ENT_PROFILE_SUBJECT_PAIRS = [
 
 export type EntProfileSubjectPair = (typeof ENT_PROFILE_SUBJECT_PAIRS)[number];
 
+export const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS = [
+  { pair: ['biology', 'geography'], languages: ['kk'] },
+] as const;
+
 export function getEntProfileSubjectPairKey(slugs: readonly string[]): string {
   return [...slugs].sort().join(':');
 }
@@ -55,10 +60,27 @@ export const ENT_PROFILE_SUBJECT_PAIR_KEYS = ENT_PROFILE_SUBJECT_PAIRS.map((pair
   getEntProfileSubjectPairKey(pair),
 );
 
-export function isEntProfileSubjectPairAllowed(slugs: readonly string[]): boolean {
+export const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIR_KEYS =
+  ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS.map((entry) => ({
+    key: getEntProfileSubjectPairKey(entry.pair),
+    languages: entry.languages,
+  }));
+
+export function isEntProfileSubjectPairAllowed(
+  slugs: readonly string[],
+  language?: string | null,
+): boolean {
   if (slugs.length !== 2) return false;
   const key = getEntProfileSubjectPairKey(slugs);
-  return ENT_PROFILE_SUBJECT_PAIR_KEYS.some((allowedKey) => allowedKey === key);
+  if (ENT_PROFILE_SUBJECT_PAIR_KEYS.some((allowedKey) => allowedKey === key)) {
+    return true;
+  }
+  const normalizedLanguage = language?.trim().toLowerCase();
+  return ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIR_KEYS.some(
+    (entry) =>
+      entry.key === key &&
+      entry.languages.some((allowedLanguage) => allowedLanguage === normalizedLanguage),
+  );
 }
 
 // NUET config

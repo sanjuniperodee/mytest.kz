@@ -5,6 +5,7 @@ export const ENT_AVAILABLE_PROFILE_SUBJECT_SLUGS = [
   "physics",
   "informatics",
   "geography",
+  "biology",
 ] as const
 
 const ENT_PROFILE_SUBJECT_PAIRS = [
@@ -13,10 +14,29 @@ const ENT_PROFILE_SUBJECT_PAIRS = [
   ["math", "informatics"],
 ] as const
 
-const entAvailableProfileSubjectSlugs = new Set<string>(ENT_AVAILABLE_PROFILE_SUBJECT_SLUGS)
+const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS = [
+  { pair: ["biology", "geography"], languages: ["kk"] },
+] as const
 
-export function isEntProfileSubjectAvailable(subject: Pick<Subject, "slug" | "isMandatory">) {
-  return subject.isMandatory || entAvailableProfileSubjectSlugs.has(subject.slug)
+const alwaysAvailableProfileSubjectSlugs = new Set<string>([
+  "math",
+  "physics",
+  "informatics",
+  "geography",
+])
+const localeLimitedProfileSubjectSlugs = new Set<string>(["biology"])
+
+function normalizeLanguage(language?: string | null) {
+  return language?.trim().toLowerCase() ?? null
+}
+
+export function isEntProfileSubjectAvailable(
+  subject: Pick<Subject, "slug" | "isMandatory">,
+  language?: string | null,
+) {
+  if (subject.isMandatory) return true
+  if (alwaysAvailableProfileSubjectSlugs.has(subject.slug)) return true
+  return normalizeLanguage(language) === "kk" && localeLimitedProfileSubjectSlugs.has(subject.slug)
 }
 
 export interface EntProfilePairOption {
@@ -28,10 +48,30 @@ export function entProfilePairKey(slugs: readonly string[]) {
   return [...slugs].sort().join(":")
 }
 
-export function buildEntProfilePairOptions(subjects: Subject[]): EntProfilePairOption[] {
-  const bySlug = new Map(subjects.map((subject) => [subject.slug, subject]))
+function isEntProfilePairAllowed(slugs: readonly string[], language?: string | null) {
+  if (slugs.length !== 2) return false
+  const key = entProfilePairKey(slugs)
+  if (ENT_PROFILE_SUBJECT_PAIRS.some((pair) => entProfilePairKey(pair) === key)) return true
+  const normalizedLanguage = normalizeLanguage(language)
+  return ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS.some(
+    (entry) =>
+      entProfilePairKey(entry.pair) === key &&
+      entry.languages.some((allowedLanguage) => allowedLanguage === normalizedLanguage),
+  )
+}
 
-  return ENT_PROFILE_SUBJECT_PAIRS.flatMap((pair) => {
+export function buildEntProfilePairOptions(
+  subjects: Subject[],
+  language?: string | null,
+): EntProfilePairOption[] {
+  const bySlug = new Map(subjects.map((subject) => [subject.slug, subject]))
+  const pairs = [
+    ...ENT_PROFILE_SUBJECT_PAIRS,
+    ...ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS.map((entry) => entry.pair),
+  ]
+
+  return pairs.flatMap((pair) => {
+    if (!isEntProfilePairAllowed(pair, language)) return []
     const first = bySlug.get(pair[0])
     const second = bySlug.get(pair[1])
     if (!first || !second) return []
@@ -44,7 +84,11 @@ export function buildEntProfilePairOptions(subjects: Subject[]): EntProfilePairO
   })
 }
 
-export function getSelectedEntProfilePairKey(subjectIds: string[], subjects: Subject[]) {
+export function getSelectedEntProfilePairKey(
+  subjectIds: string[],
+  subjects: Subject[],
+  language?: string | null,
+) {
   if (subjectIds.length !== 2) return null
   const byId = new Map(subjects.map((subject) => [subject.id, subject]))
   const slugs = subjectIds
@@ -52,5 +96,5 @@ export function getSelectedEntProfilePairKey(subjectIds: string[], subjects: Sub
     .filter((slug): slug is string => Boolean(slug))
   if (slugs.length !== 2) return null
   const key = entProfilePairKey(slugs)
-  return buildEntProfilePairOptions(subjects).some((pair) => pair.key === key) ? key : null
+  return buildEntProfilePairOptions(subjects, language).some((pair) => pair.key === key) ? key : null
 }

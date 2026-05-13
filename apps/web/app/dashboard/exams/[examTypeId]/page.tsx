@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useMemo, useState } from "react"
+import { use, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { toast } from "sonner"
@@ -91,13 +91,18 @@ export default function ExamDetailPage({
     [subjects],
   )
   const entProfilePairs = useMemo(
-    () => buildEntProfilePairOptions(profileSubjects),
-    [profileSubjects],
+    () => buildEntProfilePairOptions(profileSubjects, language),
+    [language, profileSubjects],
   )
   const selectedProfilePairKey = useMemo(
-    () => getSelectedEntProfilePairKey(profileSubjectIds, profileSubjects),
-    [profileSubjectIds, profileSubjects],
+    () => getSelectedEntProfilePairKey(profileSubjectIds, profileSubjects, language),
+    [language, profileSubjectIds, profileSubjects],
   )
+  useEffect(() => {
+    if (profileSubjectIds.length > 0 && profileSubjects.length > 0 && !selectedProfilePairKey) {
+      setProfileSubjectIds([])
+    }
+  }, [profileSubjectIds.length, profileSubjects.length, selectedProfilePairKey])
   const entTemplatesSorted = useMemo(
     () => [...(templates || [])].sort((a, b) => b.durationMins - a.durationMins),
     [templates],
@@ -184,7 +189,7 @@ export default function ExamDetailPage({
         ) : (
           <div className="flex flex-wrap gap-2">
             {(subjects || []).map((s) => {
-              const isClosed = isENT && !isEntProfileSubjectAvailable(s)
+              const isClosed = isENT && !isEntProfileSubjectAvailable(s, language)
               return (
                 <Badge
                   key={s.id}
@@ -304,8 +309,7 @@ export default function ExamDetailPage({
                         ))}
                       </RadioGroup>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Сейчас открыты Математика, Физика, Информатика и География.
-                        Остальные профильные предметы появятся после наполнения базы.
+                        Некоторые пары доступны только для конкретного языка, если банк вопросов уже готов.
                       </p>
                     </>
                   ) : (
