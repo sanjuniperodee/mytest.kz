@@ -15,7 +15,7 @@ const ENT_PROFILE_SUBJECT_PAIRS = [
 ] as const
 
 const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS = [
-  { pair: ["biology", "geography"], languages: ["kk"] },
+  { pair: ["biology", "geography"], languages: ["kk", "ru"] },
 ] as const
 
 const alwaysAvailableProfileSubjectSlugs = new Set<string>([
@@ -36,7 +36,13 @@ export function isEntProfileSubjectAvailable(
 ) {
   if (subject.isMandatory) return true
   if (alwaysAvailableProfileSubjectSlugs.has(subject.slug)) return true
-  return normalizeLanguage(language) === "kk" && localeLimitedProfileSubjectSlugs.has(subject.slug)
+  const normalizedLanguage = normalizeLanguage(language)
+  return (
+    localeLimitedProfileSubjectSlugs.has(subject.slug) &&
+    ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS.some((entry) =>
+      entry.languages.some((allowedLanguage) => allowedLanguage === normalizedLanguage),
+    )
+  )
 }
 
 export interface EntProfilePairOption {

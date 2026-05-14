@@ -49,7 +49,7 @@ export const ENT_PROFILE_SUBJECT_PAIRS = [
 export type EntProfileSubjectPair = (typeof ENT_PROFILE_SUBJECT_PAIRS)[number];
 
 export const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS = [
-  { pair: ['biology', 'geography'], languages: ['kk'] },
+  { pair: ['biology', 'geography'], languages: ['kk', 'ru'] },
 ] as const;
 
 export function getEntProfileSubjectPairKey(slugs: readonly string[]): string {
