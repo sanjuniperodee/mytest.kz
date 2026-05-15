@@ -1,11 +1,38 @@
 /**
  * Тексты для /privacy, /terms, /support.
- * Плейсхолдер OPERATOR — замените на юр. реквизиты до продакшена.
  */
-export const LEGAL_OPERATOR_PLACEHOLDER =
-  "[укажите полное наименование ИП/ТОО и юридический адрес]"
-
 export const SUPPORT_EMAIL = "support@my-test.kz"
+export const SUPPORT_PHONE = "+7 (700) 000-00-00"
+
+export const LEGAL_SELLER = {
+  brand: "mytest",
+  legalName: "Реквизиты компании уточняются",
+  address: "Республика Казахстан, г. Алматы",
+  bin: "уточняется",
+  iik: "уточняется",
+  bik: "уточняется",
+  bank: "уточняется",
+  supportEmail: SUPPORT_EMAIL,
+  supportPhone: SUPPORT_PHONE,
+}
+
+export function buildSellerRequisitesMarkdown(): string {
+  return `
+**Продавец:** ${LEGAL_SELLER.legalName}.
+
+**Юридический адрес:** ${LEGAL_SELLER.address}.
+
+**БИН/ИИН:** ${LEGAL_SELLER.bin}.
+
+**Банк:** ${LEGAL_SELLER.bank}.
+
+**ИИК:** ${LEGAL_SELLER.iik}.
+
+**БИК:** ${LEGAL_SELLER.bik}.
+
+**Контакты:** ${LEGAL_SELLER.supportEmail}, ${LEGAL_SELLER.supportPhone}.
+`.trim()
+}
 
 export function buildPrivacyMarkdown(siteUrl: string): string {
   return `
@@ -15,9 +42,9 @@ export function buildPrivacyMarkdown(siteUrl: string): string {
 
 Настоящая Политика конфиденциальности описывает, как **mytest** (далее — «Сервис», «мы») обрабатывает персональные данные при использовании веб-сайта ${siteUrl}, личного кабинета и мобильного приложения My Test, подключённого к той же платформе.
 
-**Оператор персональных данных:** ${LEGAL_OPERATOR_PLACEHOLDER}.
+**Оператор персональных данных:** ${LEGAL_SELLER.legalName}, ${LEGAL_SELLER.address}.
 
-По вопросам персональных данных: ${SUPPORT_EMAIL}.
+По вопросам персональных данных: ${SUPPORT_EMAIL}, ${SUPPORT_PHONE}.
 
 ## 2. Какие данные мы обрабатываем
 
@@ -62,6 +89,10 @@ export function buildPrivacyMarkdown(siteUrl: string): string {
 ## 10. Изменения
 
 Актуальная версия размещается по адресу ${siteUrl}/privacy. Продолжение использования после обновления означает принятие новой редакции, если иное не предусмотрено законом.
+
+## 11. Контакты оператора
+
+${buildSellerRequisitesMarkdown()}
 `.trim()
 }
 
@@ -91,7 +122,11 @@ export function buildTermsMarkdown(siteUrl: string): string {
 
 ## 6. Оплата
 
-Условия и стоимость платных возможностей указываются в интерфейсе. Возвраты — в соответствии с законом и правилами платёжных сервисов.
+Стоимость платных возможностей указывается в интерфейсе Сервиса в тенге (₸). Оплата может приниматься через Freedom Pay, банковские карты Visa / Mastercard и через Kaspi, если такой способ доступен для выбранного тарифа в интерфейсе.
+
+Порядок оплаты: пользователь выбирает тариф, выбирает способ оплаты, подтверждает платёж на защищённой странице платёжного сервиса и после подтверждения получает доступ к оплаченному периоду или попыткам. Детальная информация о порядке оплаты и возврате размещена по адресу ${siteUrl}/payment.
+
+Возвраты рассматриваются в соответствии с законодательством Республики Казахстан и правилами платёжного сервиса, через который был проведён платёж.
 
 ## 7. Отказ от гарантий и ответственность
 
@@ -103,7 +138,9 @@ export function buildTermsMarkdown(siteUrl: string): string {
 
 ## 9. Контакты
 
-${SUPPORT_EMAIL} · ${siteUrl}
+${buildSellerRequisitesMarkdown()}
+
+Сайт: ${siteUrl}
 `.trim()
 }
 
@@ -113,11 +150,15 @@ export function buildSupportMarkdown(siteUrl: string): string {
 
 **Электронная почта:** ${SUPPORT_EMAIL}
 
+**Телефон:** ${SUPPORT_PHONE}
+
 **Сайт:** ${siteUrl}
 
 **Мобильное приложение:** см. раздел [Приложение](${siteUrl}/mobile).
 
 Напишите, с какого устройства заходите, и приложите скриншот или описание шага, на котором возникла ошибка — так мы сможем быстрее помочь.
+
+**Оплата и возврат:** см. раздел [Оплата](${siteUrl}/payment) и [Условия использования](${siteUrl}/terms).
 
 **Авторские права:** © ${new Date().getFullYear()} mytest. Все права защищены. Тексты заданий, оформление и программный код платформы принадлежат правообладателю; копирование без разрешения разработчика запрещено.
 `.trim()

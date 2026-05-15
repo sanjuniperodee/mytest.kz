@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
 import { useAuth } from "@/lib/api/auth-context"
 import { api } from "@/lib/api/client"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { cn } from "@/lib/utils"
-import type { AccessByExamItem, BillingPlan, CurrentTariff, TrialStatusItem, User } from "@/lib/api/types"
+import type { AccessByExamItem, BillingPlan, CheckoutResponse, CurrentTariff, TrialStatusItem, User } from "@/lib/api/types"
 
 interface NormalizedPlan {
     id: string
@@ -61,6 +62,8 @@ interface KaspiCheckoutResponse {
         ReceiptUrl?: string | null
     }
 }
+
+type PaymentMethod = "kaspi" | "freedom"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value)
@@ -241,8 +244,8 @@ export default function BillingPage() {
                         <ShieldCheck className="size-4" />
                     </div>
                     <p>
-                        Оплата через Kaspi: нажмите «Оформить», введите номер телефона из приложения Kaspi —
-                        и оплатите выставленный счёт напрямую.
+                        Выберите удобный способ оплаты: Kaspi для счёта по номеру телефона или Freedom Pay для
+                        оплаты картой Visa / Mastercard.
                     </p>
                 </CardContent>
             </Card>
@@ -384,6 +387,7 @@ function PlanCard({
     const router = useRouter()
     const { mutate } = useSWRConfig()
     const [showModal, setShowModal] = useState(false)
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kaspi")
     const [phone, setPhone] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<ReactNode | null>(null)
@@ -400,6 +404,7 @@ function PlanCard({
         }
         const userPhone = typeof user?.phone === "string" ? user.phone.trim() : ""
         setPhone(userPhone)
+        setPaymentMethod("kaspi")
         setShowModal(true)
         setError(null)
     }
@@ -441,6 +446,33 @@ function PlanCard({
                 setError("Счёт уже выставлен. Обновите страницу и продолжите оплату из блока активных счетов.")
             } else {
                 setError("Ошибка при создании счёта. Попробуйте ещё раз.")
+            }
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleFreedomCheckout = async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            const result = await api<CheckoutResponse>("/billing/checkout", {
+                method: "POST",
+                body: { planId: plan.id },
+            })
+            const checkoutUrl = result.checkoutUrl || result.paymentUrl
+            if (!checkoutUrl) {
+                setError("Платёж создан, но ссылка на оплату не пришла. Попробуйте ещё раз.")
+                return
+            }
+            setShowModal(false)
+            window.location.assign(checkoutUrl)
+        } catch (err: unknown) {
+            const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err)
+            if (msg.includes("FREEDOMPAY_NOT_CONFIGURED")) {
+                setError("Freedom Pay пока недоступен. Попробуйте Kaspi или обратитесь в поддержку.")
+            } else {
+                setError("Ошибка при переходе к оплате картой. Попробуйте ещё раз.")
             }
         } finally {
             setLoading(false)
@@ -572,7 +604,8 @@ function PlanCard({
                         <CardContent className="flex flex-col gap-4 p-6">
                             <p className="text-lg font-semibold">Оплата через Kaspi</p>
                             <p className="text-sm text-muted-foreground">
-                                Мы выставим счёт на номер из Kaspi и откроем отдельный экран оплаты.
+                                Выберите способ оплаты. Kaspi выставит счёт на номер телефона, а Freedom Pay
+                                откроет защищённую страницу оплаты картой.
                             </p>
                             <div className="rounded-md bg-secondary/60 p-3 text-sm">
                                 <div className="flex items-center justify-between gap-3">
@@ -584,23 +617,108 @@ function PlanCard({
                                     <span className="font-medium">{formatPrice(plan)}</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium">Номер телефона в Kaspi</label>
-                                <Input
-                                    type="tel"
-                                    placeholder="+7 (700) 123-45-67"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className={cn(error && "border-red-500")}
-                                />
-                                {error && <p className="text-xs text-red-500">{error}</p>}
+
+                            <div className="grid gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod("kaspi")}
+                                    className={cn(
+                                        "rounded-xl border p-3 text-left transition-colors",
+                                        paymentMethod === "kaspi"
+                                            ? "border-foreground bg-secondary"
+                                            : "border-border hover:bg-secondary/70",
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="font-medium">Kaspi</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Счёт на номер телефона или Kaspi QR
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={cn(
+                                                "size-4 rounded-full border",
+                                                paymentMethod === "kaspi" ? "border-foreground bg-foreground" : "border-muted-foreground/40",
+                                            )}
+                                        />
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod("freedom")}
+                                    className={cn(
+                                        "rounded-xl border p-3 text-left transition-colors",
+                                        paymentMethod === "freedom"
+                                            ? "border-foreground bg-secondary"
+                                            : "border-border hover:bg-secondary/70",
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="font-medium">Freedom Pay</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Оплата картой Visa / Mastercard
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={cn(
+                                                "size-4 rounded-full border",
+                                                paymentMethod === "freedom" ? "border-foreground bg-foreground" : "border-muted-foreground/40",
+                                            )}
+                                        />
+                                    </div>
+                                </button>
                             </div>
+
+                            <PaymentBrandStrip compact />
+
+                            {paymentMethod === "kaspi" ? (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-medium">Номер телефона в Kaspi</label>
+                                    <Input
+                                        type="tel"
+                                        placeholder="+7 (700) 123-45-67"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        className={cn(error && "border-red-500")}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        На этот номер мы выставим счёт и откроем отдельный экран оплаты.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="rounded-xl border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
+                                    После нажатия мы перенаправим вас на защищённую страницу Freedom Pay для оплаты
+                                    банковской картой.
+                                </div>
+                            )}
+
+                            {error && <p className="text-xs text-red-500">{error}</p>}
                             <div className="flex gap-2">
-                                <Button variant="outline" onClick={() => setShowModal(false)} disabled={loading}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setShowModal(false)
+                                        setError(null)
+                                    }}
+                                    disabled={loading}
+                                >
                                     Отмена
                                 </Button>
-                                <Button onClick={handleKaspiCheckout} disabled={loading} className="flex-1">
-                                    {loading ? <Loader2 className="size-4 animate-spin" /> : "Выставить счёт"}
+                                <Button
+                                    onClick={paymentMethod === "kaspi" ? handleKaspiCheckout : handleFreedomCheckout}
+                                    disabled={loading}
+                                    className="flex-1"
+                                >
+                                    {loading ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : paymentMethod === "kaspi" ? (
+                                        "Выставить счёт"
+                                    ) : (
+                                        "Перейти к оплате"
+                                    )}
                                     {!loading && <ExternalLink className="size-4" />}
                                 </Button>
                             </div>

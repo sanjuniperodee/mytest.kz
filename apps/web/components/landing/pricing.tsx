@@ -233,7 +233,7 @@ export function Pricing() {
             Пройти бесплатный пробный →
           </a>
           <p className="mt-4 text-xs text-muted-foreground">
-            Цены указаны в тенге. Оплата картой Visa / Mastercard, Kaspi, Halyk. Возврат в течение 14 дней.
+            Цены указаны в тенге. Оплата через Freedom Pay, картой Visa / Mastercard или через Kaspi.
           </p>
         </div>
       </div>
