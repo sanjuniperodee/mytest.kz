@@ -6,6 +6,7 @@ export const ENT_AVAILABLE_PROFILE_SUBJECT_SLUGS = [
   "informatics",
   "geography",
   "biology",
+  "chemistry",
 ] as const
 
 const ENT_PROFILE_SUBJECT_PAIRS = [
@@ -16,6 +17,8 @@ const ENT_PROFILE_SUBJECT_PAIRS = [
 
 const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS = [
   { pair: ["biology", "geography"], languages: ["kk", "ru"] },
+  { pair: ["biology", "chemistry"], languages: ["kk"] },
+  { pair: ["chemistry", "physics"], languages: ["kk"] },
 ] as const
 
 const alwaysAvailableProfileSubjectSlugs = new Set<string>([
@@ -24,7 +27,7 @@ const alwaysAvailableProfileSubjectSlugs = new Set<string>([
   "informatics",
   "geography",
 ])
-const localeLimitedProfileSubjectSlugs = new Set<string>(["biology"])
+const localeLimitedProfileSubjectSlugs = new Set<string>(["biology", "chemistry"])
 
 function normalizeLanguage(language?: string | null) {
   return language?.trim().toLowerCase() ?? null

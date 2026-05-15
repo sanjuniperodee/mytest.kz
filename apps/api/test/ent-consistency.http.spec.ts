@@ -819,6 +819,141 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).toHaveBeenCalled();
   });
 
+  it.each([
+    ['Biology + Chemistry', ['biology', 'chemistry']],
+    ['Chemistry + Physics', ['chemistry', 'physics']],
+  ])('allows %s ENT profile pair for Kazakh and reaches generation', async (_label, subjectIds) => {
+    const firstIds = makeQuestionIds(subjectIds[0], ENT_CONFIG.profileQuestionsPerSubject);
+    const secondIds = makeQuestionIds(subjectIds[1], ENT_CONFIG.profileQuestionsPerSubject);
+    const rows = [...firstIds, ...secondIds].map((id) => {
+      const subjectId = id.startsWith(subjectIds[0]) ? subjectIds[0] : subjectIds[1];
+      return {
+        id,
+        subjectId,
+        examTypeId: 'exam-ent',
+        topic: { subjectId },
+      };
+    });
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue(
+          subjectIds.map((subjectId) => ({ id: subjectId, slug: subjectId })),
+        ),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            slug: where.id,
+            name: { ru: where.id, kk: where.id, en: where.id },
+            isMandatory: false,
+          }),
+        ),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-chemistry', score: null }),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue([
+        {
+          subjectId: subjectIds[0],
+          questionIds: firstIds,
+          sortOrder: 1,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+        {
+          subjectId: subjectIds[1],
+          questionIds: secondIds,
+          sortOrder: 2,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+      ]),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'kk', subjectIds, 'profile'),
+    ).resolves.toMatchObject({ id: 'session-chemistry' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      subjectIds,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
+      { entScope: 'profile' },
+    );
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Biology + Chemistry', ['biology', 'chemistry']],
+    ['Chemistry + Physics', ['chemistry', 'physics']],
+  ])('rejects %s ENT profile pair for Russian before consuming an attempt', async (_label, subjectIds) => {
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue(
+          subjectIds.map((subjectId) => ({ id: subjectId, slug: subjectId })),
+        ),
+      },
+      testSession: {
+        create: jest.fn(),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn(),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'ru', subjectIds, 'profile'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+    expect(generatorMock.generateFromTemplate).not.toHaveBeenCalled();
+    expect(prismaMock.testSession.create).not.toHaveBeenCalled();
+  });
+
   it('starts remediation practice without consuming an attempt', async () => {
     const prismaMock = {
       question: {
