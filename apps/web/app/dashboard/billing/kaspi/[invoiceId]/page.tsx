@@ -45,6 +45,11 @@ interface PaymentOrder {
 
 type PaymentStatusKind = "pending" | "paid" | "inactive"
 
+function isOpenableUrl(value: string | null | undefined) {
+  if (!value) return false
+  return /^(https?:\/\/|kaspi:)/i.test(value.trim())
+}
+
 function paymentStatusKind(status: unknown, expiresAt?: string | null): PaymentStatusKind {
   const expiresMs = parseTimestamp(expiresAt)?.getTime() ?? null
   if (expiresMs != null && expiresMs <= Date.now()) {
@@ -145,7 +150,7 @@ function statusView(status: PaymentOrder["status"]) {
   }
   return {
     title: "Ожидаем оплату",
-    description: "Откройте счёт Kaspi и подтвердите оплату в приложении. Статус обновляется автоматически.",
+    description: "Подтвердите оплату в Kaspi. Статус обновляется автоматически.",
     icon: Clock3,
     badge: "Ожидает",
     className: "border-amber-200 bg-amber-50 text-amber-950",
@@ -269,12 +274,14 @@ export default function KaspiPaymentPage() {
   const statusKind = paymentStatusKind(order.status, order.expiresAt)
   const view = statusView(statusKind === "inactive" && order.status === "pending" ? "expired" : order.status)
   const StatusIcon = view.icon
-  const payUrl = order.checkoutUrl || order.qrToken || order.receiptUrl
+  const qrValue = order.qrToken || order.checkoutUrl || order.receiptUrl || null
+  const openPayUrl =
+    [order.checkoutUrl, order.receiptUrl, order.qrToken].find((value) => isOpenableUrl(value)) ?? null
   const canCancel = statusKind === "pending" && order.paymentType !== "qr"
   const expiresIn = formatTimeLeft(order.expiresAt, nowMs)
   const isQrPayment = order.paymentType === "qr"
   const pendingDescription =
-    isQrPayment && payUrl
+    isQrPayment && qrValue
       ? "Отсканируйте QR в Kaspi или откройте оплату по ссылке. Статус обновляется автоматически."
       : view.description
 
@@ -382,11 +389,11 @@ export default function KaspiPaymentPage() {
             )}
           </div>
 
-          {isQrPayment && payUrl && statusKind === "pending" && (
+          {isQrPayment && qrValue && statusKind === "pending" && (
             <div className="grid gap-4 rounded-md border border-current/10 bg-white/75 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
               <div className="mx-auto flex w-full max-w-[220px] flex-col items-center gap-3">
                 <div className="rounded-xl border border-current/10 bg-white p-4 shadow-sm">
-                  <QRCode value={payUrl} size={180} bgColor="transparent" fgColor="currentColor" />
+                  <QRCode value={qrValue} size={180} bgColor="transparent" fgColor="currentColor" />
                 </div>
                 <p className="text-center text-xs text-muted-foreground">
                   Откройте Kaspi и отсканируйте код
@@ -411,18 +418,20 @@ export default function KaspiPaymentPage() {
           )}
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            {payUrl && statusKind === "pending" && (
+            {openPayUrl && statusKind === "pending" && (
               <Button
                 className="h-11 flex-1"
-                onClick={() => window.open(payUrl, "_blank", "noopener,noreferrer")}
+                onClick={() => window.open(openPayUrl, "_blank", "noopener,noreferrer")}
               >
-                {isQrPayment ? "Открыть Kaspi QR" : "Открыть счёт Kaspi"}
+                {isQrPayment ? "Открыть оплату" : "Открыть счёт Kaspi"}
                 <ExternalLink className="size-4" />
               </Button>
             )}
-            {!payUrl && statusKind === "pending" && (
+            {!openPayUrl && statusKind === "pending" && (
               <div className="rounded-md border border-current/10 bg-white/70 p-3 text-sm text-foreground sm:flex-1">
-                Счёт выставлен в Kaspi, но ссылка на оплату пока не пришла. Откройте приложение Kaspi или проверьте статус через несколько секунд.
+                {isQrPayment
+                  ? "Kaspi QR уже создан. Отсканируйте код в приложении Kaspi и затем обновите статус."
+                  : "Счёт выставлен в Kaspi, но ссылка на оплату пока не пришла. Откройте приложение Kaspi или проверьте статус через несколько секунд."}
               </div>
             )}
             {statusKind === "paid" ? (

@@ -3,7 +3,7 @@
 import useSWR from "swr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Check, Crown, Sparkles, ShieldCheck, Loader2, ExternalLink, XCircle } from "lucide-react"
+import { ArrowRight, Check, Crown, Sparkles, ShieldCheck, Loader2, ExternalLink, XCircle, QrCode, Smartphone } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { useSWRConfig } from "swr"
 import { Card, CardContent } from "@/components/ui/card"
@@ -64,6 +64,7 @@ interface KaspiCheckoutResponse {
 }
 
 type PaymentMethod = "kaspi" | "freedom"
+type KaspiMethod = "invoice" | "qr"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value)
@@ -239,14 +240,17 @@ export default function BillingPage() {
             )}
 
             <Card>
-                <CardContent className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary text-foreground">
-                        <ShieldCheck className="size-4" />
+                <CardContent className="flex flex-col gap-4 p-5 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary text-foreground">
+                            <ShieldCheck className="size-4" />
+                        </div>
+                        <p>
+                            Выберите удобный способ оплаты: Kaspi для счёта по номеру телефона или Freedom Pay для
+                            оплаты картой Visa / Mastercard.
+                        </p>
                     </div>
-                    <p>
-                        Выберите удобный способ оплаты: Kaspi для счёта по номеру телефона или Freedom Pay для
-                        оплаты картой Visa / Mastercard.
-                    </p>
+                    <PaymentBrandStrip compact />
                 </CardContent>
             </Card>
         </div>
@@ -388,6 +392,7 @@ function PlanCard({
     const { mutate } = useSWRConfig()
     const [showModal, setShowModal] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kaspi")
+    const [kaspiMethod, setKaspiMethod] = useState<KaspiMethod>("invoice")
     const [phone, setPhone] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<ReactNode | null>(null)
@@ -405,13 +410,14 @@ function PlanCard({
         const userPhone = typeof user?.phone === "string" ? user.phone.trim() : ""
         setPhone(userPhone)
         setPaymentMethod("kaspi")
+        setKaspiMethod("invoice")
         setShowModal(true)
         setError(null)
     }
 
     const handleKaspiCheckout = async () => {
         const digits = phone.replace(/\D/g, "")
-        if (digits.length < 10) {
+        if (kaspiMethod === "invoice" && digits.length < 10) {
             setError("Введите корректный номер телефона")
             return
         }
@@ -420,12 +426,16 @@ function PlanCard({
         try {
             const rawResult = await api<KaspiCheckoutResponse>("/billing/kaspi/checkout", {
                 method: "POST",
-                body: { planId: plan.id, phoneNumber: digits },
+                body: {
+                    planId: plan.id,
+                    phoneNumber: kaspiMethod === "invoice" ? digits : "",
+                    method: kaspiMethod,
+                },
             })
             const result = normalizeKaspiCheckoutResponse(rawResult)
             await mutate("/billing/kaspi/orders/active")
             if (!result.invoiceId) {
-                setError("Счёт создан, но сервер не вернул номер счёта. Обновите страницу и откройте его из блока активных счетов.")
+                setError("Платёж создан, но сервер не вернул номер. Обновите страницу и откройте его из блока активных оплат.")
                 return
             }
             setShowModal(false)
@@ -443,9 +453,9 @@ function PlanCard({
                     </>,
                 )
             } else if (msg.includes("PENDING_ORDER_EXISTS")) {
-                setError("Счёт уже выставлен. Обновите страницу и продолжите оплату из блока активных счетов.")
+                setError("Активная оплата уже существует. Обновите страницу и продолжите её из блока активных оплат.")
             } else {
-                setError("Ошибка при создании счёта. Попробуйте ещё раз.")
+                setError(kaspiMethod === "qr" ? "Ошибка при создании Kaspi QR. Попробуйте ещё раз." : "Ошибка при создании счёта. Попробуйте ещё раз.")
             }
         } finally {
             setLoading(false)
@@ -602,10 +612,9 @@ function PlanCard({
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                     <Card className="w-full max-w-sm mx-4">
                         <CardContent className="flex flex-col gap-4 p-6">
-                            <p className="text-lg font-semibold">Оплата через Kaspi</p>
+                            <p className="text-lg font-semibold">Оформление оплаты</p>
                             <p className="text-sm text-muted-foreground">
-                                Выберите способ оплаты. Kaspi выставит счёт на номер телефона, а Freedom Pay
-                                откроет защищённую страницу оплаты картой.
+                                Выберите, как удобнее оплатить этот тариф.
                             </p>
                             <div className="rounded-md bg-secondary/60 p-3 text-sm">
                                 <div className="flex items-center justify-between gap-3">
@@ -633,7 +642,7 @@ function PlanCard({
                                         <div>
                                             <p className="font-medium">Kaspi</p>
                                             <p className="text-sm text-muted-foreground">
-                                                Счёт на номер телефона или Kaspi QR
+                                                Счёт на оплату или Kaspi QR
                                             </p>
                                         </div>
                                         <span
@@ -672,22 +681,89 @@ function PlanCard({
                                 </button>
                             </div>
 
-                            <PaymentBrandStrip compact />
-
                             {paymentMethod === "kaspi" ? (
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-sm font-medium">Номер телефона в Kaspi</label>
-                                    <Input
-                                        type="tel"
-                                        placeholder="+7 (700) 123-45-67"
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        className={cn(error && "border-red-500")}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        На этот номер мы выставим счёт и откроем отдельный экран оплаты.
-                                    </p>
-                                </div>
+                                <>
+                                    <div className="grid gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setKaspiMethod("invoice")}
+                                            className={cn(
+                                                "rounded-xl border p-3 text-left transition-colors",
+                                                kaspiMethod === "invoice"
+                                                    ? "border-foreground bg-secondary"
+                                                    : "border-border hover:bg-secondary/70",
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-start gap-3">
+                                                    <Smartphone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="font-medium">Счёт на оплату</p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Выставим счёт на номер телефона из Kaspi
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span
+                                                    className={cn(
+                                                        "size-4 rounded-full border",
+                                                        kaspiMethod === "invoice" ? "border-foreground bg-foreground" : "border-muted-foreground/40",
+                                                    )}
+                                                />
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setKaspiMethod("qr")}
+                                            className={cn(
+                                                "rounded-xl border p-3 text-left transition-colors",
+                                                kaspiMethod === "qr"
+                                                    ? "border-foreground bg-secondary"
+                                                    : "border-border hover:bg-secondary/70",
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-start gap-3">
+                                                    <QrCode className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="font-medium">Kaspi QR</p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Сразу откроем экран с QR-кодом для оплаты
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span
+                                                    className={cn(
+                                                        "size-4 rounded-full border",
+                                                        kaspiMethod === "qr" ? "border-foreground bg-foreground" : "border-muted-foreground/40",
+                                                    )}
+                                                />
+                                            </div>
+                                        </button>
+                                    </div>
+
+                                    {kaspiMethod === "invoice" ? (
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-sm font-medium">Номер телефона в Kaspi</label>
+                                            <Input
+                                                type="tel"
+                                                placeholder="+7 (700) 123-45-67"
+                                                value={phone}
+                                                onChange={(e) => setPhone(e.target.value)}
+                                                className={cn(error && "border-red-500")}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                На этот номер мы выставим счёт и откроем отдельный экран оплаты.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-xl border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
+                                            Мы сразу создадим Kaspi QR и откроем отдельный экран, где можно отсканировать код
+                                            или открыть ссылку оплаты, если она доступна.
+                                        </div>
+                                    )}
+                                </>
                             ) : (
                                 <div className="rounded-xl border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
                                     После нажатия мы перенаправим вас на защищённую страницу Freedom Pay для оплаты
@@ -714,10 +790,12 @@ function PlanCard({
                                 >
                                     {loading ? (
                                         <Loader2 className="size-4 animate-spin" />
-                                    ) : paymentMethod === "kaspi" ? (
-                                        "Выставить счёт"
-                                    ) : (
+                                    ) : paymentMethod === "freedom" ? (
                                         "Перейти к оплате"
+                                    ) : kaspiMethod === "qr" ? (
+                                        "Показать Kaspi QR"
+                                    ) : (
+                                        "Выставить счёт"
                                     )}
                                     {!loading && <ExternalLink className="size-4" />}
                                 </Button>

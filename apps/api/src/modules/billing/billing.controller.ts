@@ -45,8 +45,9 @@ export class BillingController {
     @CurrentUser('id') userId: string,
     @Body('planId') planId: string,
     @Body('phoneNumber') phoneNumber: string,
+    @Body('method') method?: string,
   ) {
-    return this.billingService.createKaspiCheckout(userId, planId, phoneNumber);
+    return this.billingService.createKaspiCheckout(userId, planId, phoneNumber, method);
   }
 
   /** Одноразовая настройка сессии кассира (секрет в заголовке). Сессия пишется в Redis. */

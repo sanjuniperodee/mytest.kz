@@ -115,9 +115,10 @@ export class BillingService {
     return { configured, sessionActive };
   }
 
-  async createKaspiCheckout(userId: string, planId: string, phoneNumber: string) {
+  async createKaspiCheckout(userId: string, planId: string, phoneNumber: string, method?: string) {
     const plan = BILLING_PLANS.find((p) => p.id === planId);
     if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
+    const preferredMethod = method?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
 
     const pending = await this.prisma.paymentOrder.findFirst({
       where: { userId, provider: 'kaspi', status: 'pending', planCode: plan.id },
@@ -141,11 +142,6 @@ export class BillingService {
       }
     }
 
-    const normalized = normalizeKzPhone(phoneNumber || '');
-    if (!normalized) {
-      throw new BadRequestException('INVALID_PHONE');
-    }
-
     const comment = `MyTest ${plan.name} - ${userId.slice(0, 8)}`;
 
     let providerOrderId = '';
@@ -160,50 +156,10 @@ export class BillingService {
     let fallbackToQr = false;
     let fallbackReason = '';
 
-    try {
-      const invoice = await this.kaspiPosService.createInvoice(
-        normalized,
-        Number(plan.priceKzt),
-        comment,
-      );
-      providerOrderId = String(invoice.id);
-      receiptUrl = invoice.receiptUrl;
-      orderNumber = invoice.orderNumber;
-      paymentStatus = invoice.status;
-      clientMobile = invoice.clientMobile;
-      if (!receiptUrl) {
-        try {
-          const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
-          const details = asRecord(detailsPayload?.Data) ?? asRecord(detailsPayload?.data) ?? detailsPayload;
-          receiptUrl =
-            firstString(
-              details?.ReceiptUrl,
-              details?.receiptUrl,
-              details?.CheckoutUrl,
-              details?.checkoutUrl,
-              details?.PaymentUrl,
-              details?.paymentUrl,
-              details?.Url,
-              details?.url,
-            ) ?? '';
-          orderNumber = firstString(orderNumber, details?.OrderNumber, details?.orderNumber) ?? orderNumber;
-          paymentStatus = firstString(paymentStatus, details?.Status, details?.status) ?? paymentStatus;
-        } catch {
-          // The invoice is already created; keep it and let polling/webhook reconcile details later.
-        }
-      }
-      checkoutUrl = receiptUrl;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message === 'KASPI_NOT_AUTHENTICATED') {
-        throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
-      }
-      fallbackReason = message;
-
+    const createQrPayment = async () => {
       try {
         const qr = await this.kaspiPosService.createQr(Number(plan.priceKzt));
         paymentType = 'qr';
-        fallbackToQr = true;
         providerOrderId = String(qr.id);
         paymentStatus = qr.status;
         qrToken = qr.qrToken;
@@ -226,7 +182,59 @@ export class BillingService {
         }
       } catch (qrErr) {
         const qrMessage = qrErr instanceof Error ? qrErr.message : String(qrErr);
-        throw new BadRequestException(`KASPI_PAYMENT_CREATE_ERROR:invoice=${message};qr=${qrMessage}`);
+        throw new BadRequestException(`KASPI_QR_CREATE_ERROR:${qrMessage}`);
+      }
+    };
+
+    if (preferredMethod === 'qr') {
+      await createQrPayment();
+    } else {
+      const normalized = normalizeKzPhone(phoneNumber || '');
+      if (!normalized) {
+        throw new BadRequestException('INVALID_PHONE');
+      }
+
+      try {
+        const invoice = await this.kaspiPosService.createInvoice(
+          normalized,
+          Number(plan.priceKzt),
+          comment,
+        );
+        providerOrderId = String(invoice.id);
+        receiptUrl = invoice.receiptUrl;
+        orderNumber = invoice.orderNumber;
+        paymentStatus = invoice.status;
+        clientMobile = invoice.clientMobile;
+        if (!receiptUrl) {
+          try {
+            const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
+            const details = asRecord(detailsPayload?.Data) ?? asRecord(detailsPayload?.data) ?? detailsPayload;
+            receiptUrl =
+              firstString(
+                details?.ReceiptUrl,
+                details?.receiptUrl,
+                details?.CheckoutUrl,
+                details?.checkoutUrl,
+                details?.PaymentUrl,
+                details?.paymentUrl,
+                details?.Url,
+                details?.url,
+              ) ?? '';
+            orderNumber = firstString(orderNumber, details?.OrderNumber, details?.orderNumber) ?? orderNumber;
+            paymentStatus = firstString(paymentStatus, details?.Status, details?.status) ?? paymentStatus;
+          } catch {
+            // The invoice is already created; keep it and let polling/webhook reconcile details later.
+          }
+        }
+        checkoutUrl = receiptUrl;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message === 'KASPI_NOT_AUTHENTICATED') {
+          throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
+        }
+        fallbackReason = message;
+        fallbackToQr = true;
+        await createQrPayment();
       }
     }
 
