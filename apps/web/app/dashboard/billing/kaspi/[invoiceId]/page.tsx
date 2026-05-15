@@ -51,7 +51,7 @@ function isOpenableUrl(value: string | null | undefined) {
 }
 
 function paymentStatusKind(status: unknown, expiresAt?: string | null): PaymentStatusKind {
-  const expiresMs = parseTimestamp(expiresAt)?.getTime() ?? null
+  const expiresMs = parseTimestamp(expiresAt)
   if (expiresMs != null && expiresMs <= Date.now()) {
     const normalizedStatus = String(status || "").trim().toLowerCase()
     if (!normalizedStatus || normalizedStatus === "pending" || normalizedStatus === "created") {
