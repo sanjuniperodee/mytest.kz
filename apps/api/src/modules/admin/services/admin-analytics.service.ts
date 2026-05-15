@@ -234,7 +234,7 @@ export class AdminAnalyticsService {
       where: { slug: 'ent' },
       select: { id: true },
     });
-    if (!ent) return { pairs: [] };
+    if (!ent) return { pairs: [], languages: [] };
 
     const finishedStatuses = ['completed', 'timed_out'] as const;
     const sessions = await this.prisma.testSession.findMany({
@@ -247,51 +247,132 @@ export class AdminAnalyticsService {
         metadata: true,
         language: true,
         rawScore: true,
-        maxScore: true,
         score: true,
       },
     });
 
+    const subjectIds = new Set<string>();
+    for (const s of sessions) {
+      const meta = s.metadata as Record<string, unknown> | null;
+      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined;
+      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue;
+      for (const id of profileSubjectIds.slice(0, 2)) {
+        if (typeof id === 'string' && id) subjectIds.add(id);
+      }
+    }
+
+    const subjects = subjectIds.size
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: [...subjectIds] } },
+          select: { id: true, slug: true, name: true },
+        })
+      : [];
+    const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
+
     const pairMap = new Map<
       string,
       {
-        profileSubjects: string
-        sessions: number
-        avgRawScore: number | null
-        avgScore: number | null
+        pairKey: string;
+        profileSubjectIds: string[];
+        profileSubjectSlugs: string[];
+        profileSubjectNames: string[];
+        sessions: number;
+        avgRawScore: number | null;
+        avgScore: number | null;
+        byLanguage: Map<
+          string,
+          {
+            language: string;
+            sessions: number;
+            avgRawScore: number | null;
+            avgScore: number | null;
+          }
+        >;
       }
-    >()
+    >();
+
+    const languages = new Set<string>();
 
     for (const s of sessions) {
-      const meta = s.metadata as Record<string, unknown> | null
-      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined
-      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue
-      const key = profileSubjectIds.slice(0, 2).join('+')
-      const existing = pairMap.get(key)
+      const meta = s.metadata as Record<string, unknown> | null;
+      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined;
+      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue;
+      const ids = profileSubjectIds.slice(0, 2);
+      const key = ids.join('+');
+      const lang = s.language || '—';
+      languages.add(lang);
+      const existing = pairMap.get(key);
       if (existing) {
-        existing.sessions++
+        existing.sessions++;
         if (s.rawScore != null) {
-          existing.avgRawScore = ((existing.avgRawScore ?? 0) * (existing.sessions - 1) + s.rawScore) / existing.sessions
+          existing.avgRawScore =
+            ((existing.avgRawScore ?? 0) * (existing.sessions - 1) + s.rawScore) / existing.sessions;
+        }
+        if (s.score != null) {
+          existing.avgScore =
+            ((existing.avgScore ?? 0) * (existing.sessions - 1) + Number(s.score)) / existing.sessions;
+        }
+        const langAgg = existing.byLanguage.get(lang);
+        if (langAgg) {
+          langAgg.sessions++;
+          if (s.rawScore != null) {
+            langAgg.avgRawScore =
+              ((langAgg.avgRawScore ?? 0) * (langAgg.sessions - 1) + s.rawScore) / langAgg.sessions;
+          }
+          if (s.score != null) {
+            langAgg.avgScore =
+              ((langAgg.avgScore ?? 0) * (langAgg.sessions - 1) + Number(s.score)) / langAgg.sessions;
+          }
+        } else {
+          existing.byLanguage.set(lang, {
+            language: lang,
+            sessions: 1,
+            avgRawScore: s.rawScore ?? null,
+            avgScore: s.score != null ? Number(s.score) : null,
+          });
         }
       } else {
+        const resolvedSubjects = ids.map((id) => subjectMap.get(id)).filter(Boolean);
         pairMap.set(key, {
-          profileSubjects: key,
+          pairKey: key,
+          profileSubjectIds: ids,
+          profileSubjectSlugs: resolvedSubjects.map((subject) => subject!.slug),
+          profileSubjectNames: resolvedSubjects.map((subject) => localizedLabel(subject!.name)),
           sessions: 1,
           avgRawScore: s.rawScore ?? null,
           avgScore: s.score != null ? Number(s.score) : null,
-        })
+          byLanguage: new Map([
+            [
+              lang,
+              {
+                language: lang,
+                sessions: 1,
+                avgRawScore: s.rawScore ?? null,
+                avgScore: s.score != null ? Number(s.score) : null,
+              },
+            ],
+          ]),
+        });
       }
     }
 
     const pairs = [...pairMap.entries()]
-      .map(([profileSubjects, stats]) => ({
-        profileSubjects,
+      .map(([, stats]) => ({
+        pairKey: stats.pairKey,
+        profileSubjectIds: stats.profileSubjectIds,
+        profileSubjectSlugs: stats.profileSubjectSlugs,
+        profileSubjectNames: stats.profileSubjectNames,
+        label: stats.profileSubjectNames.join(' + ') || stats.profileSubjectSlugs.join(' + ') || stats.pairKey,
         sessions: stats.sessions,
         avgRawScore: stats.avgRawScore,
         avgScore: stats.avgScore,
+        byLanguage: [...stats.byLanguage.values()].sort((a, b) => b.sessions - a.sessions),
       }))
-      .sort((a, b) => b.sessions - a.sessions)
+      .sort((a, b) => b.sessions - a.sessions);
 
-    return { pairs }
+    return {
+      pairs,
+      languages: [...languages].sort((a, b) => a.localeCompare(b)),
+    };
   }
 }
