@@ -11,6 +11,7 @@ import {
   StopOutlined,
   CloseCircleOutlined,
   LinkOutlined,
+  ArrowRightOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -140,9 +141,9 @@ export function FinancePage() {
 
   const columns: ColumnsType<FinanceOrder> = [
     {
-      title: 'Покупатель',
+      title: 'Пользователь',
       key: 'user',
-      width: 260,
+      width: 320,
       render: (_value, record) => (
         <div className="pg-finance__user">
           <div className="pg-finance__user-main">
@@ -150,6 +151,13 @@ export function FinancePage() {
           </div>
           <div className="pg-finance__user-sub">
             {record.user.telegramUsername ? `@${record.user.telegramUsername}` : record.user.phone ? `+${record.user.phone}` : record.user.email || '—'}
+          </div>
+          <div className="pg-finance__user-actions">
+            <Link to={`/users/${record.user.id}`}>
+              <Button type="link" size="small" icon={<ArrowRightOutlined />}>
+                Открыть профиль
+              </Button>
+            </Link>
           </div>
         </div>
       ),

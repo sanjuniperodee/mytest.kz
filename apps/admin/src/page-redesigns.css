@@ -2024,6 +2024,14 @@
   font-weight: 600;
 }
 
+.pg-finance__user-actions {
+  margin-top: 2px;
+}
+
+.pg-finance__user-actions .ant-btn {
+  padding-inline: 0;
+}
+
 .pg-finance__user-sub,
 .pg-finance__dates small,
 .pg-finance__subscription small,
