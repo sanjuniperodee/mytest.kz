@@ -77,7 +77,7 @@ export class AdminFinanceService {
             },
           },
         },
-        orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
