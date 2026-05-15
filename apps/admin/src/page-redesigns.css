@@ -1963,3 +1963,88 @@
   font-size: 12px;
   color: rgba(60, 60, 67, 0.5);
 }
+
+.pg-user-detail__exam,
+.pg-user-detail__mode,
+.pg-user-detail__subjects {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pg-user-detail__exam small,
+.pg-user-detail__mode small,
+.pg-user-detail__subjects small {
+  color: rgba(60, 60, 67, 0.6);
+  font-size: 12px;
+}
+
+.pg-user-detail__subjects span {
+  line-height: 1.4;
+}
+
+/* ——— Finance Page ——— */
+.pg-finance {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pg-finance .pg-dash__eyebrow {
+  color: rgba(20, 20, 20, 0.7);
+}
+
+.pg-finance__filters {
+  width: 100%;
+}
+
+.pg-finance__status-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: rgba(60, 60, 67, 0.68);
+}
+
+.pg-finance__table-card.hig-table-card {
+  overflow: hidden;
+}
+
+.pg-finance__user,
+.pg-finance__dates,
+.pg-finance__subscription,
+.pg-finance__provider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pg-finance__user-main a {
+  font-weight: 600;
+}
+
+.pg-finance__user-sub,
+.pg-finance__dates small,
+.pg-finance__subscription small,
+.pg-finance__provider small {
+  color: rgba(60, 60, 67, 0.65);
+  font-size: 12px;
+}
+
+.pg-finance__provider code {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 220px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.pg-finance__provider a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

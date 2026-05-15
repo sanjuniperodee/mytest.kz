@@ -69,6 +69,14 @@ interface SessionRow {
   examTypeSlug: string;
   examTypeName: unknown;
   status: string;
+  language: string;
+  modeLabel: string;
+  entScope: 'mandatory' | 'profile' | 'full' | null;
+  kind: string | null;
+  profileSubjectNames: string[];
+  mandatorySubjectNames: string[];
+  sectionSubjectNames: string[];
+  subjectSummary: string;
   startedAt: string;
   finishedAt: string | null;
   durationSecs: number | null;
@@ -97,6 +105,23 @@ function formatDate(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function languageTag(language: string) {
+  const label = language.toUpperCase();
+  const color = language === 'kk' ? 'green' : language === 'ru' ? 'blue' : 'default';
+  return <Tag color={color}>{label}</Tag>;
+}
+
+function localizeExamTypeName(value: unknown, fallback: string) {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.ru === 'string' && obj.ru.trim()) return obj.ru;
+    if (typeof obj.kk === 'string' && obj.kk.trim()) return obj.kk;
+    if (typeof obj.en === 'string' && obj.en.trim()) return obj.en;
+  }
+  return fallback;
 }
 
 function StatusTag({ status }: { status: string }) {
@@ -198,8 +223,37 @@ export function UserDetailPage() {
     {
       title: 'Экзамен',
       dataIndex: 'examTypeSlug',
-      width: 100,
-      render: (v: string) => v.toUpperCase(),
+      width: 140,
+      render: (v: string, record) => (
+        <div className="pg-user-detail__exam">
+          <strong>{v.toUpperCase()}</strong>
+          <small>{localizeExamTypeName(record.examTypeName, v.toUpperCase())}</small>
+        </div>
+      ),
+    },
+    {
+      title: 'Формат',
+      key: 'mode',
+      width: 180,
+      render: (_: unknown, record: SessionRow) => (
+        <div className="pg-user-detail__mode">
+          <span>{record.modeLabel}</span>
+          <div>{languageTag(record.language)}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'Предметы',
+      key: 'subjects',
+      width: 280,
+      render: (_: unknown, record: SessionRow) => (
+        <div className="pg-user-detail__subjects">
+          <span>{record.subjectSummary}</span>
+          {record.profileSubjectNames.length > 0 ? (
+            <small>Пара: {record.profileSubjectNames.join(' + ')}</small>
+          ) : null}
+        </div>
+      ),
     },
     {
       title: 'Статус',

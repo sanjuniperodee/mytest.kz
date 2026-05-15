@@ -24,6 +24,7 @@ import {
   RocketOutlined,
   FundProjectionScreenOutlined,
   AppstoreOutlined,
+  CreditCardOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LogoutOutlined,
@@ -50,6 +51,7 @@ import { ExamCatalogPage } from './pages/ExamCatalogPage';
 import { LandingSettingsPage } from './pages/LandingSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { FinancePage } from './pages/FinancePage';
 
 const { Sider, Content, Header } = Layout;
 const { useBreakpoint } = Grid;
@@ -69,6 +71,7 @@ const MENU_NAV: Record<string, string> = {
   questions: '/questions',
   exams: '/exams',
   subscriptions: '/subscriptions',
+  finance: '/finance',
   notifications: '/notifications',
   'landing-settings': '/landing-settings',
 };
@@ -84,6 +87,7 @@ function menuKeyFromPath(pathname: string): string {
   if (pathname.startsWith('/questions')) return 'questions';
   if (pathname.startsWith('/exams')) return 'exams';
   if (pathname.startsWith('/subscriptions')) return 'subscriptions';
+  if (pathname.startsWith('/finance')) return 'finance';
   if (pathname.startsWith('/notifications')) return 'notifications';
   if (pathname.startsWith('/landing-settings')) return 'landing-settings';
   return 'dashboard';
@@ -146,6 +150,7 @@ function AdminLayout() {
         children: [
           { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
           { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+          { key: 'finance', icon: <CreditCardOutlined />, label: 'Финансы' },
           { key: 'notifications', icon: <NotificationOutlined />, label: 'Рассылки' },
         ],
       },
@@ -397,6 +402,7 @@ function AdminLayout() {
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/exams" element={<ExamCatalogPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/finance" element={<FinancePage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/landing-settings" element={<LandingSettingsPage />} />
           </Routes>

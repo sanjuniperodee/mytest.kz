@@ -3,6 +3,22 @@ import { EntitlementStatus, EntitlementTier } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { AccessService } from '../../subscriptions/access.service';
 
+function localizedLabel(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.ru === 'string' && obj.ru.trim()) return obj.ru;
+    if (typeof obj.kk === 'string' && obj.kk.trim()) return obj.kk;
+    if (typeof obj.en === 'string' && obj.en.trim()) return obj.en;
+  }
+  return '—';
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
 @Injectable()
 export class AdminUserService {
   constructor(
@@ -239,6 +255,30 @@ export class AdminUserService {
       orderBy: { timestamp: 'desc' },
     });
 
+    const subjectIds = new Set<string>();
+    for (const session of sessions) {
+      const meta = asRecord(session.metadata);
+      const profileSubjectIds = Array.isArray(meta.profileSubjectIds)
+        ? meta.profileSubjectIds.filter((v): v is string => typeof v === 'string')
+        : [];
+      for (const subjectId of profileSubjectIds) subjectIds.add(subjectId);
+
+      const sections = Array.isArray(meta.sections)
+        ? meta.sections.filter((v): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v))
+        : [];
+      for (const section of sections) {
+        if (typeof section.subjectId === 'string') subjectIds.add(section.subjectId);
+      }
+    }
+
+    const subjects = subjectIds.size
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: [...subjectIds] } },
+          select: { id: true, slug: true, name: true },
+        })
+      : [];
+    const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
+
     return {
       user: {
         ...userWithEntitlements,
@@ -254,10 +294,12 @@ export class AdminUserService {
         }),
       },
       sessions: sessions.map((s) => ({
+        ...(this.presentSessionMeta(s.examType.slug, s.metadata, subjectMap)),
         id: s.id,
         examTypeSlug: s.examType.slug,
         examTypeName: s.examType.name,
         status: s.status,
+        language: s.language,
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
         durationSecs: s.durationSecs,
@@ -270,6 +312,77 @@ export class AdminUserService {
         step: f.step,
         createdAt: f.timestamp,
       })),
+    };
+  }
+
+  private presentSessionMeta(
+    examTypeSlug: string,
+    metadata: unknown,
+    subjectMap: Map<string, { id: string; slug: string; name: unknown }>,
+  ) {
+    const meta = asRecord(metadata);
+    const sections = Array.isArray(meta.sections)
+      ? meta.sections.filter((v): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v))
+      : [];
+    const profileSubjectIds = Array.isArray(meta.profileSubjectIds)
+      ? meta.profileSubjectIds.filter((v): v is string => typeof v === 'string')
+      : [];
+    const entScope =
+      meta.entScope === 'mandatory' || meta.entScope === 'profile' || meta.entScope === 'full'
+        ? meta.entScope
+        : null;
+    const kind = typeof meta.kind === 'string' ? meta.kind : null;
+    const isRetake = typeof meta.retakeOfSessionId === 'string';
+
+    const allSectionSubjectIds = sections
+      .map((section) => (typeof section.subjectId === 'string' ? section.subjectId : null))
+      .filter((value): value is string => Boolean(value));
+    const mandatorySubjectIds = sections
+      .filter((section) => section.isMandatory !== false)
+      .map((section) => (typeof section.subjectId === 'string' ? section.subjectId : null))
+      .filter((value): value is string => Boolean(value));
+
+    const toNames = (ids: string[]) =>
+      [...new Set(ids)]
+        .map((id) => subjectMap.get(id))
+        .filter((value): value is { id: string; slug: string; name: unknown } => Boolean(value))
+        .map((subject) => localizedLabel(subject.name));
+
+    const profileSubjectNames = toNames(profileSubjectIds);
+    const mandatorySubjectNames = toNames(mandatorySubjectIds);
+    const sectionSubjectNames = toNames(allSectionSubjectIds);
+
+    let modeLabel = 'Обычная сессия';
+    if (kind === 'remediation') {
+      modeLabel = 'Работа над ошибками';
+    } else if (isRetake) {
+      modeLabel = 'Повторная попытка';
+    } else if (examTypeSlug === 'ent' && entScope === 'full') {
+      modeLabel = 'Полный ЕНТ';
+    } else if (examTypeSlug === 'ent' && entScope === 'profile') {
+      modeLabel = 'Только профильные';
+    } else if (examTypeSlug === 'ent' && entScope === 'mandatory') {
+      modeLabel = 'Только обязательные';
+    }
+
+    const subjectSummaryParts: string[] = [];
+    if (profileSubjectNames.length > 0) {
+      subjectSummaryParts.push(`Профиль: ${profileSubjectNames.join(' + ')}`);
+    }
+    if (mandatorySubjectNames.length > 0 && entScope !== 'profile') {
+      subjectSummaryParts.push(`Обязательные: ${mandatorySubjectNames.join(', ')}`);
+    } else if (subjectSummaryParts.length === 0 && sectionSubjectNames.length > 0) {
+      subjectSummaryParts.push(sectionSubjectNames.join(', '));
+    }
+
+    return {
+      modeLabel,
+      entScope,
+      kind,
+      profileSubjectNames,
+      mandatorySubjectNames,
+      sectionSubjectNames,
+      subjectSummary: subjectSummaryParts.join(' · ') || '—',
     };
   }
 }

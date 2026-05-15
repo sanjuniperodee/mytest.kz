@@ -77,6 +77,13 @@ export function getPageMeta(pathname: string): AdminPageTitle {
       description: 'Управление активными тарифами, сроками и ручными выдачами доступа.',
     };
   }
+  if (p.startsWith('/finance')) {
+    return {
+      title: 'Финансы',
+      section: 'Аккаунты',
+      description: 'Платежи, статусы заказов, выручка и контроль того, что покупка доведена до подписки.',
+    };
+  }
   if (p.startsWith('/notifications')) {
     return {
       title: 'Рассылки',

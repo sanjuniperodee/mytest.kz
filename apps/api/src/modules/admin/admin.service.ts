@@ -3,6 +3,7 @@ import { AdminUserService } from './services/admin-user.service';
 import { AdminSubscriptionService } from './services/admin-subscription.service';
 import { AdminPlanTemplateService } from './services/admin-plan-template.service';
 import { AdminAnalyticsService } from './services/admin-analytics.service';
+import { AdminFinanceService } from './services/admin-finance.service';
 
 @Injectable()
 export class AdminService {
@@ -11,6 +12,7 @@ export class AdminService {
     private subscriptionService: AdminSubscriptionService,
     private planTemplateService: AdminPlanTemplateService,
     private analyticsService: AdminAnalyticsService,
+    private financeService: AdminFinanceService,
   ) {}
 
   // User management
@@ -87,5 +89,12 @@ export class AdminService {
 
   async getEntProfilePairsAnalytics() {
     return this.analyticsService.getEntProfilePairsAnalytics();
+  }
+
+  // Finance
+  async getFinanceOrders(
+    params: Parameters<AdminFinanceService['getFinanceOrders']>[0],
+  ) {
+    return this.financeService.getFinanceOrders(params);
   }
 }
