@@ -184,6 +184,15 @@ export default function KaspiPaymentPage() {
     }
   }, [mutateGlobal, order?.status, refresh])
 
+  useEffect(() => {
+    const shouldTick =
+      Boolean(order?.expiresAt) && paymentStatusKind(order?.status, order?.expiresAt) === "pending"
+    if (!shouldTick) return
+    setNowMs(Date.now())
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [order?.expiresAt, order?.status])
+
   if (!invoiceId) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -278,14 +287,6 @@ export default function KaspiPaymentPage() {
     isQrPayment && qrValue
       ? "Отсканируйте QR в Kaspi или откройте оплату по ссылке. Статус обновляется автоматически."
       : view.description
-  const shouldTick = Boolean(order.expiresAt) && statusKind === "pending"
-
-  useEffect(() => {
-    if (!shouldTick) return
-    setNowMs(Date.now())
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [shouldTick, order.expiresAt])
 
   const cancelOrder = async () => {
     if (!invoiceId || !window.confirm("Отменить этот счёт Kaspi? После отмены можно будет выставить новый.")) {
