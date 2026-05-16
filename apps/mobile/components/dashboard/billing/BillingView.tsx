@@ -471,10 +471,19 @@ function PlanCard({
       for (let idx = 0; idx < purchaseTypes.length; idx += 1) {
         const currentType = purchaseTypes[idx]
         try {
+          if (typeof IAP.fetchProducts === "function") {
+            await IAP.fetchProducts({
+              skus: [productId],
+              type: currentType,
+            } as never)
+          }
           purchase = await IAP.requestPurchase({
             type: currentType,
             request: {
               apple: {
+                sku: productId,
+              },
+              ios: {
                 sku: productId,
               },
             },
@@ -494,10 +503,17 @@ function PlanCard({
         throw lastError
       }
       const first = Array.isArray(purchase) ? purchase[0] : purchase
-      const receiptData =
+      let receiptData =
         (first as any)?.transactionReceipt ||
         (first as any)?.transactionReceiptIOS ||
         (first as any)?.originalJson
+      if (!receiptData && typeof IAP.getReceiptIOS === "function") {
+        try {
+          receiptData = await IAP.getReceiptIOS()
+        } catch {
+          // keep original behavior below if receipt could not be read
+        }
+      }
       if (!receiptData) {
         throw new Error("IAP_RECEIPT_MISSING")
       }
