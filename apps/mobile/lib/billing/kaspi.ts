@@ -93,8 +93,22 @@ export function resolveOrderInvoiceId(order: KaspiOrder): string | null {
   return getString(order.invoiceId) || getString(order.providerOrderId)
 }
 
-export function paymentStatusKind(status: unknown): PaymentStatusKind {
+export function paymentStatusKind(
+  status: unknown,
+  expiresAt?: string | null | undefined,
+): PaymentStatusKind {
   const normalized = String(status || "").trim().toLowerCase()
+  const expiresAtMs = parseTimestamp(expiresAt)
+
+  if (
+    normalized === "pending" &&
+    expiresAtMs != null &&
+    Number.isFinite(expiresAtMs) &&
+    expiresAtMs <= Date.now()
+  ) {
+    return "inactive"
+  }
+
   if (normalized === "paid" || normalized === "processed" || normalized === "success" || normalized === "succeeded") {
     return "paid"
   }
@@ -110,6 +124,11 @@ export function paymentStatusKind(status: unknown): PaymentStatusKind {
     return "inactive"
   }
   return "pending"
+}
+
+export function isOpenableUrl(value: string | null | undefined): boolean {
+  if (!value) return false
+  return /^https?:\/\//i.test(value.trim())
 }
 
 export function formatKaspiDateTime(value: string | null | undefined, locale: "ru-RU" | "kk-KZ" = "ru-RU") {

@@ -19,6 +19,7 @@ import { api, ApiError } from "@/lib/api/client"
 import {
   formatKaspiDateTime,
   formatTimeLeft,
+  isOpenableUrl,
   paymentStatusKind,
   type KaspiOrder,
 } from "@/lib/billing/kaspi"
@@ -30,8 +31,10 @@ import { fonts } from "@/lib/theme/fonts"
 
 type PaymentOrder = KaspiOrder
 
-function statusMeta(status: string) {
-  const kind = paymentStatusKind(status)
+function statusMeta(status: string, expiresAt?: string | null, isQrPayment?: boolean) {
+  const kind = paymentStatusKind(status, expiresAt)
+  const normalized = String(status || "").trim().toLowerCase()
+
   if (kind === "paid") {
     return {
       kind,
@@ -45,6 +48,21 @@ function statusMeta(status: string) {
       border: "#a7f3d0",
       badgeRu: "Оплачено",
       badgeKk: "Төленді",
+    }
+  }
+  if (kind === "inactive" && normalized === "pending") {
+    return {
+      kind,
+      titleRu: "Срок оплаты истёк",
+      titleKk: "Төлем мерзімі аяқталды",
+      descRu: "Этот платёж уже истёк. Вернитесь к тарифам и создайте новый.",
+      descKk: "Бұл төлемнің мерзімі аяқталды. Тарифтерге оралып, жаңасын жасаңыз.",
+      icon: "timer-off-outline" as const,
+      color: "#b91c1c",
+      bg: "#fef2f2",
+      border: "#fecaca",
+      badgeRu: "Истёк",
+      badgeKk: "Аяқталды",
     }
   }
   if (kind === "inactive") {
@@ -66,8 +84,12 @@ function statusMeta(status: string) {
     kind,
     titleRu: "Ожидаем оплату",
     titleKk: "Төлем күтілуде",
-    descRu: "Откройте счёт в Kaspi и подтвердите оплату. Статус обновляется автоматически.",
-    descKk: "Kaspi-де шотты ашып, төлемді растаңыз. Күйі автоматты жаңарады.",
+    descRu: isQrPayment
+      ? "Откройте оплату по ссылке или отсканируйте QR в Kaspi. Статус обновляется автоматически."
+      : "Откройте счёт в Kaspi и подтвердите оплату. Статус обновляется автоматически.",
+    descKk: isQrPayment
+      ? "Төлем сілтемесін ашыңыз немесе QR-ды Kaspi арқылы сканерлеңіз. Күйі автоматты жаңарады."
+      : "Kaspi-де шотты ашып, төлемді растаңыз. Күйі автоматты жаңарады.",
     icon: "clock-outline" as const,
     color: "#b45309",
     bg: "#fffbeb",
@@ -94,7 +116,7 @@ export default function KaspiInvoiceScreen() {
     invoiceId ? `/billing/orders/${encodeURIComponent(invoiceId)}` : null,
     (url: string) => api(url),
     {
-      refreshInterval: (current) => (paymentStatusKind(current?.status) === "pending" ? 5000 : 0),
+      refreshInterval: (current) => (paymentStatusKind(current?.status, current?.expiresAt) === "pending" ? 5000 : 0),
       keepPreviousData: true,
     },
   )
@@ -109,8 +131,9 @@ export default function KaspiInvoiceScreen() {
   }, [mutateGlobal, order?.status, refresh])
 
   useEffect(() => {
-    if (!order?.expiresAt || paymentStatusKind(order.status) !== "pending") return
-    const timer = setInterval(() => setNowMs((prev) => prev + 1000), 1000)
+    if (!order?.expiresAt || paymentStatusKind(order.status, order.expiresAt) !== "pending") return
+    setNowMs(Date.now())
+    const timer = setInterval(() => setNowMs(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [order?.expiresAt, order?.status])
 
@@ -215,12 +238,14 @@ export default function KaspiInvoiceScreen() {
     )
   }
 
-  const meta = statusMeta(order.status)
-  const payUrl = order.checkoutUrl || order.qrToken || order.receiptUrl
-  const statusKind = paymentStatusKind(order.status)
+  const statusKind = paymentStatusKind(order.status, order.expiresAt)
+  const isQrPayment = order.paymentType === "qr"
+  const meta = statusMeta(order.status, order.expiresAt, isQrPayment)
+  const payUrl =
+    [order.checkoutUrl, order.receiptUrl, order.qrToken].find((value) => isOpenableUrl(value)) ?? null
   const canCancel = statusKind === "pending" && order.paymentType !== "qr"
   const expiresIn = formatTimeLeft(order.expiresAt, nowMs)
-  const isQrPayment = order.paymentType === "qr"
+  const shouldShowQrHint = isQrPayment && statusKind === "pending"
 
   return (
     <ScrollView contentContainerStyle={[styles.pad, { backgroundColor: colors.secondary }]}> 
@@ -251,6 +276,16 @@ export default function KaspiInvoiceScreen() {
           </Text>
         </View>
 
+        {order.fallbackToQr ? (
+          <View style={[styles.fallbackCard, { borderColor: `${meta.color}33` }]}>
+            <Text style={{ color: meta.color, fontSize: 13, lineHeight: 18 }}>
+              {ui === "kk"
+                ? "Телефон нөміріне шот құрылмады, сондықтан төлем автоматты түрде Kaspi QR-ға ауыстырылды."
+                : "Счёт по номеру телефона не создался, поэтому оплата автоматически переключилась на Kaspi QR."}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={[styles.info, { borderColor: `${meta.color}33`, backgroundColor: "#ffffffdd" }]}> 
           <InfoRow label={ui === "kk" ? "Тариф" : "Тариф"} value={order.planName} />
           <InfoRow
@@ -269,13 +304,29 @@ export default function KaspiInvoiceScreen() {
           {order.paidAt ? <InfoRow label={ui === "kk" ? "Төленген" : "Оплачен"} value={formatKaspiDateTime(order.paidAt)} /> : null}
         </View>
 
-        {isQrPayment && payUrl ? (
-          <View style={[styles.qrHint, { borderColor: `${meta.color}33` }]}> 
+        {shouldShowQrHint ? (
+          <View style={[styles.qrHint, { borderColor: `${meta.color}33` }]}>
+            <Text style={[styles.qrTitle, { color: colors.foreground }]}>Kaspi QR</Text>
             <Text style={{ color: meta.color, fontSize: 13, lineHeight: 18 }}>
               {ui === "kk"
-                ? "Kaspi QR қолданылады. Төлем сілтемесін ашып, Kaspi ішінде төлемді растаңыз."
-                : "Для этого счёта используется Kaspi QR. Откройте ссылку и подтвердите оплату в Kaspi."}
+                ? "Төлем дайын. Kaspi ішінен төлемді ашыңыз немесе QR арқылы растаңыз."
+                : "Оплата уже готова. Откройте её в Kaspi или подтвердите через QR."}
             </Text>
+            {order.expiresAt ? (
+              <View style={[styles.qrMeta, { borderColor: `${meta.color}22` }]}>
+                <Text style={[styles.qrMetaLabel, { color: colors.mutedForeground }]}>
+                  {ui === "kk" ? "QR жарамды" : "QR действует до"}
+                </Text>
+                <Text style={[styles.qrMetaValue, { color: colors.foreground }]}>
+                  {formatKaspiDateTime(order.expiresAt)}
+                </Text>
+                {expiresIn ? (
+                  <Text style={[styles.qrMetaSub, { color: colors.mutedForeground }]}>
+                    {ui === "kk" ? `Қалды: ${expiresIn}` : `Осталось: ${expiresIn}`}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -283,7 +334,7 @@ export default function KaspiInvoiceScreen() {
           {payUrl && statusKind === "pending" ? (
             <Button onPress={() => void Linking.openURL(payUrl)}>
               {isQrPayment
-                ? (ui === "kk" ? "Kaspi QR ашу" : "Открыть Kaspi QR")
+                ? (ui === "kk" ? "Төлемді ашу" : "Открыть оплату")
                 : (ui === "kk" ? "Kaspi шотын ашу" : "Открыть счёт Kaspi")}
             </Button>
           ) : null}
@@ -379,6 +430,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
+  fallbackCard: {
+    marginTop: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    padding: 10,
+    backgroundColor: "#ffffffd0",
+  },
   info: {
     marginTop: 12,
     borderWidth: StyleSheet.hairlineWidth,
@@ -413,5 +471,29 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     backgroundColor: "#ffffffd0",
+    gap: 8,
+  },
+  qrTitle: {
+    fontSize: 14,
+    fontFamily: fonts.sansSemi,
+  },
+  qrMeta: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    padding: 10,
+    backgroundColor: "#ffffffd0",
+    gap: 4,
+  },
+  qrMetaLabel: {
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  qrMetaValue: {
+    fontSize: 14,
+    fontFamily: fonts.sansSemi,
+  },
+  qrMetaSub: {
+    fontSize: 12,
   },
 })
