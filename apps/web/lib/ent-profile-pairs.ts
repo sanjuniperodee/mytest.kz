@@ -17,8 +17,8 @@ const ENT_PROFILE_SUBJECT_PAIRS = [
 
 const ENT_LOCALE_LIMITED_PROFILE_SUBJECT_PAIRS = [
   { pair: ["biology", "geography"], languages: ["kk", "ru"] },
-  { pair: ["biology", "chemistry"], languages: ["kk"] },
-  { pair: ["chemistry", "physics"], languages: ["kk"] },
+  { pair: ["biology", "chemistry"], languages: ["kk", "ru"] },
+  { pair: ["chemistry", "physics"], languages: ["kk", "ru"] },
 ] as const
 
 const alwaysAvailableProfileSubjectSlugs = new Set<string>([
