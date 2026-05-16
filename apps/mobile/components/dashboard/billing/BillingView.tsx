@@ -513,11 +513,27 @@ function PlanCard({
     } catch (err) {
       if (isUserCancelledIap(err)) return
       const message = err instanceof ApiError ? err.message : parseIapError(err).message
-      if (message.includes("APPLE_RECEIPT_INVALID") || message.includes("APPLE_RECEIPT_EMPTY")) {
+      if (message.includes("APPLE_IAP_NOT_CONFIGURED")) {
+        setError(
+          ui === "kk"
+            ? "App Store төлемі серверде бапталмаған. Қолдауға жазыңыз."
+            : "App Store-оплата пока не настроена на сервере. Напишите в поддержку.",
+        )
+      } else if (
+        message.includes("APPLE_RECEIPT_INVALID") ||
+        message.includes("APPLE_RECEIPT_EMPTY") ||
+        message.includes("APPLE_PRODUCT_NOT_FOUND")
+      ) {
         setError(
           ui === "kk"
             ? "Төлем жасалды, бірақ чек тексеруден өтпеді. Қайта көріңіз немесе қолдауға жазыңыз."
             : "Покупка прошла, но чек не подтвердился. Повторите попытку или обратитесь в поддержку.",
+        )
+      } else if (message.includes("APPLE_PLAN_NOT_MAPPED")) {
+        setError(
+          ui === "kk"
+            ? "Бұл App Store өнімі тарифке байланыстырылмаған. Қолдауға жазыңыз."
+            : "Этот App Store-продукт не привязан к тарифу. Напишите в поддержку.",
         )
       } else {
         setError(ui === "kk" ? "Сатып алу сәтсіз аяқталды. Қайта көріңіз." : "Покупка не завершена. Попробуйте снова.")
