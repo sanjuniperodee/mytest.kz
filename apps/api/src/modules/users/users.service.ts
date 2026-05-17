@@ -291,8 +291,10 @@ export class UsersService {
   }
 
   private fallbackTariffName(code: string) {
-    if (code === 'trial') return 'Разовый доступ';
-    if (code === 'week') return '5 пробных ЕНТ';
+    if (code === 'trial') return '1 пробный ЕНТ';
+    if (code === 'week') return '3 пробных ЕНТ';
+    if (code === 'month') return 'Месяц без лимита';
+    if (code === 'annual') return '5 пробных ЕНТ';
     if (code === 'paid') return 'Premium';
     if (code === 'admin') return 'Админ-доступ';
     return code;
@@ -300,15 +302,13 @@ export class UsersService {
 
   private subscriptionTotalAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
-    if (planType === 'week') return 5;
+    if (planType === 'week') return 3;
+    if (planType === 'annual') return 5;
     return null;
   }
 
   private subscriptionDailyAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
-    if (planType === 'week') return 5;
-    if (planType === 'month') return 5;
-    if (planType === 'annual') return 5;
     return null;
   }
 

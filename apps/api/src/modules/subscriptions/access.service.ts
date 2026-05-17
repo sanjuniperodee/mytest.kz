@@ -569,15 +569,13 @@ export class AccessService {
 
   private subscriptionTotalAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
-    if (planType === 'week') return 5;
+    if (planType === 'week') return 3;
+    if (planType === 'annual') return 5;
     return null;
   }
 
   private subscriptionDailyAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
-    if (planType === 'week') return 5;
-    if (planType === 'month') return 5;
-    if (planType === 'annual') return 5;
     return null;
   }
 
