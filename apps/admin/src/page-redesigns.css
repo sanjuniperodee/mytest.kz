@@ -1815,6 +1815,128 @@
   color: rgba(60, 60, 67, 0.56);
 }
 
+.pg-users__mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-users__mobile-card {
+  border-radius: 14px;
+  border: 0.5px solid rgba(60, 60, 67, 0.12);
+}
+
+.pg-users__mobile-card .ant-card-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-users__mobile-card--admin {
+  background: linear-gradient(90deg, rgba(10, 132, 255, 0.05), rgba(10, 132, 255, 0));
+}
+
+.pg-users__mobile-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-users__mobile-access {
+  margin-top: -2px;
+}
+
+.pg-users__mobile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pg-users__mobile-pagination {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0 0;
+}
+
+.pg-users__mobile-empty .ant-card-body {
+  padding: 20px 12px;
+}
+
+@media (max-width: 680px) {
+  .pg-users {
+    gap: 14px;
+  }
+
+  .pg-users .pg-dash__hero {
+    padding: 18px 16px;
+    border-radius: 16px;
+  }
+
+  .pg-users .pg-dash__headline {
+    font-size: 24px;
+  }
+
+  .pg-users__stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pg-users__stat {
+    min-height: 72px;
+    padding: 10px 10px 10px 12px;
+    border-radius: 12px;
+    gap: 8px;
+  }
+
+  .pg-users__stat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  .pg-users__stat-v {
+    font-size: 18px;
+  }
+
+  .pg-users__search-card {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .pg-users__search .ant-input-search-button,
+  .pg-users__search .ant-input-affix-wrapper,
+  .pg-users__search .ant-input-group-addon .ant-btn {
+    height: 40px;
+  }
+
+  .pg-users__search .ant-input-search-button {
+    min-width: 86px;
+    padding-inline: 10px;
+  }
+
+  .pg-users__filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pg-users__filter-block .ant-segmented-item-label {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .pg-users__person {
+    gap: 8px;
+  }
+
+  .pg-users__person-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+  }
+}
+
 /* ——— ЕНТ аналитика: полоса метрик ——— */
 .pg-ent {
   display: flex;

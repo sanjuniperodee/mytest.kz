@@ -3,8 +3,11 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   Avatar,
   Button,
+  Card,
   Empty,
+  Grid,
   Input,
+  Pagination,
   Progress,
   Segmented,
   Select,
@@ -24,11 +27,11 @@ import {
   DeleteOutlined,
   FilterOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
+  SearchOutlined,
+  TableOutlined,
   TeamOutlined,
   ThunderboltOutlined,
-  SearchOutlined,
-  SafetyCertificateOutlined,
-  TableOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -92,6 +95,16 @@ function getFullName(user: User) {
   return `ID ${user.id.slice(0, 8)}`;
 }
 
+function getInitials(name: string) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+  return initials || 'U';
+}
+
 function languageLabel(code: string) {
   const normalized = (code || '').toLowerCase();
   if (normalized === 'kk') return 'ҚАЗ';
@@ -103,9 +116,62 @@ function hasNextAllowedAt(entitlements?: User['entitlements']) {
   return Boolean(entitlements?.some((ent) => Boolean(ent.nextAllowedAt)));
 }
 
+function renderEntitlements(entitlements?: User['entitlements']) {
+  if (!entitlements || entitlements.length === 0) return <span>—</span>;
+
+  const entitlementItems = entitlements.slice(0, 3);
+  return (
+    <div className="pg-users__ent-stack">
+      {entitlementItems.map((ent) => {
+        const remaining =
+          ent.totalAttemptsLimit == null
+            ? '∞'
+            : `${Math.max(0, ent.totalAttemptsLimit - ent.usedAttemptsTotal)}/${ent.totalAttemptsLimit}`;
+        const daily =
+          ent.dailyAttemptsLimit == null ? 'без лимита/день' : `${ent.dailyAttemptsLimit}/день`;
+        const progressPercent =
+          ent.totalAttemptsLimit == null || ent.totalAttemptsLimit <= 0
+            ? 0
+            : Math.min(100, Math.round((ent.usedAttemptsTotal / ent.totalAttemptsLimit) * 100));
+
+        return (
+          <div key={ent.id} className="pg-users__ent-card">
+            <div className="pg-users__ent-card-head">
+              <Tag color={ent.status === 'active' ? 'green' : 'default'}>
+                {(ent.examType?.slug ?? 'exam').toUpperCase()}
+              </Tag>
+              <span className="pg-users__ent-meta">
+                {remaining} · {daily}
+              </span>
+            </div>
+            {ent.totalAttemptsLimit != null ? (
+              <Progress
+                percent={progressPercent}
+                size={[120, 6]}
+                showInfo={false}
+                strokeColor={ent.status === 'active' ? '#1677ff' : '#8c8c8c'}
+              />
+            ) : (
+              <span className="pg-users__ent-unlimited">Безлимитный доступ</span>
+            )}
+            {ent.nextAllowedAt ? (
+              <span className="pg-users__ent-next">
+                Следующая попытка: {new Date(ent.nextAllowedAt).toLocaleString('ru-RU')}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function UsersPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const screens = Grid.useBreakpoint();
+  const isCompact = !screens.lg;
+
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
@@ -128,6 +194,7 @@ export function UsersPage() {
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const items: User[] = data?.items ?? [];
+
   const filteredItems = useMemo(() => {
     return items.filter((user) => {
       if (premiumFilter === 'premium' && !user.hasActiveSubscription) return false;
@@ -140,7 +207,6 @@ export function UsersPage() {
       if (channelFilter === 'non-member' && user.isChannelMember) return false;
 
       if (languageFilter !== 'all' && user.preferredLanguage.toLowerCase() !== languageFilter) return false;
-
       return true;
     });
   }, [items, premiumFilter, roleFilter, channelFilter, languageFilter]);
@@ -186,6 +252,13 @@ export function UsersPage() {
     },
   });
 
+  const resetFilters = () => {
+    setPremiumFilter('all');
+    setRoleFilter('all');
+    setChannelFilter('all');
+    setLanguageFilter('all');
+  };
+
   const columns: ColumnsType<User> = [
     {
       title: 'Пользователь',
@@ -193,17 +266,10 @@ export function UsersPage() {
       width: 340,
       render: (_: unknown, record: User) => {
         const name = getFullName(record);
-        const initials = name
-          .split(/\s+/)
-          .filter(Boolean)
-          .slice(0, 2)
-          .map((part) => part[0]?.toUpperCase() ?? '')
-          .join('') || 'U';
-
         return (
           <div className="pg-users__person">
             <Avatar size={40} className="pg-users__person-avatar">
-              {initials}
+              {getInitials(name)}
             </Avatar>
             <div className="pg-users__person-body">
               <div className="pg-users__person-name-row">
@@ -241,54 +307,7 @@ export function UsersPage() {
     {
       title: 'Доступ (v2)',
       width: 330,
-      render: (_: unknown, record: User) => {
-        if (!record.entitlements || record.entitlements.length === 0) return '—';
-        const entitlementItems = record.entitlements.slice(0, 3);
-        return (
-          <div className="pg-users__ent-stack">
-            {entitlementItems.map((ent) => {
-              const remaining =
-                ent.totalAttemptsLimit == null
-                  ? '∞'
-                  : `${Math.max(0, ent.totalAttemptsLimit - ent.usedAttemptsTotal)}/${ent.totalAttemptsLimit}`;
-              const daily =
-                ent.dailyAttemptsLimit == null ? 'без лимита/день' : `${ent.dailyAttemptsLimit}/день`;
-              const progressPercent =
-                ent.totalAttemptsLimit == null || ent.totalAttemptsLimit <= 0
-                  ? 0
-                  : Math.min(100, Math.round((ent.usedAttemptsTotal / ent.totalAttemptsLimit) * 100));
-
-              return (
-                <div key={ent.id} className="pg-users__ent-card">
-                  <div className="pg-users__ent-card-head">
-                    <Tag color={ent.status === 'active' ? 'green' : 'default'}>
-                      {(ent.examType?.slug ?? 'exam').toUpperCase()}
-                    </Tag>
-                    <span className="pg-users__ent-meta">
-                      {remaining} · {daily}
-                    </span>
-                  </div>
-                  {ent.totalAttemptsLimit != null ? (
-                    <Progress
-                      percent={progressPercent}
-                      size={[120, 6]}
-                      showInfo={false}
-                      strokeColor={ent.status === 'active' ? '#1677ff' : '#8c8c8c'}
-                    />
-                  ) : (
-                    <span className="pg-users__ent-unlimited">Безлимитный доступ</span>
-                  )}
-                  {ent.nextAllowedAt ? (
-                    <span className="pg-users__ent-next">
-                      Следующая попытка: {new Date(ent.nextAllowedAt).toLocaleString('ru-RU')}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        );
-      },
+      render: (_: unknown, record: User) => renderEntitlements(record.entitlements),
     },
     {
       title: 'Регистрация',
@@ -443,15 +462,7 @@ export function UsersPage() {
               >
                 Обновить
               </Button>
-              <Button
-                icon={<FilterOutlined />}
-                onClick={() => {
-                  setPremiumFilter('all');
-                  setRoleFilter('all');
-                  setChannelFilter('all');
-                  setLanguageFilter('all');
-                }}
-              >
+              <Button icon={<FilterOutlined />} onClick={resetFilters}>
                 Сбросить фильтры
               </Button>
             </Space>
@@ -534,44 +545,127 @@ export function UsersPage() {
           </div>
         </div>
 
-        <HigTableCard className="pg-users__table-card">
-          <Table
-            columns={columns}
-            dataSource={filteredItems}
-            rowKey="id"
-            loading={isFetching}
-            rowClassName={(record) => (record.isAdmin ? 'pg-users__row-admin' : '')}
-            pagination={{
-              current: page,
-              total,
-              pageSize: PAGE_SIZE,
-              onChange: setPage,
-              showSizeChanger: false,
-              showTotal: (n) => `${n.toLocaleString('ru-RU')} записей`,
-            }}
-            size="small"
-            scroll={{ x: 1240 }}
-            locale={{
-              emptyText: (
-                <Empty
-                  description="Ничего не найдено"
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                >
-                  <Button
-                    onClick={() => {
-                      setPremiumFilter('all');
-                      setRoleFilter('all');
-                      setChannelFilter('all');
-                      setLanguageFilter('all');
-                    }}
+        {isCompact ? (
+          <div className="pg-users__mobile-list">
+            {filteredItems.length === 0 ? (
+              <Card className="pg-users__mobile-empty">
+                <Empty description="Ничего не найдено" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              </Card>
+            ) : (
+              filteredItems.map((record) => {
+                const name = getFullName(record);
+                return (
+                  <Card
+                    key={record.id}
+                    className={
+                      record.isAdmin
+                        ? 'pg-users__mobile-card pg-users__mobile-card--admin'
+                        : 'pg-users__mobile-card'
+                    }
                   >
-                    Сбросить фильтры
-                  </Button>
-                </Empty>
-              ),
-            }}
-          />
-        </HigTableCard>
+                    <div className="pg-users__mobile-head">
+                      <div className="pg-users__person">
+                        <Avatar size={40} className="pg-users__person-avatar">
+                          {getInitials(name)}
+                        </Avatar>
+                        <div className="pg-users__person-body">
+                          <div className="pg-users__person-name-row">
+                            <strong>{name}</strong>
+                            {record.isAdmin ? <Tag color="geekblue">ADMIN</Tag> : null}
+                          </div>
+                          <span className="pg-users__person-sub">
+                            {record.telegramUsername
+                              ? `@${record.telegramUsername}`
+                              : record.email || normalizePhone(record.phone)}
+                          </span>
+                          <span className="pg-users__person-sub pg-users__cell-mono">
+                            TG: {record.telegramId ?? '—'} · {new Date(record.createdAt).toLocaleDateString('ru-RU')}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="pg-users__status-grid">
+                        <Tag color={record.hasActiveSubscription ? 'gold' : 'default'}>
+                          {record.hasActiveSubscription ? 'Premium' : 'Без подписки'}
+                        </Tag>
+                        <Tag color={record.isChannelMember ? 'green' : 'default'}>
+                          {record.isChannelMember ? 'Канал: да' : 'Канал: нет'}
+                        </Tag>
+                        <Tag color="blue">{languageLabel(record.preferredLanguage)}</Tag>
+                      </div>
+                    </div>
+                    <div className="pg-users__mobile-access">{renderEntitlements(record.entitlements)}</div>
+                    <div className="pg-users__mobile-actions">
+                      <Button size="small" onClick={() => navigate(`/users/${record.id}`)}>
+                        Профиль
+                      </Button>
+                      <Switch
+                        checked={record.isAdmin}
+                        onChange={(checked) => toggleAdmin.mutate({ id: record.id, isAdmin: checked })}
+                        size="small"
+                        checkedChildren="A"
+                        unCheckedChildren="U"
+                      />
+                      <Popconfirm
+                        title="Удалить пользователя?"
+                        description="Аккаунт, сессии, ответы, подписки, доступы и платежные заказы будут удалены."
+                        okText="Удалить"
+                        cancelText="Отмена"
+                        okButtonProps={{ danger: true, loading: deleteUser.isPending }}
+                        onConfirm={() => deleteUser.mutate(record.id)}
+                      >
+                        <Button
+                          danger
+                          type="text"
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          loading={deleteUser.isPending}
+                        />
+                      </Popconfirm>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
+            <div className="pg-users__mobile-pagination">
+              <Pagination
+                current={page}
+                total={total}
+                pageSize={PAGE_SIZE}
+                onChange={setPage}
+                showSizeChanger={false}
+                size="small"
+              />
+            </div>
+          </div>
+        ) : (
+          <HigTableCard className="pg-users__table-card">
+            <Table
+              columns={columns}
+              dataSource={filteredItems}
+              rowKey="id"
+              loading={isFetching}
+              rowClassName={(record) => (record.isAdmin ? 'pg-users__row-admin' : '')}
+              pagination={{
+                current: page,
+                total,
+                pageSize: PAGE_SIZE,
+                onChange: setPage,
+                showSizeChanger: false,
+                showTotal: (n) => `${n.toLocaleString('ru-RU')} записей`,
+              }}
+              size="small"
+              scroll={{ x: 1240 }}
+              locale={{
+                emptyText: (
+                  <Empty description="Ничего не найдено" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+                    <Button onClick={resetFilters}>Сбросить фильтры</Button>
+                  </Empty>
+                ),
+              }}
+            />
+          </HigTableCard>
+        )}
+
         <p className="pg-users__footnote">
           Страница {page} из {pageCount}. Фильтры применяются к текущей странице (серверная пагинация активна).
         </p>
