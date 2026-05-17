@@ -141,10 +141,13 @@ export default function ExamDetailPage({
       router.push(`/exam/${session.id}`)
     } catch (err) {
       const message = err instanceof ApiError ? err.message : ""
+      if (message === "NO_ENTITLEMENT") {
+        router.push("/dashboard/billing?reason=no_access")
+        return
+      }
       if (
         message === "TRIAL_LIMIT_EXCEEDED" ||
-        message === "TOTAL_LIMIT_EXHAUSTED" ||
-        message === "NO_ENTITLEMENT"
+        message === "TOTAL_LIMIT_EXHAUSTED"
       ) {
         router.push("/dashboard/billing?reason=limit_exhausted")
         return

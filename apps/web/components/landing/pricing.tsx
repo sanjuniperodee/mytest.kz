@@ -96,13 +96,13 @@ export function Pricing() {
           </span>
           <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
             Сначала{" "}
-            <span className="font-serif italic font-normal">бесплатно</span>. Потом
-            — дешевле, чем{" "}
+            <span className="font-serif italic font-normal">диагностика</span>. Потом
+            — понятный план дешевле, чем{" "}
             <span className="font-serif italic font-normal">пара чашек кофе.</span>
           </h2>
           <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground">
-            Первый пробный — 0 ₸ и без карты. Дальше выбираешь любой тариф со скидкой
-            и получаешь объяснения ко всем вопросам после сдачи.
+            Выбираешь тариф, сдаёшь пробный в реальном формате и получаешь объяснения
+            ко всем вопросам после сдачи.
           </p>
         </div>
 
@@ -222,13 +222,13 @@ export function Pricing() {
 
         <div className="mt-10 flex flex-col items-center gap-2 text-center">
           <p className="text-sm font-medium">
-            Не уверен? Начни с бесплатного пробного — без карты и обязательств.
+            Не уверен? Начни с разового доступа за 570 ₸ и проверь формат на одном полном ЕНТ.
           </p>
           <a
             href="#start"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent underline-offset-4 hover:underline"
           >
-            Пройти бесплатный пробный →
+            Купить 1 пробный →
           </a>
           <p className="mt-4 text-xs text-muted-foreground">
             Цены указаны в тенге. Оплата через Freedom Pay, картой Visa / Mastercard или через Kaspi.

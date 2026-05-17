@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, ApiError } from "@/lib/api/client"
+import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -178,11 +179,28 @@ export default function KaspiPaymentPage() {
   useEffect(() => {
     if (order?.status === "paid" && !refreshedAfterPaid.current) {
       refreshedAfterPaid.current = true
+      void recordFunnelEvent("payment_paid", {
+        provider: "kaspi",
+        planCode: order.planCode,
+        invoiceId: order.invoiceId,
+        amount: order.amount,
+      })
       void refresh({ silent: true }).then(() => {
         void mutateGlobal("/billing/kaspi/orders/active")
       })
     }
-  }, [mutateGlobal, order?.status, refresh])
+  }, [mutateGlobal, order?.amount, order?.invoiceId, order?.planCode, order?.status, refresh])
+
+  useEffect(() => {
+    if (!order) return
+    void recordFunnelEvent("payment_opened", {
+      provider: "kaspi",
+      planCode: order.planCode,
+      invoiceId: order.invoiceId,
+      status: order.status,
+      paymentType: order.paymentType,
+    })
+  }, [order?.invoiceId, order?.paymentType, order?.planCode, order?.status])
 
   useEffect(() => {
     const shouldTick =
@@ -296,6 +314,11 @@ export default function KaspiPaymentPage() {
     try {
       const updated = await api<PaymentOrder>(`/billing/kaspi/orders/${encodeURIComponent(invoiceId)}/cancel`, {
         method: "POST",
+      })
+      void recordFunnelEvent("payment_cancelled", {
+        provider: "kaspi",
+        planCode: updated.planCode,
+        invoiceId: updated.invoiceId,
       })
       await mutate(updated, false)
       await mutateGlobal("/billing/kaspi/orders/active")
@@ -424,7 +447,16 @@ export default function KaspiPaymentPage() {
             {openPayUrl && statusKind === "pending" && (
               <Button
                 className="h-11 flex-1"
-                onClick={() => window.open(openPayUrl, "_blank", "noopener,noreferrer")}
+                onClick={() => {
+                  void recordFunnelEvent("payment_opened", {
+                    provider: "kaspi",
+                    planCode: order.planCode,
+                    invoiceId: order.invoiceId,
+                    action: "open_external",
+                    paymentType: order.paymentType,
+                  })
+                  window.open(openPayUrl, "_blank", "noopener,noreferrer")
+                }}
               >
                 {isQrPayment ? "Открыть оплату" : "Открыть счёт Kaspi"}
                 <ExternalLink className="size-4" />

@@ -51,10 +51,15 @@ export default function DashboardHomePage() {
 
   const inProgress = sessionList.find((s) => s.status === "in_progress")
   const entExam = (examTypes || []).find((exam) => exam.slug === "ent")
-  const quickStartHref = entExam ? `/dashboard/exams/${entExam.id}` : "/dashboard/exams"
   const entAccess = user?.accessByExam?.find((item) => item.examSlug === "ent")
   const entTrial = user?.trialStatus?.ent
   const hasPaidSubscription = Boolean(user?.hasActiveSubscription)
+  const quickStartHref =
+    entExam && entAccess && !entAccess.hasAccess
+      ? "/dashboard/billing?reason=no_access"
+      : entExam
+        ? `/dashboard/exams/${entExam.id}`
+        : "/dashboard/exams"
   const tariffName = localize(
     user?.currentTariff?.name,
     locale,
@@ -100,8 +105,8 @@ export default function DashboardHomePage() {
               />
               {!hasPaidSubscription && (
                 <HeroLimit
-                  label="Пробные попытки"
-                  value={formatFreeTrialRemaining(entTrial)}
+                  label="Доступ к ЕНТ"
+                  value={formatEntAccess(entAccess, entTrial)}
                 />
               )}
             </div>
@@ -788,10 +793,19 @@ function formatDailyRemaining(item: AccessByExamItem | undefined): string {
   return `${item.daily.remaining ?? 0}/${item.daily.limit}`
 }
 
-function formatFreeTrialRemaining(trial: { freeRemaining?: number; freeLimit?: number; remaining?: number; limit?: number } | undefined): string {
-  if (!trial) return "—"
+function formatEntAccess(
+  access: AccessByExamItem | undefined,
+  trial: { freeRemaining?: number; freeLimit?: number; remaining?: number; limit?: number } | undefined,
+): string {
+  if (access?.hasAccess) {
+    const remaining = access.total.remaining
+    if (access.total.isUnlimited || remaining == null) return "Premium"
+    return `${remaining}/${access.total.limit ?? remaining}`
+  }
+  if (!trial) return "Нужен Premium"
   const remaining = trial.freeRemaining ?? trial.remaining ?? 0
   const limit = trial.freeLimit ?? trial.limit ?? 0
+  if (limit <= 0) return "Нужен Premium"
   return `${remaining}/${limit}`
 }
 
@@ -819,7 +833,7 @@ function EmptySessions({ href }: { href: string }) {
       <div>
         <p className="font-medium">Пока нет пробников</p>
         <p className="text-sm text-muted-foreground">
-          Запустите первый бесплатно — займёт 5 секунд
+          Откройте первый пробный и получите Premium-разбор
         </p>
       </div>
       <Button asChild>

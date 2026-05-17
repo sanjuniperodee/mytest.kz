@@ -416,6 +416,33 @@ export class NotificationsService {
           'no_trial_day1',
         );
         break;
+      case 'post_trial_no_payment':
+        candidates = await this.getPostTrialNoPaymentCandidates(
+          'post_trial_no_payment',
+          now,
+          limit,
+          15,
+          24,
+        );
+        break;
+      case 'post_trial_day1_no_payment':
+        candidates = await this.getPostTrialNoPaymentCandidates(
+          'post_trial_day1_no_payment',
+          now,
+          limit,
+          24 * 60,
+          72,
+        );
+        break;
+      case 'post_trial_day3_no_payment':
+        candidates = await this.getPostTrialNoPaymentCandidates(
+          'post_trial_day3_no_payment',
+          now,
+          limit,
+          72 * 60,
+          168,
+        );
+        break;
       case 'paid_weekly_inactive':
         candidates = await this.getPaidWeeklyInactiveCandidates(
           now,
@@ -504,6 +531,22 @@ export class NotificationsService {
         testSessions: {
           none: { status: { in: [...FINISHED_SESSION_STATUSES] } },
         },
+        entitlements: {
+          none: {
+            tier: { in: [EntitlementTier.paid, EntitlementTier.admin] },
+            status: EntitlementStatus.active,
+            windowStartsAt: { lte: now },
+            OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: now } }],
+          },
+        },
+        subscriptions: {
+          none: {
+            isActive: true,
+            startsAt: { lte: now },
+            expiresAt: { gt: now },
+            planType: { not: 'free' },
+          },
+        },
         AND: [
           { notificationDeliveries: { none: { campaignKey } } },
           ...(priorCampaignKey
@@ -577,6 +620,84 @@ export class NotificationsService {
       campaignKey,
       user,
       dedupeKey: `${campaignKey}:${user.id}`,
+    }));
+  }
+
+  private async getPostTrialNoPaymentCandidates(
+    campaignKey: Extract<
+      NotificationCampaignKey,
+      | 'post_trial_no_payment'
+      | 'post_trial_day1_no_payment'
+      | 'post_trial_day3_no_payment'
+    >,
+    now: Date,
+    limit: number,
+    minAgeMinutes: number,
+    maxAgeHours: number,
+  ): Promise<NotificationCandidate[]> {
+    const sessions = await this.prisma.testSession.findMany({
+      where: {
+        status: { in: [...FINISHED_SESSION_STATUSES] },
+        finishedAt: {
+          lte: this.addMinutes(now, -minAgeMinutes),
+          gte: this.addHours(now, -maxAgeHours),
+        },
+        examType: { slug: 'ent' },
+        notificationDeliveries: {
+          none: { campaignKey },
+        },
+        user: {
+          telegramId: { not: null },
+          phone: { not: null },
+          isChannelMember: true,
+          entitlements: {
+            none: {
+              tier: { in: [EntitlementTier.paid, EntitlementTier.admin] },
+              status: EntitlementStatus.active,
+              windowStartsAt: { lte: now },
+              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: now } }],
+            },
+          },
+          subscriptions: {
+            none: {
+              isActive: true,
+              startsAt: { lte: now },
+              expiresAt: { gt: now },
+              planType: { not: 'free' },
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        finishedAt: true,
+        rawScore: true,
+        maxScore: true,
+        score: true,
+        user: {
+          select: {
+            id: true,
+            telegramId: true,
+            preferredLanguage: true,
+            timezone: true,
+          },
+        },
+      },
+      orderBy: { finishedAt: 'asc' },
+      take: limit,
+    });
+
+    return sessions.map((session) => ({
+      campaignKey,
+      user: session.user,
+      sessionId: session.id,
+      dedupeKey: `${campaignKey}:${session.id}`,
+      metadata: {
+        finishedAt: session.finishedAt?.toISOString() ?? null,
+        rawScore: session.rawScore ?? null,
+        maxScore: session.maxScore ?? null,
+        score: session.score != null ? Number(session.score) : null,
+      },
     }));
   }
 

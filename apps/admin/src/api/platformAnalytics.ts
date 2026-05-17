@@ -7,12 +7,18 @@ export type FunnelData = {
     registered: number;
     started: number;
     completed: number;
+    billingOpened?: number;
+    checkoutCreated?: number;
+    paymentPaid?: number;
   };
   conversionRates: {
     visitToRegistered: number;
     registeredToStarted: number;
     startedToCompleted: number;
     visitToCompleted: number;
+    completedToBilling?: number;
+    billingToCheckout?: number;
+    checkoutToPaid?: number;
   };
   byDate: Array<{
     date: string;

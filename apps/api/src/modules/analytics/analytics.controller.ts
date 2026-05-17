@@ -4,8 +4,11 @@ import {
   Body,
   Res,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
@@ -46,5 +49,28 @@ export class AnalyticsController {
     });
 
     return result;
+  }
+
+  @Post('event')
+  @UseGuards(AuthGuard('jwt'))
+  async recordEvent(
+    @CurrentUser('id') userId: string,
+    @Body()
+    body: {
+      step?: string;
+      sessionId?: string;
+      metadata?: Record<string, unknown>;
+      landingPath?: string;
+    },
+    @Req() req: Request,
+  ) {
+    return this.analyticsService.recordEvent({
+      userId,
+      visitorId: req.cookies?.['blm_vid'],
+      step: body.step || '',
+      sessionId: body.sessionId,
+      metadata: body.metadata,
+      landingPath: body.landingPath,
+    });
   }
 }

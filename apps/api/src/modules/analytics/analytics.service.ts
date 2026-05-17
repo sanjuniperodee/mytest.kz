@@ -1,6 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
+const ALLOWED_FUNNEL_EVENTS = new Set([
+  'visit',
+  'registered',
+  'started_test',
+  'completed_test',
+  'review_opened',
+  'explain_click',
+  'premium_gate',
+  'billing_opened',
+  'plan_selected',
+  'checkout_created',
+  'payment_opened',
+  'payment_paid',
+  'payment_failed',
+  'payment_cancelled',
+]);
+
 @Injectable()
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
@@ -124,6 +141,84 @@ export class AnalyticsService {
     });
   }
 
+  async recordEvent(data: {
+    userId: string;
+    visitorId?: string;
+    step: string;
+    sessionId?: string;
+    metadata?: Record<string, unknown>;
+    landingPath?: string;
+  }) {
+    const step = data.step.trim().slice(0, 32);
+    if (!ALLOWED_FUNNEL_EVENTS.has(step)) {
+      return { recorded: false, reason: 'UNKNOWN_STEP' };
+    }
+
+    const visit = await this.ensureVisitForUser({
+      userId: data.userId,
+      visitorId: data.visitorId,
+      landingPath: data.landingPath,
+    });
+    if (!visit) return { recorded: false, reason: 'NO_VISIT' };
+
+    const recentDuplicate = await this.prisma.funnelStep.findFirst({
+      where: {
+        visitId: visit.id,
+        step,
+        ...(data.sessionId ? { sessionId: data.sessionId } : {}),
+        timestamp: { gte: new Date(Date.now() - 30_000) },
+      },
+      select: { id: true },
+    });
+    if (recentDuplicate) {
+      return { recorded: false, duplicate: true };
+    }
+
+    await this.prisma.funnelStep.create({
+      data: {
+        visitId: visit.id,
+        step,
+        sessionId: data.sessionId ?? null,
+        metadata: {
+          ...(data.metadata ?? {}),
+          ...(data.landingPath ? { path: data.landingPath } : {}),
+        },
+      },
+    });
+
+    return { recorded: true };
+  }
+
+  private async ensureVisitForUser(data: {
+    userId: string;
+    visitorId?: string;
+    landingPath?: string;
+  }) {
+    if (data.visitorId) {
+      await this.prisma.visitEvent.updateMany({
+        where: { visitorId: data.visitorId.slice(0, 64), userId: null },
+        data: { userId: data.userId },
+      });
+    }
+
+    const existing = await this.prisma.visitEvent.findFirst({
+      where: { userId: data.userId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (existing) return existing;
+
+    const visitorId = (data.visitorId || `user:${data.userId}`).slice(0, 64);
+    return this.prisma.visitEvent.create({
+      data: {
+        visitorId,
+        userId: data.userId,
+        landingPath: (data.landingPath || '/app').slice(0, 255),
+      },
+      select: { id: true },
+    });
+  }
+
   async getFunnelAnalytics(params: {
     from?: string;
     to?: string;
@@ -173,6 +268,10 @@ export class AnalyticsService {
       where: completedWhere,
     });
     const completed = completedGrouped.length;
+
+    const billingOpened = await this.countVisitorsByStep('billing_opened', from, to);
+    const checkoutCreated = await this.countVisitorsByStep('checkout_created', from, to);
+    const paymentPaid = await this.countVisitorsByStep('payment_paid', from, to);
 
     // By date aggregation
     const rawByDate = await this.prisma.$queryRaw<
@@ -263,7 +362,7 @@ export class AnalyticsService {
 
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
-      totals: { visits, registered, started, completed },
+      totals: { visits, registered, started, completed, billingOpened, checkoutCreated, paymentPaid },
       conversionRates: {
         visitToRegistered:
           visits > 0 ? Math.round((registered / visits) * 10000) / 100 : 0,
@@ -273,10 +372,27 @@ export class AnalyticsService {
           started > 0 ? Math.round((completed / started) * 10000) / 100 : 0,
         visitToCompleted:
           visits > 0 ? Math.round((completed / visits) * 10000) / 100 : 0,
+        completedToBilling:
+          completed > 0 ? Math.round((billingOpened / completed) * 10000) / 100 : 0,
+        billingToCheckout:
+          billingOpened > 0 ? Math.round((checkoutCreated / billingOpened) * 10000) / 100 : 0,
+        checkoutToPaid:
+          checkoutCreated > 0 ? Math.round((paymentPaid / checkoutCreated) * 10000) / 100 : 0,
       },
       byDate,
       byExamType,
     };
+  }
+
+  private async countVisitorsByStep(step: string, from: Date, to: Date) {
+    const grouped = await this.prisma.visitEvent.groupBy({
+      by: ['visitorId'],
+      where: {
+        createdAt: { gte: from, lte: to },
+        funnelSteps: { some: { step } },
+      },
+    });
+    return grouped.length;
   }
 
   async getVisitors(params: {

@@ -302,6 +302,9 @@ export function AnalyticsPage() {
                       { label: 'Зарегистрировано', value: funnel.totals.registered },
                       { label: 'Начали тест', value: funnel.totals.started },
                       { label: 'Завершили тест', value: funnel.totals.completed },
+                      { label: 'Открыли тарифы', value: funnel.totals.billingOpened ?? 0 },
+                      { label: 'Создали оплату', value: funnel.totals.checkoutCreated ?? 0 },
+                      { label: 'Оплатили', value: funnel.totals.paymentPaid ?? 0 },
                     ].map((x) => (
                       <div className="pg-a__tile" key={x.label}>
                         <Card bordered={false} size="small" style={{ background: 'transparent' }}>

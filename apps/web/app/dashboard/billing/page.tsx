@@ -4,7 +4,7 @@ import useSWR from "swr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowRight, Check, Crown, Sparkles, ShieldCheck, Loader2, ExternalLink, XCircle, QrCode, Smartphone } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { useSWRConfig } from "swr"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
 import { useAuth } from "@/lib/api/auth-context"
 import { api } from "@/lib/api/client"
+import { recordFunnelEvent } from "@/lib/api/analytics"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { cn } from "@/lib/utils"
 import type { AccessByExamItem, BillingPlan, CheckoutResponse, CurrentTariff, TrialStatusItem, User } from "@/lib/api/types"
@@ -65,6 +66,16 @@ interface KaspiCheckoutResponse {
 
 type PaymentMethod = "kaspi" | "freedom"
 type KaspiMethod = "invoice" | "qr"
+type BillingReason =
+    | "limit_exhausted"
+    | "daily_limit"
+    | "no_access"
+    | "post_trial"
+    | "premium_explanation"
+    | "review_recovery"
+    | "mistakes_practice"
+    | "retake"
+    | "default"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value)
@@ -157,9 +168,90 @@ function normalizePlan(plan: BillingPlan, locale: Locale): NormalizedPlan {
     }
 }
 
+function normalizeBillingReason(value: string | null): BillingReason {
+    if (
+        value === "limit_exhausted" ||
+        value === "daily_limit" ||
+        value === "no_access" ||
+        value === "post_trial" ||
+        value === "premium_explanation" ||
+        value === "review_recovery" ||
+        value === "mistakes_practice" ||
+        value === "retake"
+    ) {
+        return value
+    }
+    return "default"
+}
+
+function getBillingPitch(reason: BillingReason, trial?: TrialStatusItem) {
+    const left = trial?.freeRemaining ?? trial?.remaining ?? 0
+    if (reason === "limit_exhausted" || reason === "no_access") {
+        return {
+            eyebrow: "Доступ открыт в Premium",
+            title: "Начни подготовку с полного пробника",
+            text: "Premium открывает пробники, подробный разбор, работу над ошибками и аналитику, чтобы готовиться по цифрам, а не на ощущениях.",
+            recommendedPlan: "week",
+        }
+    }
+    if (reason === "daily_limit") {
+        return {
+            eyebrow: "Лимит на сегодня исчерпан",
+            title: "Сохрани темп и продолжай сегодня",
+            text: "Premium снимает дневную паузу в подготовке: можно пройти ещё пробник, разобрать ошибки и не терять день.",
+            recommendedPlan: "month",
+        }
+    }
+    if (reason === "premium_explanation") {
+        return {
+            eyebrow: "Разбор открыт в Premium",
+            title: "Не просто узнай ответ, а пойми ошибку",
+            text: "Premium показывает объяснения к вопросам и превращает ошибки в короткие тренировки. Это самый быстрый путь добрать баллы.",
+            recommendedPlan: "trial",
+        }
+    }
+    if (reason === "mistakes_practice") {
+        return {
+            eyebrow: "Работа над ошибками в Premium",
+            title: "Преврати прошлые ошибки в короткую тренировку",
+            text: "Premium собирает ваши ошибки в мини-тесты, чтобы закрывать слабые места быстрее и видеть рост по баллам.",
+            recommendedPlan: "week",
+        }
+    }
+    if (reason === "retake") {
+        return {
+            eyebrow: "Пересдача открыта в Premium",
+            title: "Повтори ЕНТ и проверь рост",
+            text: "Premium даёт следующие попытки и разбор после каждой сдачи: удобно сравнить результат и понять, где ещё теряются баллы.",
+            recommendedPlan: "week",
+        }
+    }
+    if (reason === "post_trial" || reason === "review_recovery") {
+        return {
+            eyebrow: "Пробник уже показал слабые места",
+            title: "Закрой ошибки, пока они свежие",
+            text: "Мы уже знаем, где ты теряешь баллы. Возьми план с разбором и следующими пробниками, чтобы превратить результат в рост.",
+            recommendedPlan: "week",
+        }
+    }
+    return {
+        eyebrow: left > 0 ? "Доступные попытки" : "Premium-подготовка",
+        title: "Открой полный доступ к пробникам",
+        text: "Разборы, аналитика и повторные попытки помогают готовиться по цифрам, а не на ощущениях.",
+        recommendedPlan: "month",
+    }
+}
+
 export default function BillingPage() {
     const { user } = useAuth()
     const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+    const [billingContext, setBillingContext] = useState<{
+        reason: BillingReason
+        sourceSessionId?: string
+        ready: boolean
+    }>({ reason: "default", ready: false })
+    const reason = billingContext.reason
+    const sourceSessionId = billingContext.sourceSessionId
     const { data, isLoading } = useSWR<BillingPlan[] | { items: BillingPlan[] }>("/billing/plans")
     const { data: orders, isLoading: ordersLoading } = useSWR<KaspiOrder[]>(
         '/billing/kaspi/orders/active',
@@ -174,9 +266,32 @@ export default function BillingPage() {
     const entAccess = user?.accessByExam?.find((item) => item.examSlug === "ent")
     const entTrial = user?.trialStatus?.ent
     const hasPaidSubscription = Boolean(user?.hasActiveSubscription)
+    const pitch = getBillingPitch(reason, entTrial)
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        setBillingContext({
+            reason: normalizeBillingReason(params.get("reason")),
+            sourceSessionId: params.get("sessionId") || undefined,
+            ready: true,
+        })
+    }, [])
+
+    useEffect(() => {
+        if (!billingContext.ready) return
+        void recordFunnelEvent("billing_opened", {
+            reason,
+            sessionId: sourceSessionId,
+            trialRemaining: entTrial?.remaining,
+            freeRemaining: entTrial?.freeRemaining,
+            hasPaidSubscription,
+        })
+    }, [billingContext.ready, entTrial?.freeRemaining, entTrial?.remaining, hasPaidSubscription, reason, sourceSessionId])
 
     // Highlight the most "popular" plan when there's a badge, otherwise the middle plan
     const highlightedIdx = (() => {
+        const byReason = sorted.findIndex((p) => p.code === pitch.recommendedPlan || p.id === pitch.recommendedPlan)
+        if (byReason >= 0) return byReason
         const byBadge = sorted.findIndex((p) => p.badge)
         if (byBadge >= 0) return byBadge
         if (sorted.length >= 3) return Math.floor(sorted.length / 2)
@@ -185,14 +300,36 @@ export default function BillingPage() {
 
     return (
         <div className="flex flex-col gap-6">
+            <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 sm:p-6">
+                <div className="grain pointer-events-none absolute inset-0 opacity-50" />
+                <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="flex max-w-3xl flex-col gap-2">
+                        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+                            <Sparkles className="size-3" />
+                            {pitch.eyebrow}
+                        </span>
+                        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{pitch.title}</h1>
+                        <p className="text-muted-foreground">{pitch.text}</p>
+                    </div>
+                    {!hasPaidSubscription && (
+                        <div className="grid gap-2 rounded-lg border border-border bg-background/80 p-3 text-sm sm:min-w-64">
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-muted-foreground">Бесплатно осталось</span>
+                                <span className="font-semibold tabular-nums">{formatFreeTrialRemaining(entTrial)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-muted-foreground">Рекомендуем</span>
+                                <span className="font-semibold">{pitch.recommendedPlan === "trial" ? "Разовый" : pitch.recommendedPlan === "week" ? "5 пробных" : "Месяц"}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <div className="flex flex-col gap-2">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-          <Sparkles className="size-3" />
-          Подписка
-        </span>
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Тарифы</h1>
+                <h2 className="text-xl font-semibold tracking-tight">Выберите тариф</h2>
                 <p className="text-muted-foreground">
-                    Откройте полный доступ к пробникам, разборам и аналитике
+                    Чем быстрее разберём свежие ошибки, тем выше шанс добрать баллы уже на следующем пробнике.
                 </p>
             </div>
 
@@ -234,6 +371,8 @@ export default function BillingPage() {
                             user={user}
                             locale={locale}
                             pendingOrder={orders?.find((o) => o.planCode === plan.id)}
+                            sourceReason={reason}
+                            sourceSessionId={sourceSessionId}
                         />
                     ))}
                 </div>
@@ -380,6 +519,8 @@ function PlanCard({
                       user,
                       locale,
                       pendingOrder,
+                      sourceReason,
+                      sourceSessionId,
                   }: {
     plan: NormalizedPlan
     highlighted?: boolean
@@ -387,6 +528,8 @@ function PlanCard({
     user: User | null
     locale: Locale
     pendingOrder?: KaspiOrder
+    sourceReason: BillingReason
+    sourceSessionId?: string
 }) {
     const router = useRouter()
     const { mutate } = useSWRConfig()
@@ -398,6 +541,13 @@ function PlanCard({
     const [error, setError] = useState<ReactNode | null>(null)
 
     const onCheckout = async () => {
+        void recordFunnelEvent("plan_selected", {
+            planCode: plan.code,
+            planId: plan.id,
+            price: plan.price,
+            reason: sourceReason,
+            sessionId: sourceSessionId,
+        })
         if (pendingOrder) {
             const invoiceId = resolveOrderInvoiceId(pendingOrder)
             if (invoiceId) {
@@ -434,6 +584,14 @@ function PlanCard({
             })
             const result = normalizeKaspiCheckoutResponse(rawResult)
             await mutate("/billing/kaspi/orders/active")
+            void recordFunnelEvent("checkout_created", {
+                provider: "kaspi",
+                planCode: plan.code,
+                planId: plan.id,
+                paymentType: kaspiMethod,
+                reason: sourceReason,
+                sessionId: sourceSessionId,
+            })
             if (!result.invoiceId) {
                 setError("Платёж создан, но сервер не вернул номер. Обновите страницу и откройте его из блока активных оплат.")
                 return
@@ -475,6 +633,13 @@ function PlanCard({
                 setError("Платёж создан, но ссылка на оплату не пришла. Попробуйте ещё раз.")
                 return
             }
+            void recordFunnelEvent("checkout_created", {
+                provider: "freedompay",
+                planCode: plan.code,
+                planId: plan.id,
+                reason: sourceReason,
+                sessionId: sourceSessionId,
+            })
             setShowModal(false)
             window.location.assign(checkoutUrl)
         } catch (err: unknown) {
@@ -869,7 +1034,7 @@ function CurrentTariffCard({
                 >
                     <TariffMetric label="Сегодня осталось" value={formatDailyRemaining(entAccess)} />
                     {!hasPaid && (
-                        <TariffMetric label="Пробные попытки" value={formatFreeTrialRemaining(trial)} />
+                        <TariffMetric label="Доступные попытки" value={formatFreeTrialRemaining(trial)} />
                     )}
                 </div>
             </CardContent>
@@ -907,5 +1072,6 @@ function formatFreeTrialRemaining(trial: TrialStatusItem | undefined): string {
     if (!trial) return "—"
     const remaining = trial.freeRemaining ?? trial.remaining ?? 0
     const limit = trial.freeLimit ?? trial.limit ?? 0
+    if (limit <= 0) return "Нужен Premium"
     return `${remaining}/${limit}`
 }

@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
-import { BILLING_PLANS, ENT_TRIAL_LIMIT } from '../billing/billing.config';
+import { BILLING_PLANS } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
@@ -60,7 +60,9 @@ export class UsersService {
       select: { totalAttemptsLimit: true, usedAttemptsTotal: true },
       orderBy: { createdAt: 'desc' },
     });
-    const freeLimit = signupEntitlement?.totalAttemptsLimit ?? ENT_TRIAL_LIMIT;
+    const freeLimit =
+      signupEntitlement?.totalAttemptsLimit ??
+      this.accessService.getSignupFreeAttemptLimit(user.createdAt);
     const freeUsed = Math.max(
       0,
       signupEntitlement?.usedAttemptsTotal ?? user.entTrialUsed,
@@ -271,6 +273,25 @@ export class UsersService {
     }
 
     if (exhaustedSubscriptionTariff) return exhaustedSubscriptionTariff;
+
+    if (free.freeRemaining <= 0) {
+      return {
+        code: 'premium_required',
+        name: 'Premium не подключён',
+        description: 'Пробники, пересдача и работа над ошибками открываются в Premium',
+        tier: 'free',
+        sourceType: 'none',
+        startsAt: null,
+        expiresAt: null,
+        isActive: false,
+        isPaid: false,
+        examSlug: 'ent',
+        totalAttemptsLimit: free.freeLimit,
+        dailyAttemptsLimit: null,
+        usedAttemptsTotal: free.freeUsed,
+        remainingAttempts: 0,
+      };
+    }
 
     return {
       code: 'free_ent_trial',

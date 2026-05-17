@@ -61,9 +61,12 @@ type AccessDecision = {
   candidate: DecisionCandidate | null;
 };
 
+const DEFAULT_FREE_SIGNUP_CUTOFF_AT = '2026-05-17T18:07:37.000Z';
+
 @Injectable()
 export class AccessService {
   private readonly signupPlanTemplateCode: string;
+  private readonly freeSignupCutoffAt: Date;
   private readonly v2Enabled: boolean;
   private readonly legacySyncEnabled: boolean;
   private readonly dualWriteLegacyEnabled: boolean;
@@ -88,6 +91,10 @@ export class AccessService {
     this.signupPlanTemplateCode =
       this.config.get<string>('SIGNUP_PLAN_TEMPLATE_CODE')?.trim() ||
       'free_ent_trial';
+    this.freeSignupCutoffAt = this.parseDate(
+      this.config.get<string>('FREE_ENT_SIGNUP_CUTOFF_AT'),
+      DEFAULT_FREE_SIGNUP_CUTOFF_AT,
+    );
     const cooldownRaw = Number(
       this.config.get<string>('USER_TIMEZONE_COOLDOWN_DAYS', '30'),
     );
@@ -97,6 +104,10 @@ export class AccessService {
 
   isV2Enabled() {
     return this.v2Enabled;
+  }
+
+  getSignupFreeAttemptLimit(createdAt: Date | string | null | undefined): number {
+    return this.isEligibleForSignupFreeAccess(createdAt) ? ENT_TRIAL_LIMIT : 0;
   }
 
   async ensureSignupEntitlementsForUser(userId: string): Promise<void> {
@@ -416,7 +427,7 @@ export class AccessService {
     });
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { entTrialUsed: true },
+      select: { entTrialUsed: true, createdAt: true },
     });
     if (!user) return [];
     const activeSubscriptions = await this.prisma.subscription.findMany({
@@ -477,7 +488,8 @@ export class AccessService {
         paidTrialLimit += limit;
         paidTrialRemaining += Math.max(0, limit - Math.min(limit, taken));
       }
-      const freeRemaining = Math.max(0, ENT_TRIAL_LIMIT - user.entTrialUsed);
+      const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
+      const freeRemaining = Math.max(0, legacyFreeLimit - user.entTrialUsed);
       const totalRemaining = unlimitedPaid ? null : freeRemaining + paidTrialRemaining;
       result.push({
         examTypeId: exam.id,
@@ -489,7 +501,7 @@ export class AccessService {
         hasPaidTier: hasPaidSubscription,
         total: {
           used: unlimitedPaid ? 0 : user.entTrialUsed + (paidTrialLimit - paidTrialRemaining),
-          limit: unlimitedPaid ? null : ENT_TRIAL_LIMIT + paidTrialLimit,
+          limit: unlimitedPaid ? null : legacyFreeLimit + paidTrialLimit,
           remaining: totalRemaining,
           isUnlimited: unlimitedPaid,
         },
@@ -514,6 +526,11 @@ export class AccessService {
     if (exam.slug !== 'ent') return;
 
     const now = new Date();
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true },
+    });
+    if (!user) throw new BadRequestException('USER_NOT_FOUND');
     const activeSubscriptions = await this.prisma.subscription.findMany({
       where: {
         userId,
@@ -548,8 +565,9 @@ export class AccessService {
       if (used < limit) return;
     }
 
+    const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
     const consumed = await this.prisma.user.updateMany({
-      where: { id: userId, entTrialUsed: { lt: ENT_TRIAL_LIMIT } },
+      where: { id: userId, entTrialUsed: { lt: legacyFreeLimit } },
       data: { entTrialUsed: { increment: 1 } },
     });
     if (consumed.count === 0) throw new BadRequestException('TRIAL_LIMIT_EXCEEDED');
@@ -762,6 +780,9 @@ export class AccessService {
         },
         select: { usedAttemptsTotal: true },
       });
+      if (!existing && !tpl.isPremium && !this.isEligibleForSignupFreeAccess(user.createdAt)) {
+        continue;
+      }
       const usedAttemptsTotal =
         existing?.usedAttemptsTotal ??
         (totalLimit != null && rule.examType.slug === 'ent'
@@ -894,6 +915,17 @@ export class AccessService {
         },
       },
     });
+  }
+
+  private isEligibleForSignupFreeAccess(createdAt: Date | string | null | undefined): boolean {
+    if (!createdAt) return false;
+    const time = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
+    return Number.isFinite(time) && time < this.freeSignupCutoffAt.getTime();
+  }
+
+  private parseDate(value: string | undefined, fallback: string): Date {
+    const parsed = Date.parse(value?.trim() || fallback);
+    return new Date(Number.isNaN(parsed) ? Date.parse(fallback) : parsed);
   }
 
   private async buildExamSummaryTx(

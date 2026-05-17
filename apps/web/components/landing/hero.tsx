@@ -13,7 +13,7 @@ export function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
             </span>
-            Подготовка к ЕНТ 2026 · 1 пробный бесплатно
+            Подготовка к ЕНТ 2026 · Premium-разбор ошибок
           </div>
 
           <h1 className="mt-6 text-balance text-[clamp(2.4rem,6.5vw,4.6rem)] font-semibold leading-[1.02] tracking-tight">
@@ -24,9 +24,9 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Первый пробный — бесплатно. После сдачи ты получаешь не только балл, а
+            Сдаёшь пробный в реальном формате и получаешь не только балл, а
             подробное объяснение к каждому вопросу: почему правильный ответ именно
-            такой и где ты ошибся.
+            такой, где ты ошибся и что подтянуть дальше.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -34,7 +34,7 @@ export function Hero() {
               href="/login"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
             >
-              Пройти пробный бесплатно
+              Выбрать тариф и начать
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
@@ -48,7 +48,7 @@ export function Hero() {
           <ul className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
             <li className="inline-flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-accent" />
-              Без регистрации карты
+              Premium-разбор после сдачи
             </li>
             <li className="inline-flex items-center gap-2">
               <Clock className="h-4 w-4 text-accent" />

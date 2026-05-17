@@ -41,7 +41,7 @@ export default function LoginPage() {
         </h1>
         <p className="text-pretty text-base text-muted-foreground leading-relaxed">
           Один аккаунт — пробные ЕНТ, разбор ошибок, аналитика и работа над ошибками.
-          Первый пробный — бесплатно.
+          Доступ к пробникам и разбору открывается в Premium.
         </p>
         <ul className="mt-2 flex flex-col gap-2 text-sm text-muted-foreground">
           <li className="flex items-center gap-2">

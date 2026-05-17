@@ -14,6 +14,7 @@ import { BILLING_PLANS, ENT_TRIAL_LIMIT } from './billing.config';
 import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './freedompay-signature';
 import { AccessService } from '../subscriptions/access.service';
 import { KaspiPosService } from './kaspi-pos.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 type KaspiOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
@@ -66,6 +67,7 @@ export class BillingService {
     private config: ConfigService,
     private accessService: AccessService,
     private kaspiPosService: KaspiPosService,
+    private analytics: AnalyticsService,
   ) {}
 
   getPlans() {
@@ -279,6 +281,14 @@ export class BillingService {
       },
     });
 
+    await this.recordBillingEvent(userId, 'checkout_created', {
+      provider: 'kaspi',
+      planCode: plan.id,
+      amount: plan.priceKzt,
+      paymentType,
+      reused: false,
+    });
+
     return {
       invoiceId: providerOrderId,
       providerOrderId,
@@ -342,6 +352,12 @@ export class BillingService {
             ...payload,
           } as Prisma.InputJsonObject,
         },
+      });
+      await this.recordBillingEvent(order.userId, 'payment_failed', {
+        provider: 'kaspi',
+        planCode: order.planCode,
+        providerOrderId: order.providerOrderId,
+        event,
       });
       return { ok: true, status: 'failed' };
     }
@@ -411,6 +427,12 @@ export class BillingService {
     });
     if (createdSubscription) {
       await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+      await this.recordBillingEvent(order.userId, 'payment_paid', {
+        provider: 'kaspi',
+        planCode: plan.id,
+        amount: Number(order.amount),
+        providerOrderId: order.providerOrderId,
+      });
     }
 
     return { ok: true, status: 'paid' };
@@ -510,6 +532,12 @@ export class BillingService {
       },
     });
 
+    await this.recordBillingEvent(userId, 'checkout_created', {
+      provider: 'freedompay',
+      planCode: plan.id,
+      amount: plan.priceKzt,
+    });
+
     return { orderId, checkoutUrl };
   }
 
@@ -545,6 +573,11 @@ export class BillingService {
           providerPaymentId: normalized.pg_payment_id || order.providerPaymentId,
         },
       });
+      await this.recordBillingEvent(order.userId, 'payment_failed', {
+        provider: 'freedompay',
+        planCode: order.planCode,
+        providerOrderId: order.providerOrderId,
+      });
       return { ok: true, status: 'failed' };
     }
 
@@ -579,6 +612,12 @@ export class BillingService {
       });
     });
     await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+    await this.recordBillingEvent(order.userId, 'payment_paid', {
+      provider: 'freedompay',
+      planCode: plan.id,
+      amount: Number(order.amount),
+      providerOrderId: order.providerOrderId,
+    });
 
     return { ok: true, status: 'paid' };
   }
@@ -708,6 +747,12 @@ export class BillingService {
           cancelSource: 'user',
         } as Prisma.InputJsonObject,
       },
+    });
+
+    await this.recordBillingEvent(userId, 'payment_cancelled', {
+      provider: 'kaspi',
+      planCode: updated.planCode,
+      providerOrderId: updated.providerOrderId,
     });
 
     return this.presentPaymentOrder(updated);
@@ -1181,6 +1226,18 @@ export class BillingService {
     const next = new Date(date);
     next.setDate(next.getDate() + days);
     return next;
+  }
+
+  private async recordBillingEvent(
+    userId: string,
+    step: 'checkout_created' | 'payment_paid' | 'payment_cancelled' | 'payment_failed',
+    metadata: Record<string, unknown>,
+  ) {
+    try {
+      await this.analytics.recordEvent({ userId, step, metadata });
+    } catch {
+      // Analytics must never block payment creation or activation.
+    }
   }
 
   private parseGatewayResponse(body: string): Record<string, string> {

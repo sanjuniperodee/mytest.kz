@@ -1,16 +1,19 @@
 "use client"
 
-import { use, useMemo, useState } from "react"
+import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import {
+  ArrowRight,
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
   Crown,
   Lightbulb,
   RefreshCw,
+  Target,
+  TrendingUp,
   Trophy,
   XCircle,
 } from "lucide-react"
@@ -35,6 +38,7 @@ import {
   imageReferenceText,
 } from "@/components/exam/rich-text"
 import { api, ApiError } from "@/lib/api/client"
+import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import { buildReviewSections, type ReviewSectionModel } from "@/lib/api/test-session"
@@ -45,6 +49,12 @@ interface ExplanationData {
   questionId: string
   explanation: unknown
   imageUrls?: string[]
+}
+
+type ScoreSegment = {
+  key: "threshold" | "grant" | "top"
+  title: string
+  text: string
 }
 
 export default function ReviewPage({
@@ -75,6 +85,40 @@ export default function ReviewPage({
   const accuracy = overallTotal ? Math.round((overallCorrect / overallTotal) * 100) : 0
   const canRetakeEnt =
     data?.examType?.slug === "ent" && data.metadata?.kind !== "remediation"
+  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const scoreSegment = useMemo(
+    () => getScoreSegment(displayScore, displayMax),
+    [displayMax, displayScore],
+  )
+  const weakSections = useMemo(() => {
+    return sections
+      .map((sec) => {
+        const pct = sec.totalCount ? Math.round((sec.correctCount / sec.totalCount) * 100) : 0
+        return {
+          title: sec.title,
+          pct,
+          lost: Math.max(0, sec.totalCount - sec.correctCount),
+        }
+      })
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 3)
+  }, [sections])
+
+  useEffect(() => {
+    if (!data) return
+    void recordFunnelEvent(
+      "review_opened",
+      {
+        examSlug: data.examType?.slug,
+        rawScore: data.rawScore,
+        score: data.score,
+        maxScore: data.maxScore,
+        accuracy,
+        scoreSegment: scoreSegment.key,
+      },
+      sessionId,
+    )
+  }, [accuracy, data, scoreSegment.key, sessionId])
 
   const startRetake = async () => {
     if (!data || retaking) return
@@ -83,9 +127,14 @@ export default function ReviewPage({
       const session = await api<TestSession>(`/tests/sessions/${sessionId}/retake`, {
         method: "POST",
       })
-      toast.success("Повтор ЕНТ создан бесплатно")
+      toast.success("Повтор ЕНТ создан")
       router.push(`/exam/${session.id}`)
     } catch (e) {
+      if (e instanceof ApiError && (e.status === 402 || e.status === 403)) {
+        void recordFunnelEvent("premium_gate", { feature: "retake" }, sessionId)
+        router.push(`/dashboard/billing?reason=retake&sessionId=${encodeURIComponent(sessionId)}`)
+        return
+      }
       toast.error(e instanceof ApiError ? e.message : "Не удалось создать повтор")
     } finally {
       setRetaking(false)
@@ -149,16 +198,28 @@ export default function ReviewPage({
                   </p>
                   {canRetakeEnt && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <Button onClick={startRetake} disabled={retaking}>
-                        {retaking ? (
-                          <Spinner className="size-4" />
-                        ) : (
-                          <RefreshCw className="size-4" />
-                        )}
-                        Повторить этот ЕНТ
-                      </Button>
+                      {hasPremium ? (
+                        <Button onClick={startRetake} disabled={retaking}>
+                          {retaking ? (
+                            <Spinner className="size-4" />
+                          ) : (
+                            <RefreshCw className="size-4" />
+                          )}
+                          Повторить этот ЕНТ
+                        </Button>
+                      ) : (
+                        <Button asChild>
+                          <Link
+                            href={`/dashboard/billing?reason=retake&sessionId=${encodeURIComponent(sessionId)}`}
+                            onClick={() => void recordFunnelEvent("premium_gate", { feature: "retake" }, sessionId)}
+                          >
+                            <RefreshCw className="size-4" />
+                            Повторить в Premium
+                          </Link>
+                        </Button>
+                      )}
                       <span className="text-sm text-muted-foreground">
-                        Бесплатно, без списания попытки
+                        Пересдача доступна в Premium и помогает проверить рост после разбора
                       </span>
                     </div>
                   )}
@@ -193,6 +254,15 @@ export default function ReviewPage({
                 })}
               </div>
             )}
+
+            <ReviewSalesCard
+              sessionId={sessionId}
+              score={displayScore}
+              maxScore={displayMax}
+              accuracy={accuracy}
+              scoreSegment={scoreSegment}
+              weakSections={weakSections}
+            />
 
             {/* Sections + questions */}
             {sections.map((sec) => {
@@ -341,6 +411,97 @@ export default function ReviewPage({
   )
 }
 
+function getScoreSegment(score: number, maxScore: number): ScoreSegment {
+  const pct = maxScore > 0 ? score / maxScore : 0
+  if (score >= 110 || pct >= 0.8) {
+    return {
+      key: "top",
+      title: "Стабилизируй 120+ и не теряй лёгкие баллы",
+      text: "У тебя уже сильная база, теперь важнее убрать случайные ошибки и закрепить высокий результат.",
+    }
+  }
+  if (score >= 70 || pct >= 0.5) {
+    return {
+      key: "grant",
+      title: "Добери баллы до гранта через слабые зоны",
+      text: "Ты уже близко к рабочей траектории, но часть баллов уходит в повторяющихся темах.",
+    }
+  }
+  return {
+    key: "threshold",
+    title: "Сначала догоняем порог и базовые темы",
+    text: "Сейчас важнее быстро найти базовые провалы и закрыть самые дорогие ошибки.",
+  }
+}
+
+function ReviewSalesCard({
+  sessionId,
+  score,
+  maxScore,
+  accuracy,
+  scoreSegment,
+  weakSections,
+}: {
+  sessionId: string
+  score: number
+  maxScore: number
+  accuracy: number
+  scoreSegment: ScoreSegment
+  weakSections: Array<{ title: string; pct: number; lost: number }>
+}) {
+  const potentialGain = Math.max(6, Math.min(18, Math.round((100 - accuracy) / 4)))
+  const primaryWeak = weakSections[0]
+
+  return (
+    <Card className="overflow-hidden border-amber-200 bg-amber-50">
+      <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-amber-600 text-white hover:bg-amber-600">
+              Персональный план
+            </Badge>
+            <span className="text-sm font-medium">
+              Результат: <span className="tabular-nums">{score}/{maxScore}</span>
+            </span>
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              {scoreSegment.title}
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900">
+              {scoreSegment.text} Premium откроет объяснения, тренировки по ошибкам
+              и следующий пробник, чтобы добрать ориентировочно +{potentialGain} баллов.
+            </p>
+          </div>
+          <div className="grid gap-2 text-sm sm:grid-cols-3">
+            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
+              <Target className="mb-2 size-4 text-amber-700" />
+              <p className="font-medium">Слабая зона</p>
+              <p className="mt-1 text-amber-800">{primaryWeak?.title ?? "Ошибки по предметам"}</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
+              <TrendingUp className="mb-2 size-4 text-amber-700" />
+              <p className="font-medium">Потенциал роста</p>
+              <p className="mt-1 text-amber-800">+{potentialGain} баллов при разборе ошибок</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
+              <Lightbulb className="mb-2 size-4 text-amber-700" />
+              <p className="font-medium">Что откроется</p>
+              <p className="mt-1 text-amber-800">Объяснения и тренировка ошибок</p>
+            </div>
+          </div>
+        </div>
+        <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
+          <Link href={`/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`}>
+            Открыть план роста
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ExplanationBlock({
   sessionId,
   questionId,
@@ -357,6 +518,7 @@ function ExplanationBlock({
 
   const load = async () => {
     if (data || loading) return
+    void recordFunnelEvent("explain_click", { questionId }, sessionId)
     setLoading(true)
     setErr(null)
     try {
@@ -367,6 +529,7 @@ function ExplanationBlock({
     } catch (e) {
       const apiErr = e as ApiError
       if (apiErr.status === 402 || apiErr.status === 403) {
+        void recordFunnelEvent("premium_gate", { questionId, feature: "explanation" }, sessionId)
         setErr("premium")
       } else {
         setErr(apiErr.message || "Не удалось загрузить объяснение")
@@ -387,7 +550,9 @@ function ExplanationBlock({
               Получите подробные разборы каждой ошибки, чтобы быстрее закрывать пробелы.
             </p>
             <Button size="sm" asChild className="self-start">
-              <Link href="/dashboard/billing">Подключить Premium</Link>
+              <Link href={`/dashboard/billing?reason=premium_explanation&sessionId=${encodeURIComponent(sessionId)}`}>
+                Подключить Premium
+              </Link>
             </Button>
           </div>
         </div>

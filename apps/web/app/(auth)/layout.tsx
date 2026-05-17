@@ -5,7 +5,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 
 export const metadata: Metadata = {
   title: "Вход в аккаунт",
-  description: "Войди в mytest, чтобы продолжить подготовку к ЕНТ. Пробный тест — бесплатно.",
+  description: "Войди в mytest, чтобы продолжить подготовку к ЕНТ с Premium-разбором ошибок.",
   robots: {
     index: false,
     follow: false,

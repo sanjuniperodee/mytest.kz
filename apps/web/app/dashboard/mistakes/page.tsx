@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { BookOpen, Play, Target, Sparkles } from "lucide-react"
+import { BookOpen, Crown, Play, Target, Sparkles } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,6 +21,7 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api, ApiError } from "@/lib/api/client"
+import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale } from "@/lib/api/i18n"
 import type { ExamType, MistakesSummary, TestSession } from "@/lib/api/types"
@@ -37,6 +39,7 @@ export default function MistakesPage() {
   const [limit, setLimit] = useState(20)
   const [duration, setDuration] = useState(30)
   const [starting, setStarting] = useState(false)
+  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
 
   const total = summary?.openTotal ?? 0
   const byExam = summary?.openByExam ?? []
@@ -109,6 +112,10 @@ export default function MistakesPage() {
           message = "По этому предмету нет открытых ошибок"
         } else if (err.message === "NO_OPEN_MISTAKES") {
           message = "Открытых ошибок пока нет"
+        } else if (err.status === 402 || err.status === 403) {
+          void recordFunnelEvent("premium_gate", { feature: "mistakes_practice" })
+          router.push("/dashboard/billing?reason=mistakes_practice")
+          return
         } else {
           message = err.message
         }
@@ -184,8 +191,8 @@ export default function MistakesPage() {
         </Card>
       </div>
 
-      {/* Practice config */}
-      <Card>
+      {hasPremium ? (
+        <Card>
         <CardHeader>
           <CardTitle>Запустить тренировку</CardTitle>
         </CardHeader>
@@ -317,7 +324,42 @@ export default function MistakesPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      ) : (
+        <MistakesPremiumCard total={total} />
+      )}
     </div>
+  )
+}
+
+function MistakesPremiumCard({ total }: { total: number }) {
+  return (
+    <Card className="overflow-hidden border-amber-200 bg-amber-50">
+      <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Crown className="size-5 text-amber-700" />
+            <span className="text-sm font-semibold uppercase tracking-wide">
+              Premium-функция
+            </span>
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Работа над ошибками открывается в Premium
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-amber-900">
+            Мы соберём ваши ошибки в короткие тренировки, чтобы закрывать слабые места
+            быстрее. Сейчас в очереди: {total} ошибок.
+          </p>
+        </div>
+        <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
+          <Link
+            href="/dashboard/billing?reason=mistakes_practice"
+            onClick={() => void recordFunnelEvent("premium_gate", { feature: "mistakes_practice" })}
+          >
+            Открыть Premium
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
