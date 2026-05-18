@@ -64,7 +64,7 @@ export default function ReviewPage({
 }) {
   const { sessionId } = use(params)
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const { data, isLoading, error } = useSWR<ReviewResponse>(
     `/tests/sessions/${sessionId}/review`,
@@ -103,6 +103,10 @@ export default function ReviewPage({
       .sort((a, b) => a.pct - b.pct)
       .slice(0, 3)
   }, [sections])
+
+  useEffect(() => {
+    void refresh({ silent: true })
+  }, [refresh])
 
   useEffect(() => {
     if (!data) return
@@ -219,7 +223,9 @@ export default function ReviewPage({
                         </Button>
                       )}
                       <span className="text-sm text-muted-foreground">
-                        Пересдача доступна в Premium и помогает проверить рост после разбора
+                        {hasPremium
+                          ? "Повторите этот же ЕНТ после разбора, чтобы увидеть рост"
+                          : "Пересдача доступна в Premium и помогает проверить рост после разбора"}
                       </span>
                     </div>
                   )}
@@ -262,6 +268,7 @@ export default function ReviewPage({
               accuracy={accuracy}
               scoreSegment={scoreSegment}
               weakSections={weakSections}
+              hasPremium={hasPremium}
             />
 
             {/* Sections + questions */}
@@ -441,6 +448,7 @@ function ReviewSalesCard({
   accuracy,
   scoreSegment,
   weakSections,
+  hasPremium,
 }: {
   sessionId: string
   score: number
@@ -448,6 +456,7 @@ function ReviewSalesCard({
   accuracy: number
   scoreSegment: ScoreSegment
   weakSections: Array<{ title: string; pct: number; lost: number }>
+  hasPremium: boolean
 }) {
   const potentialGain = Math.max(6, Math.min(18, Math.round((100 - accuracy) / 4)))
   const primaryWeak = weakSections[0]
@@ -458,7 +467,7 @@ function ReviewSalesCard({
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="bg-amber-600 text-white hover:bg-amber-600">
-              Персональный план
+              {hasPremium ? "Premium активен" : "Персональный план"}
             </Badge>
             <span className="text-sm font-medium">
               Результат: <span className="tabular-nums">{score}/{maxScore}</span>
@@ -469,8 +478,9 @@ function ReviewSalesCard({
               {scoreSegment.title}
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900">
-              {scoreSegment.text} Premium откроет объяснения, тренировки по ошибкам
-              и следующий пробник, чтобы добрать ориентировочно +{potentialGain} баллов.
+              {hasPremium
+                ? `${scoreSegment.text} Объяснения, тренировки по ошибкам и повтор этого пробника уже открыты. Начните с ошибок, чтобы добрать ориентировочно +${potentialGain} баллов.`
+                : `${scoreSegment.text} Premium откроет объяснения, тренировки по ошибкам и следующий пробник, чтобы добрать ориентировочно +${potentialGain} баллов.`}
             </p>
           </div>
           <div className="grid gap-2 text-sm sm:grid-cols-3">
@@ -486,14 +496,25 @@ function ReviewSalesCard({
             </div>
             <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
               <Lightbulb className="mb-2 size-4 text-amber-700" />
-              <p className="font-medium">Что откроется</p>
+              <p className="font-medium">{hasPremium ? "Уже открыто" : "Что откроется"}</p>
               <p className="mt-1 text-amber-800">Объяснения и тренировка ошибок</p>
             </div>
           </div>
         </div>
         <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
-          <Link href={`/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`}>
-            Открыть план роста
+          <Link
+            href={
+              hasPremium
+                ? "/dashboard/mistakes"
+                : `/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`
+            }
+            onClick={() => {
+              if (!hasPremium) {
+                void recordFunnelEvent("premium_gate", { feature: "review_recovery" }, sessionId)
+              }
+            }}
+          >
+            {hasPremium ? "Работать над ошибками" : "Открыть план роста"}
             <ArrowRight className="size-4" />
           </Link>
         </Button>

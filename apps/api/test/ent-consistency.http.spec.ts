@@ -338,6 +338,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sub-trial' }),
         findMany: jest.fn().mockResolvedValue([
           {
             isActive: true,
@@ -1239,6 +1240,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sub-trial' }),
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'sub-trial',
@@ -1332,6 +1334,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([
           {
             isActive: true,

@@ -49,6 +49,17 @@ export class UsersService {
     const accessByExam = await this.accessService.getUserAccessByExam(userId);
     const entAccess = accessByExam.find((x) => x.examSlug === 'ent');
     const activePaidAccess = accessByExam.some((x) => x.hasPaidTier && x.hasAccess);
+    const now = new Date();
+    const activePaidSubscription = await this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        isActive: true,
+        startsAt: { lte: now },
+        expiresAt: { gt: now },
+        planType: { not: 'free' },
+      },
+      select: { id: true },
+    });
 
     const signupEntitlement = await this.prisma.userExamEntitlement.findFirst({
       where: {
@@ -83,6 +94,7 @@ export class UsersService {
     });
     const hasActivePaidSubscription =
       activePaidAccess ||
+      Boolean(activePaidSubscription) ||
       (currentTariff?.sourceType === 'subscription' &&
         currentTariff.isActive === true &&
         currentTariff.isPaid === true);

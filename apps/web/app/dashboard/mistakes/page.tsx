@@ -28,7 +28,7 @@ import type { ExamType, MistakesSummary, TestSession } from "@/lib/api/types"
 
 export default function MistakesPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const { data: summary, isLoading } = useSWR<MistakesSummary>("/tests/mistakes/summary")
   const { data: examTypes } = useSWR<ExamType[]>("/exams/types")
@@ -77,6 +77,10 @@ export default function MistakesPage() {
         }),
     [bySubject, examTypeId, examsById, locale],
   )
+
+  useEffect(() => {
+    void refresh({ silent: true })
+  }, [refresh])
 
   useEffect(() => {
     if (subjectId === "all") return
