@@ -206,6 +206,9 @@ describe('subscription premium access', () => {
       userExamEntitlement: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      subscription: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       attemptUsageLedger: {
         findFirst: jest.fn().mockResolvedValue({ id: 'ledger-1' }),
       },
@@ -234,5 +237,42 @@ describe('subscription premium access', () => {
         }),
       }),
     );
+  });
+
+  it('allows premium features while a paid subscription is active even if attempts are exhausted', async () => {
+    const prisma = {
+      userExamEntitlement: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      subscription: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sub-trial' }),
+      },
+      attemptUsageLedger: {
+        findFirst: jest.fn(),
+      },
+    } as any;
+    const access = { isV2Enabled: jest.fn().mockReturnValue(true) } as any;
+    const guard = new PremiumGuard(prisma, access);
+
+    await expect(
+      guard.canActivate(
+        httpContext({
+          user: { id: 'user-1' },
+          params: {},
+        }),
+      ),
+    ).resolves.toBe(true);
+
+    expect(prisma.subscription.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'user-1',
+          isActive: true,
+          planType: { not: 'free' },
+        }),
+        select: { id: true },
+      }),
+    );
+    expect(prisma.attemptUsageLedger.findFirst).not.toHaveBeenCalled();
   });
 });

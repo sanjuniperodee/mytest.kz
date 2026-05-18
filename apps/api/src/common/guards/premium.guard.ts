@@ -27,6 +27,18 @@ export class PremiumGuard implements CanActivate {
       });
       if (paidEntitlement) return true;
 
+      const activePaidSubscription = await this.prisma.subscription.findFirst({
+        where: {
+          userId: user.id,
+          isActive: true,
+          startsAt: { lte: now },
+          expiresAt: { gt: now },
+          planType: { not: 'free' },
+        },
+        select: { id: true },
+      });
+      if (activePaidSubscription) return true;
+
       const sessionId = request.params?.id;
       if (typeof sessionId === 'string' && sessionId.trim()) {
         const paidSessionLedger = await this.prisma.attemptUsageLedger.findFirst({
