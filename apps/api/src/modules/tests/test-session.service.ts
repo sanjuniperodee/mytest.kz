@@ -283,25 +283,45 @@ export class TestSessionService {
   }
 
   async getSession(sessionId: string, userId: string) {
-    const session = await this.prisma.testSession.findFirst({
-      where: { id: sessionId, userId },
-      include: {
-        examType: true,
-        answers: {
-          include: {
-            question: {
-              include: {
-                subject: { select: { id: true, name: true, slug: true } },
-                answerOptions: {
-                  select: { id: true, content: true, sortOrder: true },
-                  orderBy: { sortOrder: 'asc' },
+    const [session, appeals] = await Promise.all([
+      this.prisma.testSession.findFirst({
+        where: { id: sessionId, userId },
+        include: {
+          examType: true,
+          answers: {
+            include: {
+              question: {
+                include: {
+                  subject: { select: { id: true, name: true, slug: true } },
+                  answerOptions: {
+                    select: { id: true, content: true, sortOrder: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      }),
+      this.prisma.questionAppeal.findMany({
+        where: { sessionId, userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          sessionId: true,
+          questionId: true,
+          examTypeId: true,
+          subjectId: true,
+          reason: true,
+          message: true,
+          status: true,
+          adminNote: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
 
     if (!session) throw new NotFoundException('Session not found');
 
@@ -324,7 +344,10 @@ export class TestSessionService {
       }
     }
 
-    return this.normalizeSessionScore(session);
+    return {
+      ...this.normalizeSessionScore(session),
+      appeals,
+    };
   }
 
   async getSessions(

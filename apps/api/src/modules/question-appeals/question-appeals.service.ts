@@ -125,7 +125,7 @@ export class QuestionAppealsService {
       where: {
         id: sessionId,
         userId,
-        status: { in: ['completed', 'timed_out'] },
+        status: { in: ['in_progress', 'completed', 'timed_out'] },
       },
       include: {
         answers: {
@@ -156,7 +156,7 @@ export class QuestionAppealsService {
     });
 
     if (!session) {
-      throw new NotFoundException('Finished session not found');
+      throw new NotFoundException('Session not found');
     }
 
     const answer = session.answers[0];
@@ -262,13 +262,13 @@ export class QuestionAppealsService {
       where: {
         id: sessionId,
         userId,
-        status: { in: ['completed', 'timed_out'] },
+        status: { in: ['in_progress', 'completed', 'timed_out'] },
       },
       select: { id: true },
     });
 
     if (!session) {
-      throw new NotFoundException('Finished session not found');
+      throw new NotFoundException('Session not found');
     }
 
     const appeals = await this.prisma.questionAppeal.findMany({
