@@ -1,6 +1,6 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { Button, Input, Select, Skeleton, Space, Table, Tag } from 'antd';
+import { Button, Input, Popconfirm, Select, Skeleton, Space, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CreditCardOutlined,
@@ -12,6 +12,7 @@ import {
   CloseCircleOutlined,
   LinkOutlined,
   ArrowRightOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -31,6 +32,9 @@ type FinanceOrder = {
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
+  isRefunded?: boolean;
+  refundStatus?: string | null;
+  refundedAt?: string | null;
   user: {
     id: string;
     displayName: string;
@@ -111,10 +115,12 @@ function statusTag(status: FinanceOrder['status']) {
 }
 
 export function FinancePage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<'all' | FinanceOrder['status']>('all');
   const [provider, setProvider] = useState<string>('all');
+  const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
 
   const { data, isPending, isFetching } = useQuery<FinanceResponse>({
     queryKey: ['admin-finance-orders', search, page, status, provider],
@@ -131,6 +137,28 @@ export function FinancePage() {
       return data;
     },
     placeholderData: keepPreviousData,
+  });
+
+  const refundKaspiOrder = useMutation({
+    mutationFn: async (order: FinanceOrder) => {
+      const { data } = await api.post(`/admin/finance/orders/${order.id}/kaspi-refund`);
+      return data;
+    },
+    onMutate: (order) => {
+      setRefundingOrderId(order.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-finance-orders'] });
+      message.success('Возврат выполнен');
+    },
+    onError: (error: unknown) => {
+      const details = (error as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+      const text = Array.isArray(details) ? details[0] : details;
+      message.error(typeof text === 'string' ? text : 'Не удалось выполнить возврат');
+    },
+    onSettled: () => {
+      setRefundingOrderId(null);
+    },
   });
 
   const items = data?.items ?? [];
@@ -177,8 +205,13 @@ export function FinancePage() {
     {
       title: 'Статус',
       dataIndex: 'status',
-      width: 130,
-      render: (value: FinanceOrder['status']) => statusTag(value),
+      width: 180,
+      render: (value: FinanceOrder['status'], record) => (
+        <Space size={6} wrap>
+          {statusTag(value)}
+          {record.isRefunded ? <Tag color="purple">Возврат</Tag> : null}
+        </Space>
+      ),
     },
     {
       title: 'Провайдер',
@@ -227,6 +260,38 @@ export function FinancePage() {
           ) : null}
         </div>
       ),
+    },
+    {
+      title: 'Действия',
+      key: 'actions',
+      width: 200,
+      render: (_value, record) => {
+        const canRefund = record.provider === 'kaspi' && record.status === 'paid' && !record.isRefunded;
+        if (!canRefund) {
+          return record.isRefunded ? (
+            <Tag color="purple">Возврат выполнен</Tag>
+          ) : (
+            <span style={{ color: 'rgba(60,60,67,0.55)' }}>—</span>
+          );
+        }
+        return (
+          <Popconfirm
+            title="Сделать возврат?"
+            description="Kaspi выполнит возврат, а выданная по этому платежу подписка будет отключена."
+            okText="Да, вернуть"
+            cancelText="Отмена"
+            onConfirm={() => refundKaspiOrder.mutate(record)}
+          >
+            <Button
+              size="small"
+              icon={<RollbackOutlined />}
+              loading={refundKaspiOrder.isPending && refundingOrderId === record.id}
+            >
+              Возврат Kaspi
+            </Button>
+          </Popconfirm>
+        );
+      },
     },
   ];
 

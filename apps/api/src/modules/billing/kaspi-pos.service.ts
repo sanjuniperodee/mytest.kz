@@ -347,6 +347,22 @@ export class KaspiPosService implements OnModuleInit {
     }
   }
 
+  async refundInvoice(operationId: string): Promise<unknown> {
+    const res = await fetch(`${this.baseUrl()}/api/invoice/refund`, {
+      method: 'POST',
+      headers: this.sessionHeaders('application/json'),
+      body: JSON.stringify({ operationId: String(operationId) }),
+    });
+
+    const text = await res.text();
+    this.logger.debug(`Invoice refund raw response: ${text}`);
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`KASPI_REFUND_PARSE_ERROR:${text.slice(0, 200)}`);
+    }
+  }
+
   isAuthenticated(): boolean {
     return this.auth !== null;
   }

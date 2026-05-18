@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { PaymentOrderStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PaymentOrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { AccessService } from '../../subscriptions/access.service';
+import { KaspiPosService } from '../../billing/kaspi-pos.service';
 
 function toNumber(value: unknown): number {
   if (typeof value === 'number') return value;
@@ -13,6 +15,18 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getString(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
 function startOfTodayAlmaty(now = new Date()) {
   const local = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Almaty' }));
   local.setHours(0, 0, 0, 0);
@@ -23,7 +37,105 @@ function startOfTodayAlmaty(now = new Date()) {
 
 @Injectable()
 export class AdminFinanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private kaspiPosService: KaspiPosService,
+    private accessService: AccessService,
+  ) {}
+
+  async refundKaspiOrder(adminId: string, orderId: string) {
+    const order = await this.prisma.paymentOrder.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('ORDER_NOT_FOUND');
+    if (order.provider !== 'kaspi') {
+      throw new BadRequestException('KASPI_REFUND_PROVIDER_ONLY');
+    }
+    if (order.status !== PaymentOrderStatus.paid) {
+      throw new BadRequestException('KASPI_REFUND_ONLY_PAID');
+    }
+
+    const payload = asRecord(order.providerPayload);
+    if (payload?.isRefunded === true) {
+      return {
+        ok: true,
+        orderId: order.id,
+        providerOrderId: order.providerOrderId,
+        alreadyRefunded: true,
+      };
+    }
+
+    let refundPayload: Record<string, unknown> | null = null;
+    try {
+      refundPayload = asRecord(await this.kaspiPosService.refundInvoice(order.providerOrderId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException(`KASPI_REFUND_ERROR:${message}`);
+    }
+
+    const statusCode = Number(refundPayload?.StatusCode ?? refundPayload?.statusCode ?? 0);
+    const refundData = asRecord(refundPayload?.Data) ?? asRecord(refundPayload?.data) ?? refundPayload;
+    const refundStatus = getString(refundData?.Status ?? refundData?.status) ?? 'UNKNOWN';
+    if (statusCode !== 0) {
+      throw new BadRequestException(`KASPI_REFUND_NOT_CONFIRMED:${refundStatus}`);
+    }
+
+    const now = new Date();
+    const previousPayload = asRecord(order.providerPayload);
+    await this.prisma.paymentOrder.update({
+      where: { id: order.id },
+      data: {
+        providerPayload: {
+          ...(previousPayload ?? {}),
+          refundResponse: refundPayload,
+          refundedAt: now.toISOString(),
+          refundedBy: adminId,
+          refundStatus,
+          isRefunded: true,
+        } as Prisma.InputJsonObject,
+      },
+    });
+
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: {
+        userId: order.userId,
+        OR: [
+          { paymentNote: `Kaspi:${order.providerOrderId}` },
+          {
+            planType: order.planCode,
+            createdAt: {
+              gte: new Date(order.createdAt.getTime() - 10 * 60 * 1000),
+              lte: new Date((order.paidAt ?? order.updatedAt).getTime() + 2 * 60 * 60 * 1000),
+            },
+          },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    for (const subscription of subscriptions) {
+      await this.prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          isActive: false,
+          expiresAt: subscription.expiresAt > now ? now : subscription.expiresAt,
+          paymentNote: subscription.paymentNote
+            ? `${subscription.paymentNote} | REFUND:${now.toISOString()}`
+            : `REFUND:${now.toISOString()}`,
+        },
+      });
+      await this.accessService.syncSubscriptionEntitlements(subscription.id);
+    }
+
+    return {
+      ok: true,
+      orderId: order.id,
+      providerOrderId: order.providerOrderId,
+      refundedAt: now.toISOString(),
+      revokedSubscriptions: subscriptions.length,
+      refundStatus,
+    };
+  }
 
   async getFinanceOrders(params: {
     search?: string;
@@ -135,6 +247,11 @@ export class AdminFinanceService {
     }
 
     const items = orders.map((order) => {
+      const providerPayload = asRecord(order.providerPayload);
+      const refundStatus = getString(providerPayload?.refundStatus);
+      const refundedAt = getString(providerPayload?.refundedAt);
+      const isRefunded = providerPayload?.isRefunded === true || Boolean(refundedAt) || Boolean(refundStatus);
+
       let linkedSubscription: {
         id: string;
         isActive: boolean;
@@ -172,6 +289,9 @@ export class AdminFinanceService {
         paidAt: order.paidAt,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
+        isRefunded,
+        refundStatus,
+        refundedAt,
         user: {
           id: order.user.id,
           displayName: fullName || order.user.telegramUsername || order.user.email || order.user.phone || order.user.id,

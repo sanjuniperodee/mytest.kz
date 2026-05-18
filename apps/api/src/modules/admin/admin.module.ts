@@ -13,9 +13,10 @@ import { AdminAnalyticsService } from './services/admin-analytics.service';
 import { AdminFinanceService } from './services/admin-finance.service';
 import { PrismaModule } from '../../database/prisma.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
-  imports: [PrismaModule, AnalyticsModule],
+  imports: [PrismaModule, AnalyticsModule, BillingModule],
   controllers: [
     AdminUsersController,
     AdminSubscriptionsController,

@@ -97,4 +97,11 @@ export class AdminService {
   ) {
     return this.financeService.getFinanceOrders(params);
   }
+
+  async refundKaspiOrder(
+    adminId: string,
+    orderId: string,
+  ) {
+    return this.financeService.refundKaspiOrder(adminId, orderId);
+  }
 }

@@ -1,6 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentOrderStatus } from '@prisma/client';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { AdminService } from './admin.service';
 
@@ -24,5 +25,13 @@ export class AdminFinanceController {
       status,
       provider,
     });
+  }
+
+  @Post('orders/:orderId/kaspi-refund')
+  async refundKaspiOrder(
+    @CurrentUser('id') adminId: string,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+  ) {
+    return this.adminService.refundKaspiOrder(adminId, orderId);
   }
 }
