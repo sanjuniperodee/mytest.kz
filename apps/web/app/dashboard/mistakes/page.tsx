@@ -330,7 +330,10 @@ export default function MistakesPage() {
         </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden border-amber-200 bg-amber-50">
+        <Card
+          key={`mistakes-premium-${total}`}
+          className="overflow-hidden border-amber-200 bg-amber-50"
+        >
           <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
@@ -344,7 +347,8 @@ export default function MistakesPage() {
               </h2>
               <p className="max-w-2xl text-sm leading-6 text-amber-900">
                 Мы соберём ваши ошибки в короткие тренировки, чтобы закрывать слабые места
-                быстрее. Сейчас в очереди: {total} ошибок.
+                быстрее. Сейчас в очереди:{" "}
+                <span className="font-semibold tabular-nums">{total}</span> ошибок.
               </p>
             </div>
             <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
