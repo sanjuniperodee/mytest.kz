@@ -347,19 +347,41 @@ export class KaspiPosService implements OnModuleInit {
     }
   }
 
-  async refundInvoice(operationId: string): Promise<unknown> {
-    const res = await fetch(`${this.baseUrl()}/api/invoice/refund`, {
+  async refundInvoice(operationId: string, returnAmount: number): Promise<unknown> {
+    const headers = this.sessionHeaders('application/json');
+    const primaryRes = await fetch(`${this.baseUrl()}/api/invoice/refund`, {
       method: 'POST',
-      headers: this.sessionHeaders('application/json'),
+      headers,
       body: JSON.stringify({ operationId: String(operationId) }),
     });
 
-    const text = await res.text();
-    this.logger.debug(`Invoice refund raw response: ${text}`);
+    const primaryText = await primaryRes.text();
+    this.logger.debug(`Invoice refund raw response: ${primaryText}`);
+    const isMissingPrimaryRoute =
+      primaryRes.status === 404 && primaryText.includes('Cannot POST /api/invoice/refund');
+
+    if (!isMissingPrimaryRoute) {
+      try {
+        return JSON.parse(primaryText);
+      } catch {
+        throw new Error(`KASPI_REFUND_PARSE_ERROR:${primaryText.slice(0, 200)}`);
+      }
+    }
+
+    const legacyRes = await fetch(`${this.baseUrl()}/api/refund/create`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        qrOperationId: Number(operationId),
+        returnAmount: Number(returnAmount),
+      }),
+    });
+    const legacyText = await legacyRes.text();
+    this.logger.debug(`Refund create raw response: ${legacyText}`);
     try {
-      return JSON.parse(text);
+      return JSON.parse(legacyText);
     } catch {
-      throw new Error(`KASPI_REFUND_PARSE_ERROR:${text.slice(0, 200)}`);
+      throw new Error(`KASPI_REFUND_PARSE_ERROR:${legacyText.slice(0, 200)}`);
     }
   }
 

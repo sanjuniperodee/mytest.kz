@@ -67,7 +67,9 @@ export class AdminFinanceService {
 
     let refundPayload: Record<string, unknown> | null = null;
     try {
-      refundPayload = asRecord(await this.kaspiPosService.refundInvoice(order.providerOrderId));
+      refundPayload = asRecord(
+        await this.kaspiPosService.refundInvoice(order.providerOrderId, toNumber(order.amount)),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new BadRequestException(`KASPI_REFUND_ERROR:${message}`);
