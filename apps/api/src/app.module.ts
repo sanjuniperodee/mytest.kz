@@ -22,6 +22,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { QuestionAppealsModule } from './modules/question-appeals/question-appeals.module';
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
@@ -47,6 +48,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     AnalyticsModule,
     LeaderboardModule,
     NotificationsModule,
+    QuestionAppealsModule,
   ],
 })
 export class AppModule {}

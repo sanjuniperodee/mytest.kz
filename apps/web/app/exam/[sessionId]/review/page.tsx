@@ -7,6 +7,7 @@ import useSWR from "swr"
 import {
   ArrowRight,
   ArrowLeft,
+  Flag,
   CheckCircle2,
   ChevronDown,
   Crown,
@@ -24,6 +25,15 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Progress } from "@/components/ui/progress"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Accordion,
   AccordionContent,
@@ -43,7 +53,13 @@ import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import { buildReviewSections, type ReviewSectionModel } from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
-import type { ReviewResponse, TestSession } from "@/lib/api/types"
+import type {
+  QuestionAppeal,
+  QuestionAppealReason,
+  QuestionAppealStatus,
+  ReviewResponse,
+  TestSession,
+} from "@/lib/api/types"
 
 interface ExplanationData {
   questionId: string
@@ -66,7 +82,7 @@ export default function ReviewPage({
   const router = useRouter()
   const { user, refresh } = useAuth()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
-  const { data, isLoading, error } = useSWR<ReviewResponse>(
+  const { data, isLoading, error, mutate } = useSWR<ReviewResponse>(
     `/tests/sessions/${sessionId}/review`,
   )
   const [retaking, setRetaking] = useState(false)
@@ -395,6 +411,19 @@ export default function ReviewPage({
                                 })}
                               </div>
 
+                              <QuestionAppealBlock
+                                sessionId={sessionId}
+                                questionId={q.id}
+                                appeal={data.appeals?.find((item) => item.questionId === q.id) ?? null}
+                                onAppealSaved={(appeal) => {
+                                  void mutate((current) => {
+                                    if (!current) return current
+                                    const nextAppeals = upsertAppeal(current.appeals || [], appeal)
+                                    return { ...current, appeals: nextAppeals }
+                                  }, false)
+                                }}
+                              />
+
                               {q.hasExplanation && (
                                 <ExplanationBlock
                                   sessionId={sessionId}
@@ -643,4 +672,263 @@ function formatExplanation(explanation: unknown, locale: Locale): string {
   const localized = localize(explanation as LocalizedText, locale)
   if (localized) return localized
   return JSON.stringify(explanation, null, 2) || ""
+}
+
+const APPEAL_REASON_OPTIONS: Array<{
+  value: QuestionAppealReason
+  label: string
+  hint: string
+}> = [
+  {
+    value: "incorrect_answer",
+    label: "Неверный ответ",
+    hint: "Правильный вариант отмечен ошибочно или ключ не совпадает с условием.",
+  },
+  {
+    value: "ambiguous_wording",
+    label: "Неясная формулировка",
+    hint: "Вопрос или варианты допускают несколько трактовок.",
+  },
+  {
+    value: "outdated_content",
+    label: "Устаревший контент",
+    hint: "Данные, формулировка или факт уже неактуальны.",
+  },
+  {
+    value: "broken_media",
+    label: "Проблема с медиа",
+    hint: "Не загружается картинка, схема или часть условия.",
+  },
+  {
+    value: "other",
+    label: "Другое",
+    hint: "Любая другая проблема, которую важно описать вручную.",
+  },
+]
+
+function appealStatusMeta(status: QuestionAppealStatus): {
+  label: string
+  className: string
+  textClassName: string
+} {
+  if (status === "resolved") {
+    return {
+      label: "Решена",
+      className: "bg-emerald-600 hover:bg-emerald-600",
+      textClassName: "text-emerald-700",
+    }
+  }
+  if (status === "rejected") {
+    return {
+      label: "Отклонена",
+      className: "bg-rose-600 hover:bg-rose-600",
+      textClassName: "text-rose-700",
+    }
+  }
+  if (status === "under_review") {
+    return {
+      label: "На проверке",
+      className: "bg-amber-600 hover:bg-amber-600",
+      textClassName: "text-amber-700",
+    }
+  }
+  return {
+    label: "Отправлена",
+    className: "bg-sky-600 hover:bg-sky-600",
+    textClassName: "text-sky-700",
+  }
+}
+
+function appealReasonLabel(reason: QuestionAppealReason) {
+  return APPEAL_REASON_OPTIONS.find((item) => item.value === reason)?.label || "Апелляция"
+}
+
+function upsertAppeal(appeals: QuestionAppeal[], next: QuestionAppeal) {
+  const existingIndex = appeals.findIndex((item) => item.questionId === next.questionId)
+  if (existingIndex === -1) {
+    return [next, ...appeals]
+  }
+  const cloned = [...appeals]
+  cloned[existingIndex] = next
+  return cloned
+}
+
+function QuestionAppealBlock({
+  sessionId,
+  questionId,
+  appeal,
+  onAppealSaved,
+}: {
+  sessionId: string
+  questionId: string
+  appeal: QuestionAppeal | null
+  onAppealSaved: (appeal: QuestionAppeal) => void
+}) {
+  const editable = !appeal || appeal.status === "pending"
+  const meta = appeal ? appealStatusMeta(appeal.status) : null
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState<QuestionAppealReason>(appeal?.reason || "incorrect_answer")
+  const [message, setMessage] = useState(appeal?.message || "")
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setReason(appeal?.reason || "incorrect_answer")
+    setMessage(appeal?.message || "")
+  }, [appeal, open])
+
+  const submitAppeal = async () => {
+    const trimmed = message.trim()
+    if (trimmed.length < 12) {
+      toast.error("Опишите проблему чуть подробнее")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const saved = await api<QuestionAppeal>(
+        `/tests/sessions/${sessionId}/review/${questionId}/appeal`,
+        {
+          method: "POST",
+          body: {
+            reason,
+            message: trimmed,
+          },
+        },
+      )
+      onAppealSaved(saved)
+      toast.success(appeal ? "Апелляция обновлена" : "Апелляция отправлена")
+      setOpen(false)
+    } catch (e) {
+      const apiErr = e as ApiError
+      toast.error(apiErr.message || "Не удалось отправить апелляцию")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-background/70 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 text-sm font-medium">
+              <Flag className="size-4" />
+              Апелляция по вопросу
+            </span>
+            {appeal && meta ? (
+              <Badge className={meta.className}>{meta.label}</Badge>
+            ) : null}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Если в вопросе ошибка, неясная формулировка или сломанное медиа, отправьте это команде на проверку.
+          </p>
+          {appeal ? (
+            <div className="flex flex-col gap-1 text-sm">
+              <span className={meta?.textClassName}>
+                Причина: {appealReasonLabel(appeal.reason)}
+              </span>
+              {appeal.adminNote ? (
+                <span className="text-muted-foreground">
+                  Комментарий команды: {appeal.adminNote}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  Статус обновится здесь после проверки.
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+        <Button
+          variant={appeal ? "outline" : "default"}
+          size="sm"
+          onClick={() => setOpen(true)}
+        >
+          {appeal ? "Открыть апелляцию" : "Подать апелляцию"}
+        </Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Апелляция по вопросу</DialogTitle>
+            <DialogDescription>
+              Мы сохраняем ваш комментарий вместе со снимком вопроса и ответа из этой попытки.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            {appeal && meta ? (
+              <div className="rounded-md border border-border bg-secondary/40 p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Текущий статус:</span>
+                  <Badge className={meta.className}>{meta.label}</Badge>
+                </div>
+                {appeal.reviewedAt ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Обновлено: {new Date(appeal.reviewedAt).toLocaleString("ru-RU")}
+                  </p>
+                ) : null}
+                {appeal.adminNote ? (
+                  <p className="mt-2 whitespace-pre-wrap text-foreground">{appeal.adminNote}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor={`appeal-reason-${questionId}`}>
+                Причина
+              </label>
+              <select
+                id={`appeal-reason-${questionId}`}
+                value={reason}
+                onChange={(event) => setReason(event.target.value as QuestionAppealReason)}
+                disabled={!editable || submitting}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {APPEAL_REASON_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {APPEAL_REASON_OPTIONS.find((item) => item.value === reason)?.hint}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor={`appeal-message-${questionId}`}>
+                Комментарий
+              </label>
+              <Textarea
+                id={`appeal-message-${questionId}`}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                disabled={!editable || submitting}
+                rows={6}
+                placeholder="Опишите, что именно не так: какой ответ, формулировка, картинка или факт вызывают проблему."
+              />
+              <p className="text-xs text-muted-foreground">
+                Минимум 12 символов. Чем конкретнее описание, тем быстрее команда сможет проверить вопрос.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+              Закрыть
+            </Button>
+            {editable ? (
+              <Button onClick={submitAppeal} disabled={submitting}>
+                {submitting ? <Spinner className="size-4" /> : <Flag className="size-4" />}
+                {appeal ? "Сохранить" : "Отправить"}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
 }

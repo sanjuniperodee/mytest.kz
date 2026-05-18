@@ -12,35 +12,37 @@ datasource db {
 model ExamType {
   id          String   @id @default(uuid()) @db.Uuid
   slug        String   @unique @db.VarChar(20)
-  name        Json     // {"kk": "...", "ru": "...", "en": "..."}
+  name        Json // {"kk": "...", "ru": "...", "en": "..."}
   description Json?
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  subjects      Subject[]
-  questions     Question[]
-  testTemplates TestTemplate[]
-  testSessions  TestSession[]
-  subscriptions Subscription[]
-  planRules     SubscriptionPlanTemplateExamRule[]
-  entitlements  UserExamEntitlement[]
-  usageLedger   AttemptUsageLedger[]
-  dailyUsage    UserExamDailyUsage[]
+  subjects        Subject[]
+  questions       Question[]
+  testTemplates   TestTemplate[]
+  testSessions    TestSession[]
+  subscriptions   Subscription[]
+  planRules       SubscriptionPlanTemplateExamRule[]
+  entitlements    UserExamEntitlement[]
+  usageLedger     AttemptUsageLedger[]
+  dailyUsage      UserExamDailyUsage[]
+  questionAppeals QuestionAppeal[]
 
   @@map("exam_types")
 }
 
 model Subject {
-  id          String   @id @default(uuid()) @db.Uuid
-  examTypeId  String   @map("exam_type_id") @db.Uuid
-  slug        String   @db.VarChar(50)
-  name        Json     // {"kk": "...", "ru": "...", "en": "..."}
-  isMandatory Boolean  @default(false) @map("is_mandatory")
-  sortOrder   Int      @default(0) @map("sort_order")
+  id          String  @id @default(uuid()) @db.Uuid
+  examTypeId  String  @map("exam_type_id") @db.Uuid
+  slug        String  @db.VarChar(50)
+  name        Json // {"kk": "...", "ru": "...", "en": "..."}
+  isMandatory Boolean @default(false) @map("is_mandatory")
+  sortOrder   Int     @default(0) @map("sort_order")
 
-  examType             ExamType               @relation(fields: [examTypeId], references: [id])
+  examType             ExamType              @relation(fields: [examTypeId], references: [id])
   topics               Topic[]
   questions            Question[]
+  questionAppeals      QuestionAppeal[]
   testTemplateSections TestTemplateSection[]
 
   @@unique([examTypeId, slug])
@@ -50,7 +52,7 @@ model Subject {
 model Topic {
   id        String @id @default(uuid()) @db.Uuid
   subjectId String @map("subject_id") @db.Uuid
-  name      Json   // {"kk": "...", "ru": "...", "en": "..."}
+  name      Json // {"kk": "...", "ru": "...", "en": "..."}
   sortOrder Int    @default(0) @map("sort_order")
 
   subject   Subject    @relation(fields: [subjectId], references: [id])
@@ -66,8 +68,8 @@ model Question {
   examTypeId  String   @map("exam_type_id") @db.Uuid
   difficulty  Int      @db.SmallInt
   type        String   @default("single_choice") @db.VarChar(20)
-  content     Json     // {"kk": {"passage?","topicLine?","text","hint?"}, ...}
-  explanation Json?    // {"kk": "...", "ru": "...", "en": "..."} — premium
+  content     Json // {"kk": {"passage?","topicLine?","text","hint?"}, ...}
+  explanation Json? // {"kk": "...", "ru": "...", "en": "..."} — premium
   imageUrls   Json?    @map("image_urls")
   metadata    Json?
   /// Балл за верный ответ (ЕНТ: обычно 1; профиль 31–40 — 2). Если null — берётся правило секции шаблона.
@@ -76,11 +78,12 @@ model Question {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  topic         Topic          @relation(fields: [topicId], references: [id])
-  subject       Subject        @relation(fields: [subjectId], references: [id])
-  examType      ExamType       @relation(fields: [examTypeId], references: [id])
+  topic         Topic            @relation(fields: [topicId], references: [id])
+  subject       Subject          @relation(fields: [subjectId], references: [id])
+  examType      ExamType         @relation(fields: [examTypeId], references: [id])
   answerOptions AnswerOption[]
   testAnswers   TestAnswer[]
+  appeals       QuestionAppeal[]
 
   @@index([subjectId, isActive])
   @@index([examTypeId, isActive])
@@ -92,7 +95,7 @@ model Question {
 model AnswerOption {
   id         String  @id @default(uuid()) @db.Uuid
   questionId String  @map("question_id") @db.Uuid
-  content    Json    // {"kk": "...", "ru": "...", "en": "..."}
+  content    Json // {"kk": "...", "ru": "...", "en": "..."}
   isCorrect  Boolean @default(false) @map("is_correct")
   sortOrder  Int     @default(0) @map("sort_order")
 
@@ -104,7 +107,7 @@ model AnswerOption {
 model TestTemplate {
   id           String  @id @default(uuid()) @db.Uuid
   examTypeId   String  @map("exam_type_id") @db.Uuid
-  name         Json    // {"kk": "...", "ru": "...", "en": "..."}
+  name         Json // {"kk": "...", "ru": "...", "en": "..."}
   durationMins Int     @map("duration_mins")
   isActive     Boolean @default(true) @map("is_active")
 
@@ -116,14 +119,14 @@ model TestTemplate {
 }
 
 model TestTemplateSection {
-  id            String @id @default(uuid()) @db.Uuid
-  templateId    String @map("template_id") @db.Uuid
-  subjectId     String @map("subject_id") @db.Uuid
-  questionCount Int    @map("question_count")
-  selectionMode String @default("random") @db.VarChar(20)
-  sortOrder     Int    @default(0) @map("sort_order")
+  id               String @id @default(uuid()) @db.Uuid
+  templateId       String @map("template_id") @db.Uuid
+  subjectId        String @map("subject_id") @db.Uuid
+  questionCount    Int    @map("question_count")
+  selectionMode    String @default("random") @db.VarChar(20)
+  sortOrder        Int    @default(0) @map("sort_order")
   /// Профиль ЕНТ: с какого по счёту вопроса в секции (1-based) начислять 2 балла; null — не задано (дефолт 31 в scorer)
-  profileHeavyFrom Int? @map("profile_heavy_from") @db.SmallInt
+  profileHeavyFrom Int?   @map("profile_heavy_from") @db.SmallInt
 
   template TestTemplate @relation(fields: [templateId], references: [id])
   subject  Subject      @relation(fields: [subjectId], references: [id])
@@ -134,7 +137,7 @@ model TestTemplateSection {
 model User {
   id                String    @id @default(uuid()) @db.Uuid
   telegramId        BigInt?   @unique @map("telegram_id")
-  telegramUsername   String?   @map("telegram_username") @db.VarChar(100)
+  telegramUsername  String?   @map("telegram_username") @db.VarChar(100)
   googleId          String?   @unique @map("google_id") @db.VarChar(255)
   email             String?   @unique @map("email") @db.VarChar(255)
   emailVerified     Boolean   @default(false) @map("email_verified")
@@ -154,37 +157,39 @@ model User {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  subscriptions        Subscription[]  @relation("UserSubscriptions")
-  grantedSubscriptions Subscription[]  @relation("GrantedSubscriptions")
-  testSessions         TestSession[]
-  paymentOrders        PaymentOrder[]
-  planTemplatesCreated SubscriptionPlanTemplate[] @relation("PlanTemplateCreatedBy")
-  entitlements         UserExamEntitlement[]      @relation("EntitlementsByUser")
-  entitlementsGranted  UserExamEntitlement[]      @relation("EntitlementsGrantedBy")
-  usageLedger          AttemptUsageLedger[]
-  dailyUsage           UserExamDailyUsage[]
-  visitEvents          VisitEvent[]
+  subscriptions          Subscription[]             @relation("UserSubscriptions")
+  grantedSubscriptions   Subscription[]             @relation("GrantedSubscriptions")
+  testSessions           TestSession[]
+  paymentOrders          PaymentOrder[]
+  planTemplatesCreated   SubscriptionPlanTemplate[] @relation("PlanTemplateCreatedBy")
+  entitlements           UserExamEntitlement[]      @relation("EntitlementsByUser")
+  entitlementsGranted    UserExamEntitlement[]      @relation("EntitlementsGrantedBy")
+  usageLedger            AttemptUsageLedger[]
+  dailyUsage             UserExamDailyUsage[]
+  visitEvents            VisitEvent[]
+  questionAppeals        QuestionAppeal[]           @relation("QuestionAppealsByUser")
+  reviewedAppeals        QuestionAppeal[]           @relation("QuestionAppealsReviewedBy")
   notificationDeliveries NotificationDelivery[]
 
   @@map("users")
 }
 
 model Subscription {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @map("user_id") @db.Uuid
-  planType    String    @map("plan_type") @db.VarChar(20)
-  examTypeId  String?   @map("exam_type_id") @db.Uuid
-  grantedBy   String?   @map("granted_by") @db.Uuid
-  startsAt    DateTime  @map("starts_at") @db.Timestamptz
-  expiresAt   DateTime  @map("expires_at") @db.Timestamptz
-  isActive    Boolean   @default(true) @map("is_active")
-  paymentNote String?   @map("payment_note") @db.Text
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  planType    String   @map("plan_type") @db.VarChar(20)
+  examTypeId  String?  @map("exam_type_id") @db.Uuid
+  grantedBy   String?  @map("granted_by") @db.Uuid
+  startsAt    DateTime @map("starts_at") @db.Timestamptz
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+  isActive    Boolean  @default(true) @map("is_active")
+  paymentNote String?  @map("payment_note") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user     User      @relation("UserSubscriptions", fields: [userId], references: [id])
-  grantor  User?     @relation("GrantedSubscriptions", fields: [grantedBy], references: [id])
-  examType ExamType? @relation(fields: [examTypeId], references: [id])
-  entitlements UserExamEntitlement[]
+  user                   User                   @relation("UserSubscriptions", fields: [userId], references: [id])
+  grantor                User?                  @relation("GrantedSubscriptions", fields: [grantedBy], references: [id])
+  examType               ExamType?              @relation(fields: [examTypeId], references: [id])
+  entitlements           UserExamEntitlement[]
   notificationDeliveries NotificationDelivery[]
 
   @@index([userId, isActive, expiresAt])
@@ -242,21 +247,21 @@ model SubscriptionPlanTemplate {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  creator      User?                             @relation("PlanTemplateCreatedBy", fields: [createdBy], references: [id])
-  examRules     SubscriptionPlanTemplateExamRule[]
-  entitlements  UserExamEntitlement[]
+  creator      User?                              @relation("PlanTemplateCreatedBy", fields: [createdBy], references: [id])
+  examRules    SubscriptionPlanTemplateExamRule[]
+  entitlements UserExamEntitlement[]
 
   @@map("subscription_plan_templates")
 }
 
 model SubscriptionPlanTemplateExamRule {
-  id                 String  @id @default(uuid()) @db.Uuid
-  planTemplateId     String  @map("plan_template_id") @db.Uuid
-  examTypeId         String  @map("exam_type_id") @db.Uuid
-  totalAttemptsLimit Int?    @map("total_attempts_limit")
-  dailyAttemptsLimit Int?    @map("daily_attempts_limit")
-  isUnlimited        Boolean @default(false) @map("is_unlimited")
-  sortOrder          Int     @default(0) @map("sort_order")
+  id                 String   @id @default(uuid()) @db.Uuid
+  planTemplateId     String   @map("plan_template_id") @db.Uuid
+  examTypeId         String   @map("exam_type_id") @db.Uuid
+  totalAttemptsLimit Int?     @map("total_attempts_limit")
+  dailyAttemptsLimit Int?     @map("daily_attempts_limit")
+  isUnlimited        Boolean  @default(false) @map("is_unlimited")
+  sortOrder          Int      @default(0) @map("sort_order")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -269,43 +274,43 @@ model SubscriptionPlanTemplateExamRule {
 }
 
 model UserExamEntitlement {
-  id                 String                @id @default(uuid()) @db.Uuid
-  userId             String                @map("user_id") @db.Uuid
-  examTypeId         String                @map("exam_type_id") @db.Uuid
-  tier               EntitlementTier
-  status             EntitlementStatus     @default(active)
-  sourceType         EntitlementSourceType @map("source_type")
-  sourceRef          String?               @map("source_ref") @db.VarChar(120)
-  planTemplateId     String?               @map("plan_template_id") @db.Uuid
-  subscriptionId     String?               @map("subscription_id") @db.Uuid
-  totalAttemptsLimit Int?                  @map("total_attempts_limit")
-  dailyAttemptsLimit Int?                  @map("daily_attempts_limit")
-  usedAttemptsTotal  Int                   @default(0) @map("used_attempts_total")
-  timezone           String                @default("Asia/Almaty") @db.VarChar(80)
-  timezoneLockedUntil DateTime?            @map("timezone_locked_until") @db.Timestamptz
-  windowStartsAt     DateTime              @map("window_starts_at") @db.Timestamptz
-  windowEndsAt       DateTime?             @map("window_ends_at") @db.Timestamptz
-  nextAllowedAt      DateTime?             @map("next_allowed_at") @db.Timestamptz
-  lastAttemptAt      DateTime?             @map("last_attempt_at") @db.Timestamptz
-  exhaustedAt        DateTime?             @map("exhausted_at") @db.Timestamptz
-  revokedAt          DateTime?             @map("revoked_at") @db.Timestamptz
-  createdBy          String?               @map("created_by") @db.Uuid
-  metadata           Json?
-  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String                @id @default(uuid()) @db.Uuid
+  userId              String                @map("user_id") @db.Uuid
+  examTypeId          String                @map("exam_type_id") @db.Uuid
+  tier                EntitlementTier
+  status              EntitlementStatus     @default(active)
+  sourceType          EntitlementSourceType @map("source_type")
+  sourceRef           String?               @map("source_ref") @db.VarChar(120)
+  planTemplateId      String?               @map("plan_template_id") @db.Uuid
+  subscriptionId      String?               @map("subscription_id") @db.Uuid
+  totalAttemptsLimit  Int?                  @map("total_attempts_limit")
+  dailyAttemptsLimit  Int?                  @map("daily_attempts_limit")
+  usedAttemptsTotal   Int                   @default(0) @map("used_attempts_total")
+  timezone            String                @default("Asia/Almaty") @db.VarChar(80)
+  timezoneLockedUntil DateTime?             @map("timezone_locked_until") @db.Timestamptz
+  windowStartsAt      DateTime              @map("window_starts_at") @db.Timestamptz
+  windowEndsAt        DateTime?             @map("window_ends_at") @db.Timestamptz
+  nextAllowedAt       DateTime?             @map("next_allowed_at") @db.Timestamptz
+  lastAttemptAt       DateTime?             @map("last_attempt_at") @db.Timestamptz
+  exhaustedAt         DateTime?             @map("exhausted_at") @db.Timestamptz
+  revokedAt           DateTime?             @map("revoked_at") @db.Timestamptz
+  createdBy           String?               @map("created_by") @db.Uuid
+  metadata            Json?
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz
 
-  user          User                      @relation("EntitlementsByUser", fields: [userId], references: [id], onDelete: Cascade)
-  examType      ExamType                  @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
-  planTemplate  SubscriptionPlanTemplate? @relation(fields: [planTemplateId], references: [id], onDelete: SetNull)
-  subscription  Subscription?             @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  grantor       User?                     @relation("EntitlementsGrantedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  usageLedger   AttemptUsageLedger[]
-  dailyUsage    UserExamDailyUsage[]
+  user         User                      @relation("EntitlementsByUser", fields: [userId], references: [id], onDelete: Cascade)
+  examType     ExamType                  @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  planTemplate SubscriptionPlanTemplate? @relation(fields: [planTemplateId], references: [id], onDelete: SetNull)
+  subscription Subscription?             @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  grantor      User?                     @relation("EntitlementsGrantedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  usageLedger  AttemptUsageLedger[]
+  dailyUsage   UserExamDailyUsage[]
 
+  @@unique([sourceType, sourceRef])
   @@index([userId, examTypeId, status])
   @@index([windowStartsAt, windowEndsAt])
   @@index([tier, status])
-  @@unique([sourceType, sourceRef])
   @@map("user_exam_entitlements")
 }
 
@@ -320,8 +325,8 @@ model UserExamDailyUsage {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  examType    ExamType           @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examType    ExamType            @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
   entitlement UserExamEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
 
   @@unique([entitlementId, localDay])
@@ -330,22 +335,22 @@ model UserExamDailyUsage {
 }
 
 model AttemptUsageLedger {
-  id            String             @id @default(uuid()) @db.Uuid
-  userId        String             @map("user_id") @db.Uuid
-  examTypeId    String             @map("exam_type_id") @db.Uuid
-  entitlementId String?            @map("entitlement_id") @db.Uuid
-  sessionId     String?            @map("session_id") @db.Uuid
+  id            String              @id @default(uuid()) @db.Uuid
+  userId        String              @map("user_id") @db.Uuid
+  examTypeId    String              @map("exam_type_id") @db.Uuid
+  entitlementId String?             @map("entitlement_id") @db.Uuid
+  sessionId     String?             @map("session_id") @db.Uuid
   action        AttemptLedgerAction
-  reasonCode    String?            @map("reason_code") @db.VarChar(64)
-  attemptsDelta Int                @default(0) @map("attempts_delta")
-  localDay      String?            @map("local_day") @db.VarChar(10)
+  reasonCode    String?             @map("reason_code") @db.VarChar(64)
+  attemptsDelta Int                 @default(0) @map("attempts_delta")
+  localDay      String?             @map("local_day") @db.VarChar(10)
   metadata      Json?
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz
 
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  examType    ExamType            @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examType    ExamType             @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
   entitlement UserExamEntitlement? @relation(fields: [entitlementId], references: [id], onDelete: SetNull)
-  session     TestSession?        @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  session     TestSession?         @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([userId, examTypeId, createdAt])
   @@index([entitlementId, createdAt])
@@ -369,16 +374,17 @@ model TestSession {
   score          Decimal?  @db.Decimal(5, 2)
   rawScore       Int?      @map("raw_score")
   maxScore       Int?      @map("max_score")
-  metadata       Json?     // sections info, profile subject ids
+  metadata       Json? // sections info, profile subject ids
   visitId        String?   @map("visit_id") @db.Uuid
 
-  user         User          @relation(fields: [userId], references: [id])
-  template     TestTemplate? @relation(fields: [templateId], references: [id])
-  examType     ExamType      @relation(fields: [examTypeId], references: [id])
-  visit        VisitEvent?   @relation(fields: [visitId], references: [id], onDelete: SetNull)
-  answers      TestAnswer[]
-  usageLedger  AttemptUsageLedger[]
-  funnelSteps  FunnelStep[]
+  user                   User                   @relation(fields: [userId], references: [id])
+  template               TestTemplate?          @relation(fields: [templateId], references: [id])
+  examType               ExamType               @relation(fields: [examTypeId], references: [id])
+  visit                  VisitEvent?            @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  answers                TestAnswer[]
+  questionAppeals        QuestionAppeal[]
+  usageLedger            AttemptUsageLedger[]
+  funnelSteps            FunnelStep[]
   notificationDeliveries NotificationDelivery[]
 
   @@index([userId, status])
@@ -388,19 +394,67 @@ model TestSession {
 }
 
 model TestAnswer {
-  id           String    @id @default(uuid()) @db.Uuid
-  sessionId    String    @map("session_id") @db.Uuid
-  questionId   String    @map("question_id") @db.Uuid
-  selectedIds  String[]  @map("selected_ids") @db.Uuid
-  isCorrect    Boolean?  @map("is_correct")
-  answeredAt   DateTime? @map("answered_at") @db.Timestamptz
-  timeSpentSecs Int?     @map("time_spent_secs")
+  id            String    @id @default(uuid()) @db.Uuid
+  sessionId     String    @map("session_id") @db.Uuid
+  questionId    String    @map("question_id") @db.Uuid
+  selectedIds   String[]  @map("selected_ids") @db.Uuid
+  isCorrect     Boolean?  @map("is_correct")
+  answeredAt    DateTime? @map("answered_at") @db.Timestamptz
+  timeSpentSecs Int?      @map("time_spent_secs")
 
   session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@map("test_answers")
+}
+
+enum QuestionAppealReason {
+  incorrect_answer
+  ambiguous_wording
+  outdated_content
+  broken_media
+  other
+}
+
+enum QuestionAppealStatus {
+  pending
+  under_review
+  resolved
+  rejected
+}
+
+model QuestionAppeal {
+  id               String               @id @default(uuid()) @db.Uuid
+  userId           String               @map("user_id") @db.Uuid
+  sessionId        String               @map("session_id") @db.Uuid
+  questionId       String               @map("question_id") @db.Uuid
+  examTypeId       String               @map("exam_type_id") @db.Uuid
+  subjectId        String               @map("subject_id") @db.Uuid
+  reason           QuestionAppealReason
+  message          String               @db.Text
+  status           QuestionAppealStatus @default(pending)
+  questionSnapshot Json?                @map("question_snapshot")
+  adminNote        String?              @map("admin_note") @db.Text
+  reviewedBy       String?              @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime?            @map("reviewed_at") @db.Timestamptz
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  user     User        @relation("QuestionAppealsByUser", fields: [userId], references: [id], onDelete: Cascade)
+  session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  examType ExamType    @relation(fields: [examTypeId], references: [id], onDelete: Restrict)
+  subject  Subject     @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  reviewer User?       @relation("QuestionAppealsReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, sessionId, questionId])
+  @@index([sessionId, createdAt])
+  @@index([questionId, createdAt])
+  @@index([status, createdAt])
+  @@index([examTypeId, subjectId, status])
+  @@index([reviewedBy, reviewedAt])
+  @@map("question_appeals")
 }
 
 /// Официальный код вуза (колонки матрицы грантов).
@@ -416,12 +470,12 @@ model University {
 
 /// Образовательная программа (код Bxxx + вариант профиля при дубликатах кода).
 model EntEducationalProgram {
-  id                String   @id @default(uuid()) @db.Uuid
-  code              String   @db.VarChar(20)
-  profileVariant    Int      @default(0) @map("profile_variant")
-  name              String   @db.Text
-  profileSubjects   String   @map("profile_subjects") @db.Text
-  profileShortLabel String?  @map("profile_short_label") @db.VarChar(100)
+  id                String  @id @default(uuid()) @db.Uuid
+  code              String  @db.VarChar(20)
+  profileVariant    Int     @default(0) @map("profile_variant")
+  name              String  @db.Text
+  profileSubjects   String  @map("profile_subjects") @db.Text
+  profileShortLabel String? @map("profile_short_label") @db.VarChar(100)
 
   cutoffs GrantCutoff[]
 
@@ -449,16 +503,16 @@ enum GrantQuotaType {
 
 /// Минимальный конкурсный балл по данным матрицы (грант / сельская квота).
 model GrantCutoff {
-  id              String          @id @default(uuid()) @db.Uuid
-  cycleId         String          @map("cycle_id") @db.Uuid
-  universityCode  Int             @map("university_code")
-  programId       String          @map("program_id") @db.Uuid
-  quotaType       GrantQuotaType  @map("quota_type")
-  minScore        Int?            @map("min_score")
+  id             String         @id @default(uuid()) @db.Uuid
+  cycleId        String         @map("cycle_id") @db.Uuid
+  universityCode Int            @map("university_code")
+  programId      String         @map("program_id") @db.Uuid
+  quotaType      GrantQuotaType @map("quota_type")
+  minScore       Int?           @map("min_score")
 
-  cycle       GrantAdmissionCycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  university  University              @relation(fields: [universityCode], references: [code], onDelete: Cascade)
-  program     EntEducationalProgram   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  cycle      GrantAdmissionCycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  university University            @relation(fields: [universityCode], references: [code], onDelete: Cascade)
+  program    EntEducationalProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   @@unique([cycleId, universityCode, programId, quotaType])
   @@index([cycleId, universityCode])
@@ -475,20 +529,20 @@ enum PaymentOrderStatus {
 }
 
 model PaymentOrder {
-  id                 String             @id @default(uuid()) @db.Uuid
-  userId             String             @map("user_id") @db.Uuid
-  planCode           String             @map("plan_code") @db.VarChar(32)
-  amount             Decimal            @db.Decimal(10, 2)
-  currency           String             @default("KZT") @db.VarChar(8)
-  provider           String             @default("freedompay") @db.VarChar(32)
-  providerOrderId    String             @unique @map("provider_order_id") @db.VarChar(120)
-  providerPaymentId  String?            @map("provider_payment_id") @db.VarChar(120)
-  checkoutUrl        String?            @map("checkout_url") @db.Text
-  status             PaymentOrderStatus @default(created)
-  providerPayload    Json?              @map("provider_payload")
-  paidAt             DateTime?          @map("paid_at") @db.Timestamptz
-  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  id                String             @id @default(uuid()) @db.Uuid
+  userId            String             @map("user_id") @db.Uuid
+  planCode          String             @map("plan_code") @db.VarChar(32)
+  amount            Decimal            @db.Decimal(10, 2)
+  currency          String             @default("KZT") @db.VarChar(8)
+  provider          String             @default("freedompay") @db.VarChar(32)
+  providerOrderId   String             @unique @map("provider_order_id") @db.VarChar(120)
+  providerPaymentId String?            @map("provider_payment_id") @db.VarChar(120)
+  checkoutUrl       String?            @map("checkout_url") @db.Text
+  status            PaymentOrderStatus @default(created)
+  providerPayload   Json?              @map("provider_payload")
+  paidAt            DateTime?          @map("paid_at") @db.Timestamptz
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id])
 
@@ -497,17 +551,17 @@ model PaymentOrder {
 }
 
 model VisitEvent {
-  id          String    @id @default(uuid()) @db.Uuid
-  visitorId   String    @map("visitor_id") @db.VarChar(64)
-  userId      String?   @map("user_id") @db.Uuid
-  source      String?   @map("source") @db.VarChar(32)
-  medium      String?   @map("medium") @db.VarChar(32)
-  campaign    String?   @map("campaign") @db.VarChar(64)
-  referrer    String?   @map("referrer") @db.VarChar(500)
-  landingPath String    @map("landing_path") @db.VarChar(255)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(uuid()) @db.Uuid
+  visitorId   String   @map("visitor_id") @db.VarChar(64)
+  userId      String?  @map("user_id") @db.Uuid
+  source      String?  @map("source") @db.VarChar(32)
+  medium      String?  @map("medium") @db.VarChar(32)
+  campaign    String?  @map("campaign") @db.VarChar(64)
+  referrer    String?  @map("referrer") @db.VarChar(500)
+  landingPath String   @map("landing_path") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   funnelSteps  FunnelStep[]
   testSessions TestSession[]
 
@@ -518,12 +572,12 @@ model VisitEvent {
 }
 
 model FunnelStep {
-  id        String       @id @default(uuid()) @db.Uuid
-  visitId   String       @map("visit_id") @db.Uuid
-  step      String       @db.VarChar(32)
-  timestamp DateTime     @default(now()) @map("timestamp") @db.Timestamptz
+  id        String   @id @default(uuid()) @db.Uuid
+  visitId   String   @map("visit_id") @db.Uuid
+  step      String   @db.VarChar(32)
+  timestamp DateTime @default(now()) @map("timestamp") @db.Timestamptz
   metadata  Json?
-  sessionId String?      @map("session_id") @db.Uuid
+  sessionId String?  @map("session_id") @db.Uuid
 
   visit   VisitEvent   @relation(fields: [visitId], references: [id], onDelete: Cascade)
   session TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -565,8 +619,8 @@ model NotificationDelivery {
 
   campaign     NotificationCampaign @relation(fields: [campaignKey], references: [key], onDelete: Cascade)
   user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session      TestSession?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  subscription Subscription?         @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  session      TestSession?         @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  subscription Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
   @@index([campaignKey, status, attemptedAt])
   @@index([userId, sentAt])
@@ -576,17 +630,17 @@ model NotificationDelivery {
 }
 
 model NotificationRun {
-  id          String    @id @default(uuid()) @db.Uuid
-  source      String    @default("scheduler") @db.VarChar(20)
-  status      String    @default("running") @db.VarChar(20)
-  scanned     Int       @default(0)
-  sent        Int       @default(0)
-  skipped     Int       @default(0)
-  failed      Int       @default(0)
-  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz
-  finishedAt  DateTime? @map("finished_at") @db.Timestamptz
-  errorMessage String?  @map("error_message") @db.Text
-  metadata    Json?
+  id           String    @id @default(uuid()) @db.Uuid
+  source       String    @default("scheduler") @db.VarChar(20)
+  status       String    @default("running") @db.VarChar(20)
+  scanned      Int       @default(0)
+  sent         Int       @default(0)
+  skipped      Int       @default(0)
+  failed       Int       @default(0)
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz
+  errorMessage String?   @map("error_message") @db.Text
+  metadata     Json?
 
   @@index([startedAt])
   @@map("notification_runs")

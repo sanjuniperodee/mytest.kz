@@ -49,6 +49,13 @@ export function getPageMeta(pathname: string): AdminPageTitle {
       description: 'Редактор пояснений и материалов, которые видит ученик после разбора.',
     };
   }
+  if (p.startsWith('/appeals')) {
+    return {
+      title: 'Апелляции',
+      section: 'Каталог',
+      description: 'Проверка спорных вопросов, ответы команде и полный контекст пользовательских обращений.',
+    };
+  }
   if (p.startsWith('/users')) {
     return {
       title: 'Пользователи',

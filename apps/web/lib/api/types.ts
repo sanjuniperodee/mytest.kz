@@ -211,6 +211,35 @@ export interface SessionSectionScore {
   maxPoints?: number
 }
 
+export type QuestionAppealReason =
+  | "incorrect_answer"
+  | "ambiguous_wording"
+  | "outdated_content"
+  | "broken_media"
+  | "other"
+
+export type QuestionAppealStatus =
+  | "pending"
+  | "under_review"
+  | "resolved"
+  | "rejected"
+
+export interface QuestionAppeal {
+  id: string
+  userId?: string
+  sessionId: string
+  questionId: string
+  examTypeId?: string
+  subjectId?: string
+  reason: QuestionAppealReason
+  message: string
+  status: QuestionAppealStatus
+  adminNote?: string | null
+  reviewedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface TestSession {
   id: string
   examTypeId: string
@@ -231,6 +260,7 @@ export interface TestSession {
   examType?: ExamType
   sectionScores?: SessionSectionScore[]
   sectionsScores?: SessionSectionScore[]
+  appeals?: QuestionAppeal[]
 }
 
 export interface PaginatedResponse<T> {

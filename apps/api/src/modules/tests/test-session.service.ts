@@ -493,11 +493,32 @@ export class TestSessionService {
 
     if (!session) throw new NotFoundException('Session not found or not finished');
 
-    const scoreResult = await this.scorer.calculateScore(sessionId);
+    const [scoreResult, appeals] = await Promise.all([
+      this.scorer.calculateScore(sessionId),
+      this.prisma.questionAppeal.findMany({
+        where: { sessionId, userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          sessionId: true,
+          questionId: true,
+          examTypeId: true,
+          subjectId: true,
+          reason: true,
+          message: true,
+          status: true,
+          adminNote: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
     return {
       ...this.normalizeSessionScore(session),
       sectionScores: scoreResult.sections,
       sectionsScores: scoreResult.sections,
+      appeals,
     };
   }
 

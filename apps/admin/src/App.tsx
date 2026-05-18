@@ -34,6 +34,7 @@ import {
   NotificationOutlined,
   ExportOutlined,
   SafetyCertificateOutlined,
+  FlagOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens } from './api/client';
 import { getPageMeta } from './lib/pageMeta';
@@ -52,6 +53,7 @@ import { LandingSettingsPage } from './pages/LandingSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { FinancePage } from './pages/FinancePage';
+import { QuestionAppealsPage } from './pages/QuestionAppealsPage';
 
 const { Sider, Content, Header } = Layout;
 const { useBreakpoint } = Grid;
@@ -67,6 +69,7 @@ const MENU_NAV: Record<string, string> = {
   'analytics-thresholds': '/analytics/thresholds',
   admission: '/admission',
   explanations: '/explanations',
+  appeals: '/appeals',
   users: '/users',
   questions: '/questions',
   exams: '/exams',
@@ -83,6 +86,7 @@ function menuKeyFromPath(pathname: string): string {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
   if (pathname.startsWith('/admission')) return 'admission';
   if (pathname.startsWith('/explanations')) return 'explanations';
+  if (pathname.startsWith('/appeals')) return 'appeals';
   if (pathname.startsWith('/users')) return 'users';
   if (pathname.startsWith('/questions')) return 'questions';
   if (pathname.startsWith('/exams')) return 'exams';
@@ -140,6 +144,7 @@ function AdminLayout() {
         children: [
           { key: 'questions', icon: <FormOutlined />, label: 'Вопросы' },
           { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
+          { key: 'appeals', icon: <FlagOutlined />, label: 'Апелляции' },
           { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены' },
           { key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' },
         ],
@@ -397,6 +402,7 @@ function AdminLayout() {
             <Route path="/analytics/thresholds" element={<UniversityThresholdsPage />} />
             <Route path="/admission" element={<AdmissionChancePage />} />
             <Route path="/explanations" element={<ExplanationsPage />} />
+            <Route path="/appeals" element={<QuestionAppealsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/:id" element={<UserDetailPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
