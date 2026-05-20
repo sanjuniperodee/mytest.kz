@@ -34,7 +34,7 @@ export function Hero() {
               href="/login"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
             >
-              Выбрать тариф и начать
+              Начать пробный ЕНТ
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
