@@ -32,11 +32,20 @@ import {
   isEntProfileSubjectAvailable,
 } from "@/lib/ent-profile-pairs"
 
+type EntScope = "mandatory" | "profile" | "full" | "creative"
+
+const ENT_CREATIVE_QUESTION_COUNT = 30
+const ENT_CREATIVE_DURATION_MINS = 70
+const ENT_CREATIVE_SUBJECT_SLUGS = new Set(["reading_literacy", "history_kz"])
+
 function entModePreview(
-  mode: "mandatory" | "profile" | "full",
+  mode: EntScope,
   template: TestTemplate | undefined,
   profileQuestionCount: number,
 ) {
+  if (mode === "creative") {
+    return { totalQ: ENT_CREATIVE_QUESTION_COUNT, displayMins: ENT_CREATIVE_DURATION_MINS }
+  }
   if (!template) return { totalQ: 0, displayMins: 0 }
   const templateQ =
     template.sections?.reduce((sum, section) => sum + section.questionCount, 0) ??
@@ -65,7 +74,7 @@ export default function ExamDetailPage({
   const [language, setLanguage] = useState<"ru" | "kk">(
     user?.preferredLanguage === "kk" ? "kk" : "ru",
   )
-  const [entScope, setEntScope] = useState<"mandatory" | "profile" | "full">("full")
+  const [entScope, setEntScope] = useState<EntScope>("full")
   const [profileSubjectIds, setProfileSubjectIds] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
 
@@ -90,6 +99,13 @@ export default function ExamDetailPage({
     () => (subjects || []).filter((subject) => subject.isMandatory),
     [subjects],
   )
+  const visibleMandatorySubjects = useMemo(
+    () =>
+      entScope === "creative"
+        ? mandatorySubjects.filter((subject) => ENT_CREATIVE_SUBJECT_SLUGS.has(subject.slug))
+        : mandatorySubjects,
+    [entScope, mandatorySubjects],
+  )
   const entProfilePairs = useMemo(
     () => buildEntProfilePairOptions(profileSubjects, language),
     [language, profileSubjects],
@@ -110,6 +126,8 @@ export default function ExamDetailPage({
   const activeEntTemplate = isENT ? entTemplatesSorted[0] : undefined
   const profileQuestionCount = isENT ? 40 : 10
   const requiresProfiles = isENT && (entScope === "profile" || entScope === "full")
+  const showsMandatorySubjects =
+    entScope === "mandatory" || entScope === "full" || entScope === "creative"
 
   const selectProfilePair = (key: string) => {
     const pair = entProfilePairs.find((option) => option.key === key)
@@ -245,9 +263,17 @@ export default function ExamDetailPage({
                     { v: "mandatory", l: "Только обязательные", s: "Математическая грамотность, грамотность чтения, история" },
                     { v: "profile", l: "Только профильные", s: "Два профильных предмета" },
                     { v: "full", l: "Полный ЕНТ", s: "Все обязательные и профильные предметы" },
+                    {
+                      v: "creative",
+                      l: locale === "kk" ? "Шығармашылық емтихан" : "Творческий экзамен",
+                      s:
+                        locale === "kk"
+                          ? "Оқу сауаттылығы + тарих; шығармашылық емтихандар ЖОО-да өтеді"
+                          : "Грамотность чтения + история; творческие экзамены проходят в вузе",
+                    },
                   ].map((option) => {
                     const preview = entModePreview(
-                      option.v as "mandatory" | "profile" | "full",
+                      option.v as EntScope,
                       activeEntTemplate,
                       profileQuestionCount,
                     )
@@ -346,16 +372,23 @@ export default function ExamDetailPage({
               <CardTitle>Что войдёт в тест</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {(entScope === "mandatory" || entScope === "full") && (
+              {showsMandatorySubjects && (
                 <div>
                   <p className="mb-2 text-sm font-medium">Обязательные</p>
                   <div className="flex flex-wrap gap-2">
-                    {mandatorySubjects.map((s) => (
+                    {visibleMandatorySubjects.map((s) => (
                       <Badge key={s.id} variant="default" className="font-normal">
                         {localize(s.name, language, "Предмет")}
                       </Badge>
                     ))}
                   </div>
+                  {entScope === "creative" && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {locale === "kk"
+                        ? "Екі шығармашылық емтихан таңдаған ЖОО-да өтеді. Олармен бірге ең жоғары нәтиже 130 балл болады."
+                        : "Два творческих экзамена проводятся в выбранном вузе. С ними максимальный результат составляет 130 баллов."}
+                    </p>
+                  )}
                 </div>
               )}
               {requiresProfiles && (

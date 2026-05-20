@@ -5,6 +5,7 @@ import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
 import {
   ENT_CONFIG,
+  type EntScope,
   isEntProfileSubjectPairAllowed,
 } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
@@ -39,7 +40,7 @@ export class TestSessionService {
     templateId: string,
     language: string,
     profileSubjectIds?: string[],
-    entScope?: 'mandatory' | 'profile' | 'full',
+    entScope?: EntScope,
   ) {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
@@ -67,11 +68,11 @@ export class TestSessionService {
         else if (n === 2) resolvedEntScope = 'full';
         else {
           throw new BadRequestException(
-            'ENT: укажите entScope (mandatory | profile | full) или 0 / 2 профильных предмета',
+            'ENT: укажите entScope (mandatory | profile | full | creative) или 0 / 2 профильных предмета',
           );
         }
       }
-      if (resolvedEntScope === 'mandatory') {
+      if (resolvedEntScope === 'mandatory' || resolvedEntScope === 'creative') {
         profileSubjectIds = undefined;
       } else if (
         resolvedEntScope === 'profile' ||
@@ -85,6 +86,8 @@ export class TestSessionService {
       }
       if (resolvedEntScope === 'full') {
         this.validateEntFullTemplate(template.sections);
+      } else if (resolvedEntScope === 'creative') {
+        this.validateEntCreativeTemplate(template.sections);
       }
     } else {
       resolvedEntScope = undefined;
@@ -176,13 +179,15 @@ export class TestSessionService {
       0,
     );
     const fullEntQ = mandatoryQ + 2 * profileQuestionCount;
-    const sessionDurationMins =
-      examSlug === 'ent' && fullEntQ > 0
-        ? Math.max(
-            5,
-            Math.round(template.durationMins * (totalQuestions / fullEntQ)),
-          )
-        : template.durationMins;
+    let sessionDurationMins = template.durationMins;
+    if (examSlug === 'ent' && resolvedEntScope === 'creative') {
+      sessionDurationMins = ENT_CONFIG.creativeDurationMins;
+    } else if (examSlug === 'ent' && fullEntQ > 0) {
+      sessionDurationMins = Math.max(
+        5,
+        Math.round(template.durationMins * (totalQuestions / fullEntQ)),
+      );
+    }
 
     // Build metadata with section info
     const sectionsMeta = await Promise.all(
@@ -978,7 +983,7 @@ export class TestSessionService {
   private getProfileQuestionCount(
     examSlug: string,
     mandatoryQuestionSum: number,
-    entScope?: 'mandatory' | 'profile' | 'full',
+    entScope?: EntScope,
   ): number {
     if (examSlug === 'ent') {
       if (entScope === 'full' || entScope === 'profile') return ENT_CONFIG.profileQuestionsPerSubject;
@@ -1083,6 +1088,36 @@ export class TestSessionService {
       if ((actualBySlug.get(slug) ?? 0) !== expectedCount) {
         throw new BadRequestException(
           'ENT full template must be exactly: history_kz=20, reading_literacy=10, math_literacy=10',
+        );
+      }
+    }
+  }
+
+  private validateEntCreativeTemplate(
+    sections: Array<{
+      subjectId: string;
+      questionCount: number;
+      subject?: { slug: string; isMandatory: boolean };
+    }>,
+  ): void {
+    const expectedBySlug = new Map<string, number>(
+      Object.entries(ENT_CONFIG.creativeQuestionCounts).map(([slug, count]) => [
+        slug,
+        Number(count),
+      ]),
+    );
+    const actualBySlug = new Map<string, number>();
+
+    for (const sec of sections) {
+      const slug = sec.subject?.slug ?? '';
+      if (!expectedBySlug.has(slug)) continue;
+      actualBySlug.set(slug, (actualBySlug.get(slug) ?? 0) + sec.questionCount);
+    }
+
+    for (const [slug, expectedCount] of expectedBySlug.entries()) {
+      if ((actualBySlug.get(slug) ?? 0) !== expectedCount) {
+        throw new BadRequestException(
+          'ENT creative template must be exactly: reading_literacy=10, history_kz=20',
         );
       }
     }

@@ -6,11 +6,20 @@ export const LANGUAGES = ['kk', 'ru', 'en'] as const;
 
 export const DEFAULT_LANGUAGE = 'ru';
 
+export type EntScope = 'mandatory' | 'profile' | 'full' | 'creative';
+
 // ENT: 20+10+10 обязательных + 40+40 профиль = 120 вопросов; макс. балл 140 (профиль: 1–30 по 1 б., 31–40 по 2 б.)
 export const ENT_CONFIG = {
   durationMins: 240,
   mandatorySubjects: ['history_kz', 'reading_literacy', 'math_literacy'],
   mandatoryQuestionCounts: { history_kz: 20, reading_literacy: 10, math_literacy: 10 },
+  creativeSubjects: ['reading_literacy', 'history_kz'],
+  creativeQuestionCounts: { reading_literacy: 10, history_kz: 20 },
+  creativeTotalQuestions: 30,
+  creativeMaxEntPoints: 30,
+  creativeDurationMins: 70,
+  creativeExternalExamCount: 2,
+  creativeMaxTotalPoints: 130,
   profileQuestionsPerSubject: 40,
   profileTier1Count: 30,
   profileTier1Points: 1,

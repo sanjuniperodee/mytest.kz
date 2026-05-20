@@ -71,7 +71,7 @@ interface SessionRow {
   status: string;
   language: string;
   modeLabel: string;
-  entScope: 'mandatory' | 'profile' | 'full' | null;
+  entScope: 'mandatory' | 'profile' | 'full' | 'creative' | null;
   kind: string | null;
   profileSubjectNames: string[];
   mandatorySubjectNames: string[];

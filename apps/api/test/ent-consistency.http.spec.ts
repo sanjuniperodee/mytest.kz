@@ -418,6 +418,118 @@ describe('ENT 120/140 consistency', () => {
     expect(createData.totalQuestions).toBe(ENT_CONFIG.totalQuestions);
   });
 
+  it('starts creative ENT with reading literacy and Kazakhstan history only', async () => {
+    const generatedSections = [
+      {
+        subjectId: 'history',
+        questionIds: makeQuestionIds('history', ENT_CONFIG.creativeQuestionCounts.history_kz),
+        sortOrder: 1,
+        profileHeavyFrom: null,
+      },
+      {
+        subjectId: 'reading',
+        questionIds: makeQuestionIds('reading', ENT_CONFIG.creativeQuestionCounts.reading_literacy),
+        sortOrder: 2,
+        profileHeavyFrom: null,
+      },
+    ];
+    const subjectMetaById: Record<string, { id: string; slug: string; isMandatory: boolean }> = {
+      history: { id: 'history', slug: 'history_kz', isMandatory: true },
+      reading: { id: 'reading', slug: 'reading_literacy', isMandatory: true },
+      'math-lit': { id: 'math-lit', slug: 'math_literacy', isMandatory: true },
+    };
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: ENT_CONFIG.durationMins,
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: ENT_CONFIG.creativeQuestionCounts.history_kz,
+              selectionMode: 'random',
+              sortOrder: 1,
+              subject: subjectMetaById.history,
+            },
+            {
+              subjectId: 'reading',
+              questionCount: ENT_CONFIG.creativeQuestionCounts.reading_literacy,
+              selectionMode: 'random',
+              sortOrder: 2,
+              subject: subjectMetaById.reading,
+            },
+            {
+              subjectId: 'math-lit',
+              questionCount: ENT_CONFIG.mandatoryQuestionCounts.math_literacy,
+              selectionMode: 'random',
+              sortOrder: 3,
+              subject: subjectMetaById['math-lit'],
+            },
+          ],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockImplementation(({ where: { id } }: any) =>
+          Promise.resolve({
+            ...subjectMetaById[id],
+            name: subjectMetaById[id].slug,
+          }),
+        ),
+      },
+      question: {
+        findMany: mockQuestionFindManyForIntegrity(generatedSections, 'exam-ent'),
+      },
+      testSession: {
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            id: 'session-creative',
+            score: null,
+            ...data,
+          }),
+        ),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue(generatedSections),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await service.startTest('user-1', 'tpl-ent', 'ru', undefined, 'creative');
+
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'creative' },
+    );
+    const createData = prismaMock.testSession.create.mock.calls[0][0].data;
+    expect(createData.totalQuestions).toBe(ENT_CONFIG.creativeTotalQuestions);
+    expect(createData.timeRemaining).toBe(ENT_CONFIG.creativeDurationMins * 60);
+    expect(createData.metadata.entScope).toBe('creative');
+    expect(createData.metadata.entSessionDurationMins).toBe(ENT_CONFIG.creativeDurationMins);
+    expect(createData.metadata.sections.map((section: any) => section.subjectSlug)).toEqual([
+      'history_kz',
+      'reading_literacy',
+    ]);
+  });
+
   it('rejects too many selected answers in ENT profile multi-answer slots', async () => {
     const built = buildEntFullSessionForScoring();
     const profile1Ids = built.questionIdsBySubject.get('profile-1')!;

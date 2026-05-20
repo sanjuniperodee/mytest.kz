@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import {
   ENT_CONFIG,
+  type EntScope,
   earnEntQuestionPoints,
   getEntProfileIntrinsicMaxPoints,
 } from '@bilimland/shared';
@@ -50,10 +51,17 @@ function entStrictFullMaxPoints(p: QuestionPlacement): number {
     : ENT_CONFIG.profileTier2Points;
 }
 
-function getEntScope(metadata: unknown): 'mandatory' | 'profile' | 'full' | undefined {
+function getEntScope(metadata: unknown): EntScope | undefined {
   if (!metadata || typeof metadata !== 'object') return undefined;
   const scope = (metadata as { entScope?: unknown }).entScope;
-  if (scope === 'mandatory' || scope === 'profile' || scope === 'full') return scope;
+  if (
+    scope === 'mandatory' ||
+    scope === 'profile' ||
+    scope === 'full' ||
+    scope === 'creative'
+  ) {
+    return scope;
+  }
   return undefined;
 }
 

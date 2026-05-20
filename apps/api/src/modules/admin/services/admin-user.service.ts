@@ -328,7 +328,10 @@ export class AdminUserService {
       ? meta.profileSubjectIds.filter((v): v is string => typeof v === 'string')
       : [];
     const entScope =
-      meta.entScope === 'mandatory' || meta.entScope === 'profile' || meta.entScope === 'full'
+      meta.entScope === 'mandatory' ||
+      meta.entScope === 'profile' ||
+      meta.entScope === 'full' ||
+      meta.entScope === 'creative'
         ? meta.entScope
         : null;
     const kind = typeof meta.kind === 'string' ? meta.kind : null;
@@ -363,6 +366,8 @@ export class AdminUserService {
       modeLabel = 'Только профильные';
     } else if (examTypeSlug === 'ent' && entScope === 'mandatory') {
       modeLabel = 'Только обязательные';
+    } else if (examTypeSlug === 'ent' && entScope === 'creative') {
+      modeLabel = 'Творческий экзамен';
     }
 
     const subjectSummaryParts: string[] = [];

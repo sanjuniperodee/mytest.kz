@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { questionWhereForTestLanguage } from '../../common/question-locale';
-import { ENT_CONFIG } from '@bilimland/shared';
+import { ENT_CONFIG, type EntScope } from '@bilimland/shared';
 
 export interface GeneratedSection {
   subjectId: string;
@@ -12,7 +12,7 @@ export interface GeneratedSection {
 }
 
 /** Режим прохождения ЕНТ (только для exam slug `ent`). */
-export type EntPassScope = 'mandatory' | 'profile' | 'full';
+export type EntPassScope = EntScope;
 
 @Injectable()
 export class TestGeneratorService {
@@ -22,7 +22,7 @@ export class TestGeneratorService {
    * Generate questions from a template.
    * If profileSubjectIds are provided, they are added as extra sections
    * (for exams like ENT where user picks 2 profile subjects).
-   * Для ЕНТ: entScope — только обязательные блоки, только профиль или полный вариант.
+   * Для ЕНТ: entScope — обязательные блоки, профиль, полный вариант или формат для творческих специальностей.
    */
   async generateFromTemplate(
     templateId: string,
@@ -51,8 +51,7 @@ export class TestGeneratorService {
 
     const examSlug = template.examType?.slug ?? '';
     const entScope = examSlug === 'ent' ? opts?.entScope : undefined;
-    const strictEntFull = examSlug === 'ent' && entScope === 'full';
-    /** Строгая выборка истории Казахстана для любого ENT (full или mandatory). */
+    /** Строгая выборка истории Казахстана для любого ENT с обязательными блоками. */
     const strictEntHistory = examSlug === 'ent' && entScope !== 'profile';
     /** Строгая выборка профильных предметов для ENT (full или profile). */
     const strictEntProfile = examSlug === 'ent' && (entScope === 'full' || entScope === 'profile');
@@ -69,7 +68,16 @@ export class TestGeneratorService {
 
     const includeTemplateSections = !entScope || entScope !== 'profile';
     if (includeTemplateSections) {
-      for (const section of template.sections) {
+      const templateSections =
+        examSlug === 'ent' && entScope === 'creative'
+          ? template.sections.filter((section) =>
+              ENT_CONFIG.creativeSubjects.includes(
+                section.subject?.slug as (typeof ENT_CONFIG.creativeSubjects)[number],
+              ),
+            )
+          : template.sections;
+
+      for (const section of templateSections) {
         let questionIds =
           strictEntHistory && section.subject?.slug === 'history_kz'
             ? await this.selectStrictEntHistoryQuestions(
@@ -96,7 +104,7 @@ export class TestGeneratorService {
         }
         if (strictEntSections && questionIds.length !== section.questionCount) {
           throw new BadRequestException(
-            `ENT full question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
+            `ENT ${entScope} question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
           );
         }
         sections.push({

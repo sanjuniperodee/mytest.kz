@@ -30,11 +30,20 @@ import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { t as tr, useUiLocale, type UiLocale } from "@/lib/i18n/ui"
 
+type EntScope = "mandatory" | "profile" | "full" | "creative"
+
+const ENT_CREATIVE_QUESTION_COUNT = 30
+const ENT_CREATIVE_DURATION_MINS = 70
+const ENT_CREATIVE_SUBJECT_SLUGS = new Set(["reading_literacy", "history_kz"])
+
 function entModePreview(
-  mode: "mandatory" | "profile" | "full",
+  mode: EntScope,
   template: TestTemplate | undefined,
   profileQuestionCount: number,
 ) {
+  if (mode === "creative") {
+    return { totalQ: ENT_CREATIVE_QUESTION_COUNT, displayMins: ENT_CREATIVE_DURATION_MINS }
+  }
   if (!template) return { totalQ: 0, displayMins: 0 }
   const templateQ =
     template.sections?.reduce((sum, section) => sum + section.questionCount, 0) ??
@@ -141,7 +150,7 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
   const [language, setLanguage] = useState<"ru" | "kk">(
     user?.preferredLanguage === "kk" ? "kk" : "ru",
   )
-  const [entScope, setEntScope] = useState<"mandatory" | "profile" | "full">("full")
+  const [entScope, setEntScope] = useState<EntScope>("full")
   const [profileSubjectIds, setProfileSubjectIds] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
 
@@ -184,6 +193,13 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
     () => (subjects || []).filter((subject) => subject.isMandatory),
     [subjects],
   )
+  const visibleMandatorySubjects = useMemo(
+    () =>
+      entScope === "creative"
+        ? mandatorySubjects.filter((subject) => ENT_CREATIVE_SUBJECT_SLUGS.has(subject.slug))
+        : mandatorySubjects,
+    [entScope, mandatorySubjects],
+  )
   const entProfilePairs = useMemo(
     () => buildEntProfilePairOptions(profileSubjects),
     [profileSubjects],
@@ -199,6 +215,8 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
   const activeEntTemplate = isENT ? entTemplatesSorted[0] : undefined
   const profileQuestionCount = isENT ? 40 : 10
   const requiresProfiles = isENT && (entScope === "profile" || entScope === "full")
+  const showsMandatorySubjects =
+    entScope === "mandatory" || entScope === "full" || entScope === "creative"
 
   const pad = 16
   const gap = 16
@@ -269,6 +287,11 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
           v: "full" as const,
           l: tr("examScopeFull", ui),
           s: tr("examScopeFullSub", ui),
+        },
+        {
+          v: "creative" as const,
+          l: tr("examScopeCreative", ui),
+          s: tr("examScopeCreativeSub", ui),
         },
       ] as const,
     [ui],
@@ -477,11 +500,11 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
           <Card style={entSideBySide ? styles.entCardHalf : undefined}>
             <Text style={[styles.cardHdr, { color: colors.foreground }]}>{tr("examWhatsInTest", ui)}</Text>
             <View style={{ gap: 12 }}>
-              {(entScope === "mandatory" || entScope === "full") && (
+              {showsMandatorySubjects && (
                 <View>
                   <Text style={[styles.subHdr, { color: colors.foreground }]}>{tr("examMandatoryBlock", ui)}</Text>
                   <View style={styles.subjWrap}>
-                    {mandatorySubjects.map((s) => (
+                    {visibleMandatorySubjects.map((s) => (
                       <View
                         key={s.id}
                         style={[styles.subjPill, { backgroundColor: colors.foreground }]}
@@ -492,6 +515,11 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
                       </View>
                     ))}
                   </View>
+                  {entScope === "creative" ? (
+                    <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+                      {tr("examCreativeExternalNote", ui)}
+                    </Text>
+                  ) : null}
                 </View>
               )}
               {requiresProfiles ? (
