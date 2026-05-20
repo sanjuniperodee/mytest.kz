@@ -431,6 +431,22 @@ export default function ExamSessionPage({
             >
               <Calculator className="size-4" />
             </Button>
+            <ExamQuestionAppealBlock
+              sessionId={sessionId}
+              questionId={current.id}
+              appeal={session.appeals?.find((item) => item.questionId === current.id) ?? null}
+              compact
+              onAppealSaved={(appeal) => {
+                void revalidateSession((currentSession) => {
+                  if (!currentSession) return currentSession
+                  const nextAppeals = upsertAppeal(currentSession.appeals || [], appeal)
+                  return {
+                    ...currentSession,
+                    appeals: nextAppeals,
+                  }
+                }, false)
+              }}
+            />
             <Button
               size="sm"
               variant="outline"
@@ -510,22 +526,6 @@ export default function ExamSessionPage({
                   </>
                 )
               })()}
-
-              <ExamQuestionAppealBlock
-                sessionId={sessionId}
-                questionId={current.id}
-                appeal={session.appeals?.find((item) => item.questionId === current.id) ?? null}
-                onAppealSaved={(appeal) => {
-                  void revalidateSession((currentSession) => {
-                    if (!currentSession) return currentSession
-                    const nextAppeals = upsertAppeal(currentSession.appeals || [], appeal)
-                    return {
-                      ...currentSession,
-                      appeals: nextAppeals,
-                    }
-                  }, false)
-                }}
-              />
 
               <div className="flex flex-col gap-2">
                 {current.answerOptions.map((opt, i) => {
@@ -745,11 +745,13 @@ function ExamQuestionAppealBlock({
   sessionId,
   questionId,
   appeal,
+  compact,
   onAppealSaved,
 }: {
   sessionId: string
   questionId: string
   appeal: QuestionAppeal | null
+  compact?: boolean
   onAppealSaved: (appeal: QuestionAppeal) => void
 }) {
   const editable = !appeal || appeal.status === "pending"
@@ -793,36 +795,64 @@ function ExamQuestionAppealBlock({
   }
 
   return (
-    <div className="rounded-md border border-border bg-secondary/20 p-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 text-sm font-medium">
-              <Flag className="size-4" />
-              Нашли ошибку в вопросе?
-            </span>
-            {appeal && meta ? <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium text-white", meta.className)}>{meta.label}</span> : null}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Можно отправить апелляцию прямо во время экзамена и продолжить попытку без потери времени.
-          </p>
-          {appeal ? (
-            <div className="mt-2 flex flex-col gap-1 text-sm">
-              <span className={meta?.textClassName}>
-                Причина: {appealReasonLabel(appeal.reason)}
-              </span>
-              {appeal.adminNote ? (
-                <span className="text-muted-foreground">Комментарий команды: {appeal.adminNote}</span>
-              ) : (
-                <span className="text-muted-foreground">Статус сохранён и будет доступен после проверки.</span>
+    <>
+      {compact ? (
+        <div className="flex items-center gap-1.5">
+          {appeal && meta ? (
+            <span
+              className={cn(
+                "hidden rounded-full px-2 py-0.5 text-[10px] font-medium text-white sm:inline-flex",
+                meta.className,
               )}
-            </div>
+            >
+              {meta.label}
+            </span>
           ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 px-2 text-[11px] sm:text-xs"
+            onClick={() => setOpen(true)}
+          >
+            <Flag className="size-3.5" />
+            <span className="hidden md:inline">
+              {appeal ? "Апелляция" : "Ошибка?"}
+            </span>
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-          {appeal ? "Открыть апелляцию" : "Подать апелляцию"}
-        </Button>
-      </div>
+      ) : (
+        <div className="rounded-md border border-border bg-secondary/20 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 text-sm font-medium">
+                  <Flag className="size-4" />
+                  Нашли ошибку в вопросе?
+                </span>
+                {appeal && meta ? <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium text-white", meta.className)}>{meta.label}</span> : null}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Можно отправить апелляцию прямо во время экзамена и продолжить попытку без потери времени.
+              </p>
+              {appeal ? (
+                <div className="mt-2 flex flex-col gap-1 text-sm">
+                  <span className={meta?.textClassName}>
+                    Причина: {appealReasonLabel(appeal.reason)}
+                  </span>
+                  {appeal.adminNote ? (
+                    <span className="text-muted-foreground">Комментарий команды: {appeal.adminNote}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Статус сохранён и будет доступен после проверки.</span>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+              {appeal ? "Открыть апелляцию" : "Подать апелляцию"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-xl">
@@ -903,7 +933,7 @@ function ExamQuestionAppealBlock({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
 
