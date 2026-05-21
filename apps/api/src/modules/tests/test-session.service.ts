@@ -542,8 +542,26 @@ export class TestSessionService {
         },
       }),
     ]);
+    const answerScoresById = new Map(
+      scoreResult.answerScores.map((item) => [item.answerId, item]),
+    );
+    const normalized = this.normalizeSessionScore(session);
     return {
-      ...this.normalizeSessionScore(session),
+      ...normalized,
+      correctCount: scoreResult.correctCount,
+      rawScore: scoreResult.rawScore,
+      maxScore: scoreResult.maxScore,
+      score: scoreResult.score,
+      answers: normalized.answers?.map((answer) => {
+        const answerScore = answerScoresById.get(answer.id);
+        return answerScore
+          ? {
+              ...answer,
+              isCorrect: answerScore.reviewStatus === 'correct',
+              ...answerScore,
+            }
+          : answer;
+      }),
       sectionScores: scoreResult.sections,
       sectionsScores: scoreResult.sections,
       appeals,

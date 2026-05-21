@@ -51,7 +51,11 @@ import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
-import { buildReviewSections, type ReviewSectionModel } from "@/lib/api/test-session"
+import {
+  buildReviewSections,
+  type FlatSessionQuestion,
+  type ReviewSectionModel,
+} from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
 import type {
   QuestionAppeal,
@@ -98,7 +102,7 @@ export default function ReviewPage({
     data?.totalQuestions ?? sections.reduce((sum, sec) => sum + sec.totalCount, 0)
   const displayScore = data?.rawScore ?? data?.score ?? overallCorrect
   const displayMax = data?.maxScore ?? overallTotal
-  const accuracy = overallTotal ? Math.round((overallCorrect / overallTotal) * 100) : 0
+  const accuracy = displayMax ? Math.round((displayScore / displayMax) * 100) : 0
   const canRetakeEnt =
     data?.examType?.slug === "ent" && data.metadata?.kind !== "remediation"
   const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
@@ -109,11 +113,19 @@ export default function ReviewPage({
   const weakSections = useMemo(() => {
     return sections
       .map((sec) => {
-        const pct = sec.totalCount ? Math.round((sec.correctCount / sec.totalCount) * 100) : 0
+        const pct =
+          sec.score != null
+            ? Math.round(sec.score)
+            : sec.totalCount
+              ? Math.round((sec.correctCount / sec.totalCount) * 100)
+              : 0
         return {
           title: sec.title,
           pct,
-          lost: Math.max(0, sec.totalCount - sec.correctCount),
+          lost:
+            sec.maxPoints != null && sec.rawPoints != null
+              ? Math.max(0, sec.maxPoints - sec.rawPoints)
+              : Math.max(0, sec.totalCount - sec.correctCount),
         }
       })
       .sort((a, b) => a.pct - b.pct)
@@ -214,7 +226,7 @@ export default function ReviewPage({
                     <span className="text-sm font-medium tabular-nums">{accuracy}%</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Правильных ответов: {overallCorrect} из {overallTotal}
+                    Точно верных ответов: {overallCorrect} из {overallTotal}
                   </p>
                   {canRetakeEnt && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -258,17 +270,33 @@ export default function ReviewPage({
                 {sections.map((sec) => {
                   const total = sec.totalCount
                   const correct = sec.correctCount
-                  const pct = total ? Math.round((correct / total) * 100) : 0
+                  const rawPoints = sec.rawPoints
+                  const maxPoints = sec.maxPoints
+                  const pct =
+                    sec.score != null
+                      ? Math.round(sec.score)
+                      : total
+                        ? Math.round((correct / total) * 100)
+                        : 0
+                  const pointsLabel =
+                    rawPoints != null && maxPoints != null
+                      ? `${rawPoints}/${maxPoints} ${pluralizePoints(maxPoints)}`
+                      : `${correct}/${total}`
                   return (
                     <Card key={sec.id}>
                       <CardContent className="flex flex-col gap-2 p-4">
                         <p className="text-sm font-medium">{sec.title}</p>
                         <div className="flex items-baseline gap-2">
                           <span className="text-2xl font-semibold tabular-nums">
-                            {correct}/{total}
+                            {pointsLabel}
                           </span>
                           <span className="text-xs text-muted-foreground">{pct}%</span>
                         </div>
+                        {rawPoints != null && maxPoints != null && (
+                          <p className="text-xs text-muted-foreground">
+                            Точно верно: {correct}/{total}
+                          </p>
+                        )}
                         <Progress value={pct} />
                       </CardContent>
                     </Card>
@@ -295,6 +323,7 @@ export default function ReviewPage({
                   <Accordion type="multiple" className="flex flex-col gap-2">
                     {sec.questions.map((q, idx) => {
                       const qSubject = localize(q.subjectName, locale)
+                      const reviewMeta = getQuestionReviewMeta(q)
                       const detachedImageUrls = getDetachedImageUrls(q.imageUrls, [
                         q.display.passage ?? "",
                         q.display.topicLine ?? "",
@@ -310,30 +339,55 @@ export default function ReviewPage({
                           value={q.id}
                           className={cn(
                             "rounded-lg border bg-card",
-                            q.isCorrect === true
+                            q.reviewStatus === "correct"
                               ? "border-emerald-200"
-                              : q.isCorrect === false
-                                ? "border-rose-200"
-                                : "border-border",
+                              : q.reviewStatus === "partial"
+                                ? "border-amber-200"
+                                : q.reviewStatus === "unanswered"
+                                  ? "border-slate-200"
+                                  : "border-rose-200",
                           )}
                         >
                           <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                            <div className="flex w-full items-center gap-3 pr-2 text-left">
-                              {q.isCorrect === true ? (
-                                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
-                              ) : (
-                                <XCircle className="size-5 shrink-0 text-rose-600" />
-                              )}
-                              <span className="text-sm font-medium tabular-nums text-muted-foreground">
-                                №{idx + 1}
-                              </span>
-                              <span className="line-clamp-1 flex-1 text-sm font-normal">
-                                {q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
-                              </span>
+                            <div className="flex w-full flex-wrap items-center gap-3 pr-2 text-left sm:flex-nowrap">
+                              <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <reviewMeta.Icon className={cn("size-5 shrink-0", reviewMeta.iconClassName)} />
+                                <span className="text-sm font-medium tabular-nums text-muted-foreground">
+                                  №{idx + 1}
+                                </span>
+                                <span className="line-clamp-1 flex-1 text-sm font-normal">
+                                  {q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
+                                </span>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "border-current/20 bg-background/80 text-xs",
+                                    reviewMeta.badgeClassName,
+                                  )}
+                                >
+                                  {reviewMeta.label}
+                                </Badge>
+                                <Badge variant="outline" className="tabular-nums">
+                                  {formatQuestionPoints(q.earnedPoints, q.maxPoints)}
+                                </Badge>
+                              </div>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="border-t border-border px-4 py-4">
                             <div className="flex flex-col gap-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge className={reviewMeta.fillClassName}>{reviewMeta.label}</Badge>
+                                <Badge variant="outline" className="tabular-nums">
+                                  {formatQuestionPoints(q.earnedPoints, q.maxPoints)}
+                                </Badge>
+                                {q.errorCount != null && q.errorCount > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatErrorCount(q.errorCount)}
+                                  </span>
+                                )}
+                              </div>
                               {q.display.passage && (
                                 <RichText
                                   as="div"
@@ -371,17 +425,13 @@ export default function ReviewPage({
                               <div className="flex flex-col gap-2">
                                 {q.answerOptions.map((opt, i) => {
                                   const isSelected = q.selectedIds.includes(opt.id)
-                                  const stateClass = opt.isCorrect
-                                    ? "border-emerald-300 bg-emerald-50"
-                                    : isSelected
-                                      ? "border-rose-300 bg-rose-50"
-                                      : "border-border bg-card"
+                                  const optionMeta = getReviewOptionMeta(isSelected, Boolean(opt.isCorrect))
                                   return (
                                     <div
                                       key={opt.id}
                                       className={cn(
                                         "flex items-start gap-3 rounded-md border px-4 py-3",
-                                        stateClass,
+                                        optionMeta.containerClassName,
                                       )}
                                     >
                                       <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold">
@@ -397,14 +447,15 @@ export default function ReviewPage({
                                         {opt.imageUrl && <QuestionMedia src={opt.imageUrl} />}
                                       </div>
                                       <div className="flex flex-col items-end gap-1">
-                                        {opt.isCorrect && (
-                                          <Badge className="bg-emerald-600 hover:bg-emerald-600">
-                                            Верно
+                                        {optionMeta.badges.map((badge) => (
+                                          <Badge
+                                            key={badge.label}
+                                            variant={badge.variant}
+                                            className={badge.className}
+                                          >
+                                            {badge.label}
                                           </Badge>
-                                        )}
-                                        {isSelected && !opt.isCorrect && (
-                                          <Badge variant="destructive">Ваш ответ</Badge>
-                                        )}
+                                        ))}
                                       </div>
                                     </div>
                                   )
@@ -445,6 +496,102 @@ export default function ReviewPage({
       </div>
     </div>
   )
+}
+
+function pluralizeRu(
+  value: number,
+  forms: [one: string, few: string, many: string],
+) {
+  const abs = Math.abs(value) % 100
+  const tail = abs % 10
+  if (abs > 10 && abs < 20) return forms[2]
+  if (tail > 1 && tail < 5) return forms[1]
+  if (tail === 1) return forms[0]
+  return forms[2]
+}
+
+function pluralizePoints(value: number) {
+  return pluralizeRu(value, ["балл", "балла", "баллов"])
+}
+
+function formatQuestionPoints(earnedPoints: number, maxPoints: number) {
+  return `${earnedPoints}/${maxPoints} ${pluralizePoints(maxPoints)}`
+}
+
+function formatErrorCount(errorCount: number) {
+  return `${errorCount} ${pluralizeRu(errorCount, ["ошибка", "ошибки", "ошибок"])}`
+}
+
+function getQuestionReviewMeta(question: Pick<
+  FlatSessionQuestion,
+  "reviewStatus" | "earnedPoints" | "maxPoints"
+>) {
+  if (question.reviewStatus === "correct") {
+    return {
+      label: "Верно",
+      Icon: CheckCircle2,
+      iconClassName: "text-emerald-600",
+      badgeClassName: "text-emerald-700",
+      fillClassName: "bg-emerald-600 hover:bg-emerald-600 text-white",
+    }
+  }
+  if (question.reviewStatus === "partial") {
+    return {
+      label: "Частично",
+      Icon: Target,
+      iconClassName: "text-amber-600",
+      badgeClassName: "text-amber-700",
+      fillClassName: "bg-amber-600 hover:bg-amber-600 text-white",
+    }
+  }
+  if (question.reviewStatus === "unanswered") {
+    return {
+      label: "Без ответа",
+      Icon: Flag,
+      iconClassName: "text-slate-500",
+      badgeClassName: "text-slate-700",
+      fillClassName: "bg-slate-600 hover:bg-slate-600 text-white",
+    }
+  }
+  return {
+    label: question.earnedPoints > 0 && question.earnedPoints < question.maxPoints ? "Частично" : "Неверно",
+    Icon: XCircle,
+    iconClassName: "text-rose-600",
+    badgeClassName: "text-rose-700",
+    fillClassName: "bg-rose-600 hover:bg-rose-600 text-white",
+  }
+}
+
+function getReviewOptionMeta(isSelected: boolean, isCorrect: boolean) {
+  if (isSelected && isCorrect) {
+    return {
+      containerClassName: "border-emerald-400 bg-emerald-50",
+      badges: [
+        { label: "Ваш выбор", variant: "outline" as const, className: "border-emerald-300 text-emerald-800" },
+        { label: "Верно", variant: "default" as const, className: "bg-emerald-600 hover:bg-emerald-600" },
+      ],
+    }
+  }
+  if (isCorrect) {
+    return {
+      containerClassName: "border-emerald-200 bg-emerald-50/60",
+      badges: [
+        { label: "Правильный ответ", variant: "outline" as const, className: "border-emerald-300 text-emerald-800" },
+      ],
+    }
+  }
+  if (isSelected) {
+    return {
+      containerClassName: "border-rose-300 bg-rose-50",
+      badges: [
+        { label: "Ваш выбор", variant: "destructive" as const, className: "" },
+      ],
+    }
+  }
+  return {
+    containerClassName: "border-border bg-card",
+    badges: [],
+  }
 }
 
 function getScoreSegment(score: number, maxScore: number): ScoreSegment {

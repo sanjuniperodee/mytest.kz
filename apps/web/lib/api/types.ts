@@ -176,6 +176,10 @@ export interface TestAnswer {
   questionId: string
   selectedIds: string[]
   isCorrect: boolean | null
+  earnedPoints?: number
+  maxPoints?: number
+  errorCount?: number
+  reviewStatus?: "correct" | "partial" | "incorrect" | "unanswered"
   answeredAt?: string | null
   question: Question
 }

@@ -20,12 +20,28 @@ export interface SectionScore {
   maxPoints?: number;
 }
 
+export type ReviewAnswerStatus =
+  | 'correct'
+  | 'partial'
+  | 'incorrect'
+  | 'unanswered';
+
+export interface AnswerScore {
+  answerId: string;
+  questionId: string;
+  earnedPoints: number;
+  maxPoints: number;
+  errorCount: number;
+  reviewStatus: ReviewAnswerStatus;
+}
+
 interface ScoreResult {
   correctCount: number;
   rawScore: number;
   maxScore: number;
   score: number; // percentage
   sections: SectionScore[];
+  answerScores: AnswerScore[];
 }
 
 type QuestionPlacement = {
@@ -119,6 +135,17 @@ function entMaxPointsForPlacement(
   return entProfileMaxPoints(p.indexInSubject, p.profileHeavyFrom);
 }
 
+function getReviewAnswerStatus(
+  selectedIds: readonly string[],
+  earnedPoints: number,
+  maxPoints: number,
+): ReviewAnswerStatus {
+  if (selectedIds.length === 0) return 'unanswered';
+  if (maxPoints > 0 && earnedPoints >= maxPoints) return 'correct';
+  if (earnedPoints > 0) return 'partial';
+  return 'incorrect';
+}
+
 @Injectable()
 export class TestScorerService {
   constructor(private prisma: PrismaService) {}
@@ -165,6 +192,7 @@ export class TestScorerService {
 
     let weightedRaw = 0;
     let weightedMax = 0;
+    const answerScores: AnswerScore[] = [];
     const entWeightedActive =
       examSlug === 'ent' &&
       placement !== null &&
@@ -206,6 +234,7 @@ export class TestScorerService {
       );
 
       const isPerfectlyCorrect = selectedIds.length > 0 && errors === 0;
+      const reviewStatus = getReviewAnswerStatus(selectedIds, wEarned, wMax);
 
       if (isPerfectlyCorrect) correctCount++;
 
@@ -216,6 +245,14 @@ export class TestScorerService {
 
       weightedRaw += wEarned;
       weightedMax += wMax;
+      answerScores.push({
+        answerId: answer.id,
+        questionId: answer.questionId,
+        earnedPoints: wEarned,
+        maxPoints: wMax,
+        errorCount: errors,
+        reviewStatus,
+      });
 
       if (!sectionAgg.has(subjectId)) {
         sectionAgg.set(subjectId, {
@@ -256,6 +293,7 @@ export class TestScorerService {
         maxScore: weightedMax,
         score,
         sections,
+        answerScores,
       };
     }
 
@@ -281,6 +319,7 @@ export class TestScorerService {
       maxScore,
       score,
       sections,
+      answerScores,
     };
   }
 }

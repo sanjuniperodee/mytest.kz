@@ -263,6 +263,16 @@ describe('ENT 120/140 consistency', () => {
     expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints);
     expect(result.rawScore).toBe(3);
     expect(result.correctCount).toBe(2);
+    const heavyAnswerScore = result.answerScores.find(
+      (item) => item.questionId === profile1Ids[30],
+    );
+    expect(heavyAnswerScore).toMatchObject({
+      questionId: profile1Ids[30],
+      earnedPoints: 2,
+      maxPoints: 2,
+      errorCount: 0,
+      reviewStatus: 'correct',
+    });
   });
 
   it('scores 2-point ENT multiple-answer questions by TotalErrors', async () => {
@@ -293,6 +303,24 @@ describe('ENT 120/140 consistency', () => {
     expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints);
     expect(result.rawScore).toBe(1);
     expect(result.correctCount).toBe(0);
+    const heavyAnswerScore = result.answerScores.find(
+      (item) => item.questionId === heavyId,
+    );
+    expect(heavyAnswerScore).toMatchObject({
+      questionId: heavyId,
+      earnedPoints: 1,
+      maxPoints: 2,
+      errorCount: 1,
+      reviewStatus: 'partial',
+    });
+    const unansweredMandatory = result.answerScores.find(
+      (item) => item.questionId === built.questionIdsBySubject.get('history')?.[0],
+    );
+    expect(unansweredMandatory).toMatchObject({
+      earnedPoints: 0,
+      maxPoints: 1,
+      reviewStatus: 'unanswered',
+    });
   });
 
   it('starts ENT full with exactly 120 questions and 40 profile questions per subject', async () => {
@@ -1720,5 +1748,85 @@ describe('ENT 120/140 consistency', () => {
 
     expect(result[0].questionIds).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
     expect(result[0].questionIds.every((id) => id.startsWith('p1-any-'))).toBe(true);
+  });
+
+  it('merges per-question review scoring into the review response contract', async () => {
+    const prismaMock = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'session-review',
+          userId: 'user-1',
+          status: 'completed',
+          score: 50,
+          examType: { slug: 'ent' },
+          answers: [
+            {
+              id: 'ans-1',
+              questionId: 'q-1',
+              selectedIds: ['opt-a'],
+              isCorrect: false,
+              question: {
+                id: 'q-1',
+                subjectId: 'profile-1',
+                content: { ru: { text: 'Question 1' } },
+                answerOptions: [
+                  { id: 'opt-a', isCorrect: true, sortOrder: 1, content: { ru: 'A' } },
+                  { id: 'opt-b', isCorrect: true, sortOrder: 2, content: { ru: 'B' } },
+                  { id: 'opt-c', isCorrect: false, sortOrder: 3, content: { ru: 'C' } },
+                ],
+                subject: { id: 'profile-1', name: { ru: 'Math' }, slug: 'math' },
+              },
+            },
+          ],
+        }),
+      },
+      questionAppeal: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const scorerMock = {
+      calculateScore: jest.fn().mockResolvedValue({
+        correctCount: 0,
+        rawScore: 1,
+        maxScore: 2,
+        score: 50,
+        sections: [],
+        answerScores: [
+          {
+            answerId: 'ans-1',
+            questionId: 'q-1',
+            earnedPoints: 1,
+            maxPoints: 2,
+            errorCount: 1,
+            reviewStatus: 'partial',
+          },
+        ],
+      }),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      scorerMock,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await service.getReview('session-review', 'user-1');
+
+    expect(result.answers?.[0]).toMatchObject({
+      id: 'ans-1',
+      questionId: 'q-1',
+      isCorrect: false,
+      earnedPoints: 1,
+      maxPoints: 2,
+      errorCount: 1,
+      reviewStatus: 'partial',
+    });
+    expect(result.correctCount).toBe(0);
+    expect(result.rawScore).toBe(1);
+    expect(result.maxScore).toBe(2);
+    expect(result.score).toBe(50);
+    expect(result.sectionScores).toEqual([]);
+    expect(result.appeals).toEqual([]);
   });
 });
