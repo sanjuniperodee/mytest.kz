@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -60,6 +61,18 @@ function parseTimestamp(value: string | null | undefined): Date | null {
   return null;
 }
 
+function isKaspiTemporaryFailureMessage(message: string): boolean {
+  const normalized = message.toUpperCase();
+  return (
+    normalized.includes('TIMEOUT') ||
+    normalized.includes('UNAVAILABLE') ||
+    normalized.includes('UPSTREAM_TIMEOUT') ||
+    normalized.includes('HTTP_502') ||
+    normalized.includes('HTTP_503') ||
+    normalized.includes('HTTP_504')
+  );
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -80,6 +93,9 @@ export class BillingService {
       return await this.kaspiPosService.initAuth(phoneNumber);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (isKaspiTemporaryFailureMessage(message)) {
+        throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+      }
       throw new BadRequestException(
         message.startsWith('KASPI_') ? message : `KASPI_SETUP_FAILED:${message}`,
       );
@@ -96,6 +112,9 @@ export class BillingService {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (isKaspiTemporaryFailureMessage(message)) {
+        throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+      }
       if (
         message === 'KASPI_NEEDS_PASSWORD' ||
         message === 'KASPI_NEEDS_MOBILE_CONFIRMATION' ||
@@ -184,6 +203,9 @@ export class BillingService {
         }
       } catch (qrErr) {
         const qrMessage = qrErr instanceof Error ? qrErr.message : String(qrErr);
+        if (isKaspiTemporaryFailureMessage(qrMessage)) {
+          throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+        }
         throw new BadRequestException(`KASPI_QR_CREATE_ERROR:${qrMessage}`);
       }
     };
@@ -234,9 +256,10 @@ export class BillingService {
         if (message === 'KASPI_NOT_AUTHENTICATED') {
           throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
         }
-        fallbackReason = message;
-        fallbackToQr = true;
-        await createQrPayment();
+        if (isKaspiTemporaryFailureMessage(message)) {
+          throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+        }
+        throw new BadRequestException(`KASPI_INVOICE_CREATE_ERROR:${message}`);
       }
     }
 
@@ -654,14 +677,17 @@ export class BillingService {
       orderBy: { createdAt: 'desc' },
     });
 
-    for (const order of pendingOrders) {
-      if (isInvalidKaspiOperationId(order.providerOrderId)) {
-        await this.cancelInvalidKaspiOrder(order, 'invalid-provider-order-active-list');
-      } else {
+    await Promise.allSettled(
+      pendingOrders.map(async (order) => {
+        if (isInvalidKaspiOperationId(order.providerOrderId)) {
+          await this.cancelInvalidKaspiOrder(order, 'invalid-provider-order-active-list');
+          return;
+        }
+
         const reconciled = (await this.reconcileKaspiOrder(order.providerOrderId)) ?? order;
         await this.expireStaleKaspiOrder(reconciled);
-      }
-    }
+      }),
+    );
 
     const orders = await this.prisma.paymentOrder.findMany({
       where: {
@@ -712,6 +738,9 @@ export class BillingService {
       cancelPayload = asRecord(await this.kaspiPosService.cancelInvoice(reconciled.providerOrderId));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (isKaspiTemporaryFailureMessage(message)) {
+        throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+      }
       throw new BadRequestException(`KASPI_CANCEL_ERROR:${message}`);
     }
 

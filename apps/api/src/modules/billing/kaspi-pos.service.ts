@@ -115,6 +115,82 @@ export class KaspiPosService implements OnModuleInit {
     return u.replace(/\/+$/, '');
   }
 
+  private requestTimeoutMs(kind: 'auth' | 'read' | 'write'): number {
+    const fallback =
+      kind === 'auth' ? 10_000 : kind === 'write' ? 8_000 : 5_000;
+    const specificKey =
+      kind === 'auth'
+        ? 'KASPI_POS_AUTH_TIMEOUT_MS'
+        : kind === 'write'
+          ? 'KASPI_POS_WRITE_TIMEOUT_MS'
+          : 'KASPI_POS_READ_TIMEOUT_MS';
+    const specific = Number(this.config.get<string>(specificKey));
+    if (Number.isFinite(specific) && specific > 0) {
+      return Math.floor(specific);
+    }
+
+    const shared = Number(this.config.get<string>('KASPI_POS_TIMEOUT_MS'));
+    if (Number.isFinite(shared) && shared > 0) {
+      return Math.floor(shared);
+    }
+
+    return fallback;
+  }
+
+  private normalizeSnippet(text: string): string {
+    return text.replace(/\s+/g, ' ').trim().slice(0, 200);
+  }
+
+  private upstreamError(operation: string, status: number, text: string): Error {
+    if ([502, 503, 504].includes(status)) {
+      return new Error(`${operation}_UPSTREAM_TIMEOUT:${status}`);
+    }
+    return new Error(`${operation}_HTTP_${status}:${this.normalizeSnippet(text)}`);
+  }
+
+  private async requestText(
+    path: string,
+    init: RequestInit,
+    operation: string,
+    timeoutMs: number,
+  ): Promise<{ response: Response; text: string }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${this.baseUrl()}${path}`, {
+        ...init,
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      return { response, text };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`${operation}_TIMEOUT`);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`${operation}_UNAVAILABLE:${message}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private parseJson(text: string, operation: string): Record<string, unknown> {
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      const snippet = this.normalizeSnippet(text);
+      if (
+        snippet.includes('504 Gateway Time-out') ||
+        snippet.includes('502 Bad Gateway') ||
+        snippet.includes('503 Service Temporarily Unavailable')
+      ) {
+        throw new Error(`${operation}_UPSTREAM_TIMEOUT_HTML`);
+      }
+      throw new Error(`${operation}_PARSE_ERROR:${snippet}`);
+    }
+  }
+
   private sessionHeaders(contentType?: string): Record<string, string> {
     if (!this.auth) {
       throw new Error('KASPI_NOT_AUTHENTICATED');
@@ -144,37 +220,54 @@ export class KaspiPosService implements OnModuleInit {
   }
 
   async initAuth(phoneNumber: string): Promise<{ processId: string }> {
-    const base = this.baseUrl();
-    const initRes = await fetch(`${base}/api/auth/init`, { method: 'POST' });
+    const { response: initRes, text: initText } = await this.requestText(
+      '/api/auth/init',
+      { method: 'POST' },
+      'KASPI_AUTH_INIT',
+      this.requestTimeoutMs('auth'),
+    );
     if (!initRes.ok) {
-      throw new Error(`KASPI_AUTH_INIT:${initRes.status}`);
+      throw this.upstreamError('KASPI_AUTH_INIT', initRes.status, initText);
     }
-    const initJson = (await initRes.json()) as Record<string, unknown>;
+    const initJson = this.parseJson(initText, 'KASPI_AUTH_INIT');
     const nested = asRecord(initJson.data);
     const processId = String(initJson.processId ?? nested?.processId ?? '');
     if (!processId) {
       throw new Error('KASPI_AUTH_NO_PROCESS_ID');
     }
 
-    const sendRes = await fetch(`${base}/api/auth/send-phone`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber, processId }),
-    });
+    const { response: sendRes, text: sendText } = await this.requestText(
+      '/api/auth/send-phone',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, processId }),
+      },
+      'KASPI_SEND_PHONE',
+      this.requestTimeoutMs('auth'),
+    );
     if (!sendRes.ok) {
-      throw new Error(`KASPI_SEND_PHONE:${sendRes.status}`);
+      throw this.upstreamError('KASPI_SEND_PHONE', sendRes.status, sendText);
     }
 
     return { processId };
   }
 
   async verifyOtp(processId: string, otp: string): Promise<KaspiAuth> {
-    const res = await fetch(`${this.baseUrl()}/api/auth/verify-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ processId, otp }),
-    });
-    const data = (await res.json()) as Record<string, unknown>;
+    const { response: res, text } = await this.requestText(
+      '/api/auth/verify-otp',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processId, otp }),
+      },
+      'KASPI_VERIFY_OTP',
+      this.requestTimeoutMs('auth'),
+    );
+    if (!res.ok) {
+      throw this.upstreamError('KASPI_VERIFY_OTP', res.status, text);
+    }
+    const data = this.parseJson(text, 'KASPI_VERIFY_OTP');
 
     const view = asRecord(data.view);
     if (view?.code === 'KPEnterLoginPassword') {
@@ -204,24 +297,25 @@ export class KaspiPosService implements OnModuleInit {
     amount: number,
     comment: string,
   ): Promise<InvoiceResult> {
-    const res = await fetch(`${this.baseUrl()}/api/invoice/create`, {
-      method: 'POST',
-      headers: this.sessionHeaders('application/json'),
-      body: JSON.stringify({
-        phoneNumber,
-        amount,
-        comment: comment || '',
-      }),
-    });
-
-    const text = await res.text();
+    const { response: res, text } = await this.requestText(
+      '/api/invoice/create',
+      {
+        method: 'POST',
+        headers: this.sessionHeaders('application/json'),
+        body: JSON.stringify({
+          phoneNumber,
+          amount,
+          comment: comment || '',
+        }),
+      },
+      'KASPI_INVOICE_CREATE',
+      this.requestTimeoutMs('write'),
+    );
     this.logger.debug(`Invoice create raw response: ${text}`);
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      throw new Error(`KASPI_INVOICE_PARSE_ERROR:${text.slice(0, 200)}`);
+    if (!res.ok) {
+      throw this.upstreamError('KASPI_INVOICE_CREATE', res.status, text);
     }
+    const data = this.parseJson(text, 'KASPI_INVOICE_CREATE');
 
     const statusCode = Number(data.StatusCode ?? data.statusCode ?? 0);
     const d = asRecord(data.Data) ?? asRecord(data.data);
@@ -267,21 +361,21 @@ export class KaspiPosService implements OnModuleInit {
   }
 
   async createQr(amount: number): Promise<QrResult> {
-    const res = await fetch(`${this.baseUrl()}/api/qr/create`, {
-      method: 'POST',
-      headers: this.sessionHeaders('application/json'),
-      body: JSON.stringify({ amount }),
-    });
-
-    const text = await res.text();
+    const { response: res, text } = await this.requestText(
+      '/api/qr/create',
+      {
+        method: 'POST',
+        headers: this.sessionHeaders('application/json'),
+        body: JSON.stringify({ amount }),
+      },
+      'KASPI_QR_CREATE',
+      this.requestTimeoutMs('write'),
+    );
     this.logger.debug(`QR create raw response: ${text}`);
-
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error(`KASPI_QR_PARSE_ERROR:${text.slice(0, 200)}`);
+    if (!res.ok) {
+      throw this.upstreamError('KASPI_QR_CREATE', res.status, text);
     }
+    const data = this.parseJson(text, 'KASPI_QR_CREATE');
 
     const statusCode = Number(data.StatusCode ?? data.statusCode ?? 0);
     const d = asRecord(data.Data) ?? asRecord(data.data);
@@ -313,76 +407,99 @@ export class KaspiPosService implements OnModuleInit {
 
   async getInvoiceDetails(operationId: string): Promise<unknown> {
     const q = new URLSearchParams({ operationId: String(operationId) });
-    const res = await fetch(`${this.baseUrl()}/api/invoice/details?${q.toString()}`, {
-      method: 'GET',
-      headers: this.sessionHeaders(),
-    });
+    const { response: res, text } = await this.requestText(
+      `/api/invoice/details?${q.toString()}`,
+      {
+        method: 'GET',
+        headers: this.sessionHeaders(),
+      },
+      'KASPI_INVOICE_DETAILS',
+      this.requestTimeoutMs('read'),
+    );
+    if (!res.ok) {
+      throw this.upstreamError('KASPI_INVOICE_DETAILS', res.status, text);
+    }
 
-    return res.json();
+    return this.parseJson(text, 'KASPI_INVOICE_DETAILS');
   }
 
   async getQrStatus(qrOperationId: string): Promise<unknown> {
     const q = new URLSearchParams({ qrOperationId: String(qrOperationId) });
-    const res = await fetch(`${this.baseUrl()}/api/qr/status?${q.toString()}`, {
-      method: 'GET',
-      headers: this.sessionHeaders(),
-    });
+    const { response: res, text } = await this.requestText(
+      `/api/qr/status?${q.toString()}`,
+      {
+        method: 'GET',
+        headers: this.sessionHeaders(),
+      },
+      'KASPI_QR_STATUS',
+      this.requestTimeoutMs('read'),
+    );
+    if (!res.ok) {
+      throw this.upstreamError('KASPI_QR_STATUS', res.status, text);
+    }
 
-    return res.json();
+    return this.parseJson(text, 'KASPI_QR_STATUS');
   }
 
   async cancelInvoice(operationId: string): Promise<unknown> {
-    const res = await fetch(`${this.baseUrl()}/api/invoice/cancel`, {
-      method: 'POST',
-      headers: this.sessionHeaders('application/json'),
-      body: JSON.stringify({ operationId: String(operationId) }),
-    });
-
-    const text = await res.text();
+    const { response: res, text } = await this.requestText(
+      '/api/invoice/cancel',
+      {
+        method: 'POST',
+        headers: this.sessionHeaders('application/json'),
+        body: JSON.stringify({ operationId: String(operationId) }),
+      },
+      'KASPI_CANCEL',
+      this.requestTimeoutMs('write'),
+    );
     this.logger.debug(`Invoice cancel raw response: ${text}`);
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error(`KASPI_CANCEL_PARSE_ERROR:${text.slice(0, 200)}`);
+    if (!res.ok) {
+      throw this.upstreamError('KASPI_CANCEL', res.status, text);
     }
+    return this.parseJson(text, 'KASPI_CANCEL');
   }
 
   async refundInvoice(operationId: string, returnAmount: number): Promise<unknown> {
     const headers = this.sessionHeaders('application/json');
-    const primaryRes = await fetch(`${this.baseUrl()}/api/invoice/refund`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ operationId: String(operationId) }),
-    });
-
-    const primaryText = await primaryRes.text();
+    const { response: primaryRes, text: primaryText } = await this.requestText(
+      '/api/invoice/refund',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ operationId: String(operationId) }),
+      },
+      'KASPI_REFUND',
+      this.requestTimeoutMs('write'),
+    );
     this.logger.debug(`Invoice refund raw response: ${primaryText}`);
     const isMissingPrimaryRoute =
       primaryRes.status === 404 && primaryText.includes('Cannot POST /api/invoice/refund');
 
     if (!isMissingPrimaryRoute) {
-      try {
-        return JSON.parse(primaryText);
-      } catch {
-        throw new Error(`KASPI_REFUND_PARSE_ERROR:${primaryText.slice(0, 200)}`);
+      if (!primaryRes.ok) {
+        throw this.upstreamError('KASPI_REFUND', primaryRes.status, primaryText);
       }
+      return this.parseJson(primaryText, 'KASPI_REFUND');
     }
 
-    const legacyRes = await fetch(`${this.baseUrl()}/api/refund/create`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        qrOperationId: Number(operationId),
-        returnAmount: Number(returnAmount),
-      }),
-    });
-    const legacyText = await legacyRes.text();
+    const { response: legacyRes, text: legacyText } = await this.requestText(
+      '/api/refund/create',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          qrOperationId: Number(operationId),
+          returnAmount: Number(returnAmount),
+        }),
+      },
+      'KASPI_REFUND_LEGACY',
+      this.requestTimeoutMs('write'),
+    );
     this.logger.debug(`Refund create raw response: ${legacyText}`);
-    try {
-      return JSON.parse(legacyText);
-    } catch {
-      throw new Error(`KASPI_REFUND_PARSE_ERROR:${legacyText.slice(0, 200)}`);
+    if (!legacyRes.ok) {
+      throw this.upstreamError('KASPI_REFUND_LEGACY', legacyRes.status, legacyText);
     }
+    return this.parseJson(legacyText, 'KASPI_REFUND_LEGACY');
   }
 
   isAuthenticated(): boolean {
@@ -392,12 +509,17 @@ export class KaspiPosService implements OnModuleInit {
   async checkSession(): Promise<boolean> {
     if (!this.auth) return false;
     try {
-      const res = await fetch(`${this.baseUrl()}/api/session/check`, {
-        method: 'GET',
-        headers: this.sessionHeaders(),
-      });
+      const { response: res, text } = await this.requestText(
+        '/api/session/check',
+        {
+          method: 'GET',
+          headers: this.sessionHeaders(),
+        },
+        'KASPI_SESSION_CHECK',
+        this.requestTimeoutMs('read'),
+      );
       if (!res.ok) return false;
-      const j = (await res.json()) as { active?: boolean };
+      const j = this.parseJson(text, 'KASPI_SESSION_CHECK') as { active?: boolean };
       return j.active === true;
     } catch {
       return false;
