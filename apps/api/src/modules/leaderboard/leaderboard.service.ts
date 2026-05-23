@@ -84,8 +84,23 @@ export class LeaderboardService {
     const sorted = Array.from(bestByUser.values())
       .sort((a, b) => this.compareSessions(a, b));
 
-    const rows = await Promise.all(
-      sorted.map((session, index) => this.toRow(session, index + 1)),
+    const profileSubjectIds = [
+      ...new Set(
+        sorted.flatMap((session) => this.extractProfileSubjectIds(session.metadata)),
+      ),
+    ];
+    const subjects = profileSubjectIds.length
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: profileSubjectIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const subjectNameById = new Map(
+      subjects.map((subject) => [subject.id, this.getSubjectName(subject.name, 'ru')]),
+    );
+
+    const rows = sorted.map((session, index) =>
+      this.toRow(session, index + 1, subjectNameById),
     );
 
     return {
@@ -116,29 +131,25 @@ export class LeaderboardService {
     return String(localized ?? '');
   }
 
-  private async toRow(session: EligibleSession, rank: number): Promise<EntLeaderboardRow> {
+  private extractProfileSubjectIds(metadata: unknown): string[] {
+    const meta = metadata as Record<string, unknown> | null;
+    return Array.isArray(meta?.profileSubjectIds)
+      ? (meta.profileSubjectIds as string[]).filter((value) => typeof value === 'string')
+      : [];
+  }
+
+  private toRow(
+    session: EligibleSession,
+    rank: number,
+    subjectNameById: Map<string, string>,
+  ): EntLeaderboardRow {
     const maxScore = this.toNumber(session.maxScore);
     const rawScore = this.toNumber(session.rawScore);
     const scorePct = this.toNumber(session.score);
 
-    // Extract profile subject IDs from metadata
-    const meta = session.metadata as Record<string, unknown> | null;
-    const profileSubjectIds: string[] = Array.isArray(meta?.profileSubjectIds) ? (meta.profileSubjectIds as string[]) : [];
-
-    // Fetch subject names if any
-    let profileSubjects: string[] = [];
-    if (profileSubjectIds.length > 0) {
-      const subjects = await this.prisma.subject.findMany({
-        where: { id: { in: profileSubjectIds } },
-        select: { id: true, name: true },
-      });
-      // preserve order from profileSubjectIds
-      const nameById = new Map(subjects.map((s) => [s.id, s.name as Record<string, unknown>]));
-      profileSubjects = profileSubjectIds.map((id) => {
-        const nameObj = nameById.get(id);
-        return this.getSubjectName(nameObj, 'ru');
-      });
-    }
+    const profileSubjects = this.extractProfileSubjectIds(session.metadata)
+      .map((id) => subjectNameById.get(id))
+      .filter((value): value is string => Boolean(value));
 
     return {
       rank,

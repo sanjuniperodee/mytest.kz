@@ -145,11 +145,13 @@ export class AdminFinanceService {
     limit?: number;
     status?: PaymentOrderStatus | 'all';
     provider?: string;
+    compact?: boolean;
   }) {
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(100, Math.max(1, params.limit ?? 25));
     const search = params.search?.trim();
     const digits = search?.replace(/\D/g, '') ?? '';
+    const compact = params.compact === true;
 
     const where = {
       ...(params.status && params.status !== 'all' ? { status: params.status } : {}),
@@ -207,11 +209,13 @@ export class AdminFinanceService {
         where,
         _count: { _all: true },
       }),
-      this.prisma.paymentOrder.findMany({
-        distinct: ['provider'],
-        select: { provider: true },
-        orderBy: { provider: 'asc' },
-      }),
+      compact
+        ? Promise.resolve([])
+        : this.prisma.paymentOrder.findMany({
+            distinct: ['provider'],
+            select: { provider: true },
+            orderBy: { provider: 'asc' },
+          }),
     ]);
 
     const todayStart = startOfTodayAlmaty();
@@ -224,28 +228,41 @@ export class AdminFinanceService {
       _sum: { amount: true },
     });
 
-    const userIds = [...new Set(orders.map((order) => order.userId))];
-    const subsByUser = userIds.length
-      ? await this.prisma.subscription.findMany({
-          where: { userId: { in: userIds } },
-          select: {
-            id: true,
-            userId: true,
-            planType: true,
-            isActive: true,
-            startsAt: true,
-            expiresAt: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-        })
-      : [];
+    const subscriptionsByUser = new Map<
+      string,
+      Array<{
+        id: string;
+        userId: string;
+        planType: string;
+        isActive: boolean;
+        startsAt: Date;
+        expiresAt: Date;
+        createdAt: Date;
+      }>
+    >();
+    if (!compact) {
+      const userIds = [...new Set(orders.map((order) => order.userId))];
+      const subsByUser = userIds.length
+        ? await this.prisma.subscription.findMany({
+            where: { userId: { in: userIds } },
+            select: {
+              id: true,
+              userId: true,
+              planType: true,
+              isActive: true,
+              startsAt: true,
+              expiresAt: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          })
+        : [];
 
-    const subscriptionsByUser = new Map<string, typeof subsByUser>();
-    for (const sub of subsByUser) {
-      const bucket = subscriptionsByUser.get(sub.userId) ?? [];
-      bucket.push(sub);
-      subscriptionsByUser.set(sub.userId, bucket);
+      for (const sub of subsByUser) {
+        const bucket = subscriptionsByUser.get(sub.userId) ?? [];
+        bucket.push(sub);
+        subscriptionsByUser.set(sub.userId, bucket);
+      }
     }
 
     const items = orders.map((order) => {
@@ -262,7 +279,7 @@ export class AdminFinanceService {
         createdAt: Date;
       } | null = null;
 
-      if (order.status === PaymentOrderStatus.paid) {
+      if (!compact && order.status === PaymentOrderStatus.paid) {
         const candidates =
           subscriptionsByUser
             .get(order.userId)

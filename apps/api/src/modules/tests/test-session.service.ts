@@ -190,23 +190,28 @@ export class TestSessionService {
     }
 
     // Build metadata with section info
-    const sectionsMeta = await Promise.all(
-      sections.map(async (sec) => {
-        const subject = await this.prisma.subject.findUnique({
-          where: { id: sec.subjectId },
+    const sectionSubjectIds = [...new Set(sections.map((section) => section.subjectId))];
+    const sectionSubjects = sectionSubjectIds.length
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: sectionSubjectIds } },
           select: { id: true, name: true, slug: true, isMandatory: true },
-        });
-        return {
-          subjectId: sec.subjectId,
-          subjectName: subject?.name,
-          subjectSlug: subject?.slug,
-          isMandatory: subject?.isMandatory ?? true,
-          questionCount: sec.questionIds.length,
-          sortOrder: sec.sortOrder,
-          profileHeavyFrom: sec.profileHeavyFrom ?? null,
-        };
-      }),
+        })
+      : [];
+    const sectionSubjectById = new Map(
+      sectionSubjects.map((subject) => [subject.id, subject]),
     );
+    const sectionsMeta = sections.map((sec) => {
+      const subject = sectionSubjectById.get(sec.subjectId);
+      return {
+        subjectId: sec.subjectId,
+        subjectName: subject?.name,
+        subjectSlug: subject?.slug,
+        isMandatory: subject?.isMandatory ?? true,
+        questionCount: sec.questionIds.length,
+        sortOrder: sec.sortOrder,
+        profileHeavyFrom: sec.profileHeavyFrom ?? null,
+      };
+    });
 
     // Create session
     const visit = await this.prisma.visitEvent.findFirst({

@@ -203,7 +203,7 @@ export function DashboardPage() {
     queryFn: async () =>
       (
         await api.get('/admin/finance/orders', {
-          params: { limit: 6, page: 1, status: 'all', provider: 'all' },
+          params: { limit: 6, page: 1, status: 'all', provider: 'all', compact: true },
         })
       ).data as FinanceResponse,
   });
@@ -213,7 +213,7 @@ export function DashboardPage() {
     queryFn: async () =>
       (
         await api.get('/admin/users', {
-          params: { limit: 6, page: 1 },
+          params: { limit: 6, page: 1, compact: true },
         })
       ).data as UsersResponse,
   });

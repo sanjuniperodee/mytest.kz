@@ -59,7 +59,14 @@ const { Sider, Content, Header } = Layout;
 const { useBreakpoint } = Grid;
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  },
 });
 
 const MENU_NAV: Record<string, string> = {

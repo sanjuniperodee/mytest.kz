@@ -77,6 +77,10 @@ function paymentStatusKind(status: unknown, expiresAt?: string | null): PaymentS
   return "pending"
 }
 
+function isVisibleDocument() {
+  return typeof document === "undefined" || document.visibilityState === "visible"
+}
+
 function formatDateTime(value: string | null | undefined) {
   const parsed = parseTimestamp(value)
   if (parsed == null) return ""
@@ -171,7 +175,10 @@ export default function KaspiPaymentPage() {
     invoiceId ? `/billing/orders/${encodeURIComponent(invoiceId)}` : null,
     (url: string) => api(url),
     {
-      refreshInterval: (current) => (paymentStatusKind(current?.status, current?.expiresAt) === "pending" ? 5000 : 0),
+      refreshInterval: (current) =>
+        isVisibleDocument() && paymentStatusKind(current?.status, current?.expiresAt) === "pending"
+          ? 5000
+          : 0,
       keepPreviousData: true,
     },
   )

@@ -236,29 +236,79 @@ export class AdminAnalyticsService {
     });
     if (!ent) return { pairs: [], languages: [] };
 
-    const finishedStatuses = ['completed', 'timed_out'] as const;
-    const sessions = await this.prisma.testSession.findMany({
-      where: {
-        examTypeId: ent.id,
-        status: { in: [...finishedStatuses] },
-        metadata: { not: Prisma.DbNull },
-      },
-      select: {
-        metadata: true,
-        language: true,
-        rawScore: true,
-        score: true,
-      },
-    });
+    const pairRows = await this.prisma.$queryRaw<
+      Array<{
+        subject1Id: string;
+        subject2Id: string;
+        sessions: number | bigint;
+        avgRawScore: number | null;
+        avgScore: number | null;
+      }>
+    >`
+      WITH ent_sessions AS (
+        SELECT
+          metadata->'profileSubjectIds'->>0 AS "subject1Id",
+          metadata->'profileSubjectIds'->>1 AS "subject2Id",
+          raw_score::double precision AS "rawScore",
+          score::double precision AS "score"
+        FROM test_sessions
+        WHERE exam_type_id = ${ent.id}::uuid
+          AND status IN ('completed', 'timed_out')
+          AND metadata IS NOT NULL
+      )
+      SELECT
+        "subject1Id",
+        "subject2Id",
+        COUNT(*)::int AS "sessions",
+        AVG("rawScore") AS "avgRawScore",
+        AVG("score") AS "avgScore"
+      FROM ent_sessions
+      WHERE "subject1Id" IS NOT NULL
+        AND "subject2Id" IS NOT NULL
+      GROUP BY "subject1Id", "subject2Id"
+      ORDER BY "sessions" DESC
+    `;
+
+    const languageRows = await this.prisma.$queryRaw<
+      Array<{
+        subject1Id: string;
+        subject2Id: string;
+        language: string | null;
+        sessions: number | bigint;
+        avgRawScore: number | null;
+        avgScore: number | null;
+      }>
+    >`
+      WITH ent_sessions AS (
+        SELECT
+          metadata->'profileSubjectIds'->>0 AS "subject1Id",
+          metadata->'profileSubjectIds'->>1 AS "subject2Id",
+          language,
+          raw_score::double precision AS "rawScore",
+          score::double precision AS "score"
+        FROM test_sessions
+        WHERE exam_type_id = ${ent.id}::uuid
+          AND status IN ('completed', 'timed_out')
+          AND metadata IS NOT NULL
+      )
+      SELECT
+        "subject1Id",
+        "subject2Id",
+        COALESCE(language, '—') AS language,
+        COUNT(*)::int AS "sessions",
+        AVG("rawScore") AS "avgRawScore",
+        AVG("score") AS "avgScore"
+      FROM ent_sessions
+      WHERE "subject1Id" IS NOT NULL
+        AND "subject2Id" IS NOT NULL
+      GROUP BY "subject1Id", "subject2Id", COALESCE(language, '—')
+      ORDER BY "sessions" DESC
+    `;
 
     const subjectIds = new Set<string>();
-    for (const s of sessions) {
-      const meta = s.metadata as Record<string, unknown> | null;
-      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined;
-      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue;
-      for (const id of profileSubjectIds.slice(0, 2)) {
-        if (typeof id === 'string' && id) subjectIds.add(id);
-      }
+    for (const row of pairRows) {
+      if (row.subject1Id) subjectIds.add(row.subject1Id);
+      if (row.subject2Id) subjectIds.add(row.subject2Id);
     }
 
     const subjects = subjectIds.size
@@ -268,111 +318,64 @@ export class AdminAnalyticsService {
         })
       : [];
     const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
-
-    const pairMap = new Map<
-      string,
-      {
-        pairKey: string;
-        profileSubjectIds: string[];
-        profileSubjectSlugs: string[];
-        profileSubjectNames: string[];
-        sessions: number;
-        avgRawScore: number | null;
-        avgScore: number | null;
-        byLanguage: Map<
-          string,
-          {
-            language: string;
-            sessions: number;
-            avgRawScore: number | null;
-            avgScore: number | null;
-          }
-        >;
-      }
-    >();
-
-    const languages = new Set<string>();
-
-    for (const s of sessions) {
-      const meta = s.metadata as Record<string, unknown> | null;
-      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined;
-      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue;
-      const ids = profileSubjectIds.slice(0, 2);
-      const key = ids.join('+');
-      const lang = s.language || '—';
-      languages.add(lang);
-      const existing = pairMap.get(key);
-      if (existing) {
-        existing.sessions++;
-        if (s.rawScore != null) {
-          existing.avgRawScore =
-            ((existing.avgRawScore ?? 0) * (existing.sessions - 1) + s.rawScore) / existing.sessions;
-        }
-        if (s.score != null) {
-          existing.avgScore =
-            ((existing.avgScore ?? 0) * (existing.sessions - 1) + Number(s.score)) / existing.sessions;
-        }
-        const langAgg = existing.byLanguage.get(lang);
-        if (langAgg) {
-          langAgg.sessions++;
-          if (s.rawScore != null) {
-            langAgg.avgRawScore =
-              ((langAgg.avgRawScore ?? 0) * (langAgg.sessions - 1) + s.rawScore) / langAgg.sessions;
-          }
-          if (s.score != null) {
-            langAgg.avgScore =
-              ((langAgg.avgScore ?? 0) * (langAgg.sessions - 1) + Number(s.score)) / langAgg.sessions;
-          }
+    const byPairKey = new Map(
+      languageRows.reduce<
+        Array<
+          [
+            string,
+            Array<{
+              language: string;
+              sessions: number;
+              avgRawScore: number | null;
+              avgScore: number | null;
+            }>,
+          ]
+        >
+      >((acc, row) => {
+        const key = `${row.subject1Id}+${row.subject2Id}`;
+        const existing = acc.find(([pairKey]) => pairKey === key);
+        const nextRow = {
+          language: row.language || '—',
+          sessions: toNumber(row.sessions),
+          avgRawScore: row.avgRawScore != null ? Number(row.avgRawScore) : null,
+          avgScore: row.avgScore != null ? Number(row.avgScore) : null,
+        };
+        if (existing) {
+          existing[1].push(nextRow);
         } else {
-          existing.byLanguage.set(lang, {
-            language: lang,
-            sessions: 1,
-            avgRawScore: s.rawScore ?? null,
-            avgScore: s.score != null ? Number(s.score) : null,
-          });
+          acc.push([key, [nextRow]]);
         }
-      } else {
-        const resolvedSubjects = ids.map((id) => subjectMap.get(id)).filter(Boolean);
-        pairMap.set(key, {
-          pairKey: key,
-          profileSubjectIds: ids,
-          profileSubjectSlugs: resolvedSubjects.map((subject) => subject!.slug),
-          profileSubjectNames: resolvedSubjects.map((subject) => localizedLabel(subject!.name)),
-          sessions: 1,
-          avgRawScore: s.rawScore ?? null,
-          avgScore: s.score != null ? Number(s.score) : null,
-          byLanguage: new Map([
-            [
-              lang,
-              {
-                language: lang,
-                sessions: 1,
-                avgRawScore: s.rawScore ?? null,
-                avgScore: s.score != null ? Number(s.score) : null,
-              },
-            ],
-          ]),
-        });
-      }
-    }
+        return acc;
+      }, []),
+    );
 
-    const pairs = [...pairMap.entries()]
-      .map(([, stats]) => ({
-        pairKey: stats.pairKey,
-        profileSubjectIds: stats.profileSubjectIds,
-        profileSubjectSlugs: stats.profileSubjectSlugs,
-        profileSubjectNames: stats.profileSubjectNames,
-        label: stats.profileSubjectNames.join(' + ') || stats.profileSubjectSlugs.join(' + ') || stats.pairKey,
-        sessions: stats.sessions,
-        avgRawScore: stats.avgRawScore,
-        avgScore: stats.avgScore,
-        byLanguage: [...stats.byLanguage.values()].sort((a, b) => b.sessions - a.sessions),
-      }))
-      .sort((a, b) => b.sessions - a.sessions);
+    const languages = [...new Set(languageRows.map((row) => row.language || '—'))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+
+    const pairs = pairRows.map((row) => {
+      const ids = [row.subject1Id, row.subject2Id];
+      const resolvedSubjects = ids.map((id) => subjectMap.get(id)).filter(Boolean);
+      const pairKey = ids.join('+');
+      const byLanguage = (byPairKey.get(pairKey) ?? []).sort((a, b) => b.sessions - a.sessions);
+      const profileSubjectNames = resolvedSubjects.map((subject) => localizedLabel(subject!.name));
+      const profileSubjectSlugs = resolvedSubjects.map((subject) => subject!.slug);
+      return {
+        pairKey,
+        profileSubjectIds: ids,
+        profileSubjectSlugs,
+        profileSubjectNames,
+        label: profileSubjectNames.join(' + ') || profileSubjectSlugs.join(' + ') || pairKey,
+        sessions: toNumber(row.sessions),
+        avgRawScore: row.avgRawScore != null ? Number(row.avgRawScore) : null,
+        avgScore: row.avgScore != null ? Number(row.avgScore) : null,
+        byLanguage,
+      };
+    });
 
     return {
       pairs,
-      languages: [...languages].sort((a, b) => a.localeCompare(b)),
+      languages,
     };
   }
 }

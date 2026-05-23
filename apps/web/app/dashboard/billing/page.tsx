@@ -136,6 +136,20 @@ function resolveOrderInvoiceId(order: KaspiOrder): string | null {
     return getString(order.invoiceId) || getString(order.providerOrderId)
 }
 
+function isPollVisible() {
+    return typeof document === "undefined" || document.visibilityState === "visible"
+}
+
+function isPendingKaspiOrder(order: KaspiOrder) {
+    const expiresMs = parseTimestamp(order.expiresAt)
+    if (expiresMs != null && expiresMs <= Date.now()) {
+        const normalized = String(order.status || "").trim().toLowerCase()
+        return !(normalized === "" || normalized === "pending" || normalized === "created")
+    }
+    const normalized = String(order.status || "").trim().toLowerCase()
+    return normalized === "" || normalized === "pending" || normalized === "created"
+}
+
 function pickNumber(...values: unknown[]): number | null {
     for (const v of values) {
         if (typeof v === "number" && Number.isFinite(v)) return v
@@ -256,7 +270,12 @@ export default function BillingPage() {
     const { data: orders, isLoading: ordersLoading } = useSWR<KaspiOrder[]>(
         '/billing/kaspi/orders/active',
         (url) => api(url),
-        { refreshInterval: 10000 },
+        {
+            refreshInterval: (current) =>
+                isPollVisible() && (current?.some((order) => isPendingKaspiOrder(order)) ?? false)
+                    ? 10000
+                    : 0,
+        },
     )
 
     const rawPlans: BillingPlan[] = Array.isArray(data) ? data : data?.items ?? []
@@ -404,10 +423,7 @@ function PendingKaspiOrders({
     isLoading: boolean
 }) {
     const visibleOrders = (orders ?? []).filter((order) => {
-        const expiresMs = parseTimestamp(order.expiresAt)
-        if (expiresMs == null) return true
-        const normalized = String(order.status || "").trim().toLowerCase()
-        return !(expiresMs <= Date.now() && (normalized === "" || normalized === "pending" || normalized === "created"))
+        return isPendingKaspiOrder(order)
     })
 
     if (isLoading) {

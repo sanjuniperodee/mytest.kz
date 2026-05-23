@@ -39,6 +39,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
 import { HigTableCard } from '../components/HigBlocks';
+import { useDebouncedValue } from '../lib/useDebouncedValue';
 
 function formatNowRu() {
   return new Date().toLocaleDateString('ru-RU', {
@@ -132,6 +133,7 @@ export function SubscriptionsPage() {
   const [entitlementModalOpen, setEntitlementModalOpen] = useState(false);
   const [applyTemplateIdPrefill, setApplyTemplateIdPrefill] = useState<string | null>(null);
   const [subscriptionTab, setSubscriptionTab] = useState('grant');
+  const debouncedUserSearch = useDebouncedValue(userSearch, 350);
 
   const [applyForm] = Form.useForm();
   const [templateForm] = Form.useForm();
@@ -140,8 +142,13 @@ export function SubscriptionsPage() {
   const [entitlementForm] = Form.useForm();
 
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['admin-users', userSearch],
-    queryFn: async () => (await api.get('/admin/users', { params: { search: userSearch, limit: 200 } })).data,
+    queryKey: ['admin-users', debouncedUserSearch, 'compact-picker'],
+    queryFn: async () =>
+      (
+        await api.get('/admin/users', {
+          params: { search: debouncedUserSearch, limit: 200, compact: true },
+        })
+      ).data,
   });
 
   const { data: examTypes, isPending: examTypesPending } = useQuery({

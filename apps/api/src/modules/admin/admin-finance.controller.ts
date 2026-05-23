@@ -17,6 +17,7 @@ export class AdminFinanceController {
     @Query('limit') limit?: string,
     @Query('status') status?: PaymentOrderStatus | 'all',
     @Query('provider') provider?: string,
+    @Query('compact') compact?: string,
   ) {
     return this.adminService.getFinanceOrders({
       search,
@@ -24,6 +25,7 @@ export class AdminFinanceController {
       limit: limit ? parseInt(limit, 10) : 25,
       status,
       provider,
+      compact: compact === 'true',
     });
   }
 

@@ -14,11 +14,13 @@ export class AdminUsersController {
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('compact') compact?: string,
   ) {
     return this.adminService.getUsers(
       search,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
+      { compact: compact === 'true' },
     );
   }
 

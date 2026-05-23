@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -520,110 +521,84 @@ export class AnalyticsService {
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const to = params.to ? new Date(params.to) : new Date();
 
-    const where: any = {
-      status: 'completed',
-      finishedAt: { gte: from, lte: to },
-    };
-    if (params.examTypeId) {
-      where.examTypeId = params.examTypeId;
-    }
+    const examFilter = params.examTypeId
+      ? Prisma.sql`AND ts.exam_type_id = ${params.examTypeId}::uuid`
+      : Prisma.empty;
 
-    const [items, total] = await Promise.all([
-      this.prisma.testSession.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              telegramId: true,
-              telegramUsername: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          examType: { select: { id: true, name: true, slug: true } },
-        },
-        orderBy: { finishedAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.testSession.count({ where }),
+    const [items, totalRows] = await Promise.all([
+      this.prisma.$queryRaw<
+        Array<{
+          userId: string;
+          telegramId: bigint | number | null;
+          telegramUsername: string | null;
+          firstName: string | null;
+          lastName: string | null;
+          testsCompleted: number | bigint;
+          lastTestAt: Date | null;
+          bestScore: number | null;
+          avgScore: number | null;
+          avgDurationSecs: number | null;
+        }>
+      >(
+        Prisma.sql`
+          SELECT
+            u.id AS "userId",
+            u.telegram_id AS "telegramId",
+            u.telegram_username AS "telegramUsername",
+            u.first_name AS "firstName",
+            u.last_name AS "lastName",
+            COUNT(ts.id)::int AS "testsCompleted",
+            MAX(ts.finished_at) AS "lastTestAt",
+            MAX(ts.score)::double precision AS "bestScore",
+            AVG(ts.score)::double precision AS "avgScore",
+            AVG(ts.duration_secs)::double precision AS "avgDurationSecs"
+          FROM test_sessions ts
+          JOIN users u ON u.id = ts.user_id
+          WHERE ts.status = 'completed'
+            AND ts.finished_at >= ${from}
+            AND ts.finished_at <= ${to}
+            ${examFilter}
+          GROUP BY u.id, u.telegram_id, u.telegram_username, u.first_name, u.last_name
+          ORDER BY MAX(ts.finished_at) DESC
+          OFFSET ${(page - 1) * limit}
+          LIMIT ${limit}
+        `,
+      ),
+      this.prisma.$queryRaw<Array<{ total: number | bigint }>>(
+        Prisma.sql`
+          SELECT COUNT(*)::int AS total
+          FROM (
+            SELECT ts.user_id
+            FROM test_sessions ts
+            WHERE ts.status = 'completed'
+              AND ts.finished_at >= ${from}
+              AND ts.finished_at <= ${to}
+              ${examFilter}
+              AND ts.user_id IS NOT NULL
+            GROUP BY ts.user_id
+          ) grouped_users
+        `,
+      ),
     ]);
 
-    // Aggregate per user
-    const userMap = new Map<
-      string,
-      {
-        userId: string;
-        telegramId: number | null;
-        telegramUsername: string | null;
-        firstName: string | null;
-        lastName: string | null;
-        testsCompleted: number;
-        lastTestAt: string | null;
-        scores: number[];
-        durations: number[];
-      }
-    >();
-
-    for (const session of items) {
-      const u = session.user;
-      if (!u) continue;
-      const id = u.id;
-      const existing = userMap.get(id);
-      if (!existing) {
-        userMap.set(id, {
-          userId: id,
-          telegramId: u.telegramId ? Number(u.telegramId) : null,
-          telegramUsername: u.telegramUsername,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          testsCompleted: 1,
-          lastTestAt: session.finishedAt?.toISOString() ?? null,
-          scores: session.score ? [Number(session.score)] : [],
-          durations: session.durationSecs ? [session.durationSecs] : [],
-        });
-      } else {
-        existing.testsCompleted++;
-        if (
-          session.finishedAt &&
-          (!existing.lastTestAt ||
-            new Date(session.finishedAt) > new Date(existing.lastTestAt))
-        ) {
-          existing.lastTestAt = session.finishedAt.toISOString();
-        }
-        if (session.score)
-          existing.scores.push(Number(session.score));
-        if (session.durationSecs)
-          existing.durations.push(session.durationSecs);
-      }
-    }
-
-    const aggregated = Array.from(userMap.values()).map((u) => ({
-      userId: u.userId,
-      telegramId: u.telegramId,
-      telegramUsername: u.telegramUsername,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      testsCompleted: u.testsCompleted,
-      lastTestAt: u.lastTestAt,
-      bestScore:
-        u.scores.length > 0 ? Math.max(...u.scores) : null,
-      avgScore:
-        u.scores.length > 0
-          ? Math.round(
-              (u.scores.reduce((a, b) => a + b, 0) / u.scores.length) * 100
-            ) / 100
-          : null,
+    const aggregated = items.map((row) => ({
+      userId: row.userId,
+      telegramId:
+        row.telegramId == null ? null : Number(row.telegramId),
+      telegramUsername: row.telegramUsername,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      testsCompleted: Number(row.testsCompleted),
+      lastTestAt: row.lastTestAt?.toISOString() ?? null,
+      bestScore: row.bestScore != null ? Number(row.bestScore) : null,
+      avgScore: row.avgScore != null ? Math.round(Number(row.avgScore) * 100) / 100 : null,
       avgDurationSecs:
-        u.durations.length > 0
-          ? Math.round(u.durations.reduce((a, b) => a + b, 0) / u.durations.length)
-          : null,
+        row.avgDurationSecs != null ? Math.round(Number(row.avgDurationSecs)) : null,
     }));
 
     return {
       items: aggregated,
-      total,
+      total: totalRows[0]?.total ? Number(totalRows[0].total) : 0,
       page,
       limit,
     };

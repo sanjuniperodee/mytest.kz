@@ -26,8 +26,15 @@ export class AdminUserService {
     private accessService: AccessService,
   ) {}
 
-  async getUsers(search?: string, page = 1, limit = 20) {
+  async getUsers(
+    search?: string,
+    page = 1,
+    limit = 20,
+    options?: { compact?: boolean },
+  ) {
     const digits = search?.replace(/\D/g, '') ?? '';
+    const now = new Date();
+    const compact = options?.compact === true;
     const where = search
       ? {
           OR: [
@@ -40,7 +47,51 @@ export class AdminUserService {
         }
       : {};
 
-    let [items, total] = await Promise.all([
+    if (compact) {
+      const [items, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            telegramId: true,
+            telegramUsername: true,
+            email: true,
+            phone: true,
+            firstName: true,
+            lastName: true,
+            preferredLanguage: true,
+            isChannelMember: true,
+            isAdmin: true,
+            createdAt: true,
+            subscriptions: {
+              where: {
+                isActive: true,
+                expiresAt: { gt: now },
+              },
+              select: { id: true },
+              take: 1,
+            },
+          },
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.user.count({ where }),
+      ]);
+
+      return {
+        items: items.map(({ subscriptions, ...u }) => ({
+          ...u,
+          telegramId: u.telegramId ? Number(u.telegramId) : null,
+          hasActiveSubscription: subscriptions.length > 0,
+        })),
+        total,
+        page,
+        limit,
+      };
+    }
+
+    const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
         include: {
@@ -51,8 +102,8 @@ export class AdminUserService {
           entitlements: {
             where: {
               status: EntitlementStatus.active,
-              windowStartsAt: { lte: new Date() },
-              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: new Date() } }],
+              windowStartsAt: { lte: now },
+              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: now } }],
             },
             orderBy: { updatedAt: 'desc' },
             take: 20,
@@ -64,31 +115,6 @@ export class AdminUserService {
       }),
       this.prisma.user.count({ where }),
     ]);
-
-    await Promise.all(items.map((u) => this.accessService.ensureSignupEntitlementsForUser(u.id)));
-
-    if (items.length > 0) {
-      const refreshed = await this.prisma.user.findMany({
-        where: { id: { in: items.map((u) => u.id) } },
-        include: {
-          subscriptions: {
-            where: { isActive: true },
-            orderBy: { expiresAt: 'desc' },
-          },
-          entitlements: {
-            where: {
-              status: EntitlementStatus.active,
-              windowStartsAt: { lte: new Date() },
-              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: new Date() } }],
-            },
-            orderBy: { updatedAt: 'desc' },
-            take: 20,
-          },
-        },
-      });
-      const byId = new Map(refreshed.map((u) => [u.id, u]));
-      items = items.map((u) => byId.get(u.id) ?? u);
-    }
 
     return {
       items: items.map((u) => ({

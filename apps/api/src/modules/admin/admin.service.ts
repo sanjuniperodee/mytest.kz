@@ -16,8 +16,13 @@ export class AdminService {
   ) {}
 
   // User management
-  async getUsers(search?: string, page = 1, limit = 20) {
-    return this.userService.getUsers(search, page, limit);
+  async getUsers(
+    search?: string,
+    page = 1,
+    limit = 20,
+    options?: { compact?: boolean },
+  ) {
+    return this.userService.getUsers(search, page, limit, options);
   }
 
   async getUserDetail(id: string) {
