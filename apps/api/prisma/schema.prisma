@@ -46,6 +46,7 @@ model Subject {
   testTemplateSections TestTemplateSection[]
 
   @@unique([examTypeId, slug])
+  @@index([examTypeId, sortOrder])
   @@map("subjects")
 }
 
@@ -58,6 +59,7 @@ model Topic {
   subject   Subject    @relation(fields: [subjectId], references: [id])
   questions Question[]
 
+  @@index([subjectId, sortOrder])
   @@map("topics")
 }
 
@@ -86,7 +88,9 @@ model Question {
   appeals       QuestionAppeal[]
 
   @@index([subjectId, isActive])
+  @@index([subjectId, isActive, createdAt], map: "questions_subject_active_created_idx")
   @@index([examTypeId, isActive])
+  @@index([examTypeId, isActive, createdAt], map: "questions_exam_active_created_idx")
   @@index([topicId])
   @@index([metadata], type: Gin)
   @@map("questions")
@@ -101,6 +105,7 @@ model AnswerOption {
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
+  @@index([questionId, sortOrder], map: "answer_options_question_sort_idx")
   @@map("answer_options")
 }
 
@@ -115,6 +120,7 @@ model TestTemplate {
   sections     TestTemplateSection[]
   testSessions TestSession[]
 
+  @@index([examTypeId, isActive], map: "test_templates_exam_active_idx")
   @@map("test_templates")
 }
 
@@ -131,6 +137,8 @@ model TestTemplateSection {
   template TestTemplate @relation(fields: [templateId], references: [id])
   subject  Subject      @relation(fields: [subjectId], references: [id])
 
+  @@index([templateId, sortOrder], map: "template_sections_template_sort_idx")
+  @@index([subjectId], map: "template_sections_subject_idx")
   @@map("test_template_sections")
 }
 
@@ -193,6 +201,8 @@ model Subscription {
   notificationDeliveries NotificationDelivery[]
 
   @@index([userId, isActive, expiresAt])
+  @@index([userId, isActive, startsAt, expiresAt], map: "subscriptions_user_active_window_idx")
+  @@index([isActive, expiresAt], map: "subscriptions_active_expires_idx")
   @@map("subscriptions")
 }
 
@@ -309,6 +319,9 @@ model UserExamEntitlement {
 
   @@unique([sourceType, sourceRef])
   @@index([userId, examTypeId, status])
+  @@index([userId, examTypeId, status, windowStartsAt, windowEndsAt], map: "entitlements_user_exam_status_window_idx")
+  @@index([userId, status, windowStartsAt, windowEndsAt], map: "entitlements_user_status_window_idx")
+  @@index([subscriptionId, status], map: "entitlements_subscription_status_idx")
   @@index([windowStartsAt, windowEndsAt])
   @@index([tier, status])
   @@map("user_exam_entitlements")
@@ -389,6 +402,10 @@ model TestSession {
 
   @@index([userId, status])
   @@index([userId, startedAt])
+  @@index([userId, status, finishedAt], map: "test_sessions_user_status_finished_idx")
+  @@index([examTypeId, status, finishedAt], map: "test_sessions_exam_status_finished_idx")
+  @@index([examTypeId, status, maxScore, rawScore], map: "test_sessions_exam_status_score_idx")
+  @@index([templateId], map: "test_sessions_template_idx")
   @@index([visitId])
   @@map("test_sessions")
 }
@@ -406,6 +423,8 @@ model TestAnswer {
   question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+  @@index([sessionId, questionId], map: "test_answers_session_question_idx")
+  @@index([questionId, sessionId], map: "test_answers_question_session_idx")
   @@map("test_answers")
 }
 
@@ -481,6 +500,7 @@ model EntEducationalProgram {
 
   @@unique([code, profileVariant])
   @@index([code])
+  @@index([profileSubjects], map: "programs_profile_subjects_idx")
   @@map("ent_educational_programs")
 }
 
@@ -517,6 +537,7 @@ model GrantCutoff {
   @@unique([cycleId, universityCode, programId, quotaType])
   @@index([cycleId, universityCode])
   @@index([cycleId, programId])
+  @@index([cycleId, quotaType], map: "grant_cutoffs_cycle_quota_idx")
   @@map("grant_cutoffs")
 }
 
@@ -547,6 +568,9 @@ model PaymentOrder {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, status, createdAt])
+  @@index([status, updatedAt], map: "payment_orders_status_updated_idx")
+  @@index([provider, status, updatedAt], map: "payment_orders_provider_status_updated_idx")
+  @@index([status, paidAt], map: "payment_orders_status_paid_idx")
   @@map("payment_orders")
 }
 
@@ -566,6 +590,7 @@ model VisitEvent {
   testSessions TestSession[]
 
   @@index([visitorId, createdAt])
+  @@index([visitorId, landingPath, createdAt], map: "visit_events_visitor_path_created_idx")
   @@index([userId, createdAt])
   @@index([createdAt])
   @@map("visit_events")
@@ -583,7 +608,9 @@ model FunnelStep {
   session TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([visitId])
+  @@index([visitId, step, sessionId], map: "funnel_steps_visit_step_session_idx")
   @@index([step, timestamp])
+  @@index([sessionId, timestamp], map: "funnel_steps_session_timestamp_idx")
   @@map("funnel_steps")
 }
 
@@ -623,7 +650,9 @@ model NotificationDelivery {
   subscription Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
   @@index([campaignKey, status, attemptedAt])
+  @@index([campaignKey, attemptedAt], map: "notification_deliveries_campaign_attempted_idx")
   @@index([userId, sentAt])
+  @@index([userId, status, sentAt], map: "notification_deliveries_user_status_sent_idx")
   @@index([sessionId])
   @@index([subscriptionId])
   @@map("notification_deliveries")

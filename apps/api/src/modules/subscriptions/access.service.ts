@@ -955,6 +955,38 @@ export class AccessService {
       },
     });
 
+    const dailyUsageByEntitlementDay = new Map<string, number>();
+    const dailyLookups = entitlements
+      .map((ent) => {
+        const dailyAttemptsLimit =
+          ent.dailyAttemptsLimit ??
+          (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
+        if (dailyAttemptsLimit == null) return null;
+        return {
+          entitlementId: ent.id,
+          localDay: this.getLocalDayKey(now, ent.timezone),
+        };
+      })
+      .filter(
+        (item): item is { entitlementId: string; localDay: string } => item !== null,
+      );
+
+    if (dailyLookups.length > 0) {
+      const usageRows = await tx.userExamDailyUsage.findMany({
+        where: {
+          entitlementId: { in: [...new Set(dailyLookups.map((item) => item.entitlementId))] },
+          localDay: { in: [...new Set(dailyLookups.map((item) => item.localDay))] },
+        },
+        select: { entitlementId: true, localDay: true, attemptsUsed: true },
+      });
+      for (const usage of usageRows) {
+        dailyUsageByEntitlementDay.set(
+          `${usage.entitlementId}:${usage.localDay}`,
+          usage.attemptsUsed,
+        );
+      }
+    }
+
     let usedTotal = 0;
     let totalLimit: number | null = 0;
     let totalUnlimited = false;
@@ -991,16 +1023,7 @@ export class AccessService {
       }
 
       const localDay = this.getLocalDayKey(now, ent.timezone);
-      const usage = await tx.userExamDailyUsage.findUnique({
-        where: {
-          entitlementId_localDay: {
-            entitlementId: ent.id,
-            localDay,
-          },
-        },
-        select: { attemptsUsed: true },
-      });
-      const dailyUsed = usage?.attemptsUsed ?? 0;
+      const dailyUsed = dailyUsageByEntitlementDay.get(`${ent.id}:${localDay}`) ?? 0;
       const remDaily = Math.max(0, dailyAttemptsLimit - dailyUsed);
       usedDaily += dailyUsed;
       dailyLimit = (dailyLimit ?? 0) + dailyAttemptsLimit;
@@ -1106,6 +1129,37 @@ export class AccessService {
       return aEnds - bEnds;
     });
 
+    const dailyLookups = sorted
+      .map((ent) => {
+        const dailyAttemptsLimit =
+          ent.dailyAttemptsLimit ??
+          (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
+        if (dailyAttemptsLimit == null) return null;
+        return {
+          entitlementId: ent.id,
+          localDay: this.getLocalDayKey(now, ent.timezone),
+        };
+      })
+      .filter(
+        (item): item is { entitlementId: string; localDay: string } => item !== null,
+      );
+    const dailyUsageByEntitlementDay = new Map<string, number>();
+    if (dailyLookups.length > 0) {
+      const usageRows = await tx.userExamDailyUsage.findMany({
+        where: {
+          entitlementId: { in: [...new Set(dailyLookups.map((item) => item.entitlementId))] },
+          localDay: { in: [...new Set(dailyLookups.map((item) => item.localDay))] },
+        },
+        select: { entitlementId: true, localDay: true, attemptsUsed: true },
+      });
+      for (const usage of usageRows) {
+        dailyUsageByEntitlementDay.set(
+          `${usage.entitlementId}:${usage.localDay}`,
+          usage.attemptsUsed,
+        );
+      }
+    }
+
     let hasDailyBlocked = false;
     let hasTotalExhausted = false;
     let nearestReset: Date | null = null;
@@ -1125,13 +1179,7 @@ export class AccessService {
         ent.dailyAttemptsLimit ??
         (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
       if (dailyAttemptsLimit != null) {
-        const usage = await tx.userExamDailyUsage.findUnique({
-          where: {
-            entitlementId_localDay: { entitlementId: ent.id, localDay },
-          },
-          select: { attemptsUsed: true },
-        });
-        const used = usage?.attemptsUsed ?? 0;
+        const used = dailyUsageByEntitlementDay.get(`${ent.id}:${localDay}`) ?? 0;
         remToday = Math.max(0, dailyAttemptsLimit - used);
         if (remToday <= 0) {
           hasDailyBlocked = true;

@@ -191,10 +191,8 @@ export class AdminExamsService {
           isActive: dto.isActive ?? true,
         },
       });
-      for (let i = 0; i < dto.sections.length; i++) {
-        const s = dto.sections[i];
-        await tx.testTemplateSection.create({
-          data: {
+      await tx.testTemplateSection.createMany({
+        data: dto.sections.map((s, i) => ({
             templateId: tpl.id,
             subjectId: s.subjectId,
             questionCount: s.questionCount,
@@ -204,9 +202,8 @@ export class AdminExamsService {
               s.profileHeavyFrom !== undefined && s.profileHeavyFrom !== null
                 ? s.profileHeavyFrom
                 : null,
-          },
-        });
-      }
+        })),
+      });
       return tx.testTemplate.findUnique({
         where: { id: tpl.id },
         include: {
@@ -235,10 +232,8 @@ export class AdminExamsService {
     await this.ensureTemplate(templateId);
     await this.prisma.$transaction(async (tx) => {
       await tx.testTemplateSection.deleteMany({ where: { templateId } });
-      for (let i = 0; i < dto.sections.length; i++) {
-        const s = dto.sections[i];
-        await tx.testTemplateSection.create({
-          data: {
+      await tx.testTemplateSection.createMany({
+        data: dto.sections.map((s, i) => ({
             templateId,
             subjectId: s.subjectId,
             questionCount: s.questionCount,
@@ -248,9 +243,8 @@ export class AdminExamsService {
               s.profileHeavyFrom !== undefined && s.profileHeavyFrom !== null
                 ? s.profileHeavyFrom
                 : null,
-          },
-        });
-      }
+        })),
+      });
     });
     return this.prisma.testTemplate.findUnique({
       where: { id: templateId },

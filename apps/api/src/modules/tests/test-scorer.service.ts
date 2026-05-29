@@ -150,6 +150,48 @@ function getReviewAnswerStatus(
 export class TestScorerService {
   constructor(private prisma: PrismaService) {}
 
+  private async persistAnswerCorrectness(
+    correctAnswerIds: string[],
+    incorrectAnswerIds: string[],
+  ): Promise<void> {
+    const answerDelegate = this.prisma.testAnswer as typeof this.prisma.testAnswer & {
+      updateMany?: typeof this.prisma.testAnswer.updateMany;
+    };
+
+    if (typeof answerDelegate.updateMany === 'function') {
+      await Promise.all([
+        correctAnswerIds.length > 0
+          ? answerDelegate.updateMany({
+              where: { id: { in: correctAnswerIds } },
+              data: { isCorrect: true },
+            })
+          : Promise.resolve(),
+        incorrectAnswerIds.length > 0
+          ? answerDelegate.updateMany({
+              where: { id: { in: incorrectAnswerIds } },
+              data: { isCorrect: false },
+            })
+          : Promise.resolve(),
+      ]);
+      return;
+    }
+
+    await Promise.all([
+      ...correctAnswerIds.map((id) =>
+        this.prisma.testAnswer.update({
+          where: { id },
+          data: { isCorrect: true },
+        }),
+      ),
+      ...incorrectAnswerIds.map((id) =>
+        this.prisma.testAnswer.update({
+          where: { id },
+          data: { isCorrect: false },
+        }),
+      ),
+    ]);
+  }
+
   async calculateScore(sessionId: string): Promise<ScoreResult> {
     const session = await this.prisma.testSession.findUnique({
       where: { id: sessionId },
@@ -193,6 +235,8 @@ export class TestScorerService {
     let weightedRaw = 0;
     let weightedMax = 0;
     const answerScores: AnswerScore[] = [];
+    const correctAnswerIds: string[] = [];
+    const incorrectAnswerIds: string[] = [];
     const entWeightedActive =
       examSlug === 'ent' &&
       placement !== null &&
@@ -237,11 +281,8 @@ export class TestScorerService {
       const reviewStatus = getReviewAnswerStatus(selectedIds, wEarned, wMax);
 
       if (isPerfectlyCorrect) correctCount++;
-
-      await this.prisma.testAnswer.update({
-        where: { id: answer.id },
-        data: { isCorrect: isPerfectlyCorrect },
-      });
+      if (isPerfectlyCorrect) correctAnswerIds.push(answer.id);
+      else incorrectAnswerIds.push(answer.id);
 
       weightedRaw += wEarned;
       weightedMax += wMax;
@@ -271,6 +312,8 @@ export class TestScorerService {
       sec.rawPoints += wEarned;
       sec.maxPoints += wMax;
     }
+
+    await this.persistAnswerCorrectness(correctAnswerIds, incorrectAnswerIds);
 
     if (entWeightedActive && weightedMax > 0) {
       const score = Math.round((weightedRaw / weightedMax) * 100 * 100) / 100;

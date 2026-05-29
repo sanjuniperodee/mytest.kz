@@ -180,12 +180,72 @@ export class BulkImportService {
   async batchQuestions(dto: BatchQuestionsDto) {
     const created: { id: string; index: number }[] = [];
     const errors: { index: number; message: string }[] = [];
+    const subjectCache = new Map<
+      string,
+      { exam: { id: string }; subject: { id: string } }
+    >();
+    const loadedTopicSubjects = new Set<string>();
+    const topicCache = new Map<string, { id: string }>();
+    const nextTopicSortBySubject = new Map<string, number>();
+
+    const topicKey = (subjectId: string, topicNameRu: string) =>
+      `${subjectId}:${topicNameRu.trim().toLowerCase()}`;
+
+    const resolveSubjectCached = async (examTypeSlug: string, subjectSlug: string) => {
+      const key = `${examTypeSlug}:${subjectSlug}`;
+      const cached = subjectCache.get(key);
+      if (cached) return cached;
+      const resolved = await this.resolveSubject(examTypeSlug, subjectSlug);
+      const value = {
+        exam: { id: resolved.exam.id },
+        subject: { id: resolved.subject.id },
+      };
+      subjectCache.set(key, value);
+      return value;
+    };
+
+    const loadTopicsForSubject = async (subjectId: string) => {
+      if (loadedTopicSubjects.has(subjectId)) return;
+      const topics = await this.prisma.topic.findMany({
+        where: { subjectId },
+        select: { id: true, name: true, sortOrder: true },
+      });
+      let maxSort = 0;
+      for (const topic of topics) {
+        const name = topic.name as Record<string, string>;
+        const ru = typeof name?.ru === 'string' ? name.ru.trim().toLowerCase() : '';
+        if (ru) topicCache.set(topicKey(subjectId, ru), { id: topic.id });
+        maxSort = Math.max(maxSort, topic.sortOrder);
+      }
+      nextTopicSortBySubject.set(subjectId, maxSort + 1);
+      loadedTopicSubjects.add(subjectId);
+    };
+
+    const findOrCreateTopicCached = async (subjectId: string, topicNameRu: string) => {
+      const normalized = topicNameRu.trim();
+      await loadTopicsForSubject(subjectId);
+      const key = topicKey(subjectId, normalized);
+      const cached = topicCache.get(key);
+      if (cached) return cached;
+      const sortOrder = nextTopicSortBySubject.get(subjectId) ?? 1;
+      const createdTopic = await this.prisma.topic.create({
+        data: {
+          subjectId,
+          name: nameJson(normalized),
+          sortOrder,
+        },
+        select: { id: true },
+      });
+      topicCache.set(key, createdTopic);
+      nextTopicSortBySubject.set(subjectId, sortOrder + 1);
+      return createdTopic;
+    };
 
     for (let i = 0; i < dto.questions.length; i++) {
       const q = dto.questions[i];
       try {
-        const { exam, subject } = await this.resolveSubject(q.examTypeSlug, q.subjectSlug);
-        const topic = await this.findOrCreateTopic(subject.id, q.topicNameRu);
+        const { exam, subject } = await resolveSubjectCached(q.examTypeSlug, q.subjectSlug);
+        const topic = await findOrCreateTopicCached(subject.id, q.topicNameRu);
 
         const content: Prisma.InputJsonValue = {
           kk: { text: q.contentKk ?? '' },

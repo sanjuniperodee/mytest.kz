@@ -164,24 +164,62 @@ export class UsersService {
       return b.expiresAt.getTime() - a.expiresAt.getTime();
     });
 
-    let exhaustedSubscriptionTariff: Record<string, unknown> | null = null;
-    for (const activeSubscription of sortedSubscriptions) {
-      const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
-      const isPaid = activeSubscription.planType !== 'free';
-      const totalLimit = this.subscriptionTotalAttemptsLimit(activeSubscription.planType);
-      let usedAttemptsTotal = 0;
-      if (totalLimit != null) {
-        const agg = await this.prisma.userExamEntitlement.aggregate({
+    const limitedSubscriptionIds = sortedSubscriptions
+      .filter((sub) => this.subscriptionTotalAttemptsLimit(sub.planType) != null)
+      .map((sub) => sub.id);
+    const entitlementUsageBySubscription = new Map<string, number>();
+    if (limitedSubscriptionIds.length > 0) {
+      const entitlementDelegate = this.prisma.userExamEntitlement as typeof this.prisma.userExamEntitlement & {
+        groupBy?: typeof this.prisma.userExamEntitlement.groupBy;
+      };
+      if (typeof entitlementDelegate.groupBy === 'function') {
+        const usageRows = await entitlementDelegate.groupBy({
+          by: ['subscriptionId'],
           where: {
             userId,
-            subscriptionId: activeSubscription.id,
+            subscriptionId: { in: limitedSubscriptionIds },
             sourceType: EntitlementSourceType.subscription,
             status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
           },
           _sum: { usedAttemptsTotal: true },
         });
-        usedAttemptsTotal = Math.max(0, agg._sum.usedAttemptsTotal ?? 0);
+        for (const row of usageRows) {
+          if (!row.subscriptionId) continue;
+          entitlementUsageBySubscription.set(
+            row.subscriptionId,
+            Math.max(0, row._sum.usedAttemptsTotal ?? 0),
+          );
+        }
+      } else {
+        await Promise.all(
+          limitedSubscriptionIds.map(async (subscriptionId) => {
+            const agg = await this.prisma.userExamEntitlement.aggregate({
+              where: {
+                userId,
+                subscriptionId,
+                sourceType: EntitlementSourceType.subscription,
+                status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+              },
+              _sum: { usedAttemptsTotal: true },
+            });
+            entitlementUsageBySubscription.set(
+              subscriptionId,
+              Math.max(0, agg._sum.usedAttemptsTotal ?? 0),
+            );
+          }),
+        );
       }
+    }
+
+    let exhaustedSubscriptionTariff: Record<string, unknown> | null = null;
+    for (const activeSubscription of sortedSubscriptions) {
+      const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
+      const isPaid = activeSubscription.planType !== 'free';
+      const totalLimit = this.subscriptionTotalAttemptsLimit(activeSubscription.planType);
+      const usedAttemptsTotal =
+        totalLimit != null
+          ? (entitlementUsageBySubscription.get(activeSubscription.id) ?? 0)
+          : 0;
       const exhausted = totalLimit != null && usedAttemptsTotal >= totalLimit;
       const isActive = !exhausted;
       const tariff = {

@@ -89,6 +89,7 @@ export class NotificationsService {
     let sent = 0;
     let skipped = 0;
     let failed = 0;
+    const messagedUserIds = new Set<string>();
 
     try {
       const now = new Date();
@@ -116,10 +117,17 @@ export class NotificationsService {
 
         for (const candidate of candidates) {
           if (sent + failed >= batchSize) break;
-          const outcome = await this.processCandidate(candidate, now);
+          if (messagedUserIds.has(candidate.user.id)) {
+            skipped += 1;
+            continue;
+          }
+          const outcome = await this.processCandidate(candidate, now, {
+            skipRecentCheck: true,
+          });
           if (outcome === 'sent') sent += 1;
           else if (outcome === 'failed') failed += 1;
           else skipped += 1;
+          if (outcome === 'sent') messagedUserIds.add(candidate.user.id);
         }
       }
 
@@ -298,9 +306,12 @@ export class NotificationsService {
   private async processCandidate(
     candidate: NotificationCandidate,
     now: Date,
+    options: { skipRecentCheck?: boolean } = {},
   ): Promise<DeliveryOutcome> {
     if (!candidate.user.telegramId) return 'skipped';
-    if (await this.wasUserMessagedRecently(candidate.user.id, now)) return 'skipped';
+    if (!options.skipRecentCheck && await this.wasUserMessagedRecently(candidate.user.id, now)) {
+      return 'skipped';
+    }
     if (this.isQuietHour(candidate.user.timezone, now)) return 'skipped';
 
     const definition = getNotificationCampaignDefinition(candidate.campaignKey);
@@ -457,7 +468,29 @@ export class NotificationsService {
         candidates = [];
     }
 
-    return this.filterExistingDedupe(candidates);
+    return this.filterRecentlyMessaged(
+      await this.filterExistingDedupe(candidates),
+      now,
+    );
+  }
+
+  private async filterRecentlyMessaged(
+    candidates: NotificationCandidate[],
+    now: Date,
+  ): Promise<NotificationCandidate[]> {
+    if (candidates.length === 0) return candidates;
+    const userIds = [...new Set(candidates.map((candidate) => candidate.user.id))];
+    const since = this.addHours(now, -GLOBAL_USER_COOLDOWN_HOURS);
+    const recentRows = await this.prisma.notificationDelivery.findMany({
+      where: {
+        userId: { in: userIds },
+        status: 'sent',
+        sentAt: { gte: since },
+      },
+      select: { userId: true },
+    });
+    const recentUserIds = new Set(recentRows.map((row) => row.userId));
+    return candidates.filter((candidate) => !recentUserIds.has(candidate.user.id));
   }
 
   private async getAbandonedTestCandidates(

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -39,54 +40,168 @@ type EligibleSession = {
   };
 };
 
+type RankedSessionRow = {
+  rank: number | bigint;
+  id: string;
+  userId: string;
+  rawScore: number | bigint;
+  maxScore: number | bigint;
+  score: number | string | null;
+  durationSecs: number | null;
+  finishedAt: Date | null;
+  metadata: unknown;
+  firstName: string | null;
+  lastName: string | null;
+  telegramUsername: string | null;
+  avatarUrl: string | null;
+};
+
 @Injectable()
 export class LeaderboardService {
   constructor(private prisma: PrismaService) {}
 
   async getEntLeaderboard(userId: string, limit = 50): Promise<EntLeaderboardResponse> {
     const take = Math.min(Math.max(Math.floor(limit) || 50, 1), 100);
-    const sessions = await this.prisma.testSession.findMany({
-      where: {
-        status: { in: ['completed', 'timed_out'] },
-        totalQuestions: ENT_CONFIG.totalQuestions,
-        rawScore: { not: null },
-        maxScore: ENT_CONFIG.maxTotalPoints,
-        examType: { slug: 'ent' },
-      },
-      select: {
-        id: true,
-        userId: true,
-        rawScore: true,
-        maxScore: true,
-        score: true,
-        durationSecs: true,
-        finishedAt: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            telegramUsername: true,
-            avatarUrl: true,
+    let rankedSessions: Array<{ rank: number; session: EligibleSession }>;
+
+    if (typeof (this.prisma as { $queryRaw?: unknown }).$queryRaw === 'function') {
+      const rankedRows = await this.prisma.$queryRaw<RankedSessionRow[]>(
+        Prisma.sql`
+          WITH eligible AS (
+            SELECT
+              ts.id,
+              ts.user_id AS "userId",
+              ts.raw_score AS "rawScore",
+              ts.max_score AS "maxScore",
+              ts.score::double precision AS score,
+              ts.duration_secs AS "durationSecs",
+              ts.finished_at AS "finishedAt",
+              ts.metadata,
+              u.first_name AS "firstName",
+              u.last_name AS "lastName",
+              u.telegram_username AS "telegramUsername",
+              u.avatar_url AS "avatarUrl",
+              ROW_NUMBER() OVER (
+                PARTITION BY ts.user_id
+                ORDER BY
+                  ts.raw_score DESC,
+                  ts.duration_secs ASC NULLS LAST,
+                  ts.finished_at ASC NULLS LAST,
+                  ts.id ASC
+              ) AS user_rank
+            FROM test_sessions ts
+            INNER JOIN exam_types et ON et.id = ts.exam_type_id
+            INNER JOIN users u ON u.id = ts.user_id
+            WHERE et.slug = 'ent'
+              AND ts.status IN ('completed', 'timed_out')
+              AND ts.total_questions = ${ENT_CONFIG.totalQuestions}
+              AND ts.raw_score IS NOT NULL
+              AND ts.max_score = ${ENT_CONFIG.maxTotalPoints}
+          ),
+          best_per_user AS (
+            SELECT *
+            FROM eligible
+            WHERE user_rank = 1
+          ),
+          ranked AS (
+            SELECT
+              *,
+              ROW_NUMBER() OVER (
+                ORDER BY
+                  "rawScore" DESC,
+                  "durationSecs" ASC NULLS LAST,
+                  "finishedAt" ASC NULLS LAST,
+                  "userId" ASC
+              ) AS rank
+            FROM best_per_user
+          )
+          SELECT
+            rank,
+            id,
+            "userId",
+            "rawScore",
+            "maxScore",
+            score,
+            "durationSecs",
+            "finishedAt",
+            metadata,
+            "firstName",
+            "lastName",
+            "telegramUsername",
+            "avatarUrl"
+          FROM ranked
+          WHERE rank <= ${take}
+             OR "userId" = ${userId}::uuid
+          ORDER BY rank ASC
+        `,
+      );
+
+      rankedSessions = rankedRows.map((row) => ({
+        rank: Number(row.rank),
+        session: {
+          id: row.id,
+          userId: row.userId,
+          rawScore: row.rawScore,
+          maxScore: row.maxScore,
+          score: row.score,
+          durationSecs: row.durationSecs,
+          finishedAt: row.finishedAt,
+          metadata: row.metadata,
+          user: {
+            firstName: row.firstName,
+            lastName: row.lastName,
+            telegramUsername: row.telegramUsername,
+            avatarUrl: row.avatarUrl,
           },
+        } satisfies EligibleSession,
+      }));
+    } else {
+      const sessions = await this.prisma.testSession.findMany({
+        where: {
+          status: { in: ['completed', 'timed_out'] },
+          totalQuestions: ENT_CONFIG.totalQuestions,
+          rawScore: { not: null },
+          maxScore: ENT_CONFIG.maxTotalPoints,
+          examType: { slug: 'ent' },
         },
-        metadata: true,
-      },
-    });
+        select: {
+          id: true,
+          userId: true,
+          rawScore: true,
+          maxScore: true,
+          score: true,
+          durationSecs: true,
+          finishedAt: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              telegramUsername: true,
+              avatarUrl: true,
+            },
+          },
+          metadata: true,
+        },
+      });
 
-    const bestByUser = new Map<string, EligibleSession>();
-    for (const session of sessions as EligibleSession[]) {
-      const previous = bestByUser.get(session.userId);
-      if (!previous || this.compareSessions(session, previous) < 0) {
-        bestByUser.set(session.userId, session);
+      const bestByUser = new Map<string, EligibleSession>();
+      for (const session of sessions as EligibleSession[]) {
+        const previous = bestByUser.get(session.userId);
+        if (!previous || this.compareSessions(session, previous) < 0) {
+          bestByUser.set(session.userId, session);
+        }
       }
-    }
 
-    const sorted = Array.from(bestByUser.values())
-      .sort((a, b) => this.compareSessions(a, b));
+      rankedSessions = Array.from(bestByUser.values())
+        .sort((a, b) => this.compareSessions(a, b))
+        .map((session, index) => ({ rank: index + 1, session }));
+    }
 
     const profileSubjectIds = [
       ...new Set(
-        sorted.flatMap((session) => this.extractProfileSubjectIds(session.metadata)),
+        rankedSessions.flatMap(({ session }) =>
+          this.extractProfileSubjectIds(session.metadata),
+        ),
       ),
     ];
     const subjects = profileSubjectIds.length
@@ -99,12 +214,12 @@ export class LeaderboardService {
       subjects.map((subject) => [subject.id, this.getSubjectName(subject.name, 'ru')]),
     );
 
-    const rows = sorted.map((session, index) =>
-      this.toRow(session, index + 1, subjectNameById),
+    const rows = rankedSessions.map(({ session, rank }) =>
+      this.toRow(session, rank, subjectNameById),
     );
 
     return {
-      items: rows.slice(0, take),
+      items: rows.filter((row) => row.rank <= take),
       me: rows.find((row) => row.userId === userId) ?? null,
     };
   }
