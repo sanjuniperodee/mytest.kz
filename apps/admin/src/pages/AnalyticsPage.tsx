@@ -147,7 +147,7 @@ export function AnalyticsPage() {
       key: 'done',
       width: 120,
       align: 'right' as const,
-      render: (_: unknown, v: Visitor) => v.completedSessions.length,
+      render: (_: unknown, v: Visitor) => v.completedSessionsCount,
     },
   ];
 

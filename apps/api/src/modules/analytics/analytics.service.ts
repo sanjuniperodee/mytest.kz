@@ -230,49 +230,60 @@ export class AnalyticsService {
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const to = params.to ? new Date(params.to) : new Date();
 
-    const baseWhere = {
-      createdAt: { gte: from, lte: to },
+    const totalsRow = await this.prisma.$queryRaw<
+      Array<{
+        visits: number | bigint;
+        registered: number | bigint;
+        started: number | bigint;
+        completed: number | bigint;
+        billingOpened: number | bigint;
+        checkoutCreated: number | bigint;
+        paymentPaid: number | bigint;
+      }>
+    >`
+      SELECT
+        COUNT(DISTINCT v.visitor_id)::int AS visits,
+        COUNT(DISTINCT CASE WHEN v.user_id IS NOT NULL THEN v.visitor_id END)::int AS registered,
+        COUNT(DISTINCT CASE WHEN fs_started.id IS NOT NULL THEN v.visitor_id END)::int AS started,
+        COUNT(DISTINCT CASE WHEN fs_completed.id IS NOT NULL THEN v.visitor_id END)::int AS completed,
+        COUNT(DISTINCT CASE WHEN fs_billing.id IS NOT NULL THEN v.visitor_id END)::int AS "billingOpened",
+        COUNT(DISTINCT CASE WHEN fs_checkout.id IS NOT NULL THEN v.visitor_id END)::int AS "checkoutCreated",
+        COUNT(DISTINCT CASE WHEN fs_paid.id IS NOT NULL THEN v.visitor_id END)::int AS "paymentPaid"
+      FROM visit_events v
+      LEFT JOIN funnel_steps fs_started
+        ON fs_started.visit_id = v.id
+       AND fs_started.step = 'started_test'
+      LEFT JOIN funnel_steps fs_completed
+        ON fs_completed.visit_id = v.id
+       AND fs_completed.step = 'completed_test'
+      LEFT JOIN funnel_steps fs_billing
+        ON fs_billing.visit_id = v.id
+       AND fs_billing.step = 'billing_opened'
+      LEFT JOIN funnel_steps fs_checkout
+        ON fs_checkout.visit_id = v.id
+       AND fs_checkout.step = 'checkout_created'
+      LEFT JOIN funnel_steps fs_paid
+        ON fs_paid.visit_id = v.id
+       AND fs_paid.step = 'payment_paid'
+      WHERE v.created_at >= ${from}
+        AND v.created_at <= ${to}
+    `;
+    const totals = totalsRow[0] ?? {
+      visits: 0,
+      registered: 0,
+      started: 0,
+      completed: 0,
+      billingOpened: 0,
+      checkoutCreated: 0,
+      paymentPaid: 0,
     };
-
-    // Unique visitors
-    const uniqueVisitors = await this.prisma.visitEvent.groupBy({
-      by: ['visitorId'],
-      where: baseWhere,
-    });
-    const visits = uniqueVisitors.length;
-
-    // Registered users
-    const registeredVisits = await this.prisma.visitEvent.groupBy({
-      by: ['visitorId'],
-      where: { ...baseWhere, userId: { not: null } },
-    });
-    const registered = registeredVisits.length;
-
-    // Started test (unique visitors with started_test step)
-    const startedWhere = {
-      ...baseWhere,
-      funnelSteps: { some: { step: 'started_test' } },
-    };
-    const startedGrouped = await this.prisma.visitEvent.groupBy({
-      by: ['visitorId'],
-      where: startedWhere,
-    });
-    const started = startedGrouped.length;
-
-    // Completed test
-    const completedWhere = {
-      ...baseWhere,
-      funnelSteps: { some: { step: 'completed_test' } },
-    };
-    const completedGrouped = await this.prisma.visitEvent.groupBy({
-      by: ['visitorId'],
-      where: completedWhere,
-    });
-    const completed = completedGrouped.length;
-
-    const billingOpened = await this.countVisitorsByStep('billing_opened', from, to);
-    const checkoutCreated = await this.countVisitorsByStep('checkout_created', from, to);
-    const paymentPaid = await this.countVisitorsByStep('payment_paid', from, to);
+    const visits = Number(totals.visits);
+    const registered = Number(totals.registered);
+    const started = Number(totals.started);
+    const completed = Number(totals.completed);
+    const billingOpened = Number(totals.billingOpened);
+    const checkoutCreated = Number(totals.checkoutCreated);
+    const paymentPaid = Number(totals.paymentPaid);
 
     // By date aggregation
     const rawByDate = await this.prisma.$queryRaw<
@@ -385,17 +396,6 @@ export class AnalyticsService {
     };
   }
 
-  private async countVisitorsByStep(step: string, from: Date, to: Date) {
-    const grouped = await this.prisma.visitEvent.groupBy({
-      by: ['visitorId'],
-      where: {
-        createdAt: { gte: from, lte: to },
-        funnelSteps: { some: { step } },
-      },
-    });
-    return grouped.length;
-  }
-
   async getVisitors(params: {
     page?: number;
     limit?: number;
@@ -442,7 +442,10 @@ export class AnalyticsService {
     const [items, total] = await Promise.all([
       this.prisma.visitEvent.findMany({
         where,
-        include: {
+        select: {
+          visitorId: true,
+          userId: true,
+          createdAt: true,
           user: {
             select: {
               id: true,
@@ -454,16 +457,16 @@ export class AnalyticsService {
           },
           funnelSteps: {
             orderBy: { timestamp: 'asc' },
-            select: { step: true, timestamp: true, metadata: true },
+            select: { step: true, timestamp: true },
           },
-          testSessions: {
-            where: { status: 'completed' },
+          _count: {
             select: {
-              id: true,
-              examType: { select: { id: true, name: true, slug: true } },
-              score: true,
-              finishedAt: true,
-              durationSecs: true,
+              testSessions: {
+                where: {
+                  status: 'completed',
+                  ...(params.examTypeId ? { examTypeId: params.examTypeId } : {}),
+                },
+              },
             },
           },
         },
@@ -492,14 +495,8 @@ export class AnalyticsService {
           v.funnelSteps.length > 0
             ? v.funnelSteps[v.funnelSteps.length - 1].timestamp.toISOString()
             : v.createdAt.toISOString(),
-        steps: v.funnelSteps.map((fs) => fs.step),
-        completedSessions: v.testSessions.map((ts) => ({
-          sessionId: ts.id,
-          examType: ts.examType,
-          score: ts.score ? Number(ts.score) : null,
-          finishedAt: ts.finishedAt?.toISOString() ?? null,
-          durationSecs: ts.durationSecs,
-        })),
+        steps: [...new Set(v.funnelSteps.map((fs) => fs.step))],
+        completedSessionsCount: v._count.testSessions,
       })),
       total,
       page,
@@ -617,7 +614,7 @@ export class AnalyticsService {
     const body = rows
       .map(
         (r) =>
-          `${r.visitorId},${r.userId ?? ''},${r.user?.telegramUsername ?? ''},${r.user?.firstName ?? ''},${r.user?.lastName ?? ''},${r.firstSeen},${r.lastSeen},"${r.steps.join(' → ')}",${r.completedSessions.length}`,
+          `${r.visitorId},${r.userId ?? ''},${r.user?.telegramUsername ?? ''},${r.user?.firstName ?? ''},${r.user?.lastName ?? ''},${r.firstSeen},${r.lastSeen},"${r.steps.join(' → ')}",${r.completedSessionsCount}`,
       )
       .join('\n');
     return header + body;

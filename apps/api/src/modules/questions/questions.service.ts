@@ -13,6 +13,17 @@ import {
   type AdminTextSearchMode,
 } from '../../common/question-similarity';
 
+function tokenizeSearchNeedle(value: string): string[] {
+  return [...new Set(
+    value
+      .toLowerCase()
+      .split(/[^a-zа-яәіңғүұқөһ0-9]+/i)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 2)
+      .sort((a, b) => b.length - a.length),
+  )];
+}
+
 @Injectable()
 export class QuestionsService {
   constructor(private prisma: PrismaService) {}
@@ -232,13 +243,14 @@ export class QuestionsService {
     limit?: number;
     /** topic — только topicLine; stem — материал + условие + подсказка; all — всё (по умолчанию). */
     searchIn?: AdminTextSearchMode;
-  }) {
+    }) {
     const mode: AdminTextSearchMode = params.searchIn ?? 'all';
     const defaultThreshold = mode === 'topic' ? 0.32 : 0.4;
     const threshold = params.threshold ?? defaultThreshold;
     const limit = Math.min(Math.max(1, params.limit ?? 12), 60);
     const needle = params.text.trim();
     const minLen = mode === 'topic' ? 2 : 4;
+    const candidateTake = 250;
 
     if (!needle || needle.length < minLen) {
       return {
@@ -253,22 +265,75 @@ export class QuestionsService {
       };
     }
 
-    const rows = await this.prisma.question.findMany({
-      where: {
-        examTypeId: params.examTypeId,
-        ...(params.subjectId ? { subjectId: params.subjectId } : {}),
-        isActive: true,
-        ...(params.excludeId ? { id: { not: params.excludeId } } : {}),
-      },
-      select: {
-        id: true,
-        content: true,
-        subject: { select: { slug: true, name: true } },
-        topic: { select: { name: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 900,
-    });
+    type SimilarCandidateRow = {
+      id: string;
+      content: unknown;
+      subjectSlug: string | null;
+      subjectName: unknown;
+      topicName: unknown;
+    };
+
+    const baseWhere = {
+      examTypeId: params.examTypeId,
+      ...(params.subjectId ? { subjectId: params.subjectId } : {}),
+      isActive: true,
+      ...(params.excludeId ? { id: { not: params.excludeId } } : {}),
+    } satisfies Prisma.QuestionWhereInput;
+
+    const tokens = tokenizeSearchNeedle(needle).slice(0, mode === 'topic' ? 6 : 4);
+    const tokenClauses =
+      tokens.length > 0
+        ? Prisma.join(
+            tokens.map((token) => Prisma.sql`q.content::text ILIKE ${`%${token}%`}`),
+            ' OR ',
+          )
+        : null;
+
+    let rows: SimilarCandidateRow[] = [];
+    if (tokenClauses) {
+      rows = await this.prisma.$queryRaw<SimilarCandidateRow[]>(
+        Prisma.sql`
+          SELECT
+            q.id,
+            q.content,
+            s.slug AS "subjectSlug",
+            s.name AS "subjectName",
+            t.name AS "topicName"
+          FROM questions q
+          LEFT JOIN subjects s ON s.id = q.subject_id
+          LEFT JOIN topics t ON t.id = q.topic_id
+          WHERE q.exam_type_id = ${params.examTypeId}::uuid
+            ${params.subjectId ? Prisma.sql`AND q.subject_id = ${params.subjectId}::uuid` : Prisma.empty}
+            ${params.excludeId ? Prisma.sql`AND q.id <> ${params.excludeId}::uuid` : Prisma.empty}
+            AND q.is_active = true
+            AND (${tokenClauses})
+          ORDER BY q.updated_at DESC
+          LIMIT ${candidateTake}
+        `,
+      );
+    }
+
+    if (rows.length < Math.max(limit * 2, 40)) {
+      const fallbackRows = await this.prisma.question.findMany({
+        where: baseWhere,
+        select: {
+          id: true,
+          content: true,
+          subject: { select: { slug: true, name: true } },
+          topic: { select: { name: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 450,
+      });
+      const mappedFallbackRows: SimilarCandidateRow[] = fallbackRows.map((row) => ({
+        id: row.id,
+        content: row.content,
+        subjectSlug: row.subject?.slug ?? null,
+        subjectName: row.subject?.name ?? null,
+        topicName: row.topic?.name ?? null,
+      }));
+      rows = mappedFallbackRows;
+    }
 
     const scored = rows
       .map((row) => {
@@ -288,9 +353,9 @@ export class QuestionsService {
           id: row.id,
           score,
           preview: previewFromSlot(previewSlot, 160),
-          subjectSlug: row.subject?.slug ?? null,
-          subjectName: row.subject?.name ?? null,
-          topicName: row.topic?.name ?? null,
+          subjectSlug: row.subjectSlug,
+          subjectName: row.subjectName,
+          topicName: row.topicName,
         };
       })
       .filter((x) => x.score >= threshold)

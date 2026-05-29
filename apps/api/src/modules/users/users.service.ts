@@ -394,13 +394,31 @@ export class UsersService {
     const [finishedSessions, inProgressSessions] = await Promise.all([
       this.prisma.testSession.findMany({
         where: { userId, status: { in: [...finishedStatuses] } },
-        include: {
+        select: {
+          examTypeId: true,
+          status: true,
+          score: true,
+          rawScore: true,
+          maxScore: true,
+          totalQuestions: true,
+          correctCount: true,
+          durationSecs: true,
+          finishedAt: true,
           examType: { select: { id: true, slug: true, name: true } },
         },
       }),
       this.prisma.testSession.findMany({
         where: { userId, status: 'in_progress' },
-        include: {
+        select: {
+          examTypeId: true,
+          status: true,
+          score: true,
+          rawScore: true,
+          maxScore: true,
+          totalQuestions: true,
+          correctCount: true,
+          durationSecs: true,
+          finishedAt: true,
           examType: { select: { id: true, slug: true, name: true } },
         },
       }),

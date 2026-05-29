@@ -49,13 +49,7 @@ export type Visitor = {
   firstSeen: string;
   lastSeen: string;
   steps: string[];
-  completedSessions: Array<{
-    sessionId: string;
-    examType: unknown;
-    score: number | null;
-    finishedAt: string | null;
-    durationSecs: number | null;
-  }>;
+  completedSessionsCount: number;
 };
 
 export type TestTaker = {

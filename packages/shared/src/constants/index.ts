@@ -24,6 +24,9 @@ export const ENT_CONFIG = {
   profileTier1Count: 30,
   profileTier1Points: 1,
   profileTier2Points: 2,
+  /** Профиль 26–30: один общий текстовый блок из 5 одно-балльных 4×1 вопросов, кроме информатики. */
+  profileTextBlockStart: 26,
+  profileTextBlockQuestionCount: 5,
   /** Индексы 31–35: 8 вариантов, до 3 верных (макс. выбор 3). */
   profileTier2ACount: 5,
   profileTier2AOptionCount: 8,

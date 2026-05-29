@@ -499,7 +499,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subject: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue(Object.values(subjectMetaById)),
         findUnique: jest.fn().mockImplementation(({ where: { id } }: any) =>
           Promise.resolve({
             ...subjectMetaById[id],
@@ -1581,6 +1581,125 @@ describe('ENT 120/140 consistency', () => {
     expect(ids.slice(35, 40).every((id) => id.startsWith('p1-b'))).toBe(
       true,
     );
+  });
+
+  it('places one shared text block into ENT profile questions 26-30 for non-informatics subjects', async () => {
+    const regular = Array.from({ length: 25 }, (_, i) => ({
+      id: `p1-r${i + 1}`,
+      content: { ru: { text: `Regular question ${i + 1}` } },
+      answerOptions: makeAnswerOptions(4, 1),
+      subject: { slug: 'math' },
+    }));
+    const textBlock = Array.from({ length: ENT_CONFIG.profileTextBlockQuestionCount }, (_, i) => ({
+      id: `p1-text-a${i + 1}`,
+      content: {
+        ru: {
+          passage: 'Один общий текст для пяти профильных вопросов.',
+          text: `Text question ${i + 1}`,
+        },
+      },
+      answerOptions: makeAnswerOptions(4, 1),
+      subject: { slug: 'math' },
+    }));
+    const tier2A = Array.from({ length: ENT_CONFIG.profileTier2ACount }, (_, i) => ({
+      id: `p1-a${i + 1}`,
+      answerOptions: makeAnswerOptions(8, 2),
+      subject: { slug: 'math' },
+    }));
+    const tier2B = Array.from({ length: ENT_CONFIG.profileTier2BCount }, (_, i) => ({
+      id: `p1-b${i + 1}`,
+      answerOptions: makeAnswerOptions(6, 3),
+      subject: { slug: 'math' },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...regular, ...textBlock, ...tier2A, ...tier2B]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    const ids = result[0].questionIds;
+    expect(ids).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(ids.slice(0, 25).every((id) => id.startsWith('p1-r'))).toBe(true);
+    expect(ids.slice(25, 30).every((id) => id.startsWith('p1-text-a'))).toBe(true);
+    expect(ids.slice(30, 35).every((id) => id.startsWith('p1-a'))).toBe(true);
+    expect(ids.slice(35, 40).every((id) => id.startsWith('p1-b'))).toBe(true);
+  });
+
+  it('does not force the 26-30 shared text block for Informatics profile subjects', async () => {
+    const regular = Array.from({ length: ENT_CONFIG.profileTier1Count }, (_, i) => ({
+      id: `info-r${i + 1}`,
+      content:
+        i >= 25
+          ? {
+              ru: {
+                passage: 'Информатика не должна получать обязательный текстовый блок.',
+                text: `Info text question ${i + 1}`,
+              },
+            }
+          : { ru: { text: `Info regular ${i + 1}` } },
+      answerOptions: makeAnswerOptions(4, 1),
+      subject: { slug: 'informatics' },
+    }));
+    const tier2A = Array.from({ length: ENT_CONFIG.profileTier2ACount }, (_, i) => ({
+      id: `info-a${i + 1}`,
+      answerOptions: makeAnswerOptions(8, 2),
+      subject: { slug: 'informatics' },
+    }));
+    const tier2B = Array.from({ length: ENT_CONFIG.profileTier2BCount }, (_, i) => ({
+      id: `info-b${i + 1}`,
+      answerOptions: makeAnswerOptions(6, 3),
+      subject: { slug: 'informatics' },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...regular, ...tier2A, ...tier2B]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    const ids = result[0].questionIds;
+    expect(ids.slice(0, 30).every((id) => id.startsWith('info-r'))).toBe(true);
+    expect(ids.slice(30, 35).every((id) => id.startsWith('info-a'))).toBe(true);
+    expect(ids.slice(35, 40).every((id) => id.startsWith('info-b'))).toBe(true);
   });
 
   it('keeps Kazakhstan history 1-10 without text and 11-20 with text in ENT full', async () => {
