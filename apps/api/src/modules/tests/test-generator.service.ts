@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { questionWhereForTestLanguage } from '../../common/question-locale';
 import { ENT_CONFIG, type EntScope } from '@bilimland/shared';
@@ -177,8 +178,8 @@ export class TestGeneratorService {
     const localeWhere = questionWhereForTestLanguage(language);
     const makeWhere = (withLocale: boolean) => ({
       AND: withLocale
-        ? [{ subjectId }, { isActive: true }, localeWhere]
-        : [{ subjectId }, { isActive: true }],
+        ? [...this.questionPoolScope(subjectId), localeWhere]
+        : this.questionPoolScope(subjectId),
     });
     const selectFromWhere = async (where: ReturnType<typeof makeWhere>) => {
       if (selectionMode === 'random') {
@@ -230,8 +231,8 @@ export class TestGeneratorService {
       const rows = await this.prisma.question.findMany({
         where: {
           AND: localeWhere
-            ? [{ subjectId }, { isActive: true }, localeWhere]
-            : [{ subjectId }, { isActive: true }],
+            ? [...this.questionPoolScope(subjectId), localeWhere]
+            : this.questionPoolScope(subjectId),
         },
         select: { id: true },
       });
@@ -299,8 +300,8 @@ export class TestGeneratorService {
     const questions = await this.prisma.question.findMany({
       where: {
         AND: language
-          ? [{ subjectId }, { isActive: true }, localeWhere]
-          : [{ subjectId }, { isActive: true }],
+          ? [...this.questionPoolScope(subjectId), localeWhere]
+          : this.questionPoolScope(subjectId),
       },
       select: {
         id: true,
@@ -456,8 +457,8 @@ export class TestGeneratorService {
     const questions = await this.prisma.question.findMany({
       where: {
         AND: language
-          ? [{ subjectId }, { isActive: true }, localeWhere]
-          : [{ subjectId }, { isActive: true }],
+          ? [...this.questionPoolScope(subjectId), localeWhere]
+          : this.questionPoolScope(subjectId),
       },
       select: {
         id: true,
@@ -600,6 +601,14 @@ export class TestGeneratorService {
     const fresh = ids.filter((id) => !seenQuestionIds.has(id));
     const repeat = ids.filter((id) => seenQuestionIds.has(id));
     return [...this.shuffle(fresh), ...this.shuffle(repeat)];
+  }
+
+  private questionPoolScope(subjectId: string): Prisma.QuestionWhereInput[] {
+    return [
+      { subjectId },
+      { isActive: true },
+      { topic: { is: { subjectId } } },
+    ];
   }
 
   private async loadSeenQuestionIds(userId?: string): Promise<Set<string> | undefined> {

@@ -1572,6 +1572,9 @@ describe('ENT 120/140 consistency', () => {
     expect(result).toHaveLength(1);
     const ids = result[0].questionIds;
     expect(ids).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(prismaMock.question.findMany.mock.calls[0][0].where.AND).toEqual(
+      expect.arrayContaining([{ topic: { is: { subjectId: 'profile-1' } } }]),
+    );
     expect(ids.slice(0, ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-r'))).toBe(
       true,
     );

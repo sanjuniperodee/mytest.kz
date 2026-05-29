@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
@@ -48,6 +48,11 @@ export class QuestionsService {
       data.scoreWeight === undefined || data.scoreWeight === null
         ? null
         : Math.round(Number(data.scoreWeight));
+    await this.assertQuestionTopicScope({
+      topicId: data.topicId,
+      subjectId: data.subjectId,
+      examTypeId: data.examTypeId,
+    });
     return this.prisma.question.create({
       data: {
         topicId: data.topicId,
@@ -131,7 +136,24 @@ export class QuestionsService {
     return { items, total, page, limit };
   }
 
-  async update(id: string, data: Prisma.QuestionUpdateInput) {
+  async update(
+    id: string,
+    data: Prisma.QuestionUpdateInput | Prisma.QuestionUncheckedUpdateInput,
+  ) {
+    const existing = await this.prisma.question.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Question not found');
+    const scalarData = data as Partial<Prisma.QuestionUncheckedUpdateInput>;
+    const nextTopicId =
+      typeof scalarData.topicId === 'string' ? scalarData.topicId : existing.topicId;
+    const nextSubjectId =
+      typeof scalarData.subjectId === 'string' ? scalarData.subjectId : existing.subjectId;
+    const nextExamTypeId =
+      typeof scalarData.examTypeId === 'string' ? scalarData.examTypeId : existing.examTypeId;
+    await this.assertQuestionTopicScope({
+      topicId: nextTopicId,
+      subjectId: nextSubjectId,
+      examTypeId: nextExamTypeId,
+    });
     return this.prisma.question.update({
       where: { id },
       data,
@@ -160,6 +182,11 @@ export class QuestionsService {
   ) {
     const existing = await this.prisma.question.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Question not found');
+    await this.assertQuestionTopicScope({
+      topicId: data.topicId ?? existing.topicId,
+      subjectId: data.subjectId ?? existing.subjectId,
+      examTypeId: data.examTypeId ?? existing.examTypeId,
+    });
 
     const prevMeta =
       existing.metadata && typeof existing.metadata === 'object' && existing.metadata !== null
@@ -227,6 +254,27 @@ export class QuestionsService {
         },
       });
     });
+  }
+
+  private async assertQuestionTopicScope(params: {
+    topicId: string;
+    subjectId: string;
+    examTypeId: string;
+  }) {
+    const topic = await this.prisma.topic.findUnique({
+      where: { id: params.topicId },
+      select: {
+        subjectId: true,
+        subject: { select: { examTypeId: true } },
+      },
+    });
+    if (!topic) throw new NotFoundException('Topic not found');
+    if (topic.subjectId !== params.subjectId) {
+      throw new BadRequestException('QUESTION_TOPIC_SUBJECT_MISMATCH');
+    }
+    if (topic.subject.examTypeId !== params.examTypeId) {
+      throw new BadRequestException('QUESTION_TOPIC_EXAM_MISMATCH');
+    }
   }
 
   /**
