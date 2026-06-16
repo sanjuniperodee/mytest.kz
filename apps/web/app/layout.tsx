@@ -15,7 +15,7 @@ const manrope = Manrope({
 
 const instrumentSerif = Instrument_Serif({
   // @ts-ignore
-  subsets: ["latin", "cyrillic"],
+  subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
   variable: "--font-instrument-serif",

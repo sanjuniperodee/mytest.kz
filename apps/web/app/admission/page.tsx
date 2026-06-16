@@ -88,8 +88,9 @@ export default function AdmissionPage() {
   const [tab, setTab] = useState<Tab>("programs")
   const [search, setSearch] = useState("")
 
-  const total =
-    scores.mathLit + scores.readingLit + scores.history + scores.profile1 + scores.profile2
+  const total = useMemo(() => {
+    return scores.mathLit + scores.readingLit + scores.history + scores.profile1 + scores.profile2
+  }, [scores])
   const debouncedScores = useDebouncedValue(scores, 250)
 
   // Cycles
