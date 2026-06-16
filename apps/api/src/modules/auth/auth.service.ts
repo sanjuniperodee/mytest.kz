@@ -224,7 +224,12 @@ export class AuthService {
     }
 
     const redisKey = `auth:code:${normalized}`;
-    const fixedOtp = WEB_AUTH_FIXED_OTP_BY_PHONE[normalized];
+    // SECURITY: the fixed demo OTP is a hard-coded credential bypass. Only honor it
+    // outside production so a real Telegram-delivered code is always required in prod.
+    const fixedOtp =
+      process.env.NODE_ENV !== 'production'
+        ? WEB_AUTH_FIXED_OTP_BY_PHONE[normalized]
+        : undefined;
     const useFixedOtp = fixedOtp != null && code === fixedOtp;
 
     if (!useFixedOtp) {
