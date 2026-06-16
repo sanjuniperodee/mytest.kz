@@ -62,6 +62,17 @@ const SCORE_FIELDS: {
   { key: "profile2", label: "Профильный 2", short: "Проф 2", max: 50 },
 ]
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value)
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(timeout)
+  }, [value, delayMs])
+
+  return debounced
+}
+
 export default function AdmissionPage() {
   const [cycleSlug, setCycleSlug] = useState<string>("")
   const [quotaType, setQuotaType] = useState<QuotaType>("GRANT")
@@ -79,6 +90,7 @@ export default function AdmissionPage() {
 
   const total =
     scores.mathLit + scores.readingLit + scores.history + scores.profile1 + scores.profile2
+  const debouncedScores = useDebouncedValue(scores, 250)
 
   // Cycles
   const { data: cycles } = useSWR<AdmissionCycle[]>("/admission/cycles")
@@ -111,19 +123,19 @@ export default function AdmissionPage() {
 
   // Build chance programs query
   const chanceQuery = useMemo(() => {
-    if (!cycleSlug || !profileSubjects) return null
+    if (step !== 2 || !cycleSlug || !profileSubjects) return null
     const params = new URLSearchParams({
       cycleSlug,
       quotaType,
       profileSubjects,
-      mathLit: String(scores.mathLit),
-      readingLit: String(scores.readingLit),
-      history: String(scores.history),
-      profile1: String(scores.profile1),
-      profile2: String(scores.profile2),
+      mathLit: String(debouncedScores.mathLit),
+      readingLit: String(debouncedScores.readingLit),
+      history: String(debouncedScores.history),
+      profile1: String(debouncedScores.profile1),
+      profile2: String(debouncedScores.profile2),
     })
     return params.toString()
-  }, [cycleSlug, quotaType, profileSubjects, scores])
+  }, [cycleSlug, quotaType, profileSubjects, debouncedScores, step])
 
   const programsKey = chanceQuery ? `/admission/chance/programs?${chanceQuery}` : null
   const { data: programs, isLoading: progLoading } = useSWR<ChanceProgram[]>(programsKey)
@@ -369,9 +381,10 @@ export default function AdmissionPage() {
             <UniversitiesList
               cycleSlug={cycleSlug}
               quotaType={quotaType}
-              scores={scores}
+              scores={debouncedScores}
               search={search}
-              profileSubjects={profileSubjects}
+              programs={programs ?? []}
+              programsLoading={progLoading}
             />
           )}
         </div>
@@ -509,33 +522,37 @@ function UniversitiesList({
   quotaType,
   scores,
   search,
-  profileSubjects,
+  programs,
+  programsLoading,
 }: {
   cycleSlug: string
   quotaType: QuotaType
   scores: Scores
   search: string
-  profileSubjects: string
+  programs: ChanceProgram[]
+  programsLoading: boolean
 }) {
   const [programId, setProgramId] = useState<string>("")
 
-  const { data: programs, isLoading: progLoading } = useSWR<
-    { id: string; code: string; name: string }[]
-  >(`/admission/programs?take=200`)
-
   const filteredPrograms = useMemo(() => {
-    if (!programs) return []
     const q = search.trim().toLowerCase()
-    if (!q) return programs.slice(0, 200)
+    if (!q) return programs
     return programs.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q),
+      (p) =>
+        p.programName.toLowerCase().includes(q) ||
+        p.programCode.toLowerCase().includes(q),
     )
   }, [programs, search])
 
   useEffect(() => {
-    if (!programId && filteredPrograms.length > 0) {
-      setProgramId(filteredPrograms[0].id)
+    if (programId && filteredPrograms.some((program) => program.programId === programId)) {
+      return
     }
+    if (filteredPrograms.length > 0) {
+      setProgramId(filteredPrograms[0].programId)
+      return
+    }
+    if (programId) setProgramId("")
   }, [filteredPrograms, programId])
 
   const uniKey =
@@ -565,7 +582,7 @@ function UniversitiesList({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
         <Label>Специальность</Label>
-        {progLoading ? (
+        {programsLoading ? (
           <Skeleton className="h-10" />
         ) : (
           <Select value={programId} onValueChange={setProgramId}>
@@ -574,11 +591,11 @@ function UniversitiesList({
             </SelectTrigger>
             <SelectContent className="max-h-80">
               {filteredPrograms.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
+                <SelectItem key={p.programId} value={p.programId}>
                   <span className="font-mono text-xs text-muted-foreground mr-2">
-                    {p.code}
+                    {p.programCode}
                   </span>
-                  {p.name}
+                  {p.programName}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -1,71 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType, Prisma } from '@prisma/client';
 import { compareEntToCutoff, type EntScores } from '@bilimland/shared';
-import { PrismaService } from '../../database/prisma.service';
-
-type ChanceRawCutoffRow = {
-  universityCode: number;
-  quotaType: GrantQuotaType;
-  minScore: number | null;
-  university: { name: string; shortName: string | null };
-  program: {
-    code: string;
-    name: string;
-    profileSubjects: string;
-    profileVariant: number;
-  };
-  programId: string;
-};
-
-type ResolvedChanceRow = {
-  universityCode: number;
-  universityName: string;
-  universityShortName: string | null;
-  programId: string;
-  programCode: string;
-  programName: string;
-  profileSubjects: string;
-  profileVariant: number;
-  displayedQuotaType: GrantQuotaType;
-  displayedMinScore: number;
-};
+import { resolveChanceRows } from './domain/chance-cutoffs';
+import type { ResolvedChanceRow } from './domain/chance-cutoffs';
+import { AdmissionRepository } from './infrastructure/admission.repository';
 
 @Injectable()
 export class AdmissionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly admissionRepository: AdmissionRepository) {}
 
   private async getCycleOrThrow(cycleSlug: string) {
-    const cycle = await this.prisma.grantAdmissionCycle.findUnique({
-      where: { slug: cycleSlug },
-    });
+    const cycle = await this.admissionRepository.findCycleBySlug(cycleSlug);
     if (!cycle) throw new NotFoundException(`Admission cycle "${cycleSlug}" not found`);
     return cycle;
-  }
-
-  /**
-   * Resolver для отображаемого проходного балла:
-   * - GRANT: учитываем только GRANT
-   * - RURAL: сначала RURAL, если нет балла -> fallback на GRANT
-   */
-  private resolveDisplayedCutoff(
-    quotaType: GrantQuotaType,
-    rows: { quotaType: GrantQuotaType; minScore: number | null }[],
-  ): { displayedQuotaType: GrantQuotaType; displayedMinScore: number } | null {
-    const grant = rows.find((r) => r.quotaType === 'GRANT');
-    const rural = rows.find((r) => r.quotaType === 'RURAL');
-
-    if (quotaType === 'GRANT') {
-      if (grant?.minScore == null) return null;
-      return { displayedQuotaType: 'GRANT', displayedMinScore: grant.minScore };
-    }
-
-    if (rural?.minScore != null) {
-      return { displayedQuotaType: 'RURAL', displayedMinScore: rural.minScore };
-    }
-    if (grant?.minScore != null) {
-      return { displayedQuotaType: 'GRANT', displayedMinScore: grant.minScore };
-    }
-    return null;
   }
 
   private async listResolvedChanceRows(input: {
@@ -76,76 +23,23 @@ export class AdmissionService {
     programId?: string;
   }) {
     const cycle = await this.getCycleOrThrow(input.cycleSlug);
-    const where: Prisma.GrantCutoffWhereInput = {
+    const rows = await this.admissionRepository.listChanceCutoffs({
       cycleId: cycle.id,
-      ...(input.universityCode != null ? { universityCode: input.universityCode } : {}),
-      ...(input.programId ? { programId: input.programId } : {}),
-      ...(input.profileSubjects
-        ? {
-            program: {
-              profileSubjects: input.profileSubjects,
-            },
-          }
-        : {}),
-    };
-
-    const rows = await this.prisma.grantCutoff.findMany({
-      where,
-      include: {
-        university: { select: { name: true, shortName: true } },
-        program: {
-          select: { code: true, name: true, profileSubjects: true, profileVariant: true },
-        },
-      },
-      orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],
-      take: 15000,
+      quotaType: input.quotaType,
+      universityCode: input.universityCode,
+      profileSubjects: input.profileSubjects,
+      programId: input.programId,
     });
 
-    const grouped = new Map<string, ChanceRawCutoffRow[]>();
-    for (const row of rows) {
-      const key = `${row.universityCode}:${row.programId}`;
-      const existing = grouped.get(key);
-      if (existing) {
-        existing.push(row);
-      } else {
-        grouped.set(key, [row]);
-      }
-    }
-
-    const resolved: ResolvedChanceRow[] = [];
-    for (const groupRows of grouped.values()) {
-      const resolvedCutoff = this.resolveDisplayedCutoff(input.quotaType, groupRows);
-      if (!resolvedCutoff) continue;
-      const base = groupRows[0];
-      resolved.push({
-        universityCode: base.universityCode,
-        universityName: base.university.name,
-        universityShortName: base.university.shortName,
-        programId: base.programId,
-        programCode: base.program.code,
-        programName: base.program.name,
-        profileSubjects: base.program.profileSubjects,
-        profileVariant: base.program.profileVariant,
-        displayedQuotaType: resolvedCutoff.displayedQuotaType,
-        displayedMinScore: resolvedCutoff.displayedMinScore,
-      });
-    }
-
-    return resolved;
+    return resolveChanceRows(input.quotaType, rows);
   }
 
   listCycles() {
-    return this.prisma.grantAdmissionCycle.findMany({
-      orderBy: { sortOrder: 'asc' },
-      select: { id: true, slug: true, sortOrder: true },
-    });
+    return this.admissionRepository.listCycles();
   }
 
   listUniversities() {
-    return this.prisma.university.findMany({
-      orderBy: { code: 'asc' },
-      select: { code: true, name: true, shortName: true },
-    });
+    return this.admissionRepository.listUniversities();
   }
 
   async listPrograms(input: { code?: string; q?: string; take?: number }) {
@@ -160,18 +54,9 @@ export class AdmissionService {
         { profileSubjects: { contains: input.q.trim(), mode: 'insensitive' } },
       ];
     }
-    return this.prisma.entEducationalProgram.findMany({
+    return this.admissionRepository.listPrograms({
       where,
-      orderBy: [{ code: 'asc' }, { profileVariant: 'asc' }],
       take,
-      select: {
-        id: true,
-        code: true,
-        profileVariant: true,
-        name: true,
-        profileSubjects: true,
-        profileShortLabel: true,
-      },
     });
   }
 
@@ -192,17 +77,7 @@ export class AdmissionService {
     if (input.programId) where.programId = input.programId;
     if (input.quotaType) where.quotaType = input.quotaType;
 
-    const rows = await this.prisma.grantCutoff.findMany({
-      where,
-      take: 8000,
-      include: {
-        university: { select: { name: true, shortName: true } },
-        program: {
-          select: { code: true, name: true, profileSubjects: true, profileVariant: true },
-        },
-      },
-      orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],
-    });
+    const rows = await this.admissionRepository.listCutoffs(where);
 
     return rows.map((r) => ({
       cycleSlug: input.cycleSlug,
@@ -228,13 +103,11 @@ export class AdmissionService {
   }) {
     const cycle = await this.getCycleOrThrow(input.cycleSlug);
 
-    const cutoff = await this.prisma.grantCutoff.findFirst({
-      where: {
-        cycleId: cycle.id,
-        universityCode: input.universityCode,
-        programId: input.programId,
-        quotaType: input.quotaType,
-      },
+    const cutoff = await this.admissionRepository.findCutoff({
+      cycleId: cycle.id,
+      universityCode: input.universityCode,
+      programId: input.programId,
+      quotaType: input.quotaType,
     });
 
     const minScore = cutoff?.minScore ?? null;
