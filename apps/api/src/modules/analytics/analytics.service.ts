@@ -48,7 +48,10 @@ export class AnalyticsService {
       return { visitorId, recorded: false, duplicate: true };
     }
 
-    const visit = await this.prisma.visitEvent.create({
+    // Single round-trip: Prisma writes the visit + its first funnel step in one
+    // implicit transaction (previously two sequential INSERTs that could leave a
+    // visit without its 'visit' funnel step if the second write failed).
+    await this.prisma.visitEvent.create({
       data: {
         visitorId,
         source: data.source?.slice(0, 32) ?? null,
@@ -56,13 +59,7 @@ export class AnalyticsService {
         campaign: data.campaign?.slice(0, 64) ?? null,
         referrer: data.referrer?.slice(0, 500) ?? null,
         landingPath,
-      },
-    });
-
-    await this.prisma.funnelStep.create({
-      data: {
-        visitId: visit.id,
-        step: 'visit',
+        funnelSteps: { create: { step: 'visit' } },
       },
     });
 
