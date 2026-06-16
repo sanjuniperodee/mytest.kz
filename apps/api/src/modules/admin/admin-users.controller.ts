@@ -2,12 +2,12 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Query, UseG
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AdminService } from './admin.service';
+import { AdminUserService } from './services/admin-user.service';
 
 @Controller('admin/users')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class AdminUsersController {
-  constructor(private adminService: AdminService) {}
+  constructor(private userService: AdminUserService) {}
 
   @Get()
   async getUsers(
@@ -16,7 +16,7 @@ export class AdminUsersController {
     @Query('limit') limit?: string,
     @Query('compact') compact?: string,
   ) {
-    return this.adminService.getUsers(
+    return this.userService.getUsers(
       search,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
@@ -26,12 +26,12 @@ export class AdminUsersController {
 
   @Get(':id')
   async getUserDetail(@Param('id', ParseUUIDPipe) id: string) {
-    return this.adminService.getUserDetail(id);
+    return this.userService.getUserDetail(id);
   }
 
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() data: { isAdmin?: boolean }) {
-    return this.adminService.updateUser(id, data);
+    return this.userService.updateUser(id, data);
   }
 
   @Delete(':id')
@@ -39,6 +39,6 @@ export class AdminUsersController {
     @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.adminService.deleteUser(adminId, id);
+    return this.userService.deleteUser(adminId, id);
   }
 }
