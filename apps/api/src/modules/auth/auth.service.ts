@@ -33,10 +33,7 @@ import {
 } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
-/** Нормализованный KZ-телефон (11 цифр, с 7) → фиксированный OTP для теста / демо. */
-const WEB_AUTH_FIXED_OTP_BY_PHONE: Record<string, string> = {
-  '77082420482': '111111',
-};
+
 const WEB_AUTH_MAX_VERIFY_ATTEMPTS = 5;
 const WEB_AUTH_VERIFY_LOCK_SECONDS = 15 * 60;
 
@@ -118,7 +115,7 @@ export class AuthService {
 
     // Attribution: link visitorId to user
     if (visitorId) {
-      await this.attrributeVisit(visitorId, user.id);
+      await this.attributeVisit(visitorId, user.id);
     }
 
     await this.accessService.ensureSignupEntitlementsForUser(user.id);
@@ -192,7 +189,7 @@ export class AuthService {
         });
 
     if (visitorId) {
-      await this.attrributeVisit(visitorId, user.id);
+      await this.attributeVisit(visitorId, user.id);
     }
 
     await this.accessService.ensureSignupEntitlementsForUser(user.id);
@@ -255,13 +252,16 @@ export class AuthService {
 
     const redisKey = `auth:code:${normalized}`;
     await this.assertWebAuthNotLocked(normalized);
-    // SECURITY: the fixed demo OTP is a hard-coded credential bypass. Only honor it
-    // outside production so a real Telegram-delivered code is always required in prod.
-    const fixedOtp =
-      process.env.NODE_ENV !== 'production'
-        ? WEB_AUTH_FIXED_OTP_BY_PHONE[normalized]
-        : undefined;
-    const useFixedOtp = fixedOtp != null && code === fixedOtp;
+    // SECURITY: the fixed demo OTP is a credential bypass. Only honor it
+    // outside production from config environment parameters.
+    const testPhone = this.config.get<string>('DEV_FIXED_OTP_PHONE');
+    const testOtp = this.config.get<string>('DEV_FIXED_OTP_CODE');
+    const useFixedOtp =
+      process.env.NODE_ENV !== 'production' &&
+      testPhone &&
+      testOtp &&
+      normalized === testPhone &&
+      code === testOtp;
 
     if (!useFixedOtp) {
       const storedCode = await this.redis.get(redisKey);
@@ -300,7 +300,7 @@ export class AuthService {
 
     // Attribution: link visitorId to user
     if (visitorId) {
-      await this.attrributeVisit(visitorId, user.id);
+      await this.attributeVisit(visitorId, user.id);
     }
 
     return this.generateTokens({
@@ -566,7 +566,7 @@ export class AuthService {
     }
   }
 
-  private async attrributeVisit(visitorId: string, userId: string) {
+  private async attributeVisit(visitorId: string, userId: string) {
     // Update all unclaimed VisitEvents for this visitorId to link to userId
     await this.prisma.visitEvent.updateMany({
       where: { visitorId, userId: null },
@@ -600,9 +600,11 @@ const KEY_LEN = 64;
 const HASH_SEP = ':';
 const scryptAsync = promisify(scrypt);
 
+const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 };
+
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_LEN).toString('hex');
-  const key = (await scryptAsync(password, salt, KEY_LEN)) as Buffer;
+  const key = (await (scryptAsync as any)(password, salt, KEY_LEN, SCRYPT_OPTIONS)) as Buffer;
   return `${salt}${HASH_SEP}${key.toString('hex')}`;
 }
 
@@ -611,7 +613,7 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   if (!salt || !keyHex) return false;
   const expected = Buffer.from(keyHex, 'hex');
   if (expected.length !== KEY_LEN) return false;
-  const actual = (await scryptAsync(password, salt, KEY_LEN)) as Buffer;
+  const actual = (await (scryptAsync as any)(password, salt, KEY_LEN, SCRYPT_OPTIONS)) as Buffer;
   if (actual.length !== expected.length) return false;
   return timingSafeEqual(expected, actual);
 }

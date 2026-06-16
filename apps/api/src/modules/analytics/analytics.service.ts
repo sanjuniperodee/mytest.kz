@@ -66,7 +66,7 @@ export class AnalyticsService {
     return { visitorId, recorded: true };
   }
 
-  async attrributeVisit(visitorId: string, userId: string) {
+  async attributeVisit(visitorId: string, userId: string) {
     // Update all unclaimed VisitEvents for this visitorId to link to userId
     await this.prisma.visitEvent.updateMany({
       where: { visitorId, userId: null },
