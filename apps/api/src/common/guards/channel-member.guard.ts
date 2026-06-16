@@ -66,11 +66,8 @@ export class ChannelMemberGuard implements CanActivate {
       throw this.telegramChannelForbidden();
     }
 
-    // User with no Telegram account — only allow if channel is not required
+    // User with no Telegram account — bypass the Telegram channel requirement
     if (!dbUser.telegramId) {
-      if (required) {
-        throw this.telegramAccountForbidden();
-      }
       return true;
     }
 
