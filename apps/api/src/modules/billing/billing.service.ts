@@ -36,7 +36,8 @@ function getString(value: unknown): string | null {
 function getNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value.replace(/\s+/g, '').replace(',', '.'));
+    const clean = value.replace(/[^\d.,+-]/g, '').replace(',', '.');
+    const parsed = Number(clean);
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
