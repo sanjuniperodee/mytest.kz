@@ -87,9 +87,7 @@ model Question {
   testAnswers   TestAnswer[]
   appeals       QuestionAppeal[]
 
-  @@index([subjectId, isActive])
   @@index([subjectId, isActive, createdAt], map: "questions_subject_active_created_idx")
-  @@index([examTypeId, isActive])
   @@index([examTypeId, isActive, createdAt], map: "questions_exam_active_created_idx")
   @@index([topicId])
   @@index([metadata], type: Gin)
@@ -318,7 +316,6 @@ model UserExamEntitlement {
   dailyUsage   UserExamDailyUsage[]
 
   @@unique([sourceType, sourceRef])
-  @@index([userId, examTypeId, status])
   @@index([userId, examTypeId, status, windowStartsAt, windowEndsAt], map: "entitlements_user_exam_status_window_idx")
   @@index([userId, status, windowStartsAt, windowEndsAt], map: "entitlements_user_status_window_idx")
   @@index([subscriptionId, status], map: "entitlements_subscription_status_idx")
@@ -400,7 +397,6 @@ model TestSession {
   funnelSteps            FunnelStep[]
   notificationDeliveries NotificationDelivery[]
 
-  @@index([userId, status])
   @@index([userId, startedAt])
   @@index([userId, status, finishedAt], map: "test_sessions_user_status_finished_idx")
   @@index([examTypeId, status, finishedAt], map: "test_sessions_exam_status_finished_idx")
@@ -422,7 +418,6 @@ model TestAnswer {
   session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  @@index([sessionId])
   @@index([sessionId, questionId], map: "test_answers_session_question_idx")
   @@index([questionId, sessionId], map: "test_answers_question_session_idx")
   @@map("test_answers")
@@ -535,7 +530,6 @@ model GrantCutoff {
   program    EntEducationalProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   @@unique([cycleId, universityCode, programId, quotaType])
-  @@index([cycleId, universityCode])
   @@index([cycleId, programId])
   @@index([cycleId, quotaType], map: "grant_cutoffs_cycle_quota_idx")
   @@map("grant_cutoffs")
@@ -607,7 +601,6 @@ model FunnelStep {
   visit   VisitEvent   @relation(fields: [visitId], references: [id], onDelete: Cascade)
   session TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
-  @@index([visitId])
   @@index([visitId, step, sessionId], map: "funnel_steps_visit_step_session_idx")
   @@index([step, timestamp])
   @@index([sessionId, timestamp], map: "funnel_steps_session_timestamp_idx")
