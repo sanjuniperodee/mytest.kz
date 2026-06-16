@@ -1,13 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType, Prisma } from '@prisma/client';
 import { compareEntToCutoff, type EntScores } from '@bilimland/shared';
 import { resolveChanceRows } from './domain/chance-cutoffs';
 import type { ResolvedChanceRow } from './domain/chance-cutoffs';
 import { AdmissionRepository } from './infrastructure/admission.repository';
+import { REDIS_CLIENT } from '../../database/redis.module';
+import Redis from 'ioredis';
 
 @Injectable()
 export class AdmissionService {
-  constructor(private readonly admissionRepository: AdmissionRepository) {}
+  constructor(
+    private readonly admissionRepository: AdmissionRepository,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   private async getCycleOrThrow(cycleSlug: string) {
     const cycle = await this.admissionRepository.findCycleBySlug(cycleSlug);
@@ -21,7 +26,13 @@ export class AdmissionService {
     universityCode?: number;
     profileSubjects?: string;
     programId?: string;
-  }) {
+  }): Promise<ResolvedChanceRow[]> {
+    const cacheKey = `admission-chance-rows:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as ResolvedChanceRow[];
+    }
+
     const cycle = await this.getCycleOrThrow(input.cycleSlug);
     const rows = await this.admissionRepository.listChanceCutoffs({
       cycleId: cycle.id,
@@ -31,7 +42,9 @@ export class AdmissionService {
       programId: input.programId,
     });
 
-    return resolveChanceRows(input.quotaType, rows);
+    const resolved = resolveChanceRows(input.quotaType, rows);
+    await this.redis.set(cacheKey, JSON.stringify(resolved), 'EX', 600); // 10 minutes cache TTL
+    return resolved;
   }
 
   listCycles() {
