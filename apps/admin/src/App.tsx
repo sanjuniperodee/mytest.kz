@@ -36,7 +36,7 @@ import {
   SafetyCertificateOutlined,
   FlagOutlined,
 } from '@ant-design/icons';
-import { api, clearTokens } from './api/client';
+import { api, clearTokens, revokeCurrentSession } from './api/client';
 import { getPageMeta } from './lib/pageMeta';
 import { UsersPage } from './pages/UsersPage';
 import { UserDetailPage } from './pages/UserDetailPage';
@@ -190,6 +190,7 @@ function AdminLayout() {
         label: 'Выйти',
         icon: <LogoutOutlined />,
         onClick: () => {
+          void revokeCurrentSession();
           clearTokens();
           navigate('/login', { replace: true });
         },

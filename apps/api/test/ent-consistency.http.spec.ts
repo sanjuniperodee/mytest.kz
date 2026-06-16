@@ -11,6 +11,28 @@ function makeAnswerOptions(optionCount: number, correctCount: number) {
   }));
 }
 
+/**
+ * Wraps a partial Prisma mock with `$transaction` that delegates the callback
+ * back to the same mock, so transactional code paths (testSession.create,
+ * funnelStep.create, etc.) work transparently in unit tests.
+ */
+function withTransactionSupport(prismaMock: any): any {
+  (prismaMock as any).$transaction = jest.fn((cb: any) => cb(prismaMock));
+  return prismaMock;
+}
+
+/**
+ * Returns a ready-to-use AccessService mock that supports both the
+ * transaction-aware (`Tx`) variant called by the new startTest flow and the
+ * legacy standalone variant used elsewhere.
+ */
+function mockAccessService(): any {
+  return {
+    assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    assertAndConsumeAttemptTx: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 type EntSectionSeed = {
   subjectId: string;
   slug: string;
@@ -414,9 +436,7 @@ describe('ENT 120/140 consistency', () => {
     } as any;
     const scorerMock = {} as any;
     const mistakesMock = {} as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -526,9 +546,7 @@ describe('ENT 120/140 consistency', () => {
     const generatorMock = {
       generateFromTemplate: jest.fn().mockResolvedValue(generatedSections),
     } as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -846,9 +864,7 @@ describe('ENT 120/140 consistency', () => {
         },
       ]),
     } as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -934,9 +950,7 @@ describe('ENT 120/140 consistency', () => {
         },
       ]),
     } as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -1024,9 +1038,7 @@ describe('ENT 120/140 consistency', () => {
         },
       ]),
     } as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -1114,9 +1126,7 @@ describe('ENT 120/140 consistency', () => {
         },
       ]),
     } as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -1513,9 +1523,7 @@ describe('ENT 120/140 consistency', () => {
     } as any;
     const scorerMock = {} as any;
     const mistakesMock = {} as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,

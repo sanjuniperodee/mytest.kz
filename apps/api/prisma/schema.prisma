@@ -164,6 +164,7 @@ model User {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   subscriptions          Subscription[]             @relation("UserSubscriptions")
+  authSessions           AuthSession[]
   grantedSubscriptions   Subscription[]             @relation("GrantedSubscriptions")
   testSessions           TestSession[]
   paymentOrders          PaymentOrder[]
@@ -178,6 +179,26 @@ model User {
   notificationDeliveries NotificationDelivery[]
 
   @@map("users")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.Char(64)
+  userAgentHash    String?   @map("user_agent_hash") @db.Char(64)
+  ipHash           String?   @map("ip_hash") @db.Char(64)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt], map: "auth_sessions_user_active_idx")
+  @@index([familyId], map: "auth_sessions_family_idx")
+  @@map("auth_sessions")
 }
 
 model Subscription {
@@ -418,7 +439,7 @@ model TestAnswer {
   session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  @@index([sessionId, questionId], map: "test_answers_session_question_idx")
+  @@unique([sessionId, questionId], map: "test_answers_session_question_unique")
   @@index([questionId, sessionId], map: "test_answers_question_session_idx")
   @@map("test_answers")
 }

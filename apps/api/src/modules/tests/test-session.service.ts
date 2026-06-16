@@ -134,8 +134,6 @@ export class TestSessionService {
       }
     }
 
-    await this.accessService.assertAndConsumeAttempt(userId, template.examTypeId);
-
     const mandatoryQuestionSum = template.sections.reduce(
       (s, sec) => s + ((sec.subject?.isMandatory ?? true) ? sec.questionCount : 0),
       0,
@@ -219,75 +217,80 @@ export class TestSessionService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const session = await this.prisma.testSession.create({
-      data: {
-        userId,
-        templateId,
-        examTypeId: template.examTypeId,
-        language,
-        totalQuestions,
-        timeRemaining: sessionDurationMins * 60,
-        visitId: visit?.id ?? null,
-        metadata: {
-          sections: sectionsMeta,
-          profileSubjectIds: profileSubjectIds || [],
-          questionOrder: allAnswerData.map((a) => a.questionId),
-          ...(examSlug === 'ent' && resolvedEntScope
-            ? { entScope: resolvedEntScope }
-            : {}),
-          ...(examSlug === 'ent' &&
-          resolvedEntScope &&
-          resolvedEntScope !== 'full'
-            ? { entSessionDurationMins: sessionDurationMins }
-            : {}),
-        },
-        answers: {
-          create: allAnswerData.map((a) => ({
-            questionId: a.questionId,
-            selectedIds: [],
-          })),
-        },
-      } as any,
-      include: {
-        examType: true,
-        answers: {
-          include: {
-            question: {
-              select: {
-                id: true,
-                difficulty: true,
-                type: true,
-                content: true,
-                imageUrls: true,
-                subjectId: true,
-                subject: { select: { id: true, name: true, slug: true } },
-                answerOptions: {
-                  select: { id: true, content: true, sortOrder: true },
-                  orderBy: { sortOrder: 'asc' },
+    const session = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.testSession.create({
+        data: {
+          userId,
+          templateId,
+          examTypeId: template.examTypeId,
+          language,
+          totalQuestions,
+          timeRemaining: sessionDurationMins * 60,
+          visitId: visit?.id ?? null,
+          metadata: {
+            sections: sectionsMeta,
+            profileSubjectIds: profileSubjectIds || [],
+            questionOrder: allAnswerData.map((a) => a.questionId),
+            ...(examSlug === 'ent' && resolvedEntScope
+              ? { entScope: resolvedEntScope }
+              : {}),
+            ...(examSlug === 'ent' &&
+            resolvedEntScope &&
+            resolvedEntScope !== 'full'
+              ? { entSessionDurationMins: sessionDurationMins }
+              : {}),
+          },
+          answers: {
+            create: allAnswerData.map((a) => ({
+              questionId: a.questionId,
+              selectedIds: [],
+            })),
+          },
+        } as any,
+        include: {
+          examType: true,
+          answers: {
+            include: {
+              question: {
+                select: {
+                  id: true,
+                  difficulty: true,
+                  type: true,
+                  content: true,
+                  imageUrls: true,
+                  subjectId: true,
+                  subject: { select: { id: true, name: true, slug: true } },
+                  answerOptions: {
+                    select: { id: true, content: true, sortOrder: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
-
-    // Record 'started_test' funnel step
-    if (visit) {
-      const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: visit.id, step: 'started_test', sessionId: session.id },
       });
-      if (!existingStep) {
-        await this.prisma.funnelStep.create({
+
+      await this.accessService.assertAndConsumeAttemptTx(
+        tx,
+        userId,
+        template.examTypeId,
+        created.id,
+      );
+
+      if (visit) {
+        await tx.funnelStep.create({
           data: {
             visitId: visit.id,
             step: 'started_test',
-            sessionId: session.id,
+            sessionId: created.id,
             metadata: { examTypeId: template.examTypeId },
           },
         });
       }
-    }
+
+      return created;
+    });
 
     return this.normalizeSessionScore(session);
   }
@@ -422,8 +425,13 @@ export class TestSessionService {
       serverTimeRemaining = Math.max(0, durationMins * 60 - elapsed);
     }
 
-    const answer = await this.prisma.testAnswer.findFirst({
-      where: { sessionId, questionId },
+    const answer = await this.prisma.testAnswer.findUnique({
+      where: {
+        sessionId_questionId: {
+          sessionId,
+          questionId,
+        },
+      },
     });
 
     if (!answer) throw new NotFoundException('Question not in this test');

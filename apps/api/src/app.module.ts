@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import Redis from 'ioredis';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { RedisThrottlerStorage } from './common/throttling/redis-throttler-storage';
 import { PrismaModule } from './database/prisma.module';
-import { RedisModule } from './database/redis.module';
+import { REDIS_CLIENT, RedisModule } from './database/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ExamsModule } from './modules/exams/exams.module';
@@ -28,7 +30,14 @@ import { QuestionAppealsModule } from './modules/question-appeals/question-appea
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ThrottlerModule.forRootAsync({
+      imports: [RedisModule],
+      inject: [REDIS_CLIENT],
+      useFactory: (redis: Redis) => ({
+        throttlers: [{ ttl: 60_000, limit: 100 }],
+        storage: new RedisThrottlerStorage(redis),
+      }),
+    }),
     PrismaModule,
     RedisModule,
     AuthModule,

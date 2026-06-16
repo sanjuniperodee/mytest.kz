@@ -6,6 +6,7 @@ import {
   Scope,
   clearTokens,
   getAccessToken,
+  getRefreshToken,
   setTokens,
 } from "./storage"
 import { prepareTelegramWebApp, waitForTelegramInitData } from "@/lib/telegram-webapp"
@@ -97,6 +98,14 @@ export function AuthProvider({
   )
 
   const signOut = useCallback(() => {
+    const refreshToken = getRefreshToken(scope)
+    if (refreshToken) {
+      void api("/auth/logout", {
+        method: "POST",
+        auth: false,
+        body: { refreshToken },
+      }).catch(() => null)
+    }
     clearTokens(scope)
     setUser(null)
     setLoading(false)

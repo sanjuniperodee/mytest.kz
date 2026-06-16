@@ -8,10 +8,11 @@ Bilimland is a Kazakh exam preparation platform (my-test.kz) with multiple apps 
 
 ## Stack
 
-- **Monorepo**: npm workspaces + Turbo
+- **Monorepo**: app-level npm packages + Turbo config
 - **Database**: PostgreSQL via Prisma ORM
 - **API**: NestJS with JWT auth (passport-jwt), Redis caching, Telegraf Telegram bot
-- **Web/Admin**: React 18 + Vite + Tailwind CSS
+- **Web**: Next.js + React + Tailwind CSS
+- **Admin**: React 18 + Vite + Ant Design
 - **Shared**: TypeScript package (`@bilimland/shared`) with ENT scoring model
 
 ## Commands
@@ -22,8 +23,8 @@ npm run build        # Build all apps via turbo
 npm run lint         # Lint all apps
 
 # Web
-cd apps/web && npm run dev    # Start web dev server (port 5173)
-cd apps/web && npm run build  # Build web (runs tsc -b && vite build)
+cd apps/web && npm run dev    # Start Next.js web dev server (default port 3000)
+cd apps/web && npm run build  # Build web (Next.js)
 
 # API
 cd apps/api && npm run dev    # Start API (NestJS with watch mode)
@@ -41,12 +42,11 @@ cd apps/admin && npm run dev
 
 ### apps/web — Main frontend
 
-- **Landing pages**: `LandingV3.tsx`, `LandingV4.tsx` in `src/components/landing/` are the primary landing page components. `LandingPage.tsx` in `src/pages/` is the older v1 landing.
-- **API client** (`src/api/client.ts`): Axios instance with JWT interceptor. Token stored in localStorage, auto-refreshed on 401.
-- **Landing settings** (`/public/landing-settings`): Hero carousel images and instruction video URL come from API — not hardcoded. Fetched in landing page components via `api.get('/public/landing-settings')`.
-- **i18n** (`src/i18n/`): Files `ru.json`, `kk.json`, `en.json`. Landing V3 uses `landingV3.*` keys. Testimonials use `landing.testimonials` (simple: `{ quote, author }`).
-- **Admission/Chance**: `AdmissionChanceWidget` in `src/components/admission/` — interactive grant estimator using `/admission/*` API endpoints.
-- **Routing**: React Router v6. Protected routes check auth state.
+- **Framework**: Next.js App Router under `app/`, shared UI under `components/`, client API helpers under `lib/api/`.
+- **API proxy**: `app/api/v1/[...path]/route.ts` forwards browser requests to the Nest API.
+- **Media proxy**: `app/api/media/[...path]/route.ts` resolves uploaded media from the API origin.
+- **Auth client**: `lib/api/client.ts` and `lib/api/storage.ts` currently manage bearer tokens and refresh calls.
+- **Admission/Chance**: admission UI uses `/admission/*` API endpoints.
 
 ### apps/api — Backend
 

@@ -33,6 +33,15 @@ function getString(value: unknown): string | null {
   return null;
 }
 
+function getNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.replace(/\s+/g, '').replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function firstString(...values: unknown[]): string | null {
   for (const value of values) {
     const str = getString(value);
@@ -70,6 +79,15 @@ function isKaspiTemporaryFailureMessage(message: string): boolean {
     normalized.includes('HTTP_502') ||
     normalized.includes('HTTP_503') ||
     normalized.includes('HTTP_504')
+  );
+}
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2002'
   );
 }
 
@@ -337,10 +355,11 @@ export class BillingService {
   ) {
     const secret = this.config.get<string>('KASPI_WEBHOOK_SECRET')?.trim();
     const sig = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
-    if (secret) {
-      if (!sig || !this.verifyKaspiWebhookSignature(rawBody, sig, secret)) {
-        throw new UnauthorizedException('INVALID_WEBHOOK_SIGNATURE');
-      }
+    if (!secret) {
+      throw new UnauthorizedException('KASPI_WEBHOOK_SECRET_REQUIRED');
+    }
+    if (!sig || !this.verifyKaspiWebhookSignature(rawBody, sig, secret)) {
+      throw new UnauthorizedException('INVALID_WEBHOOK_SIGNATURE');
     }
 
     const event = String(payload.event ?? '');
@@ -363,8 +382,8 @@ export class BillingService {
         return { ok: true, ignored: true };
       }
       const previousPayload = asRecord(order.providerPayload);
-      await this.prisma.paymentOrder.update({
-        where: { id: order.id },
+      const updated = await this.prisma.paymentOrder.updateMany({
+        where: { id: order.id, status: { not: 'paid' } },
         data: {
           status:
             this.normalizeKaspiPaymentStatus(getString(payload.status)).status === 'pending'
@@ -376,12 +395,14 @@ export class BillingService {
           } as Prisma.InputJsonObject,
         },
       });
-      await this.recordBillingEvent(order.userId, 'payment_failed', {
-        provider: 'kaspi',
-        planCode: order.planCode,
-        providerOrderId: order.providerOrderId,
-        event,
-      });
+      if (updated.count > 0) {
+        await this.recordBillingEvent(order.userId, 'payment_failed', {
+          provider: 'kaspi',
+          planCode: order.planCode,
+          providerOrderId: order.providerOrderId,
+          event,
+        });
+      }
       return { ok: true, status: 'failed' };
     }
 
@@ -418,6 +439,10 @@ export class BillingService {
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
     if (!plan) {
       return { ok: false, reason: 'PLAN_NOT_FOUND' };
+    }
+    const validation = await this.validateKaspiPaidOrderPayload(order, payload);
+    if (!validation.ok) {
+      return { ok: false, reason: validation.reason };
     }
 
     const now = new Date();
@@ -585,22 +610,30 @@ export class BillingService {
       where: { providerOrderId: orderId },
     });
     if (!order) return { ok: false, reason: 'ORDER_NOT_FOUND' };
+    if (order.provider !== 'freedompay') {
+      return { ok: false, reason: 'NOT_FREEDOMPAY_ORDER' };
+    }
 
     const isPaid = this.isPaidCallback(normalized);
     if (!isPaid) {
-      await this.prisma.paymentOrder.update({
-        where: { id: order.id },
+      if (order.status === 'paid') {
+        return { ok: true, status: 'paid' };
+      }
+      const updated = await this.prisma.paymentOrder.updateMany({
+        where: { id: order.id, status: { not: 'paid' } },
         data: {
           status: 'failed',
           providerPayload: normalized,
           providerPaymentId: normalized.pg_payment_id || order.providerPaymentId,
         },
       });
-      await this.recordBillingEvent(order.userId, 'payment_failed', {
-        provider: 'freedompay',
-        planCode: order.planCode,
-        providerOrderId: order.providerOrderId,
-      });
+      if (updated.count > 0) {
+        await this.recordBillingEvent(order.userId, 'payment_failed', {
+          provider: 'freedompay',
+          planCode: order.planCode,
+          providerOrderId: order.providerOrderId,
+        });
+      }
       return { ok: true, status: 'failed' };
     }
 
@@ -610,13 +643,19 @@ export class BillingService {
 
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
     if (!plan) return { ok: false, reason: 'PLAN_NOT_FOUND' };
+    if (!this.isFreedomPayCallbackAmountValid(normalized, order.amount)) {
+      return { ok: false, reason: 'AMOUNT_MISMATCH' };
+    }
+    if (normalized.pg_currency && normalized.pg_currency.toUpperCase() !== order.currency) {
+      return { ok: false, reason: 'CURRENCY_MISMATCH' };
+    }
 
     const now = new Date();
     const expiresAt = this.addDays(now, plan.durationDays);
 
     const createdSubscription = await this.prisma.$transaction(async (tx) => {
-      await tx.paymentOrder.update({
-        where: { id: order.id },
+      const updated = await tx.paymentOrder.updateMany({
+        where: { id: order.id, status: { not: 'paid' } },
         data: {
           status: 'paid',
           paidAt: now,
@@ -624,6 +663,7 @@ export class BillingService {
           providerPaymentId: normalized.pg_payment_id || order.providerPaymentId,
         },
       });
+      if (updated.count === 0) return null;
       return tx.subscription.create({
         data: {
           userId: order.userId,
@@ -634,13 +674,15 @@ export class BillingService {
         },
       });
     });
-    await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
-    await this.recordBillingEvent(order.userId, 'payment_paid', {
-      provider: 'freedompay',
-      planCode: plan.id,
-      amount: Number(order.amount),
-      providerOrderId: order.providerOrderId,
-    });
+    if (createdSubscription) {
+      await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+      await this.recordBillingEvent(order.userId, 'payment_paid', {
+        provider: 'freedompay',
+        planCode: plan.id,
+        amount: Number(order.amount),
+        providerOrderId: order.providerOrderId,
+      });
+    }
 
     return { ok: true, status: 'paid' };
   }
@@ -1021,6 +1063,84 @@ export class BillingService {
     );
   }
 
+  private getKaspiPaymentAmount(payload: unknown): number | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    return (
+      getNumber(view?.amount) ??
+      getNumber(view?.Amount) ??
+      getNumber(view?.paymentAmount) ??
+      getNumber(view?.PaymentAmount) ??
+      getNumber(data?.Amount) ??
+      getNumber(data?.amount) ??
+      getNumber(data?.PaymentAmount) ??
+      getNumber(data?.paymentAmount) ??
+      getNumber(data?.TotalAmount) ??
+      getNumber(data?.totalAmount)
+    );
+  }
+
+  private getKaspiPaymentCurrency(payload: unknown): string | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    return firstString(
+      view?.currency,
+      view?.Currency,
+      data?.Currency,
+      data?.currency,
+    )?.toUpperCase() ?? null;
+  }
+
+  private async validateKaspiPaidOrderPayload(
+    order: {
+      providerOrderId: string;
+      amount: unknown;
+      currency: string;
+      providerPayload: unknown;
+    },
+    payload: Record<string, unknown>,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const previousPayload = asRecord(order.providerPayload);
+    const mergedPayload = {
+      ...(previousPayload ?? {}),
+      ...payload,
+    };
+    let amount = this.getKaspiPaymentAmount(payload) ?? this.getKaspiPaymentAmount(mergedPayload);
+    let currency =
+      this.getKaspiPaymentCurrency(payload) ??
+      this.getKaspiPaymentCurrency(mergedPayload);
+
+    if (amount == null) {
+      const paymentType = this.getKaspiPaymentType(mergedPayload);
+      let details: Record<string, unknown> | null = null;
+      try {
+        details =
+          paymentType === 'qr'
+            ? asRecord(await this.kaspiPosService.getQrStatus(order.providerOrderId)) ?? null
+            : asRecord(await this.kaspiPosService.getInvoiceDetails(order.providerOrderId)) ?? null;
+      } catch {
+        return { ok: false, reason: 'KASPI_PAYMENT_DETAILS_UNAVAILABLE' };
+      }
+      amount = this.getKaspiPaymentAmount(details);
+      currency = currency ?? this.getKaspiPaymentCurrency(details);
+    }
+
+    const expectedAmount = Number(order.amount);
+    if (
+      amount == null ||
+      !Number.isFinite(expectedAmount) ||
+      Math.abs(amount - expectedAmount) >= 0.01
+    ) {
+      return { ok: false, reason: 'AMOUNT_MISMATCH' };
+    }
+
+    if (currency && currency !== order.currency.toUpperCase()) {
+      return { ok: false, reason: 'CURRENCY_MISMATCH' };
+    }
+
+    return { ok: true };
+  }
+
   private presentPaymentOrder(order: {
     providerOrderId: string;
     status: string;
@@ -1109,6 +1229,11 @@ export class BillingService {
     }
 
     const receipt = asRecord(response.receipt);
+    const expectedBundleId = this.config.get<string>('APPLE_IAP_BUNDLE_ID')?.trim();
+    const bundleId = getString(receipt?.bundle_id);
+    if (expectedBundleId && bundleId !== expectedBundleId) {
+      throw new BadRequestException('APPLE_BUNDLE_MISMATCH');
+    }
     const inAppRaw = Array.isArray(response.latest_receipt_info)
       ? response.latest_receipt_info
       : Array.isArray(receipt?.in_app)
@@ -1134,6 +1259,9 @@ export class BillingService {
     const transactionId = getString(selected.transaction_id);
     const originalTransactionId = getString(selected.original_transaction_id);
     if (!productId || !transactionId) throw new BadRequestException('APPLE_TRANSACTION_INVALID');
+    if (getString(selected.cancellation_date_ms) || getString(selected.cancellation_date)) {
+      throw new BadRequestException('APPLE_TRANSACTION_CANCELLED');
+    }
 
     const planId = this.mapAppleProductToPlan(productId);
     const plan = BILLING_PLANS.find((p) => p.id === planId);
@@ -1151,36 +1279,45 @@ export class BillingService {
     const expiresMs = Number(getString(selected.expires_date_ms) || 0);
     const expiresAt = Number.isFinite(expiresMs) && expiresMs > 0 ? new Date(expiresMs) : this.addDays(now, plan.durationDays);
 
-    const createdSubscription = await this.prisma.$transaction(async (tx) => {
-      await tx.paymentOrder.create({
-        data: {
-          userId,
-          planCode: plan.id,
-          amount: plan.priceKzt,
-          provider: 'apple_iap',
-          providerOrderId: transactionId,
-          providerPaymentId: transactionId,
-          status: 'paid',
-          paidAt: now,
-          providerPayload: {
+    let createdSubscription;
+    try {
+      createdSubscription = await this.prisma.$transaction(async (tx) => {
+        await tx.paymentOrder.create({
+          data: {
+            userId,
+            planCode: plan.id,
+            amount: plan.priceKzt,
             provider: 'apple_iap',
-            productId,
-            transactionId,
-            originalTransactionId,
-            receipt: response,
-          } as Prisma.InputJsonObject,
-        },
+            providerOrderId: transactionId,
+            providerPaymentId: transactionId,
+            status: 'paid',
+            paidAt: now,
+            providerPayload: {
+              provider: 'apple_iap',
+              productId,
+              transactionId,
+              originalTransactionId,
+              bundleId,
+              receipt: response,
+            } as Prisma.InputJsonObject,
+          },
+        });
+        return tx.subscription.create({
+          data: {
+            userId,
+            planType: plan.id,
+            startsAt: now,
+            expiresAt,
+            paymentNote: `AppleIAP:${productId}:${transactionId}`,
+          },
+        });
       });
-      return tx.subscription.create({
-        data: {
-          userId,
-          planType: plan.id,
-          startsAt: now,
-          expiresAt,
-          paymentNote: `AppleIAP:${productId}:${transactionId}`,
-        },
-      });
-    });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        return { ok: true, reused: true, planId };
+      }
+      throw error;
+    }
     await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
 
     return { ok: true, reused: false, planId, expiresAt };
@@ -1316,5 +1453,15 @@ export class BillingService {
     const isSuccessStatus = status === 'ok' || status === 'success' || status === 'paid';
     const isSuccessResult = resultFlag === '1' || resultFlag === 'true';
     return isSuccessStatus || isSuccessResult;
+  }
+
+  private isFreedomPayCallbackAmountValid(
+    payload: Record<string, string>,
+    expectedAmount: unknown,
+  ): boolean {
+    if (!payload.pg_amount) return false;
+    const received = Number(payload.pg_amount);
+    const expected = Number(expectedAmount);
+    return Number.isFinite(received) && Number.isFinite(expected) && Math.abs(received - expected) < 0.01;
   }
 }

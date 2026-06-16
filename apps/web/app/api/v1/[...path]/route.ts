@@ -39,8 +39,9 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   try {
     upstream = await fetch(url, init)
   } catch (err) {
+    console.error("API proxy upstream unavailable", err)
     return NextResponse.json(
-      { error: "Upstream unavailable", message: String(err) },
+      { error: "Upstream unavailable" },
       { status: 502 },
     )
   }

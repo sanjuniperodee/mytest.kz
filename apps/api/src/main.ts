@@ -9,7 +9,21 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { I18nInterceptor } from './common/interceptors/i18n.interceptor';
 
+function requireProductionConfig(keys: string[]) {
+  if (process.env.NODE_ENV !== 'production') return;
+  const missing = keys.filter((key) => !process.env[key]?.trim());
+  if (missing.length > 0) {
+    throw new Error(`Missing required production config: ${missing.join(', ')}`);
+  }
+}
+
 async function bootstrap() {
+  requireProductionConfig([
+    'JWT_SECRET',
+    'JWT_REFRESH_SECRET',
+    'KASPI_WEBHOOK_SECRET',
+  ]);
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
@@ -54,6 +68,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );

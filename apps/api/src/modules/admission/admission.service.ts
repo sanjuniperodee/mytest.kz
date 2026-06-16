@@ -156,11 +156,11 @@ export class AdmissionService {
       }
     }
 
-    const total = compareEntToCutoff(input.scores, null).total;
     const result = [...grouped.values()].map((groupRows) => {
       const minRow = groupRows.reduce((acc, cur) =>
         cur.displayedMinScore < acc.displayedMinScore ? cur : acc,
       );
+      const comparison = compareEntToCutoff(input.scores, minRow.displayedMinScore);
       return {
         cycleSlug: input.cycleSlug,
         programId: minRow.programId,
@@ -169,11 +169,16 @@ export class AdmissionService {
         profileSubjects: minRow.profileSubjects,
         profileVariant: minRow.profileVariant,
         displayedQuotaType: minRow.displayedQuotaType,
+        cutoffSource:
+          minRow.displayedQuotaType === input.quotaType
+            ? input.quotaType
+            : 'GRANT_FALLBACK',
         displayedMinScore: minRow.displayedMinScore,
         universityCount: groupRows.length,
-        isPass: total >= minRow.displayedMinScore,
-        total,
-        gapToCutoff: total - minRow.displayedMinScore,
+        isPass: comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0,
+        total: comparison.total,
+        passesEntThresholds: comparison.passesEntThresholds,
+        gapToCutoff: comparison.gapToCutoff,
       };
     });
 
@@ -197,25 +202,31 @@ export class AdmissionService {
       programId: input.programId,
       universityCode: input.universityCode,
     });
-    const total = compareEntToCutoff(input.scores, null).total;
-
     return rows
-      .map((row) => ({
-        cycleSlug: input.cycleSlug,
-        universityCode: row.universityCode,
-        universityName: row.universityName,
-        universityShortName: row.universityShortName,
-        programId: row.programId,
-        programCode: row.programCode,
-        programName: row.programName,
-        profileSubjects: row.profileSubjects,
-        profileVariant: row.profileVariant,
-        displayedQuotaType: row.displayedQuotaType,
-        displayedMinScore: row.displayedMinScore,
-        isPass: total >= row.displayedMinScore,
-        total,
-        gapToCutoff: total - row.displayedMinScore,
-      }))
+      .map((row) => {
+        const comparison = compareEntToCutoff(input.scores, row.displayedMinScore);
+        return {
+          cycleSlug: input.cycleSlug,
+          universityCode: row.universityCode,
+          universityName: row.universityName,
+          universityShortName: row.universityShortName,
+          programId: row.programId,
+          programCode: row.programCode,
+          programName: row.programName,
+          profileSubjects: row.profileSubjects,
+          profileVariant: row.profileVariant,
+          displayedQuotaType: row.displayedQuotaType,
+          cutoffSource:
+            row.displayedQuotaType === input.quotaType
+              ? input.quotaType
+              : 'GRANT_FALLBACK',
+          displayedMinScore: row.displayedMinScore,
+          isPass: comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0,
+          total: comparison.total,
+          passesEntThresholds: comparison.passesEntThresholds,
+          gapToCutoff: comparison.gapToCutoff,
+        };
+      })
       .sort((a, b) => {
         if (a.isPass !== b.isPass) return a.isPass ? -1 : 1;
         if (a.displayedMinScore !== b.displayedMinScore) return a.displayedMinScore - b.displayedMinScore;

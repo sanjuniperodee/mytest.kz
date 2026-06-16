@@ -40,4 +40,20 @@ describe('FreedomPay signature', () => {
       ),
     ).toBe(false);
   });
+
+  it('rejects malformed signatures without throwing', () => {
+    expect(
+      freedomPayVerifySignature(
+        'callback',
+        {
+          pg_order_id: 'order-1',
+          pg_result: '1',
+          pg_status: 'ok',
+          pg_salt: 'salt',
+          pg_sig: 'not-hex',
+        },
+        'secret-key',
+      ),
+    ).toBe(false);
+  });
 });

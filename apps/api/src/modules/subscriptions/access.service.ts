@@ -123,124 +123,133 @@ export class AccessService {
     examTypeId: string,
     sessionId?: string,
   ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.assertAndConsumeAttemptTx(tx, userId, examTypeId, sessionId);
+    });
+  }
+
+  async assertAndConsumeAttemptTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    examTypeId: string,
+    sessionId?: string,
+  ): Promise<void> {
     if (!this.v2Enabled) {
-      await this.consumeLegacyAttempt(userId, examTypeId);
+      await this.consumeLegacyAttemptTx(tx, userId, examTypeId, sessionId);
       return;
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      const now = new Date();
-      const exam = await tx.examType.findUnique({
-        where: { id: examTypeId },
-        select: { id: true, slug: true },
-      });
-      if (!exam) throw new BadRequestException('EXAM_NOT_FOUND');
+    const now = new Date();
+    const exam = await tx.examType.findUnique({
+      where: { id: examTypeId },
+      select: { id: true, slug: true },
+    });
+    if (!exam) throw new BadRequestException('EXAM_NOT_FOUND');
 
-      await this.ensureSignupEntitlementsTx(tx, userId, now);
-      await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
-      await this.expireEndedEntitlements(tx, userId, exam.id, now);
+    await this.ensureSignupEntitlementsTx(tx, userId, now);
+    await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
+    await this.expireEndedEntitlements(tx, userId, exam.id, now);
 
-      const decision = await this.getAccessDecisionTx(tx, userId, exam.id, now);
-      if (!decision.allowed || !decision.candidate) {
-        await tx.attemptUsageLedger.create({
-          data: {
-            userId,
-            examTypeId: exam.id,
-            action:
-              decision.reasonCode === 'DAILY_LIMIT_REACHED'
-                ? 'daily_blocked'
-                : decision.reasonCode === 'TOTAL_LIMIT_EXHAUSTED'
-                  ? 'total_blocked'
-                  : 'denied_no_entitlement',
-            reasonCode: decision.reasonCode,
-            localDay: decision.candidate?.localDay ?? null,
-            metadata: decision.nextAllowedAt
-              ? { nextAllowedAt: decision.nextAllowedAt.toISOString() }
-              : undefined,
-          },
-        });
-        throw new BadRequestException(
-          decision.reasonCode ?? 'NO_ENTITLEMENT',
-        );
-      }
-
-      const chosen = decision.candidate;
-      if (chosen.remainingToday != null) {
-        await this.incrementDailyUsageTx(
-          tx,
-          userId,
-          exam.id,
-          chosen.entitlement.id,
-          chosen.localDay,
-          chosen.entitlement.timezone,
-          chosen.entitlement.dailyAttemptsLimit!,
-        );
-      }
-
-      const updateRes = await tx.userExamEntitlement.updateMany({
-        where: {
-          id: chosen.entitlement.id,
-          status: EntitlementStatus.active,
-          ...(chosen.entitlement.totalAttemptsLimit != null
-            ? {
-                usedAttemptsTotal: {
-                  lt: chosen.entitlement.totalAttemptsLimit,
-                },
-              }
-            : {}),
-        },
-        data: {
-          usedAttemptsTotal: { increment: 1 },
-          lastAttemptAt: now,
-        },
-      });
-      if (updateRes.count === 0) {
-        throw new BadRequestException('TOTAL_LIMIT_EXHAUSTED');
-      }
-
-      const updated = await tx.userExamEntitlement.findUnique({
-        where: { id: chosen.entitlement.id },
-        select: {
-          id: true,
-          totalAttemptsLimit: true,
-          usedAttemptsTotal: true,
-          status: true,
-          sourceType: true,
-        },
-      });
-      if (
-        updated &&
-        updated.totalAttemptsLimit != null &&
-        updated.usedAttemptsTotal >= updated.totalAttemptsLimit &&
-        updated.status === EntitlementStatus.active
-      ) {
-        await tx.userExamEntitlement.update({
-          where: { id: updated.id },
-          data: { status: EntitlementStatus.exhausted, exhaustedAt: now },
-        });
-      }
-
-      if (
-        this.dualWriteLegacyEnabled &&
-        chosen.entitlement.sourceType === EntitlementSourceType.legacy_free_trial
-      ) {
-        await tx.user.updateMany({
-          where: { id: userId, entTrialUsed: { lt: ENT_TRIAL_LIMIT } },
-          data: { entTrialUsed: { increment: 1 } },
-        });
-      }
-
+    const decision = await this.getAccessDecisionTx(tx, userId, exam.id, now);
+    if (!decision.allowed || !decision.candidate) {
       await tx.attemptUsageLedger.create({
         data: {
           userId,
           examTypeId: exam.id,
-          entitlementId: chosen.entitlement.id,
-          sessionId: sessionId ?? null,
-          action: 'attempt_consumed',
-          attemptsDelta: 1,
-          localDay: chosen.localDay,
+          action:
+            decision.reasonCode === 'DAILY_LIMIT_REACHED'
+              ? 'daily_blocked'
+              : decision.reasonCode === 'TOTAL_LIMIT_EXHAUSTED'
+                ? 'total_blocked'
+                : 'denied_no_entitlement',
+          reasonCode: decision.reasonCode,
+          localDay: decision.candidate?.localDay ?? null,
+          metadata: decision.nextAllowedAt
+            ? { nextAllowedAt: decision.nextAllowedAt.toISOString() }
+            : undefined,
         },
       });
+      throw new BadRequestException(
+        decision.reasonCode ?? 'NO_ENTITLEMENT',
+      );
+    }
+
+    const chosen = decision.candidate;
+    if (chosen.remainingToday != null) {
+      await this.incrementDailyUsageTx(
+        tx,
+        userId,
+        exam.id,
+        chosen.entitlement.id,
+        chosen.localDay,
+        chosen.entitlement.timezone,
+        chosen.entitlement.dailyAttemptsLimit!,
+      );
+    }
+
+    const updateRes = await tx.userExamEntitlement.updateMany({
+      where: {
+        id: chosen.entitlement.id,
+        status: EntitlementStatus.active,
+        ...(chosen.entitlement.totalAttemptsLimit != null
+          ? {
+              usedAttemptsTotal: {
+                lt: chosen.entitlement.totalAttemptsLimit,
+              },
+            }
+          : {}),
+      },
+      data: {
+        usedAttemptsTotal: { increment: 1 },
+        lastAttemptAt: now,
+      },
+    });
+    if (updateRes.count === 0) {
+      throw new BadRequestException('TOTAL_LIMIT_EXHAUSTED');
+    }
+
+    const updated = await tx.userExamEntitlement.findUnique({
+      where: { id: chosen.entitlement.id },
+      select: {
+        id: true,
+        totalAttemptsLimit: true,
+        usedAttemptsTotal: true,
+        status: true,
+        sourceType: true,
+      },
+    });
+    if (
+      updated &&
+      updated.totalAttemptsLimit != null &&
+      updated.usedAttemptsTotal >= updated.totalAttemptsLimit &&
+      updated.status === EntitlementStatus.active
+    ) {
+      await tx.userExamEntitlement.update({
+        where: { id: updated.id },
+        data: { status: EntitlementStatus.exhausted, exhaustedAt: now },
+      });
+    }
+
+    if (
+      this.dualWriteLegacyEnabled &&
+      chosen.entitlement.sourceType === EntitlementSourceType.legacy_free_trial
+    ) {
+      await tx.user.updateMany({
+        where: { id: userId, entTrialUsed: { lt: ENT_TRIAL_LIMIT } },
+        data: { entTrialUsed: { increment: 1 } },
+      });
+    }
+
+    await tx.attemptUsageLedger.create({
+      data: {
+        userId,
+        examTypeId: exam.id,
+        entitlementId: chosen.entitlement.id,
+        sessionId: sessionId ?? null,
+        action: 'attempt_consumed',
+        attemptsDelta: 1,
+        localDay: chosen.localDay,
+      },
     });
   }
 
@@ -517,8 +526,13 @@ export class AccessService {
     return result;
   }
 
-  private async consumeLegacyAttempt(userId: string, examTypeId: string) {
-    const exam = await this.prisma.examType.findUnique({
+  private async consumeLegacyAttemptTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    examTypeId: string,
+    sessionId?: string,
+  ) {
+    const exam = await tx.examType.findUnique({
       where: { id: examTypeId },
       select: { id: true, slug: true },
     });
@@ -526,12 +540,12 @@ export class AccessService {
     if (exam.slug !== 'ent') return;
 
     const now = new Date();
-    const user = await this.prisma.user.findUnique({
+    const user = await tx.user.findUnique({
       where: { id: userId },
       select: { createdAt: true },
     });
     if (!user) throw new BadRequestException('USER_NOT_FOUND');
-    const activeSubscriptions = await this.prisma.subscription.findMany({
+    const activeSubscriptions = await tx.subscription.findMany({
       where: {
         userId,
         isActive: true,
@@ -555,18 +569,19 @@ export class AccessService {
       (s) => this.subscriptionTotalAttemptsLimit(s.planType) != null,
     )) {
       const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
-      const used = await this.prisma.testSession.count({
+      const used = await tx.testSession.count({
         where: {
           userId,
           examTypeId,
           startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
+          ...(sessionId ? { NOT: { id: sessionId } } : {}),
         },
       });
       if (used < limit) return;
     }
 
     const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
-    const consumed = await this.prisma.user.updateMany({
+    const consumed = await tx.user.updateMany({
       where: { id: userId, entTrialUsed: { lt: legacyFreeLimit } },
       data: { entTrialUsed: { increment: 1 } },
     });

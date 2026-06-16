@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
 import { AdmissionController } from '../src/modules/admission/admission.controller';
 import { AdmissionService } from '../src/modules/admission/admission.service';
+import { AdmissionRepository } from '../src/modules/admission/infrastructure/admission.repository';
 import { PrismaService } from '../src/database/prisma.service';
 
 describe('Admission HTTP (mocked Prisma)', () => {
@@ -50,7 +51,11 @@ describe('Admission HTTP (mocked Prisma)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }])],
       controllers: [AdmissionController],
-      providers: [AdmissionService, { provide: PrismaService, useValue: prismaMock }],
+      providers: [
+        AdmissionService,
+        AdmissionRepository,
+        { provide: PrismaService, useValue: prismaMock },
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();

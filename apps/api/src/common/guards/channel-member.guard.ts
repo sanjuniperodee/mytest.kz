@@ -52,9 +52,6 @@ export class ChannelMemberGuard implements CanActivate {
       throw this.telegramChannelForbidden();
     }
 
-    // Fast path: token already says user is a member.
-    if (user.isChannelMember) return true;
-
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: {

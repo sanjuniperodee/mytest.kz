@@ -8,7 +8,15 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
-import { randomInt, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import {
+  createHash,
+  randomInt,
+  randomBytes,
+  randomUUID,
+  scrypt,
+  timingSafeEqual,
+} from 'crypto';
+import { promisify } from 'util';
 import Redis from 'ioredis';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramAuthService } from './telegram-auth.service';
@@ -28,6 +36,27 @@ import { AccessService } from '../subscriptions/access.service';
 /** Нормализованный KZ-телефон (11 цифр, с 7) → фиксированный OTP для теста / демо. */
 const WEB_AUTH_FIXED_OTP_BY_PHONE: Record<string, string> = {
   '77082420482': '111111',
+};
+const WEB_AUTH_MAX_VERIFY_ATTEMPTS = 5;
+const WEB_AUTH_VERIFY_LOCK_SECONDS = 15 * 60;
+
+type TokenUser = {
+  id: string;
+  telegramId: number | null;
+  preferredLanguage: string;
+  isAdmin: boolean;
+  isChannelMember: boolean;
+  telegramUsername: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl?: string | null;
+  email?: string | null;
+};
+
+type RefreshJwtPayload = {
+  sub: string;
+  sid?: string;
+  jti?: string;
 };
 
 @Injectable()
@@ -209,6 +238,7 @@ export class AuthService {
 
     const redisKey = `auth:code:${normalized}`;
     await this.redis.set(redisKey, code, 'EX', AUTH_CODE_TTL_SECONDS);
+    await this.redis.del(this.webAuthAttemptKey(normalized));
 
     await this.telegramBot.sendAuthCodeToTelegram(user.telegramId, code, {
       includePhoneLinkedAck: opts?.fromTelegramBot === true,
@@ -224,6 +254,7 @@ export class AuthService {
     }
 
     const redisKey = `auth:code:${normalized}`;
+    await this.assertWebAuthNotLocked(normalized);
     // SECURITY: the fixed demo OTP is a hard-coded credential bypass. Only honor it
     // outside production so a real Telegram-delivered code is always required in prod.
     const fixedOtp =
@@ -235,11 +266,13 @@ export class AuthService {
     if (!useFixedOtp) {
       const storedCode = await this.redis.get(redisKey);
       if (!storedCode || storedCode !== code) {
+        await this.recordWebAuthFailure(normalized);
         throw new UnauthorizedException('Неверный или истёкший код');
       }
     }
 
     await this.redis.del(redisKey);
+    await this.redis.del(this.webAuthAttemptKey(normalized));
 
     const user = await this.prisma.user.findFirst({
       where: { phone: normalized },
@@ -352,38 +385,74 @@ export class AuthService {
     try {
       const payload = this.jwt.verify(refreshToken, {
         secret: getRequiredConfig(this.config, 'JWT_REFRESH_SECRET'),
+      }) as RefreshJwtPayload;
+      if (!payload.sid) {
+        throw new UnauthorizedException();
+      }
+
+      const session = await this.prisma.authSession.findUnique({
+        where: { id: payload.sid },
+        include: { user: true },
       });
 
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-      });
+      if (!session || session.userId !== payload.sub || session.revokedAt) {
+        throw new UnauthorizedException();
+      }
+      if (session.expiresAt.getTime() <= Date.now()) {
+        throw new UnauthorizedException();
+      }
+      if (session.refreshTokenHash !== this.hashToken(refreshToken)) {
+        await this.prisma.authSession.updateMany({
+          where: { familyId: session.familyId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        throw new UnauthorizedException();
+      }
 
-      if (!user) throw new UnauthorizedException();
-
-      await this.accessService.ensureSignupEntitlementsForUser(user.id);
+      await this.accessService.ensureSignupEntitlementsForUser(session.user.id);
 
       return this.generateTokens({
-        ...user,
-        telegramId: user.telegramId ? Number(user.telegramId) : null,
-        isChannelMember: user.telegramId ? user.isChannelMember : true,
+        ...session.user,
+        telegramId: session.user.telegramId ? Number(session.user.telegramId) : null,
+        isChannelMember: session.user.telegramId ? session.user.isChannelMember : true,
+      }, {
+        id: session.id,
+        familyId: session.familyId,
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  private generateTokens(user: {
-    id: string;
-    telegramId: number | null;
-    preferredLanguage: string;
-    isAdmin: boolean;
-    isChannelMember: boolean;
-    telegramUsername: string | null;
-    firstName: string | null;
-    lastName: string | null;
-    avatarUrl?: string | null;
-    email?: string | null;
-  }) {
+  async logout(refreshToken: string) {
+    try {
+      const payload = this.jwt.verify(refreshToken, {
+        secret: getRequiredConfig(this.config, 'JWT_REFRESH_SECRET'),
+      }) as RefreshJwtPayload;
+      if (payload.sid) {
+        await this.prisma.authSession.updateMany({
+          where: { id: payload.sid, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+    } catch {
+      // Logout is idempotent from the client perspective.
+    }
+    return { ok: true };
+  }
+
+  async logoutAll(userId: string) {
+    await this.prisma.authSession.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  private async generateTokens(
+    user: TokenUser,
+    existingSession?: { id: string; familyId: string },
+  ) {
     const payload = {
       sub: user.id,
       telegramId: user.telegramId,
@@ -393,13 +462,41 @@ export class AuthService {
     };
 
     const accessToken = this.jwt.sign(payload);
-    const refreshToken = this.jwt.sign(payload, {
+    const sessionId = existingSession?.id ?? randomUUID();
+    const familyId = existingSession?.familyId ?? sessionId;
+    const refreshToken = this.jwt.sign(
+      { ...payload, sid: sessionId, jti: randomUUID() },
+      {
       secret: getRequiredConfig(this.config, 'JWT_REFRESH_SECRET'),
       expiresIn: getJwtExpiresIn(
         this.config.get<string>('JWT_REFRESH_EXPIRES_IN'),
         '60d',
       ),
-    });
+      },
+    );
+    const refreshTokenHash = this.hashToken(refreshToken);
+    const expiresAt = this.getJwtExpiryDate(refreshToken);
+
+    if (existingSession) {
+      await this.prisma.authSession.update({
+        where: { id: sessionId },
+        data: {
+          refreshTokenHash,
+          expiresAt,
+          lastUsedAt: new Date(),
+        },
+      });
+    } else {
+      await this.prisma.authSession.create({
+        data: {
+          id: sessionId,
+          userId: user.id,
+          familyId,
+          refreshTokenHash,
+          expiresAt,
+        },
+      });
+    }
 
     return {
       accessToken,
@@ -419,6 +516,19 @@ export class AuthService {
     };
   }
 
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private getJwtExpiryDate(token: string): Date {
+    const decoded = this.jwt.decode(token) as { exp?: unknown } | null;
+    const exp = typeof decoded?.exp === 'number' ? decoded.exp : null;
+    if (!exp) {
+      throw new Error('Refresh token expiry is missing');
+    }
+    return new Date(exp * 1000);
+  }
+
   private getGoogleNames(payload: {
     given_name?: string;
     family_name?: string;
@@ -435,6 +545,25 @@ export class AuthService {
       firstName: first || null,
       lastName: rest.join(' ') || null,
     };
+  }
+
+  private webAuthAttemptKey(normalizedPhone: string): string {
+    return `auth:code:attempts:${normalizedPhone}`;
+  }
+
+  private async assertWebAuthNotLocked(normalizedPhone: string) {
+    const attempts = Number(await this.redis.get(this.webAuthAttemptKey(normalizedPhone)));
+    if (Number.isFinite(attempts) && attempts >= WEB_AUTH_MAX_VERIFY_ATTEMPTS) {
+      throw new UnauthorizedException('Слишком много попыток. Попробуйте позже');
+    }
+  }
+
+  private async recordWebAuthFailure(normalizedPhone: string) {
+    const key = this.webAuthAttemptKey(normalizedPhone);
+    const attempts = await this.redis.incr(key);
+    if (attempts === 1) {
+      await this.redis.expire(key, WEB_AUTH_VERIFY_LOCK_SECONDS);
+    }
   }
 
   private async attrributeVisit(visitorId: string, userId: string) {
@@ -469,10 +598,11 @@ export class AuthService {
 const SALT_LEN = 32;
 const KEY_LEN = 64;
 const HASH_SEP = ':';
+const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_LEN).toString('hex');
-  const key = scryptSync(password, salt, KEY_LEN);
+  const key = (await scryptAsync(password, salt, KEY_LEN)) as Buffer;
   return `${salt}${HASH_SEP}${key.toString('hex')}`;
 }
 
@@ -480,6 +610,8 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   const [salt, keyHex] = hash.split(HASH_SEP);
   if (!salt || !keyHex) return false;
   const expected = Buffer.from(keyHex, 'hex');
-  const actual = scryptSync(password, salt, KEY_LEN);
+  if (expected.length !== KEY_LEN) return false;
+  const actual = (await scryptAsync(password, salt, KEY_LEN)) as Buffer;
+  if (actual.length !== expected.length) return false;
   return timingSafeEqual(expected, actual);
 }

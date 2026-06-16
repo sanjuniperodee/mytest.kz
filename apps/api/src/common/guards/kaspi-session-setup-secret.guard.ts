@@ -5,7 +5,15 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
+
+function constantTimeEquals(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}
 
 /**
  * Доступ к /billing/kaspi/setup/* только с заголовком
@@ -25,7 +33,7 @@ export class KaspiSessionSetupSecretGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>();
     const raw = req.headers['x-kaspi-session-setup-secret'];
     const given = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? '';
-    if (!given || given !== expected) {
+    if (!given || !constantTimeEquals(given, expected)) {
       throw new ForbiddenException('Invalid X-Kaspi-Session-Setup-Secret');
     }
     return true;
