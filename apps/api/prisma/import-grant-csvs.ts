@@ -27,6 +27,13 @@ type CutoffRow = {
   minScore: number | null;
 };
 
+const PROGRAM_CODE_RE = /^BM?\d+$/i;
+const MATRIX_PROGRAM_LABEL_RE = /^(BM?\d+)\s*[-–]\s*(.+)$/i;
+
+function normalizeProgramCode(value: string): string {
+  return value.replace(/\s+/g, '').trim().toUpperCase();
+}
+
 function dedupeCutoffsJson(rows: CutoffRow[]): { cutoffs: CutoffRow[]; removed: number } {
   const map = new Map<string, CutoffRow>();
   for (const c of rows) {
@@ -74,9 +81,9 @@ function parsePrograms(rows: string[][]): ProgramRow[] {
       continue;
     }
     if (!c0) continue;
-    const codeRaw = c0.replace(/\s+/g, '');
-    if (!/^B\d+$/i.test(codeRaw)) continue;
-    const code = codeRaw.toUpperCase().replace(/^B/, 'B'); // B001
+    const codeRaw = normalizeProgramCode(c0);
+    if (!PROGRAM_CODE_RE.test(codeRaw)) continue;
+    const code = codeRaw;
     const name = (row[1] ?? '').replace(/\r?\n/g, ' ').trim();
     const profileSubjects = (row[2] ?? '').replace(/\r?\n/g, ' ').trim();
     const profileShortLabel = (row[3] ?? '').trim() || null;
@@ -100,12 +107,24 @@ function programKey(p: ProgramRow): string {
 
 function matchProgram(programs: ProgramRow[], matrixCol0: string): ProgramRow | null {
   const t = matrixCol0.replace(/\s+/g, ' ').trim();
-  const m = t.match(/^B(\d+)\s*[-–]\s*(.+)$/i);
+  const m = t.match(MATRIX_PROGRAM_LABEL_RE);
   if (!m) return null;
-  const code = `B${m[1]}`;
+  const code = normalizeProgramCode(m[1]);
   const tail = m[2].trim();
   const prospects = programs.filter((p) => p.code === code);
-  if (prospects.length === 0) return null;
+  if (prospects.length === 0) {
+    const profileSubjects = tail.match(/\(([^)]*)\)\s*$/)?.[1]?.trim() ?? '';
+    const name = tail.replace(/\s*\([^)]*\)\s*$/, '').trim() || tail;
+    const fallback: ProgramRow = {
+      code,
+      profileVariant: programs.filter((p) => p.code === code).length,
+      name,
+      profileSubjects,
+      profileShortLabel: null,
+    };
+    programs.push(fallback);
+    return fallback;
+  }
   if (prospects.length === 1) return prospects[0];
 
   const lowerTail = tail.toLowerCase();
@@ -206,7 +225,7 @@ function parseMatrix(
       continue;
     }
 
-    if (/^B\d+\s*[-–]/i.test(c0)) {
+    if (MATRIX_PROGRAM_LABEL_RE.test(c0)) {
       currentLabel = c0;
       currentProgram = matchProgram(programs, c0);
       if (!currentProgram) unknownProgramLabels.push(c0);
@@ -244,6 +263,13 @@ function main() {
   const r1 = parseMatrix(matrix2324, '2023-2024', programs);
   const r2 = parseMatrix(matrix2526, '2025-2026', programs);
 
+  const unknownProgramLabels = [...new Set([...r1.unknownProgramLabels, ...r2.unknownProgramLabels])];
+  if (unknownProgramLabels.length > 0) {
+    throw new Error(
+      `Unknown matrix program label(s): ${unknownProgramLabels.slice(0, 20).join(', ')}`,
+    );
+  }
+
   const mergedCutoffs = [...r1.cutoffs, ...r2.cutoffs];
   const { cutoffs, removed: deduped } = dedupeCutoffsJson(mergedCutoffs);
   if (deduped > 0) {
@@ -264,7 +290,7 @@ function main() {
     cycles,
     cutoffs,
     warnings: {
-      unknownMatrixProgramLabels: [...new Set([...r1.unknownProgramLabels, ...r2.unknownProgramLabels])],
+      unknownMatrixProgramLabels: unknownProgramLabels,
     },
   };
 

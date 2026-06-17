@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminUserService } from './services/admin-user.service';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 
 @Controller('admin/users')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -30,8 +31,12 @@ export class AdminUsersController {
   }
 
   @Patch(':id')
-  async updateUser(@Param('id') id: string, @Body() data: { isAdmin?: boolean }) {
-    return this.userService.updateUser(id, data);
+  async updateUser(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() data: UpdateAdminUserDto,
+  ) {
+    return this.userService.updateUser(adminId, id, data);
   }
 
   @Delete(':id')

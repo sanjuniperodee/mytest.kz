@@ -120,6 +120,30 @@ export class QuestionAppealsService {
     };
   }
 
+  private formatStudentAppeal(appeal: AppealWithRelations) {
+    return {
+      id: appeal.id,
+      userId: appeal.userId,
+      sessionId: appeal.sessionId,
+      questionId: appeal.questionId,
+      examTypeId: appeal.examTypeId,
+      subjectId: appeal.subjectId,
+      reason: appeal.reason,
+      message: appeal.message,
+      status: appeal.status,
+      reviewedAt: appeal.reviewedAt,
+      createdAt: appeal.createdAt,
+      updatedAt: appeal.updatedAt,
+      questionPreview: this.pickQuestionPreview(
+        appeal.question?.content ?? null,
+        appeal.question?.metadata ?? null,
+      ),
+      session: appeal.session,
+      subject: appeal.subject,
+      examType: appeal.examType,
+    };
+  }
+
   private async loadSessionQuestion(userId: string, sessionId: string, questionId: string) {
     const session = await this.prisma.testSession.findFirst({
       where: {
@@ -254,7 +278,7 @@ export class QuestionAppealsService {
       });
     });
 
-    return this.formatAppeal(appeal);
+    return this.formatStudentAppeal(appeal);
   }
 
   async listForSession(userId: string, sessionId: string) {
@@ -277,7 +301,7 @@ export class QuestionAppealsService {
       include: this.includeConfig(),
     });
 
-    return appeals.map((appeal) => this.formatAppeal(appeal));
+    return appeals.map((appeal) => this.formatStudentAppeal(appeal));
   }
 
   async listAdmin(filters: {

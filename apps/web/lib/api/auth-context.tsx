@@ -1,7 +1,8 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { api } from "./client"
+import { useSWRConfig } from "swr"
+import { ApiError, api, invalidateAuthScope } from "./client"
 import {
   Scope,
   clearTokens,
@@ -33,6 +34,11 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setLoading] = useState(true)
+  const { mutate } = useSWRConfig()
+
+  const clearUserCache = useCallback(() => {
+    void mutate(() => true, undefined, { revalidate: false })
+  }, [mutate])
 
   const loadCurrentUser = useCallback(async (): Promise<User | null> => {
     const token = getAccessToken(scope)
@@ -44,12 +50,16 @@ export function AuthProvider({
       const me = await api<User>("/users/me", { scope })
       setUser(me)
       return me
-    } catch {
-      clearTokens(scope)
-      setUser(null)
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        invalidateAuthScope(scope)
+        clearTokens(scope)
+        clearUserCache()
+        setUser(null)
+      }
       return null
     }
-  }, [scope])
+  }, [clearUserCache, scope])
 
   useEffect(() => {
     let cancelled = false
@@ -90,11 +100,13 @@ export function AuthProvider({
 
   const setSession = useCallback(
     (data: AuthResponse) => {
+      invalidateAuthScope(scope)
+      clearUserCache()
       setTokens(scope, data)
       setUser(data.user)
       setLoading(false)
     },
-    [scope],
+    [clearUserCache, scope],
   )
 
   const signOut = useCallback(() => {
@@ -106,10 +118,12 @@ export function AuthProvider({
         body: { refreshToken },
       }).catch(() => null)
     }
+    invalidateAuthScope(scope)
     clearTokens(scope)
+    clearUserCache()
     setUser(null)
     setLoading(false)
-  }, [scope])
+  }, [clearUserCache, scope])
 
   const refresh = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true)

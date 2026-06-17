@@ -79,7 +79,6 @@ export class AdmissionRepository {
         },
       },
       orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],
-      take: 15000,
     });
   }
 

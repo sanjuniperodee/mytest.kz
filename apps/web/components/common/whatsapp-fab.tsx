@@ -21,6 +21,17 @@ function getWhatsAppDigits(): string {
   return digits.length >= 10 ? digits : DEFAULT_WA_DIGITS
 }
 
+function isSafeWhatsAppUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== "https:") return false
+    const host = url.hostname.toLowerCase()
+    return host === "wa.me" || host === "api.whatsapp.com" || host === "www.whatsapp.com"
+  } catch {
+    return false
+  }
+}
+
 export function WhatsAppFab({ className }: Props) {
   const [runtimeSettings, setRuntimeSettings] = useState<LandingRuntimeSettings | null>(null)
   const [runtimeLoaded, setRuntimeLoaded] = useState(false)
@@ -50,7 +61,7 @@ export function WhatsAppFab({ className }: Props) {
       return waUrl
     }
     const fromSettings = (runtimeSettings?.whatsappUrl || "").trim()
-    return (fromSettings || waUrl).trim()
+    return fromSettings && isSafeWhatsAppUrl(fromSettings) ? fromSettings : waUrl
   }, [runtimeLoaded, runtimeSettings?.whatsappUrl, waUrl])
 
   if (!whatsappHref) return null

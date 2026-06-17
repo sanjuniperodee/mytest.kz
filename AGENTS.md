@@ -4,38 +4,59 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-Bilimland is a Kazakh exam preparation platform (my-test.kz) with multiple apps in a monorepo.
+Bilimland is a Kazakh ENT (Единое Национальное Тестирование) exam-prep platform — my-test.kz / mytest.kz. It is a monorepo serving a Next.js web app, a Vite admin SPA, an Expo mobile app, and a Telegram Mini App, all backed by one NestJS API.
 
 ## Stack
 
-- **Monorepo**: app-level npm packages + Turbo config
-- **Database**: PostgreSQL via Prisma ORM
-- **API**: NestJS with JWT auth (passport-jwt), Redis caching, Telegraf Telegram bot
-- **Web**: Next.js + React + Tailwind CSS
-- **Admin**: React 18 + Vite + Ant Design
-- **Shared**: TypeScript package (`@bilimland/shared`) with ENT scoring model
+- **Monorepo**: npm workspaces + Turbo (`turbo.json`).
+- **API** (`apps/api`): NestJS 11, Prisma 5 → PostgreSQL, Redis (ioredis), JWT (passport-jwt), Telegraf Telegram bot, FreedomPay billing.
+- **Web** (`apps/web`): Next.js 16 App Router, React 19, Tailwind v4, shadcn/ui (Radix), SWR. Package name is `mytest-v2`. **This is the current main frontend.**
+- **Admin** (`apps/admin`): Vite + React 18 + Ant Design + TanStack Query + axios.
+- **Mobile** (`apps/mobile`): Expo 54 / React Native 0.81, expo-router, EAS builds.
+- **Shared** (`packages/shared`): framework-agnostic TS — ENT scoring, admission DTOs, validators, i18n types. Imported as `@bilimland/shared`, must be built (`dist/`) before consumers compile.
+- **`apps/old_apps/`**: the **legacy Vite web app** (the LandingV3/V4 + React Router SPA that older docs describe). Kept for reference; not in the active build.
 
 ## Commands
 
+Commands can be run from the root workspace or inside individual directories:
+
 ```bash
-npm run dev          # Start all apps (web, api, admin) via turbo
-npm run build        # Build all apps via turbo
-npm run lint         # Lint all apps
+# Start all apps via turbo
+npm run dev
 
-# Web
-cd apps/web && npm run dev    # Start Next.js web dev server (default port 3000)
-cd apps/web && npm run build  # Build web (Next.js)
+# Build all apps
+npm run build
 
-# API
-cd apps/api && npm run dev    # Start API (NestJS with watch mode)
-cd apps/api && npm run build  # Build API
-npm run db:migrate:dev  # Run Prisma migrations in dev
-npm run db:migrate       # Deploy migrations (safe)
-npm run db:seed         # Seed database
-npm run db:generate     # Generate Prisma client
+# Lint all apps
+npm run lint
 
-# Admin
+# Web (Next.js) — http://localhost:3000
+cd apps/web && npm run dev        # next dev
+cd apps/web && npm run build      # next build
+
+# API (NestJS) — http://localhost:${API_PORT:-3000}, global prefix /api/v1
+cd apps/api && npm run dev        # nest start --watch
+cd apps/api && npm run build      # nest build (prebuild: prisma generate + build shared)
+cd apps/api && npm run test:api   # Jest e2e (test/jest-e2e.json, --runInBand)
+
+# Admin (Vite) — http://localhost:5173
 cd apps/admin && npm run dev
+
+# Shared — build before API/admin compile
+cd packages/shared && npm run build   # tsc
+cd packages/shared && npm run dev     # tsc --watch
+
+# Mobile
+cd apps/mobile && npm run start   # expo start
+```
+
+### Database (Prisma) — run from `apps/api` or root scripts
+
+```bash
+npm run db:migrate:dev            # cd apps/api && npx prisma migrate dev
+npm run db:migrate                # cd apps/api && npm run migrate:deploy:safe
+npm run db:generate               # cd apps/api && npx prisma generate
+npm run db:seed                   # cd apps/api && npx prisma db seed
 ```
 
 ## Architecture
@@ -43,32 +64,28 @@ cd apps/admin && npm run dev
 ### apps/web — Main frontend
 
 - **Framework**: Next.js App Router under `app/`, shared UI under `components/`, client API helpers under `lib/api/`.
-- **API proxy**: `app/api/v1/[...path]/route.ts` forwards browser requests to the Nest API.
+- **API proxy**: `app/api/v1/[...path]/route.ts` forwards browser requests to the Nest API (thin proxy to avoid CORS).
 - **Media proxy**: `app/api/media/[...path]/route.ts` resolves uploaded media from the API origin.
-- **Auth client**: `lib/api/client.ts` and `lib/api/storage.ts` currently manage bearer tokens and refresh calls.
-- **Admission/Chance**: admission UI uses `/admission/*` API endpoints.
+- **Auth client**: `lib/api/client.ts` (fetch + `ApiError` + token refresh) and `lib/api/storage.ts` manage JWT tokens and silent refresh calls.
+- **Admission/Chance**: Interactive grant estimator UI under `app/admission/page.tsx` hitting `/admission/*`.
 
 ### apps/api — Backend
 
-- **Modules** under `src/modules/`: `settings` (landing config), `admission` (cutoffs, universities, programs, chance), `auth`, `users`, `sessions`, etc.
-- **Public landing settings** (`GET /public/landing-settings`): Returns `instructionVideoUrl`, `instagramUrl`, `tiktokUrl`, `whatsappUrl`, `heroSlides[]`.
-- **Admission endpoints**: `/admission/cycles`, `/admission/universities`, `/admission/programs`, `/admission/cutoffs`, `/admission/chance/*`
-- **Prisma schema** (`prisma/schema.prisma`): Models for `User`, `Session`, `Attempt`, `GrantCutoff`, `University`, `Program`, `AdmissionCycle`, etc.
-- **Auth**: JWT access + refresh tokens. Telegram login via `telegraf` bot.
-- **Redis**: Used for caching, rate limiting, daily attempt limits.
-
-### apps/admin — Admin panel
-
-React + Vite + Ant Design. Used for managing landing settings, viewing user sessions, editing admission data.
+- **Modules** under `src/modules/`: `settings`, `admission`, `auth`, `users`, `tests`, `telegram`, `billing`, `notifications`, `leads`, `analytics`, etc.
+- **`admission` is the reference architecture**: pure domain logic in `domain/chance-cutoffs.ts`, persistence isolated in `infrastructure/admission.repository.ts`, and `admission.service.ts` as a thin orchestrator.
+- **Common** (`src/common/`): `guards/` (e.g. `AdminGuard`, `PremiumGuard`, `channel-member.guard.ts`), `interceptors/` (i18n response localization), `decorators/`, `filters/`, `config/`.
+- **Prisma schema** (`prisma/schema.prisma`): Models for `User`, `TestSession`, `TestAnswer`, `PaymentOrder`, `PaymentRefund`, `Lead`, `VisitEvent`, etc.
+- **Redis**: Used for OTP codes caching, rate limiting, and daily attempt limits.
 
 ### packages/shared
 
-Contains shared TypeScript types and constants. Key file: `src/entGrantModel.ts` with `ENT_MAX`, `ENT_THRESHOLD_2026`, `passesThresholds()`, `grantTierHint()`.
+Built TS package; `src/index.ts` re-exports everything. Key files: `entGrantModel.ts` (`ENT_MAX`, `ENT_THRESHOLD_2026`, `passesThresholds()`, `grantTierHint()`), `entQuestionScoring.ts`, `admissionCompare.ts`, `admissionApiTypes.ts`, `landingTypes.ts`.
 
 ## Key Patterns
 
-- **Hero slides from API**: Landing pages fetch `heroSlides` from `/public/landing-settings`. Each slide has `desktopImageUrl`, `tabletImageUrl`, `mobileImageUrl` (modern) or a fallback `image` string (legacy).
-- **ENT scoring**: 5 subjects — mathLit (max 10), readingLit (max 10), history (max 20), profile1 (max 50), profile2 (max 50) = 140 total. Шектi балл thresholds defined in `ENT_THRESHOLD_2026`.
-- **Passing scores (проходные баллы)**: Fetched from `/admission/cutoffs?cycleSlug=<year>&quotaType=GRANT`. Data shape includes `universityCode`, `programId`, `minScore`, `quotaType`.
-- **Testimonials on landing**: V1 landing (`LandingPage.tsx`) uses `landing.testimonials` from i18n with shape `{ quote, author }`. V3 landing was updated to use the same i18n keys.
-- **Theme**: Dark/light toggle stored in localStorage (`mytest-theme`). Landing V3 uses `data-theme` attribute on `<html>`, older pages use CSS class `.dark`.
+- **ENT scoring**: 5 subjects — mathLit (max 10), readingLit (max 10), history (max 20), profile1 (max 50), profile2 (max 50) = 140 total. Use `totalEntScore()` from `@bilimland/shared` (clamps inputs); do **not** re-sum the five fields inline.
+- **Passing scores (проходные баллы)**: Fetched from `/admission/cutoffs?cycleSlug=<year>&quotaType=GRANT`.
+- **JWT `isAdmin` is a UI hint only**: `AdminGuard` re-reads `User.isAdmin` from the database on every request.
+- **i18n on the wire**: The API returns `{ kk, ru, en }` objects; an interceptor localizes responses server-side and the client `localize()` handles the rest.
+- **Hero slides / landing config**: Landing pages fetch `heroSlides` dynamically from `/public/landing-settings`. Each slide has `desktopImageUrl`, `tabletImageUrl`, `mobileImageUrl` or a legacy `image` fallback.
+- **Theme**: Dark/light toggle stored in localStorage (`mytest-theme`). Web UI uses `data-theme` attribute on `<html>`, older pages use CSS class `.dark`.

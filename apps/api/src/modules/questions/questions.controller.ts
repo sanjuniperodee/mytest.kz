@@ -12,7 +12,9 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  StreamableFile,
 } from '@nestjs/common';
+import { Readable } from 'stream';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { diskStorage } from 'multer';
@@ -22,6 +24,7 @@ import { randomUUID } from 'crypto';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { QuestionsService } from './questions.service';
 import { QUESTION_METADATA_LOCALE_KEY } from '../../common/question-locale';
+import { csvCell, csvHeader, toCsvRow } from '@bilimland/shared';
 
 const QUESTION_IMAGE_SUBDIR = 'question-images';
 const IMAGE_MIME = /^image\/(jpeg|jpg|png|gif|webp)$/i;
@@ -165,7 +168,7 @@ export class QuestionsController {
         ? contentLocale
         : undefined;
 
-    const questions = await this.questionsService.exportQuestions({
+    const questionsStream = this.questionsService.exportQuestions({
       examTypeId,
       subjectId,
       contentLocale: loc as 'kk' | 'ru' | 'unset' | undefined,
@@ -195,14 +198,10 @@ export class QuestionsController {
       return '';
     };
 
-    const csvCell = (v: unknown): string => {
-      const raw = v == null ? '' : String(v);
-      return /[",\n\r]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
-    };
+    const csvGenerator = async function* () {
+      yield csvHeader(header);
 
-    const lines: string[] = [
-      header.join(','),
-      ...questions.map((q) => {
+      for await (const q of questionsStream) {
         const lang =
           (q.metadata && typeof q.metadata === 'object'
             ? (q.metadata as Record<string, unknown>)[QUESTION_METADATA_LOCALE_KEY]
@@ -213,31 +212,37 @@ export class QuestionsController {
         const explanation = q.explanation
           ? localizedText((q.explanation as Record<string, unknown>)[lang as string] || (q.explanation as Record<string, unknown>)?.ru || '')
           : '';
+        // `localizedText` output is not a formula risk on its own, but the
+        // option suffix ` ✓` produces a cell that starts with whitespace; the
+        // shared csvCell helper handles the `=`/`+`/`-`/`@`/TAB/CR case
+        // defensively. We feed the whole options blob through it.
         const options = q.answerOptions
-          .map((o) => `${csvCell(localizedText(o.content))}${o.isCorrect ? ' ✓' : ''}`)
+          .map((o: any) => `${csvCell(localizedText(o.content))}${o.isCorrect ? ' ✓' : ''}`)
           .join(' | ');
         const subjectName = localizedText(q.subject?.name || '');
         const examTypeName = localizedText(q.examType?.name || '');
 
-        return [
-          csvCell(q.id),
-          csvCell(subjectName),
-          csvCell(examTypeName),
-          csvCell(lang),
-          csvCell(stem),
-          csvCell(options),
-          csvCell(q.answerOptions.filter((o) => o.isCorrect).length > 0 ? q.answerOptions.find((o) => o.isCorrect)?.sortOrder : ''),
-          csvCell(passage),
-          csvCell(explanation),
-          csvCell(q.scoreWeight ?? ''),
-          csvCell(q.type),
-          csvCell(q.difficulty),
-        ].join(',');
-      }),
-    ];
+        const row = toCsvRow([
+          q.id,
+          subjectName,
+          examTypeName,
+          lang,
+          stem,
+          options,
+          q.answerOptions.filter((o: any) => o.isCorrect).length > 0
+            ? q.answerOptions.find((o: any) => o.isCorrect)?.sortOrder
+            : '',
+          passage,
+          explanation,
+          q.scoreWeight ?? '',
+          q.type,
+          q.difficulty,
+        ]);
 
-    const csv = '\ufeff' + lines.join('\n');
+        yield row + '\n';
+      }
+    };
 
-    return `\ufeff${csv}`;
+    return new StreamableFile(Readable.from(csvGenerator()));
   }
 }

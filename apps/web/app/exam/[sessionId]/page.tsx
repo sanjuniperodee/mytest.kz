@@ -131,7 +131,6 @@ export default function ExamSessionPage({
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [activeIdx, setActiveIdx] = useState(0)
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [remaining, setRemaining] = useState<number | null>(null)
   const [showFinish, setShowFinish] = useState(false)
   const [showNav, setShowNav] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
@@ -164,7 +163,6 @@ export default function ExamSessionPage({
     if (!Number.isFinite(s)) return
     timerEndMsRef.current = Date.now() + s * 1000
     syncedServerRemainingRef.current = s
-    setRemaining(s)
     setTimerEpoch((n) => n + 1)
   }, [])
 
@@ -174,7 +172,6 @@ export default function ExamSessionPage({
     timeoutFinishRef.current = false
     timerEndMsRef.current = null
     syncedServerRemainingRef.current = null
-    setRemaining(null)
     setAnswers({})
     setActiveIdx(0)
     setTimerEpoch((n) => n + 1)
@@ -216,31 +213,7 @@ export default function ExamSessionPage({
     }
   }, [session, sessionId, router])
 
-  // Отображение относительно wall-clock дедлайна; при возврате на вкладку / из bfcache подтягиваем тик.
-  useEffect(() => {
-    if (timerEndMsRef.current == null) return
 
-    const tick = () => {
-      const end = timerEndMsRef.current
-      if (end == null) return
-      const next = Math.max(0, Math.ceil((end - Date.now()) / 1000))
-      setRemaining(next)
-      if (next <= 0) timerEndMsRef.current = null
-    }
-    tick()
-    const id = setInterval(tick, 250)
-    const onVis = () => {
-      if (document.visibilityState === "visible") tick()
-    }
-    document.addEventListener("visibilitychange", onVis)
-    const onPageShow = () => tick()
-    window.addEventListener("pageshow", onPageShow)
-    return () => {
-      clearInterval(id)
-      document.removeEventListener("visibilitychange", onVis)
-      window.removeEventListener("pageshow", onPageShow)
-    }
-  }, [sessionId, timerEpoch])
 
   // Вкладка / мини-приложение: при возврате фокуса синхронизируем время с сервером
   useEffect(() => {
@@ -261,12 +234,75 @@ export default function ExamSessionPage({
     }
   }, [revalidateSession, armCountdown])
 
+  const abortControllersRef = useRef<Record<string, AbortController>>({})
+  const debounceTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
+  const pendingAnswersRef = useRef<Record<string, { selectedIds: string[]; promise?: Promise<any> }>>({})
+
+  // Clear timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimeoutsRef.current).forEach(clearTimeout)
+    }
+  }, [])
+
+  const submitAnswer = useCallback(
+    async (questionId: string, selectedIds: string[]) => {
+      setSavingId(questionId)
+
+      if (abortControllersRef.current[questionId]) {
+        abortControllersRef.current[questionId].abort()
+      }
+      const controller = new AbortController()
+      abortControllersRef.current[questionId] = controller
+
+      try {
+        const res = await api<AnswerResponse>(
+          `/tests/sessions/${sessionId}/answer`,
+          {
+            method: "POST",
+            body: { questionId, selectedIds },
+            signal: controller.signal,
+          },
+        )
+        if (res.serverTimeRemaining != null && res.serverTimeRemaining !== undefined) {
+          armCountdown(Number(res.serverTimeRemaining))
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return
+        toast.error(err instanceof ApiError ? err.message : "Ошибка сохранения ответа")
+      } finally {
+        setSavingId((cur) => (cur === questionId ? null : cur))
+      }
+    },
+    [sessionId, armCountdown],
+  )
+
   // Auto-finish on timeout
   const finish = useCallback(
     async (reason?: "timeout") => {
       if (finishing) return
       setFinishing(true)
       try {
+        // Flush any pending debounced answers
+        const flushPromises: Promise<any>[] = []
+        for (const qId of Object.keys(pendingAnswersRef.current)) {
+          if (debounceTimeoutsRef.current[qId]) {
+            clearTimeout(debounceTimeoutsRef.current[qId])
+            delete debounceTimeoutsRef.current[qId]
+          }
+          const pending = pendingAnswersRef.current[qId]
+          if (pending && !pending.promise) {
+            pending.promise = submitAnswer(qId, pending.selectedIds)
+          }
+          if (pending && pending.promise) {
+            flushPromises.push(pending.promise)
+          }
+        }
+        if (flushPromises.length > 0) {
+          await Promise.allSettled(flushPromises)
+        }
+        pendingAnswersRef.current = {}
+
         await api(`/tests/sessions/${sessionId}/finish`, { method: "POST" })
         if (reason === "timeout") toast.message("Время вышло, тест завершён")
         else toast.success("Тест завершён")
@@ -277,38 +313,15 @@ export default function ExamSessionPage({
         if (reason === "timeout") timeoutFinishRef.current = false
       }
     },
-    [finishing, router, sessionId],
+    [finishing, router, sessionId, submitAnswer],
   )
 
-  useEffect(() => {
-    if (remaining !== 0 || session?.status !== "in_progress") return
+  const handleZero = useCallback(() => {
+    if (session?.status !== "in_progress") return
     if (timeoutFinishRef.current) return
     timeoutFinishRef.current = true
     void finish("timeout")
-  }, [remaining, session?.status, finish])
-
-  const submitAnswer = useCallback(
-    async (questionId: string, selectedIds: string[]) => {
-      setSavingId(questionId)
-      try {
-        const res = await api<AnswerResponse>(
-          `/tests/sessions/${sessionId}/answer`,
-          {
-            method: "POST",
-            body: { questionId, selectedIds },
-          },
-        )
-        if (res.serverTimeRemaining != null && res.serverTimeRemaining !== undefined) {
-          armCountdown(Number(res.serverTimeRemaining))
-        }
-      } catch (err) {
-        toast.error(err instanceof ApiError ? err.message : "Ошибка сохранения ответа")
-      } finally {
-        setSavingId((cur) => (cur === questionId ? null : cur))
-      }
-    },
-    [sessionId, armCountdown],
-  )
+  }, [session?.status, finish])
 
   const onSelect = (q: FlatSessionQuestion, optionId: string) => {
     const current = answers[q.id] || []
@@ -324,7 +337,24 @@ export default function ExamSessionPage({
       next = [optionId]
     }
     setAnswers((a) => ({ ...a, [q.id]: next }))
-    submitAnswer(q.id, next)
+
+    // Track pending answer
+    pendingAnswersRef.current[q.id] = { selectedIds: next }
+
+    if (debounceTimeoutsRef.current[q.id]) {
+      clearTimeout(debounceTimeoutsRef.current[q.id])
+    }
+    debounceTimeoutsRef.current[q.id] = setTimeout(() => {
+      delete debounceTimeoutsRef.current[q.id]
+      const pending = pendingAnswersRef.current[q.id]
+      if (pending) {
+        pending.promise = submitAnswer(q.id, pending.selectedIds).then(() => {
+          if (pendingAnswersRef.current[q.id] === pending) {
+            delete pendingAnswersRef.current[q.id]
+          }
+        })
+      }
+    }, 600)
   }
 
   if (isLoading) {
@@ -422,7 +452,7 @@ export default function ExamSessionPage({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <ExamTimer remaining={remaining} />
+            <ExamTimer timerEndMs={timerEndMsRef.current} timerEpoch={timerEpoch} onZero={handleZero} />
             <Button
               size="sm"
               variant="outline"

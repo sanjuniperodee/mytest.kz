@@ -33,14 +33,15 @@ describe('NotificationsService', () => {
       },
       user: {
         findMany: jest.fn().mockResolvedValue(users),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       notificationDelivery: {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
-        create: jest
+        upsert: jest
           .fn()
-          .mockImplementation(({ data }: { data: { userId: string } }) =>
-            Promise.resolve({ id: `delivery-${data.userId}` }),
+          .mockImplementation(({ create }: { create: { userId: string } }) =>
+            Promise.resolve({ id: `delivery-${create.userId}` }),
           ),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -54,10 +55,15 @@ describe('NotificationsService', () => {
     const telegramBot = {
       sendLifecycleNotification: jest.fn().mockResolvedValue(undefined),
     };
+    const redis = {
+      set: jest.fn().mockResolvedValue('OK'),
+      eval: jest.fn().mockResolvedValue(1),
+    };
     const service = new NotificationsService(
       prisma as any,
       config as any,
       telegramBot as any,
+      redis as any,
     );
 
     const result = await service.runAutomation('manual', {

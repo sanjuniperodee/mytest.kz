@@ -1,8 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EntitlementStatus, EntitlementTier, Prisma } from '@prisma/client';
+import Redis from 'ioredis';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../database/prisma.service';
+import { REDIS_CLIENT } from '../../database/redis.module';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import {
   NOTIFICATION_CAMPAIGNS,
@@ -41,6 +43,7 @@ export class NotificationsService {
     private prisma: PrismaService,
     private config: ConfigService,
     private telegramBot: TelegramBotService,
+    @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
 
   async ensureDefaultCampaigns() {
@@ -73,8 +76,23 @@ export class NotificationsService {
 
   async runAutomation(
     source: RunSource,
-    options: { campaignKey?: NotificationCampaignKey } = {},
+    options: { campaignKey?: NotificationCampaignKey; adminId?: string } = {},
   ) {
+    if (!this.isEnabled()) {
+      return { source, status: 'disabled', scanned: 0, sent: 0, skipped: 0, failed: 0 };
+    }
+    const lockToken = `${source}:${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const lockTtlMs = Math.max(10 * 60_000, this.getPollIntervalMinutes() * 60_000 * 2);
+    const acquired = await this.redis.set(
+      'notifications:automation:lock',
+      lockToken,
+      'PX',
+      lockTtlMs,
+      'NX',
+    );
+    if (acquired !== 'OK') {
+      return { source, status: 'locked', scanned: 0, sent: 0, skipped: 0, failed: 0 };
+    }
     await this.ensureDefaultCampaigns();
     const batchSize = this.getBatchSize();
     const run = await this.prisma.notificationRun.create({
@@ -84,6 +102,22 @@ export class NotificationsService {
         metadata: options.campaignKey ? { campaignKey: options.campaignKey } : undefined,
       },
     });
+
+    if (source === 'manual' && options.adminId) {
+      await this.prisma.adminAudit.create({
+        data: {
+          actorUserId: options.adminId,
+          targetType: 'notification_campaign',
+          targetId: options.campaignKey || 'all',
+          action: 'trigger_manual_run',
+          before: Prisma.DbNull,
+          after: {
+            runId: run.id,
+            campaignKey: options.campaignKey || 'all',
+          },
+        },
+      });
+    }
 
     let scanned = 0;
     let sent = 0;
@@ -159,6 +193,21 @@ export class NotificationsService {
       });
       this.logger.error(`Notification run failed: ${message}`);
       throw error;
+    } finally {
+      await this.releaseAutomationLock(lockToken);
+    }
+  }
+
+  private async releaseAutomationLock(token: string) {
+    try {
+      await this.redis.eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        1,
+        'notifications:automation:lock',
+        token,
+      );
+    } catch (error) {
+      this.logger.warn(`Could not release notification automation lock: ${error}`);
     }
   }
 
@@ -270,6 +319,7 @@ export class NotificationsService {
   }
 
   async updateCampaign(
+    adminId: string | undefined,
     key: string,
     data: { isActive?: boolean; cooldownHours?: number },
   ) {
@@ -278,7 +328,7 @@ export class NotificationsService {
     });
     if (!existing) throw new NotFoundException('Campaign not found');
 
-    return this.prisma.notificationCampaign.update({
+    const updated = await this.prisma.notificationCampaign.update({
       where: { key },
       data: {
         ...(typeof data.isActive === 'boolean'
@@ -289,6 +339,27 @@ export class NotificationsService {
           : {}),
       },
     });
+
+    if (adminId) {
+      await this.prisma.adminAudit.create({
+        data: {
+          actorUserId: adminId,
+          targetType: 'notification_campaign',
+          targetId: key,
+          action: 'update_campaign',
+          before: {
+            isActive: existing.isActive,
+            cooldownHours: existing.cooldownHours,
+          },
+          after: {
+            isActive: updated.isActive,
+            cooldownHours: updated.cooldownHours,
+          },
+        },
+      });
+    }
+
+    return updated;
   }
 
   isEnabled() {
@@ -309,6 +380,11 @@ export class NotificationsService {
     options: { skipRecentCheck?: boolean } = {},
   ): Promise<DeliveryOutcome> {
     if (!candidate.user.telegramId) return 'skipped';
+    const muted = await this.prisma.user.findFirst({
+      where: { id: candidate.user.id, notificationsMutedAt: { not: null } },
+      select: { id: true },
+    });
+    if (muted) return 'skipped';
     if (!options.skipRecentCheck && await this.wasUserMessagedRecently(candidate.user.id, now)) {
       return 'skipped';
     }
@@ -319,14 +395,22 @@ export class NotificationsService {
 
     let deliveryId: string;
     try {
-      const created = await this.prisma.notificationDelivery.create({
-        data: {
+      const created = await this.prisma.notificationDelivery.upsert({
+        where: { dedupeKey: candidate.dedupeKey },
+        create: {
           campaignKey: candidate.campaignKey,
           userId: candidate.user.id,
           sessionId: candidate.sessionId ?? null,
           subscriptionId: candidate.subscriptionId ?? null,
           dedupeKey: candidate.dedupeKey,
           status: 'pending',
+          targetTelegramId: candidate.user.telegramId,
+          metadata: candidate.metadata,
+        },
+        update: {
+          status: 'pending',
+          attemptedAt: new Date(),
+          nextAttemptAt: null,
           targetTelegramId: candidate.user.telegramId,
           metadata: candidate.metadata,
         },
@@ -359,6 +443,8 @@ export class NotificationsService {
         where: { id: deliveryId },
         data: {
           status: 'failed',
+          retryCount: { increment: 1 },
+          nextAttemptAt: this.nextRetryAt(new Date()),
           errorCode: this.errorCode(error),
           errorMessage: this.errorMessage(error).slice(0, 2000),
         },
@@ -774,8 +860,7 @@ export class NotificationsService {
         notificationDeliveries: {
           none: {
             campaignKey: 'paid_weekly_inactive',
-            status: 'sent',
-            sentAt: { gte: since },
+            attemptedAt: { gte: since },
           },
         },
       },
@@ -826,14 +911,14 @@ export class NotificationsService {
         },
       },
       orderBy: { windowEndsAt: 'asc' },
-      take: limit * 2,
+      take: limit * 20,
     });
 
     for (const entitlement of entitlements) {
       const ref = entitlement.subscriptionId ?? entitlement.id;
       if (byRef.has(ref)) continue;
-      byRef.set(ref, {
-        campaignKey: 'paid_expiring_soon',
+      const candidate = {
+        campaignKey: 'paid_expiring_soon' as NotificationCampaignKey,
         user: entitlement.user,
         subscriptionId: entitlement.subscriptionId,
         dedupeKey: `paid_expiring_soon:${ref}`,
@@ -841,8 +926,8 @@ export class NotificationsService {
           entitlementId: entitlement.id,
           windowEndsAt: entitlement.windowEndsAt?.toISOString() ?? null,
         },
-      });
-      if (byRef.size >= limit) break;
+      };
+      byRef.set(ref, candidate);
     }
 
     if (byRef.size < limit) {
@@ -866,13 +951,13 @@ export class NotificationsService {
           },
         },
         orderBy: { expiresAt: 'asc' },
-        take: limit * 2,
+        take: limit * 20,
       });
 
       for (const subscription of subscriptions) {
         if (byRef.has(subscription.id)) continue;
-        byRef.set(subscription.id, {
-          campaignKey: 'paid_expiring_soon',
+        const candidate = {
+          campaignKey: 'paid_expiring_soon' as NotificationCampaignKey,
           user: subscription.user,
           subscriptionId: subscription.id,
           dedupeKey: `paid_expiring_soon:${subscription.id}`,
@@ -880,23 +965,42 @@ export class NotificationsService {
             subscriptionId: subscription.id,
             expiresAt: subscription.expiresAt.toISOString(),
           },
-        });
-        if (byRef.size >= limit) break;
+        };
+        byRef.set(subscription.id, candidate);
       }
     }
 
-    return [...byRef.values()].slice(0, limit);
+    const deduped = await this.filterExistingDedupe([...byRef.values()]);
+    return deduped.slice(0, limit);
   }
 
   private async filterExistingDedupe(candidates: NotificationCandidate[]) {
     if (candidates.length === 0) return candidates;
     const dedupeKeys = candidates.map((candidate) => candidate.dedupeKey);
+    const now = new Date();
     const existing = await this.prisma.notificationDelivery.findMany({
-      where: { dedupeKey: { in: dedupeKeys } },
+      where: {
+        dedupeKey: { in: dedupeKeys },
+        OR: [
+          { status: { in: ['sent', 'pending', 'suppressed'] } },
+          {
+            status: 'failed',
+            OR: [
+              { retryCount: { gte: 3 } },
+              { nextAttemptAt: null },
+              { nextAttemptAt: { gt: now } },
+            ],
+          },
+        ],
+      },
       select: { dedupeKey: true },
     });
     const existingSet = new Set(existing.map((item) => item.dedupeKey));
     return candidates.filter((candidate) => !existingSet.has(candidate.dedupeKey));
+  }
+
+  private nextRetryAt(now: Date) {
+    return new Date(now.getTime() + 30 * 60_000);
   }
 
   private getBatchSize() {

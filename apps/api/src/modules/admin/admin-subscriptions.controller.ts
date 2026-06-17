@@ -59,8 +59,11 @@ export class AdminSubscriptionsController {
   }
 
   @Delete(':id')
-  async revokeSubscription(@Param('id') id: string) {
-    return this.subscriptionService.revokeSubscription(id);
+  async revokeSubscription(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+  ) {
+    return this.subscriptionService.revokeSubscription(adminId, id);
   }
 
   @Get('plan-templates')
@@ -96,6 +99,7 @@ export class AdminSubscriptionsController {
 
   @Patch('plan-templates/:id')
   async updatePlanTemplate(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     data: {
@@ -117,7 +121,7 @@ export class AdminSubscriptionsController {
       }>;
     },
   ) {
-    return this.planTemplateService.updatePlanTemplate(id, data);
+    return this.planTemplateService.updatePlanTemplate(adminId, id, data);
   }
 
   @Get('users/:userId/entitlements')
@@ -152,6 +156,7 @@ export class AdminSubscriptionsController {
 
   @Patch('entitlements/:id')
   async updateEntitlement(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     data: {
@@ -166,7 +171,7 @@ export class AdminSubscriptionsController {
       metadata?: unknown;
     },
   ) {
-    return this.subscriptionService.updateEntitlement(id, data);
+    return this.subscriptionService.updateEntitlement(adminId, id, data);
   }
 
   @Post('entitlements/:id/adjust-attempts')

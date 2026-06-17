@@ -26,10 +26,32 @@ import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { QuestionAppealsModule } from './modules/question-appeals/question-appeals.module';
 
+function validateProductionConfig(config: Record<string, unknown>) {
+  if (config.NODE_ENV !== 'production') return config;
+  const required = [
+    'JWT_SECRET',
+    'JWT_REFRESH_SECRET',
+    'KASPI_WEBHOOK_SECRET',
+    'REDIS_URL',
+    ...(typeof config.APPLE_IAP_SHARED_SECRET === 'string' &&
+    config.APPLE_IAP_SHARED_SECRET.trim()
+      ? ['APPLE_IAP_BUNDLE_ID']
+      : []),
+  ];
+  const missing = required.filter((key) => {
+    const value = config[key];
+    return typeof value !== 'string' || value.trim().length === 0;
+  });
+  if (missing.length > 0) {
+    throw new Error(`Missing required production config: ${missing.join(', ')}`);
+  }
+  return config;
+}
+
 @Module({
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateProductionConfig }),
     ThrottlerModule.forRootAsync({
       imports: [RedisModule],
       inject: [REDIS_CLIENT],

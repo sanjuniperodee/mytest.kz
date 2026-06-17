@@ -73,6 +73,10 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced
 }
 
+function isGrantFallback(cutoffSource?: ChanceProgram["cutoffSource"] | ChanceUniversity["cutoffSource"]) {
+  return cutoffSource === "GRANT_FALLBACK"
+}
+
 export default function AdmissionPage() {
   const [cycleSlug, setCycleSlug] = useState<string>("")
   const [quotaType, setQuotaType] = useState<QuotaType>("GRANT")
@@ -494,9 +498,16 @@ function ProgramRow({ program }: { program: ChanceProgram }) {
           <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-1">
             <div className="flex flex-col items-end">
               <span className="text-xs text-muted-foreground">Порог</span>
-              <span className="font-semibold tabular-nums">
-                {program.displayedMinScore ?? "—"}
-              </span>
+              <div className="flex flex-wrap justify-end gap-1">
+                <span className="font-semibold tabular-nums">
+                  {program.displayedMinScore ?? "—"}
+                </span>
+                {isGrantFallback(program.cutoffSource) && (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
+                    общий грант
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex flex-col items-end">
               <span className="text-xs text-muted-foreground">
@@ -645,6 +656,14 @@ function UniversitiesList({
                     <p className="truncate font-medium">{u.universityName}</p>
                     <p className="text-xs text-muted-foreground">
                       Код {u.universityCode} · Порог {u.displayedMinScore ?? "—"}
+                      {isGrantFallback(u.cutoffSource) && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 h-5 px-1.5 align-middle text-[10px] font-medium"
+                        >
+                          общий грант
+                        </Badge>
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-col items-end">

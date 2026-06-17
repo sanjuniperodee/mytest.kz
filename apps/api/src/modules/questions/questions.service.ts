@@ -28,6 +28,25 @@ function tokenizeSearchNeedle(value: string): string[] {
 export class QuestionsService {
   constructor(private prisma: PrismaService) {}
 
+  private assertAnswerOptions(
+    type: string,
+    answerOptions: { isCorrect: boolean }[] | undefined,
+  ) {
+    if (!Array.isArray(answerOptions) || answerOptions.length < 2) {
+      throw new BadRequestException('QUESTION_REQUIRES_AT_LEAST_TWO_ANSWERS');
+    }
+    const correctCount = answerOptions.filter((option) => option.isCorrect).length;
+    if (correctCount < 1) {
+      throw new BadRequestException('QUESTION_REQUIRES_CORRECT_ANSWER');
+    }
+    if (type === 'single_choice' && correctCount !== 1) {
+      throw new BadRequestException('SINGLE_CHOICE_REQUIRES_EXACTLY_ONE_CORRECT_ANSWER');
+    }
+    if (type !== 'single_choice' && type !== 'multiple_choice') {
+      throw new BadRequestException('UNSUPPORTED_QUESTION_TYPE');
+    }
+  }
+
   async create(data: {
     topicId: string;
     subjectId: string;
@@ -53,6 +72,7 @@ export class QuestionsService {
       subjectId: data.subjectId,
       examTypeId: data.examTypeId,
     });
+    this.assertAnswerOptions(data.type, data.answerOptions);
     return this.prisma.question.create({
       data: {
         topicId: data.topicId,
@@ -154,9 +174,33 @@ export class QuestionsService {
       subjectId: nextSubjectId,
       examTypeId: nextExamTypeId,
     });
+
+    // SECURITY: the controller binds @Body() data:any, so ValidationPipe cannot strip it.
+    // Build an allowlist of editable scalar fields instead of passing the raw body into
+    // prisma.update (otherwise a caller could set isActive, createdAt, metadata, FK columns…).
+    // Content/answers/explanation/imageUrls are owned by updateFull().
+    const updateData: Prisma.QuestionUncheckedUpdateInput = {};
+    if (typeof scalarData.topicId === 'string') updateData.topicId = scalarData.topicId;
+    if (typeof scalarData.subjectId === 'string') updateData.subjectId = scalarData.subjectId;
+    if (typeof scalarData.examTypeId === 'string') updateData.examTypeId = scalarData.examTypeId;
+    if (typeof scalarData.type === 'string') updateData.type = scalarData.type;
+    if (typeof scalarData.isActive === 'boolean') updateData.isActive = scalarData.isActive;
+    if (scalarData.difficulty !== undefined && scalarData.difficulty !== null) {
+      const d = Math.round(Number(scalarData.difficulty));
+      if (Number.isFinite(d)) updateData.difficulty = d;
+    }
+    if (scalarData.scoreWeight !== undefined) {
+      if (scalarData.scoreWeight === null) {
+        updateData.scoreWeight = null;
+      } else {
+        const sw = Math.round(Number(scalarData.scoreWeight));
+        updateData.scoreWeight = Number.isFinite(sw) ? Math.max(1, Math.min(5, sw)) : null;
+      }
+    }
+
     return this.prisma.question.update({
       where: { id },
-      data,
+      data: updateData,
       include: { answerOptions: true },
     });
   }
@@ -197,7 +241,10 @@ export class QuestionsService {
       prevMeta[QUESTION_METADATA_LOCALE_KEY] = data.contentLocale;
     }
 
-    const replaceAnswers = Array.isArray(data.answerOptions) && data.answerOptions.length > 0;
+    const replaceAnswers = Array.isArray(data.answerOptions);
+    if (replaceAnswers) {
+      this.assertAnswerOptions(data.type ?? existing.type, data.answerOptions);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       if (replaceAnswers) {
@@ -420,11 +467,11 @@ export class QuestionsService {
     });
   }
 
-  async exportQuestions(filters: {
+  async *exportQuestions(filters: {
     examTypeId?: string;
     subjectId?: string;
     contentLocale?: 'kk' | 'ru' | 'unset';
-  }) {
+  }): AsyncGenerator<any, void, unknown> {
     const whereClause: Prisma.QuestionWhereInput = { isActive: true };
 
     if (filters.examTypeId) whereClause.examTypeId = filters.examTypeId;
@@ -438,16 +485,35 @@ export class QuestionsService {
       whereClause.metadata = { equals: Prisma.DbNull };
     }
 
-    const rows = await this.prisma.question.findMany({
-      where: whereClause,
-      include: {
-        answerOptions: { orderBy: { sortOrder: 'asc' } },
-        subject: { select: { name: true } },
-        examType: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    let cursorId: string | undefined = undefined;
+    const batchSize = 1000;
 
-    return rows;
+    while (true) {
+      const query: any = {
+        where: whereClause,
+        include: {
+          answerOptions: { orderBy: { sortOrder: 'asc' } },
+          subject: { select: { name: true } },
+          examType: { select: { name: true } },
+        },
+        orderBy: { id: 'asc' },
+        take: batchSize,
+      };
+
+      if (cursorId) {
+        query.skip = 1;
+        query.cursor = { id: cursorId };
+      }
+
+      const rows: any[] = await this.prisma.question.findMany(query);
+
+      if (rows.length === 0) break;
+
+      for (const row of rows) {
+        yield row;
+      }
+
+      cursorId = rows[rows.length - 1].id;
+    }
   }
 }

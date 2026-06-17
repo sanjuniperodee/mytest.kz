@@ -92,6 +92,17 @@ function getString(value: unknown): string | null {
     return null
 }
 
+function isAllowedFreedomCheckoutUrl(value: string): boolean {
+    try {
+        const url = new URL(value)
+        if (url.protocol !== "https:") return false
+        const host = url.hostname.toLowerCase()
+        return host === "freedompay.kz" || host === "freedompay.money" || host.endsWith(".freedompay.kz")
+    } catch {
+        return false
+    }
+}
+
 function parseTimestamp(value: string | null | undefined): number | null {
     if (!value) return null
     const raw = value.trim()
@@ -647,6 +658,10 @@ function PlanCard({
             const checkoutUrl = result.checkoutUrl || result.paymentUrl
             if (!checkoutUrl) {
                 setError("Платёж создан, но ссылка на оплату не пришла. Попробуйте ещё раз.")
+                return
+            }
+            if (!isAllowedFreedomCheckoutUrl(checkoutUrl)) {
+                setError("Платёжная ссылка не прошла проверку безопасности. Обратитесь в поддержку.")
                 return
             }
             void recordFunnelEvent("checkout_created", {

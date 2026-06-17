@@ -155,13 +155,28 @@ export class AuthService {
     }
 
     const email = payload.email.toLowerCase();
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ googleId: payload.sub }, { email }],
-      },
-    });
-
     const names = this.getGoogleNames(payload);
+    const googleUser = await this.prisma.user.findUnique({
+      where: { googleId: payload.sub },
+    });
+    const emailUser = googleUser
+      ? null
+      : await this.prisma.user.findUnique({
+          where: { email },
+        });
+
+    if (emailUser) {
+      if (!emailUser.emailVerified || emailUser.passwordHash) {
+        throw new BadRequestException(
+          'Этот email уже зарегистрирован. Войдите по email и привяжите Google после подтверждения аккаунта.',
+        );
+      }
+      if (emailUser.googleId && emailUser.googleId !== payload.sub) {
+        throw new BadRequestException('Этот email уже привязан к другому Google аккаунту');
+      }
+    }
+
+    const existingUser = googleUser ?? emailUser;
     const user = existingUser
       ? await this.prisma.user.update({
           where: { id: existingUser.id },
@@ -235,7 +250,10 @@ export class AuthService {
 
     const redisKey = `auth:code:${normalized}`;
     await this.redis.set(redisKey, code, 'EX', AUTH_CODE_TTL_SECONDS);
-    await this.redis.del(this.webAuthAttemptKey(normalized));
+    // SECURITY: do NOT clear the brute-force counter on resend. The counter
+    // is owned by verifyWebCode and must only be cleared on success there,
+    // otherwise a resend becomes a free retry budget for an attacker.
+    // (See audit: docs/code-review-and-optimization-plan-minimax.md P0-1)
 
     await this.telegramBot.sendAuthCodeToTelegram(user.telegramId, code, {
       includePhoneLinkedAck: opts?.fromTelegramBot === true,
@@ -402,6 +420,10 @@ export class AuthService {
         throw new UnauthorizedException();
       }
       if (session.refreshTokenHash !== this.hashToken(refreshToken)) {
+        const gracePeriodMs = 15000;
+        if (session.lastUsedAt && Date.now() - session.lastUsedAt.getTime() < gracePeriodMs) {
+          throw new UnauthorizedException('Token rotating');
+        }
         await this.prisma.authSession.updateMany({
           where: { familyId: session.familyId, revokedAt: null },
           data: { revokedAt: new Date() },
@@ -453,17 +475,18 @@ export class AuthService {
     user: TokenUser,
     existingSession?: { id: string; familyId: string },
   ) {
+    const sessionId = existingSession?.id ?? randomUUID();
+    const familyId = existingSession?.familyId ?? sessionId;
     const payload = {
       sub: user.id,
+      sid: sessionId,
       telegramId: user.telegramId,
       preferredLanguage: user.preferredLanguage,
       isAdmin: user.isAdmin,
       isChannelMember: user.isChannelMember,
     };
 
-    const accessToken = this.jwt.sign(payload);
-    const sessionId = existingSession?.id ?? randomUUID();
-    const familyId = existingSession?.familyId ?? sessionId;
+    const accessToken = this.jwt.sign({ ...payload, jti: randomUUID() });
     const refreshToken = this.jwt.sign(
       { ...payload, sid: sessionId, jti: randomUUID() },
       {

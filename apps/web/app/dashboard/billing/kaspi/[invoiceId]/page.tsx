@@ -48,7 +48,16 @@ type PaymentStatusKind = "pending" | "paid" | "inactive"
 
 function isOpenableUrl(value: string | null | undefined) {
   if (!value) return false
-  return /^(https?:\/\/|kaspi:)/i.test(value.trim())
+  const trimmed = value.trim()
+  if (/^kaspi:/i.test(trimmed)) return true
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol !== "https:") return false
+    const host = url.hostname.toLowerCase()
+    return host === "kaspi.kz" || host.endsWith(".kaspi.kz")
+  } catch {
+    return false
+  }
 }
 
 function paymentStatusKind(status: unknown, expiresAt?: string | null): PaymentStatusKind {

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PaymentOrderStatus, Prisma } from '@prisma/client';
+import { PaymentOrderStatus, PaymentRefundStatus, Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../../database/prisma.service';
 import { AccessService } from '../../subscriptions/access.service';
 import { KaspiPosService } from '../../billing/kaspi-pos.service';
@@ -65,6 +66,51 @@ export class AdminFinanceService {
       };
     }
 
+    let refund = await this.prisma.paymentRefund.findUnique({
+      where: { paymentOrderId: order.id },
+    });
+    if (refund?.status === PaymentRefundStatus.succeeded) {
+      return {
+        ok: true,
+        orderId: order.id,
+        providerOrderId: order.providerOrderId,
+        alreadyRefunded: true,
+      };
+    }
+    if (refund?.status === PaymentRefundStatus.pending) {
+      throw new BadRequestException('KASPI_REFUND_ALREADY_IN_PROGRESS');
+    }
+
+    try {
+      refund = await this.prisma.paymentRefund.upsert({
+        where: { paymentOrderId: order.id },
+        create: {
+          paymentOrderId: order.id,
+          provider: 'kaspi',
+          status: PaymentRefundStatus.pending,
+          amount: order.amount,
+          currency: order.currency,
+          requestedBy: adminId,
+        },
+        update: {
+          status: PaymentRefundStatus.pending,
+          requestedBy: adminId,
+          requestedAt: new Date(),
+          completedAt: null,
+          failureReason: null,
+          providerPayload: Prisma.DbNull,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BadRequestException('KASPI_REFUND_ALREADY_IN_PROGRESS');
+      }
+      throw error;
+    }
+
     let refundPayload: Record<string, unknown> | null = null;
     try {
       refundPayload = asRecord(
@@ -72,6 +118,16 @@ export class AdminFinanceService {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      await this.prisma.paymentRefund.update({
+        where: { id: refund.id },
+        data: {
+          status: PaymentRefundStatus.failed,
+          failureReason: message,
+          providerPayload: refundPayload
+            ? (refundPayload as Prisma.InputJsonObject)
+            : Prisma.DbNull,
+        },
+      });
       throw new BadRequestException(`KASPI_REFUND_ERROR:${message}`);
     }
 
@@ -79,38 +135,68 @@ export class AdminFinanceService {
     const refundData = asRecord(refundPayload?.Data) ?? asRecord(refundPayload?.data) ?? refundPayload;
     const refundStatus = getString(refundData?.Status ?? refundData?.status) ?? 'UNKNOWN';
     if (statusCode !== 0) {
+      await this.prisma.paymentRefund.update({
+        where: { id: refund.id },
+        data: {
+          status: PaymentRefundStatus.failed,
+          failureReason: refundStatus,
+          providerPayload: refundPayload as Prisma.InputJsonObject,
+        },
+      });
       throw new BadRequestException(`KASPI_REFUND_NOT_CONFIRMED:${refundStatus}`);
     }
 
     const now = new Date();
     const previousPayload = asRecord(order.providerPayload);
-    await this.prisma.paymentOrder.update({
-      where: { id: order.id },
-      data: {
-        providerPayload: {
-          ...(previousPayload ?? {}),
-          refundResponse: refundPayload,
-          refundedAt: now.toISOString(),
-          refundedBy: adminId,
-          refundStatus,
-          isRefunded: true,
-        } as Prisma.InputJsonObject,
-      },
+     await this.prisma.$transaction(async (tx) => {
+      await tx.paymentOrder.update({
+        where: { id: order.id },
+        data: {
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            refundResponse: refundPayload,
+            refundedAt: now.toISOString(),
+            refundedBy: adminId,
+            refundStatus,
+            isRefunded: true,
+          } as Prisma.InputJsonObject,
+        },
+      });
+      await tx.paymentRefund.update({
+        where: { id: refund.id },
+        data: {
+          status: PaymentRefundStatus.succeeded,
+          providerRefundId:
+            getString(refundData?.RefundId ?? refundData?.refundId) ??
+            getString(refundData?.Id ?? refundData?.id),
+          completedAt: now,
+          failureReason: null,
+          providerPayload: refundPayload as Prisma.InputJsonObject,
+        },
+      });
+      await tx.adminAudit.create({
+        data: {
+          actorUserId: adminId,
+          targetType: 'refund',
+          targetId: refund.id,
+          action: 'refund_kaspi_order',
+          before: {
+            orderId: order.id,
+            amount: order.amount,
+            status: order.status,
+          },
+          after: {
+            refundStatus: 'succeeded',
+            amount: order.amount,
+          },
+        },
+      });
     });
 
     const subscriptions = await this.prisma.subscription.findMany({
       where: {
         userId: order.userId,
-        OR: [
-          { paymentNote: `Kaspi:${order.providerOrderId}` },
-          {
-            planType: order.planCode,
-            createdAt: {
-              gte: new Date(order.createdAt.getTime() - 10 * 60 * 1000),
-              lte: new Date((order.paidAt ?? order.updatedAt).getTime() + 2 * 60 * 60 * 1000),
-            },
-          },
-        ],
+        paymentOrderId: order.id,
       },
       orderBy: { createdAt: 'asc' },
     });

@@ -46,7 +46,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     ) {
       return true;
     }
-    return process.env.NODE_ENV !== 'production';
+    // Fail closed: only expose internals when explicitly in development.
+    // (staging / unset NODE_ENV must NOT leak stack traces or cause messages.)
+    return process.env.NODE_ENV === 'development';
   }
 
   catch(exception: unknown, host: ArgumentsHost) {

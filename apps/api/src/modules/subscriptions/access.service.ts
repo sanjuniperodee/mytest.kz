@@ -187,6 +187,16 @@ export class AccessService {
       );
     }
 
+    if (
+      this.dualWriteLegacyEnabled &&
+      chosen.entitlement.sourceType === EntitlementSourceType.legacy_free_trial
+    ) {
+      await tx.user.updateMany({
+        where: { id: userId, entTrialUsed: { lt: ENT_TRIAL_LIMIT } },
+        data: { entTrialUsed: { increment: 1 } },
+      });
+    }
+
     const updateRes = await tx.userExamEntitlement.updateMany({
       where: {
         id: chosen.entitlement.id,
@@ -227,16 +237,6 @@ export class AccessService {
       await tx.userExamEntitlement.update({
         where: { id: updated.id },
         data: { status: EntitlementStatus.exhausted, exhaustedAt: now },
-      });
-    }
-
-    if (
-      this.dualWriteLegacyEnabled &&
-      chosen.entitlement.sourceType === EntitlementSourceType.legacy_free_trial
-    ) {
-      await tx.user.updateMany({
-        where: { id: userId, entTrialUsed: { lt: ENT_TRIAL_LIMIT } },
-        data: { entTrialUsed: { increment: 1 } },
       });
     }
 

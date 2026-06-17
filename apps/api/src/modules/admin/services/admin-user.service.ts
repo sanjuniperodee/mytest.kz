@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EntitlementStatus, EntitlementTier } from '@prisma/client';
+import { EntitlementStatus, EntitlementTier, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { AccessService } from '../../subscriptions/access.service';
 
@@ -25,6 +25,27 @@ export class AdminUserService {
     private prisma: PrismaService,
     private accessService: AccessService,
   ) {}
+
+  private presentAdminUser<T extends {
+    telegramId: bigint | number | null;
+    entitlements?: Array<{ tier: EntitlementTier; status?: EntitlementStatus; windowStartsAt?: Date; windowEndsAt?: Date | null }>;
+    subscriptions?: unknown;
+  }>(user: T) {
+    const now = new Date();
+    return {
+      ...user,
+      telegramId: user.telegramId ? Number(user.telegramId) : null,
+      hasActiveSubscription: Array.isArray(user.entitlements)
+        ? user.entitlements.some((e) => {
+            if (e.tier !== EntitlementTier.paid) return false;
+            if (e.status !== undefined && e.status !== EntitlementStatus.active) return false;
+            if (e.windowStartsAt && e.windowStartsAt > now) return false;
+            if (e.windowEndsAt != null && e.windowEndsAt <= now) return false;
+            return true;
+          })
+        : false,
+    };
+  }
 
   async getUsers(
     search?: string,
@@ -94,7 +115,24 @@ export class AdminUserService {
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          telegramId: true,
+          telegramUsername: true,
+          email: true,
+          phone: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          preferredLanguage: true,
+          isChannelMember: true,
+          channelCheckedAt: true,
+          timezone: true,
+          timezoneChangedAt: true,
+          entTrialUsed: true,
+          isAdmin: true,
+          createdAt: true,
+          updatedAt: true,
           subscriptions: {
             where: { isActive: true },
             orderBy: { expiresAt: 'desc' },
@@ -118,9 +156,7 @@ export class AdminUserService {
 
     return {
       items: items.map((u) => ({
-        ...u,
-        telegramId: u.telegramId ? Number(u.telegramId) : null,
-        hasActiveSubscription: u.entitlements.some((e) => e.tier === EntitlementTier.paid),
+        ...this.presentAdminUser(u),
       })),
       total,
       page,
@@ -128,8 +164,69 @@ export class AdminUserService {
     };
   }
 
-  async updateUser(id: string, data: { isAdmin?: boolean }) {
-    return this.prisma.user.update({ where: { id }, data });
+  async updateUser(adminId: string, id: string, data: { isAdmin?: boolean }) {
+    const keys = Object.keys(data ?? {});
+    if (keys.some((key) => key !== 'isAdmin')) {
+      throw new BadRequestException('UNKNOWN_USER_UPDATE_FIELD');
+    }
+    if (typeof data.isAdmin !== 'boolean') {
+      throw new BadRequestException('NO_USER_UPDATE_FIELDS');
+    }
+
+    const target = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, isAdmin: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
+    if (adminId === id && data.isAdmin === false) {
+      throw new BadRequestException('Cannot remove your own admin role');
+    }
+    if (target.isAdmin && data.isAdmin === false) {
+      const adminCount = await this.prisma.user.count({ where: { isAdmin: true } });
+      if (adminCount <= 1) {
+        throw new BadRequestException('Cannot remove the last admin');
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { isAdmin: data.isAdmin },
+      select: {
+        id: true,
+        telegramId: true,
+        telegramUsername: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        preferredLanguage: true,
+        isChannelMember: true,
+        channelCheckedAt: true,
+        timezone: true,
+        timezoneChangedAt: true,
+        entTrialUsed: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    await this.prisma.adminAudit.create({
+      data: {
+        actorUserId: adminId,
+        targetType: 'user',
+        targetId: id,
+        action: 'update_role',
+        before: { isAdmin: target.isAdmin },
+        after: { isAdmin: updated.isAdmin },
+      },
+    });
+
+    return {
+      ...updated,
+      telegramId: updated.telegramId ? Number(updated.telegramId) : null,
+    };
   }
 
   async deleteUser(adminId: string, id: string) {
@@ -152,28 +249,6 @@ export class AdminUserService {
     if (!user) throw new NotFoundException('User not found');
 
     const deleted = await this.prisma.$transaction(async (tx) => {
-      const sessionIds = (
-        await tx.testSession.findMany({
-          where: { userId: id },
-          select: { id: true },
-        })
-      ).map((s) => s.id);
-
-      if (sessionIds.length > 0) {
-        await tx.funnelStep.updateMany({
-          where: { sessionId: { in: sessionIds } },
-          data: { sessionId: null },
-        });
-        await tx.attemptUsageLedger.updateMany({
-          where: { sessionId: { in: sessionIds } },
-          data: { sessionId: null },
-        });
-        await tx.testAnswer.deleteMany({
-          where: { sessionId: { in: sessionIds } },
-        });
-        await tx.testSession.deleteMany({ where: { id: { in: sessionIds } } });
-      }
-
       await tx.visitEvent.updateMany({
         where: { userId: id },
         data: { userId: null },
@@ -197,13 +272,33 @@ export class AdminUserService {
         usageLedger,
         entitlements,
         subscriptions,
+        testSessions
       ] = await Promise.all([
         tx.paymentOrder.deleteMany({ where: { userId: id } }),
         tx.userExamDailyUsage.deleteMany({ where: { userId: id } }),
         tx.attemptUsageLedger.deleteMany({ where: { userId: id } }),
         tx.userExamEntitlement.deleteMany({ where: { userId: id } }),
         tx.subscription.deleteMany({ where: { userId: id } }),
+        tx.testSession.deleteMany({ where: { userId: id } })
       ]);
+
+      await tx.adminAudit.create({
+        data: {
+          actorUserId: adminId,
+          targetType: 'user',
+          targetId: id,
+          action: 'delete_user',
+          before: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            telegramUsername: user.telegramUsername,
+            email: user.email,
+            phone: user.phone,
+          },
+          after: Prisma.DbNull,
+        },
+      });
 
       await tx.user.delete({ where: { id } });
 
@@ -213,7 +308,7 @@ export class AdminUserService {
         usageLedger: usageLedger.count,
         entitlements: entitlements.count,
         subscriptions: subscriptions.count,
-        testSessions: sessionIds.length,
+        testSessions: testSessions.count,
       };
     });
 
@@ -230,7 +325,24 @@ export class AdminUserService {
   async getUserDetail(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        telegramId: true,
+        telegramUsername: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        preferredLanguage: true,
+        isChannelMember: true,
+        channelCheckedAt: true,
+        timezone: true,
+        timezoneChangedAt: true,
+        entTrialUsed: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
         subscriptions: {
           orderBy: { createdAt: 'desc' },
         },
@@ -249,23 +361,7 @@ export class AdminUserService {
 
     await this.accessService.ensureSignupEntitlementsForUser(id);
 
-    const userWithEntitlements = await this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        subscriptions: {
-          orderBy: { createdAt: 'desc' },
-        },
-        entitlements: {
-          include: {
-            examType: { select: { id: true, slug: true, name: true } },
-            planTemplate: { select: { id: true, code: true, name: true } },
-            subscription: { select: { id: true, planType: true, isActive: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
-    if (!userWithEntitlements) throw new NotFoundException('User not found');
+    const userWithEntitlements = user;
 
     const sessions = await this.prisma.testSession.findMany({
       where: { userId: id },
@@ -307,17 +403,7 @@ export class AdminUserService {
 
     return {
       user: {
-        ...userWithEntitlements,
-        telegramId: userWithEntitlements.telegramId ? Number(userWithEntitlements.telegramId) : null,
-        hasActiveSubscription: userWithEntitlements.entitlements.some((e) => {
-          const now = new Date();
-          return (
-            e.tier === EntitlementTier.paid &&
-            e.status === EntitlementStatus.active &&
-            e.windowStartsAt <= now &&
-            (e.windowEndsAt == null || e.windowEndsAt > now)
-          );
-        }),
+        ...this.presentAdminUser(userWithEntitlements),
       },
       sessions: sessions.map((s) => ({
         ...(this.presentSessionMeta(s.examType.slug, s.metadata, subjectMap)),

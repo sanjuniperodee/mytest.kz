@@ -4,6 +4,8 @@ import {
   EntitlementStatus,
   EntitlementTier,
 } from '@prisma/client';
+import { existsSync, unlinkSync } from 'fs';
+import { join, normalize, sep } from 'path';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { BILLING_PLANS } from '../billing/billing.config';
@@ -399,10 +401,19 @@ export class UsersService {
       updateData.avatarUrl = this.normalizeAvatarUrl(data.avatarUrl);
     }
     if (Object.keys(updateData).length > 0) {
+      const previous = 'avatarUrl' in updateData
+        ? await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { avatarUrl: true },
+          })
+        : null;
       await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
       });
+      if ('avatarUrl' in updateData && previous?.avatarUrl !== updateData.avatarUrl) {
+        this.deleteLocalAvatar(previous?.avatarUrl);
+      }
     }
     if (data.timezone) {
       await this.accessService.updateUserTimezone(userId, data.timezone);
@@ -424,6 +435,21 @@ export class UsersService {
       throw new BadRequestException('Unsupported avatar image');
     }
     return trimmed;
+  }
+
+  private deleteLocalAvatar(avatarUrl: string | null | undefined) {
+    if (!avatarUrl || !/^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(avatarUrl)) {
+      return;
+    }
+    const relative = avatarUrl.replace(/^\/uploads\//, '');
+    const uploadRoot = join(process.cwd(), 'uploads');
+    const fullPath = normalize(join(uploadRoot, relative));
+    if (!fullPath.startsWith(`${normalize(uploadRoot)}${sep}`)) return;
+    try {
+      if (existsSync(fullPath)) unlinkSync(fullPath);
+    } catch {
+      // Best-effort cleanup; profile mutations should not fail because the file vanished.
+    }
   }
 
   async getStats(userId: string) {
@@ -740,38 +766,19 @@ export class UsersService {
   }
 
   async deleteAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    });
     await this.prisma.$transaction(async (tx) => {
-      // Delete funnel steps for user's visit events
-      const visitIds = (
-        await tx.visitEvent.findMany({
-          where: { userId },
-          select: { id: true },
-        })
-      ).map((v) => v.id);
-      if (visitIds.length > 0) {
-        await tx.funnelStep.deleteMany({ where: { visitId: { in: visitIds } } });
-        await tx.visitEvent.deleteMany({ where: { userId } });
-      }
+      // Delete visit events (funnel steps cascade)
+      await tx.visitEvent.deleteMany({ where: { userId } });
 
       // Daily usage
       await tx.userExamDailyUsage.deleteMany({ where: { userId } });
       // Usage ledger
       await tx.attemptUsageLedger.deleteMany({ where: { userId } });
-      // Delete test answers for user's sessions
-      const sessionIds = (
-        await tx.testSession.findMany({
-          where: { userId },
-          select: { id: true },
-        })
-      ).map((s) => s.id);
-      if (sessionIds.length > 0) {
-        await tx.testAnswer.deleteMany({ where: { sessionId: { in: sessionIds } } });
-        // Nullify ledger references to these sessions
-        await tx.attemptUsageLedger.updateMany({
-          where: { sessionId: { in: sessionIds } },
-          data: { sessionId: null },
-        });
-      }
+
       // Test sessions
       await tx.testSession.deleteMany({ where: { userId } });
       // Entitlements granted by this user
@@ -800,7 +807,8 @@ export class UsersService {
 
       // Finally delete the user
       await tx.user.delete({ where: { id: userId } });
-    });
+    }, { timeout: 30_000, maxWait: 5_000 });
+    this.deleteLocalAvatar(user?.avatarUrl);
   }
 
   private mapEntHistoryRow(s: {

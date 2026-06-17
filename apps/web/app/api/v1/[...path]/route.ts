@@ -32,7 +32,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   }
 
   if (!["GET", "HEAD"].includes(req.method)) {
-    init.body = await req.arrayBuffer()
+    init.body = req.body || undefined;
   }
 
   let upstream: Response

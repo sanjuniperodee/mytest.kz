@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  OnApplicationShutdown,
   OnModuleInit,
   BadRequestException,
   Inject,
@@ -17,7 +18,7 @@ import { AuthService } from '../auth/auth.service';
 const DEFAULT_LEAD_NOTIFY_USER_ID = '22f36334-d7ac-435f-a834-a6bdb4349217';
 
 @Injectable()
-export class TelegramBotService implements OnModuleInit {
+export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
   private bot: Telegraf | null = null;
   private channelId: string;
   private readonly channelUrl: string;
@@ -135,6 +136,7 @@ export class TelegramBotService implements OnModuleInit {
           telegramUsername: tgUser.username || null,
           firstName: tgUser.first_name,
           lastName: tgUser.last_name || null,
+          notificationsMutedAt: null,
         },
         create: {
           telegramId: BigInt(tgUser.id),
@@ -142,6 +144,7 @@ export class TelegramBotService implements OnModuleInit {
           firstName: tgUser.first_name,
           lastName: tgUser.last_name || null,
           preferredLanguage: tgUser.language_code === 'kk' ? 'kk' : 'ru',
+          notificationsMutedAt: null,
         },
       });
 
@@ -185,6 +188,15 @@ export class TelegramBotService implements OnModuleInit {
       this.logger.warn('TELEGRAM_BOT_TOKEN пуст — бот не запускается.');
       return;
     }
+    const pollingEnabled = (
+      this.config.get<string>('TELEGRAM_BOT_POLLING_ENABLED') ?? ''
+    ).trim().toLowerCase();
+    if (process.env.NODE_ENV === 'production' && pollingEnabled !== 'true') {
+      this.logger.warn(
+        'TELEGRAM_BOT_POLLING_ENABLED is not true — Telegram long polling disabled for this API process.',
+      );
+      return;
+    }
 
     this.bot = new Telegraf(this.botToken);
     this.bot.catch((err, ctx) => {
@@ -195,6 +207,15 @@ export class TelegramBotService implements OnModuleInit {
 
     this.bot.start(async (ctx) => {
       await this.sendStartWelcome(ctx);
+    });
+
+    this.bot.command(['stop', 'unsubscribe'], async (ctx) => {
+      if (!ctx.from) return;
+      await this.prisma.user.updateMany({
+        where: { telegramId: BigInt(ctx.from.id) },
+        data: { notificationsMutedAt: new Date() },
+      });
+      await ctx.reply('Уведомления отключены. Чтобы снова пользоваться входом и кнопками MyTest, отправьте /start.');
     });
 
     /**
@@ -233,8 +254,11 @@ export class TelegramBotService implements OnModuleInit {
       } else if ('text' in ctx.message) {
         const text = ctx.message.text.trim();
         if (text.startsWith('/')) return next();
-        normalized = normalizeKzPhone(text);
-        if (!normalized) return next();
+        if (!normalizeKzPhone(text)) return next();
+        await ctx.reply('Для безопасности нажмите кнопку «Поделиться номером» и отправьте свой Telegram-контакт.', {
+          ...this.contactOnlyKeyboard(),
+        });
+        return;
       } else {
         return next();
       }
@@ -247,6 +271,7 @@ export class TelegramBotService implements OnModuleInit {
             firstName: from.first_name,
             lastName: from.last_name || null,
             phone: normalized,
+            notificationsMutedAt: null,
           },
           create: {
             telegramId: BigInt(from.id),
@@ -255,6 +280,7 @@ export class TelegramBotService implements OnModuleInit {
             lastName: from.last_name || null,
             preferredLanguage: from.language_code === 'kk' ? 'kk' : 'ru',
             phone: normalized,
+            notificationsMutedAt: null,
           },
         });
         await ctx.reply(
@@ -290,21 +316,20 @@ export class TelegramBotService implements OnModuleInit {
     // If Telegram is slow/unreachable, API should still start and serve HTTP.
     void this.launchBotUpdateLoop();
 
-    const safeStop = (signal: NodeJS.Signals) => {
-      try {
-        this.bot?.stop(signal);
-      } catch {
-        /* telegraf throws if bot was not running */
-      }
-      if (this.launchRetryTimer) {
-        clearTimeout(this.launchRetryTimer);
-        this.launchRetryTimer = null;
-      }
-      this.isUpdateLoopRunning = false;
-      this.launchInProgress = false;
-    };
-    process.once('SIGINT', () => safeStop('SIGINT'));
-    process.once('SIGTERM', () => safeStop('SIGTERM'));
+  }
+
+  onApplicationShutdown(signal?: string) {
+    try {
+      this.bot?.stop(signal);
+    } catch {
+      /* telegraf throws if bot was not running */
+    }
+    if (this.launchRetryTimer) {
+      clearTimeout(this.launchRetryTimer);
+      this.launchRetryTimer = null;
+    }
+    this.isUpdateLoopRunning = false;
+    this.launchInProgress = false;
   }
 
   private async withTimeout<T>(
@@ -443,9 +468,12 @@ export class TelegramBotService implements OnModuleInit {
         this.channelId,
         telegramUserId,
       );
-      return ['member', 'administrator', 'creator', 'restricted'].includes(
-        member.status,
-      );
+      // A 'restricted' user is only still in the channel when is_member === true;
+      // restricted-and-removed users must NOT pass the membership check.
+      if (member.status === 'restricted') {
+        return (member as { is_member?: boolean }).is_member === true;
+      }
+      return ['member', 'administrator', 'creator'].includes(member.status);
     } catch (error) {
       this.logger.warn(
         `Failed to check channel membership for ${telegramUserId}: ${error}`,
@@ -480,10 +508,13 @@ export class TelegramBotService implements OnModuleInit {
       `<b>🔐 Код для входа в MyTest:</b> <code>${code}</code>\n\n` +
       `Код действителен 5 минут.`;
     try {
-      await this.bot.telegram.sendMessage(Number(telegramId), body, {
-        parse_mode: 'HTML',
-        ...this.openAppInlineKeyboard(),
-      });
+      await Promise.race([
+        this.bot.telegram.sendMessage(Number(telegramId), body, {
+          parse_mode: 'HTML',
+          ...this.openAppInlineKeyboard(),
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
     } catch (error) {
       this.logger.error(`Failed to send auth code to telegramId ${telegramId}: ${error}`);
       throw new BadRequestException(
@@ -523,9 +554,12 @@ export class TelegramBotService implements OnModuleInit {
       .join('\n');
 
     try {
-      await this.bot.telegram.sendMessage(target, body, {
-        parse_mode: 'HTML',
-      });
+      await Promise.race([
+        this.bot.telegram.sendMessage(target, body, {
+          parse_mode: 'HTML',
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
     } catch (error) {
       this.logger.error(
         `Failed to send lead notification to ${target}: ${error}`,
@@ -558,7 +592,10 @@ export class TelegramBotService implements OnModuleInit {
         ]);
 
     try {
-      await this.bot.telegram.sendMessage(Number(telegramId), body, keyboard);
+      await Promise.race([
+        this.bot.telegram.sendMessage(Number(telegramId), body, keyboard),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
     } catch (error) {
       this.logger.error(
         `Failed to send lifecycle notification to telegramId ${telegramId}: ${error}`,

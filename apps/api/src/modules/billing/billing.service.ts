@@ -468,6 +468,7 @@ export class BillingService {
         data: {
           userId: order.userId,
           planType: plan.id,
+          paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
           paymentNote: `Kaspi:${order.providerOrderId}`,
@@ -669,6 +670,7 @@ export class BillingService {
         data: {
           userId: order.userId,
           planType: plan.id,
+          paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
           paymentNote: `FreedomPay:${order.providerOrderId}`,
@@ -1283,7 +1285,7 @@ export class BillingService {
     let createdSubscription;
     try {
       createdSubscription = await this.prisma.$transaction(async (tx) => {
-        await tx.paymentOrder.create({
+        const order = await tx.paymentOrder.create({
           data: {
             userId,
             planCode: plan.id,
@@ -1307,6 +1309,7 @@ export class BillingService {
           data: {
             userId,
             planType: plan.id,
+            paymentOrderId: order.id,
             startsAt: now,
             expiresAt,
             paymentNote: `AppleIAP:${productId}:${transactionId}`,

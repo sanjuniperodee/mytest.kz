@@ -6,6 +6,7 @@ import { AdmissionController } from '../src/modules/admission/admission.controll
 import { AdmissionService } from '../src/modules/admission/admission.service';
 import { AdmissionRepository } from '../src/modules/admission/infrastructure/admission.repository';
 import { PrismaService } from '../src/database/prisma.service';
+import { REDIS_CLIENT } from '../src/database/redis.module';
 
 describe('Admission HTTP (mocked Prisma)', () => {
   let app: INestApplication;
@@ -46,6 +47,10 @@ describe('Admission HTTP (mocked Prisma)', () => {
       findFirst: jest.fn().mockResolvedValue(null),
     },
   };
+  const redisMock = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue('OK'),
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -55,6 +60,7 @@ describe('Admission HTTP (mocked Prisma)', () => {
         AdmissionService,
         AdmissionRepository,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: REDIS_CLIENT, useValue: redisMock },
       ],
     }).compile();
 
@@ -74,6 +80,8 @@ describe('Admission HTTP (mocked Prisma)', () => {
   });
 
   beforeEach(() => {
+    redisMock.get.mockResolvedValue(null);
+    redisMock.set.mockResolvedValue('OK');
     prismaMock.grantAdmissionCycle.findUnique.mockResolvedValue({
       id: 'c1',
       slug: '2025-2026',

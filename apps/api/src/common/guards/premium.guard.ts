@@ -10,15 +10,45 @@ export class PremiumGuard implements CanActivate {
     private accessService: AccessService,
   ) {}
 
+  private async resolveTargetExamTypeId(request: {
+    user?: { id?: string };
+    body?: Record<string, unknown>;
+    params?: Record<string, unknown>;
+  }): Promise<string | null> {
+    const bodyExamTypeId = request.body?.examTypeId;
+    if (typeof bodyExamTypeId === 'string' && bodyExamTypeId.trim()) {
+      return bodyExamTypeId.trim();
+    }
+
+    const sessionId = request.params?.id;
+    if (
+      typeof sessionId !== 'string' ||
+      !sessionId.trim() ||
+      typeof request.user?.id !== 'string'
+    ) {
+      return null;
+    }
+
+    const session = await this.prisma.testSession.findFirst({
+      where: { id: sessionId, userId: request.user.id },
+      select: { examTypeId: true },
+    });
+    return session?.examTypeId ?? null;
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
+    const targetExamTypeId = await this.resolveTargetExamTypeId(request);
 
     const now = new Date();
     if (this.accessService.isV2Enabled()) {
       const paidEntitlement = await this.prisma.userExamEntitlement.findFirst({
         where: {
           userId: user.id,
+          ...(targetExamTypeId
+            ? { examTypeId: targetExamTypeId }
+            : { examTypeId: '00000000-0000-0000-0000-000000000000' }),
           tier: { in: [EntitlementTier.paid, EntitlementTier.admin] },
           status: EntitlementStatus.active,
           windowStartsAt: { lte: now },
@@ -34,6 +64,9 @@ export class PremiumGuard implements CanActivate {
           startsAt: { lte: now },
           expiresAt: { gt: now },
           planType: { not: 'free' },
+          ...(targetExamTypeId
+            ? { OR: [{ examTypeId: null }, { examTypeId: targetExamTypeId }] }
+            : { examTypeId: null }),
         },
         select: { id: true },
       });
@@ -65,6 +98,9 @@ export class PremiumGuard implements CanActivate {
         expiresAt: { gt: now },
         startsAt: { lte: now },
         planType: { not: 'free' },
+        ...(targetExamTypeId
+          ? { OR: [{ examTypeId: null }, { examTypeId: targetExamTypeId }] }
+          : { examTypeId: null }),
       },
     });
 

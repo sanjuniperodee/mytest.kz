@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { csvHeader, toCsvRow } from '@bilimland/shared';
 
 const ALLOWED_FUNNEL_EVENTS = new Set([
   'visit',
@@ -436,65 +437,110 @@ export class AnalyticsService {
       };
     }
 
-    const [items, total] = await Promise.all([
-      this.prisma.visitEvent.findMany({
-        where,
-        select: {
-          visitorId: true,
-          userId: true,
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              telegramId: true,
-              telegramUsername: true,
-              firstName: true,
-              lastName: true,
-            },
+    const visitorGroups = await this.prisma.visitEvent.groupBy({
+      by: ['visitorId'],
+      where,
+      _max: {
+        createdAt: true,
+      },
+      orderBy: {
+        _max: {
+          createdAt: 'desc',
+        },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const visitorIds = visitorGroups.map((g) => g.visitorId);
+
+    const totalGroup = await this.prisma.visitEvent.groupBy({
+      by: ['visitorId'],
+      where,
+    });
+    const total = totalGroup.length;
+
+    const allEvents = await this.prisma.visitEvent.findMany({
+      where: {
+        visitorId: { in: visitorIds },
+      },
+      select: {
+        visitorId: true,
+        userId: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            telegramId: true,
+            telegramUsername: true,
+            firstName: true,
+            lastName: true,
           },
-          funnelSteps: {
-            orderBy: { timestamp: 'asc' },
-            select: { step: true, timestamp: true },
-          },
-          _count: {
-            select: {
-              testSessions: {
-                where: {
-                  status: 'completed',
-                  ...(params.examTypeId ? { examTypeId: params.examTypeId } : {}),
-                },
+        },
+        funnelSteps: {
+          orderBy: { timestamp: 'asc' },
+          select: { step: true, timestamp: true },
+        },
+        _count: {
+          select: {
+            testSessions: {
+              where: {
+                status: 'completed',
+                ...(params.examTypeId ? { examTypeId: params.examTypeId } : {}),
               },
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.visitEvent.count({ where }),
-    ]);
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const eventsByVisitor = new Map<string, typeof allEvents>();
+    for (const event of allEvents) {
+      const list = eventsByVisitor.get(event.visitorId) || [];
+      list.push(event);
+      eventsByVisitor.set(event.visitorId, list);
+    }
+
+    const items = visitorGroups
+      .map((g) => {
+        const events = eventsByVisitor.get(g.visitorId);
+        if (!events || events.length === 0) return null;
+
+        const latestEvent = events[0];
+        const earliestEvent = events[events.length - 1];
+
+        const allSteps = events
+          .flatMap((e) => e.funnelSteps)
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        const completedSessionsCount = events.reduce((sum, e) => sum + e._count.testSessions, 0);
+
+        return {
+          visitorId: latestEvent.visitorId,
+          userId: latestEvent.userId,
+          user: latestEvent.user
+            ? {
+                id: latestEvent.user.id,
+                telegramId: latestEvent.user.telegramId ? Number(latestEvent.user.telegramId) : null,
+                telegramUsername: latestEvent.user.telegramUsername,
+                firstName: latestEvent.user.firstName,
+                lastName: latestEvent.user.lastName,
+              }
+            : null,
+          firstSeen: earliestEvent.createdAt.toISOString(),
+          lastSeen:
+            allSteps.length > 0
+              ? allSteps[allSteps.length - 1].timestamp.toISOString()
+              : latestEvent.createdAt.toISOString(),
+          steps: [...new Set(allSteps.map((fs) => fs.step))],
+          completedSessionsCount,
+        };
+      })
+      .filter((v): v is NonNullable<typeof v> => !!v);
 
     return {
-      items: items.map((v) => ({
-        visitorId: v.visitorId,
-        userId: v.userId,
-        user: v.user
-          ? {
-              id: v.user.id,
-              telegramId: v.user.telegramId ? Number(v.user.telegramId) : null,
-              telegramUsername: v.user.telegramUsername,
-              firstName: v.user.firstName,
-              lastName: v.user.lastName,
-            }
-          : null,
-        firstSeen: v.createdAt.toISOString(),
-        lastSeen:
-          v.funnelSteps.length > 0
-            ? v.funnelSteps[v.funnelSteps.length - 1].timestamp.toISOString()
-            : v.createdAt.toISOString(),
-        steps: [...new Set(v.funnelSteps.map((fs) => fs.step))],
-        completedSessionsCount: v._count.testSessions,
-      })),
+      items,
       total,
       page,
       limit,
@@ -607,11 +653,20 @@ export class AnalyticsService {
   }) {
     const data = await this.getVisitors({ ...params, limit: 10000, page: 1 });
     const rows = data.items;
-    const header = 'Visitor ID,User ID,Telegram Username,First Name,Last Name,First Seen,Last Seen,Steps,Tests Completed\n';
+    const header = csvHeader(['Visitor ID', 'User ID', 'Telegram Username', 'First Name', 'Last Name', 'First Seen', 'Last Seen', 'Steps', 'Tests Completed']);
     const body = rows
-      .map(
-        (r) =>
-          `${r.visitorId},${r.userId ?? ''},${r.user?.telegramUsername ?? ''},${r.user?.firstName ?? ''},${r.user?.lastName ?? ''},${r.firstSeen},${r.lastSeen},"${r.steps.join(' → ')}",${r.completedSessionsCount}`,
+      .map((r) =>
+        toCsvRow([
+          r.visitorId,
+          r.userId ?? '',
+          r.user?.telegramUsername ?? '',
+          r.user?.firstName ?? '',
+          r.user?.lastName ?? '',
+          r.firstSeen,
+          r.lastSeen,
+          r.steps.join(' → '),
+          r.completedSessionsCount,
+        ]),
       )
       .join('\n');
     return header + body;
@@ -624,12 +679,20 @@ export class AnalyticsService {
   }) {
     const data = await this.getTestTakers({ ...params, limit: 10000, page: 1 });
     const rows = data.items;
-    const header =
-      'Telegram ID,Username,First Name,Last Name,Tests Completed,Last Test,Best Score,Avg Score,Avg Duration (s)\n';
+    const header = csvHeader(['Telegram ID', 'Username', 'First Name', 'Last Name', 'Tests Completed', 'Last Test', 'Best Score', 'Avg Score', 'Avg Duration (s)']);
     const body = rows
-      .map(
-        (r) =>
-          `${r.telegramId},${r.telegramUsername ?? ''},${r.firstName ?? ''},${r.lastName ?? ''},${r.testsCompleted},${r.lastTestAt ?? ''},${r.bestScore ?? ''},${r.avgScore ?? ''},${r.avgDurationSecs ?? ''}`,
+      .map((r) =>
+        toCsvRow([
+          r.telegramId,
+          r.telegramUsername ?? '',
+          r.firstName ?? '',
+          r.lastName ?? '',
+          r.testsCompleted,
+          r.lastTestAt ?? '',
+          r.bestScore ?? '',
+          r.avgScore ?? '',
+          r.avgDurationSecs ?? '',
+        ]),
       )
       .join('\n');
     return header + body;

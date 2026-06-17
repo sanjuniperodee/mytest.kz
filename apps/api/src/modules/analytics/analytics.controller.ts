@@ -7,7 +7,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AnalyticsService } from './analytics.service';
 
@@ -16,6 +18,8 @@ export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
 
   @Post('visit')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async recordVisit(
     @Body()
     body: {
@@ -29,7 +33,9 @@ export class AnalyticsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const visitorId = body.visitorId || req.cookies?.['blm_vid'] || crypto.randomUUID();
+    // Prefer the server-set httpOnly cookie over the client-supplied body id to
+    // limit analytics pollution; the body id is only a first-visit fallback.
+    const visitorId = req.cookies?.['blm_vid'] || body.visitorId || randomUUID();
 
     const result = await this.analyticsService.recordVisit({
       visitorId,

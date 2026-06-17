@@ -203,6 +203,9 @@ describe('subscription premium access', () => {
 
   it('allows premium explanations for a session consumed from a paid entitlement', async () => {
     const prisma = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({ examTypeId: 'exam-ent' }),
+      },
       userExamEntitlement: {
         findFirst: jest.fn().mockResolvedValue(null),
       },

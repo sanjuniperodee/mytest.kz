@@ -42,7 +42,7 @@ export function earnEntQuestionPoints(
       // errors >= 2 → earned = 0
     }
   }
-  return { earned, max: wMax <= 0 ? 0 : max, errors };
+  return { earned, max, errors };
 }
 
 /**

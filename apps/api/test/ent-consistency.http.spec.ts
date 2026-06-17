@@ -1208,7 +1208,7 @@ describe('ENT 120/140 consistency', () => {
     expect(prismaMock.testSession.create).toHaveBeenCalled();
   });
 
-  it('starts a free ENT retake from a finished session with the same question order', async () => {
+  it('starts an ENT retake from a finished session with the same question order and consumes an attempt', async () => {
     const prismaMock = {
       testSession: {
         findFirst: jest.fn().mockResolvedValue({
@@ -1258,7 +1258,7 @@ describe('ENT 120/140 consistency', () => {
     await expect(
       service.startEntRetakeSession('user-1', 'source-session'),
     ).resolves.toMatchObject({ id: 'retake-session' });
-    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
 
     const createData = prismaMock.testSession.create.mock.calls[0][0].data;
     expect(createData.timeRemaining).toBe(80 * 60);

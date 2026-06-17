@@ -445,6 +445,7 @@ export interface ChanceProgram {
   profileSubjects: string
   profileVariant?: number
   displayedQuotaType: "GRANT" | "RURAL"
+  cutoffSource: "GRANT" | "RURAL" | "GRANT_FALLBACK"
   displayedMinScore: number | null
   universityCount: number
   isPass: boolean
@@ -463,6 +464,7 @@ export interface ChanceUniversity {
   profileSubjects: string
   profileVariant?: number
   displayedQuotaType: "GRANT" | "RURAL"
+  cutoffSource: "GRANT" | "RURAL" | "GRANT_FALLBACK"
   displayedMinScore: number | null
   isPass: boolean
   total: number

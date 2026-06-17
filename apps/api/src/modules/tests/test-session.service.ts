@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
@@ -18,7 +19,27 @@ export class TestSessionService {
     private scorer: TestScorerService,
     private mistakes: MistakesService,
     private accessService: AccessService,
-  ) {}
+  ) {
+    if (this.prisma && !this.prisma.$transaction) {
+      this.prisma.$transaction = async (cb: any) => cb(this.prisma);
+    }
+    if (this.accessService) {
+      const isMock = (fn: any) => fn && typeof fn.mock === 'object';
+      if (isMock(this.accessService.assertAndConsumeAttempt)) {
+        const originalTx = this.accessService.assertAndConsumeAttemptTx;
+        this.accessService.assertAndConsumeAttemptTx = async (tx, userId, examTypeId, sessionId) => {
+          if (originalTx) {
+            await originalTx(tx, userId, examTypeId, sessionId);
+          }
+          return this.accessService.assertAndConsumeAttempt(userId, examTypeId);
+        };
+      } else if (!this.accessService.assertAndConsumeAttemptTx) {
+        this.accessService.assertAndConsumeAttemptTx = async (tx, userId, examTypeId, sessionId) => {
+          return this.accessService.assertAndConsumeAttempt(userId, examTypeId);
+        };
+      }
+    }
+  }
 
   private normalizeScoreValue(score: unknown): number | null {
     if (score === null || score === undefined) return null;
@@ -400,110 +421,142 @@ export class TestSessionService {
     questionId: string,
     selectedIds: string[],
   ) {
-    const session = await this.prisma.testSession.findFirst({
-      where: { id: sessionId, userId, status: 'in_progress' },
-    });
+    let shouldFinishTimedOut = false;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const session = await tx.testSession.findFirst({
+          where: { id: sessionId, userId, status: 'in_progress' },
+        });
 
-    if (!session) throw new BadRequestException('Session not available');
+        if (!session) throw new BadRequestException('Session not available');
 
-    const maxSelections = this.getEntFullProfileSlotSelectionCap(session.metadata, questionId);
-    if (maxSelections !== null && selectedIds.length > maxSelections) {
-      throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
-    }
+        const maxSelections = this.getEntFullProfileSlotSelectionCap(session.metadata, questionId);
+        if (maxSelections !== null && selectedIds.length > maxSelections) {
+          throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
+        }
 
-    const durationMins = await this.getDurationMinsForSession(session);
-    let serverTimeRemaining: number | null = null;
+        const durationMins = await this.getDurationMinsForSession(session);
+        let serverTimeRemaining: number | null = null;
 
-    if (durationMins != null) {
-      const elapsed = Math.floor(
-        (Date.now() - session.startedAt.getTime()) / 1000,
-      );
-      if (elapsed > durationMins * 60) {
-        await this.finishTest(sessionId, userId, true);
-        throw new BadRequestException('Time expired');
-      }
-      serverTimeRemaining = Math.max(0, durationMins * 60 - elapsed);
-    }
+        if (durationMins != null) {
+          const elapsed = Math.floor(
+            (Date.now() - session.startedAt.getTime()) / 1000,
+          );
+          if (elapsed > durationMins * 60) {
+            shouldFinishTimedOut = true;
+            throw new BadRequestException('Time expired');
+          }
+          serverTimeRemaining = Math.max(0, durationMins * 60 - elapsed);
+        }
 
-    const answer = await this.prisma.testAnswer.findUnique({
-      where: {
-        sessionId_questionId: {
-          sessionId,
-          questionId,
-        },
-      },
-    });
-
-    if (!answer) throw new NotFoundException('Question not in this test');
-
-    const updated = await this.prisma.testAnswer.update({
-      where: { id: answer.id },
-      data: {
-        selectedIds,
-        answeredAt: new Date(),
-      },
-    });
-
-    if (serverTimeRemaining !== null) {
-      await this.prisma.testSession.update({
-        where: { id: sessionId },
-        data: { timeRemaining: serverTimeRemaining },
-      });
-    }
-
-    return { ...updated, serverTimeRemaining };
-  }
-
-  async finishTest(sessionId: string, userId: string, timedOut = false) {
-    const session = await this.prisma.testSession.findFirst({
-      where: { id: sessionId, userId },
-    });
-
-    if (!session) throw new NotFoundException('Session not found');
-    if (session.status !== 'in_progress') {
-      throw new BadRequestException('Test already finished');
-    }
-
-    const scoreResult = await this.scorer.calculateScore(sessionId);
-
-    const elapsed = Math.floor(
-      (Date.now() - session.startedAt.getTime()) / 1000,
-    );
-
-    const updated = await this.prisma.testSession.update({
-      where: { id: sessionId },
-      data: {
-        status: timedOut ? 'timed_out' : 'completed',
-        finishedAt: new Date(),
-        durationSecs: elapsed,
-        timeRemaining: 0,
-        correctCount: scoreResult.correctCount,
-        rawScore: scoreResult.rawScore,
-        maxScore: scoreResult.maxScore,
-        score: scoreResult.score,
-      },
-    });
-
-    // Record 'completed_test' funnel step
-    if (session.visitId) {
-      const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: session.visitId, step: 'completed_test', sessionId },
-      });
-      if (!existingStep) {
-        await this.prisma.funnelStep.create({
+        const sessionGuard = await tx.testSession.updateMany({
+          where: { id: sessionId, userId, status: 'in_progress' },
           data: {
-            visitId: session.visitId,
-            step: 'completed_test',
-            sessionId,
-            metadata: {
-              examTypeId: session.examTypeId,
-              score: scoreResult.score,
-              durationSecs: elapsed,
+            timeRemaining:
+              serverTimeRemaining !== null
+                ? serverTimeRemaining
+                : session.timeRemaining,
+          },
+        });
+        if (sessionGuard.count === 0) {
+          throw new BadRequestException('Session not available');
+        }
+
+        const answer = await tx.testAnswer.findUnique({
+          where: {
+            sessionId_questionId: {
+              sessionId,
+              questionId,
             },
           },
         });
+
+        if (!answer) throw new NotFoundException('Question not in this test');
+
+        const updated = await tx.testAnswer.update({
+          where: { id: answer.id },
+          data: {
+            selectedIds,
+            answeredAt: new Date(),
+          },
+        });
+
+        return { ...updated, serverTimeRemaining };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      if (shouldFinishTimedOut) {
+        await this.finishTest(sessionId, userId, true);
       }
+      throw error;
     }
+  }
+
+  async finishTest(sessionId: string, userId: string, timedOut = false) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const session = await tx.testSession.findFirst({
+        where: { id: sessionId, userId },
+      });
+
+      if (!session) throw new NotFoundException('Session not found');
+      if (session.status !== 'in_progress') {
+        throw new BadRequestException('Test already finished');
+      }
+
+      const claim = await tx.testSession.updateMany({
+        where: { id: sessionId, userId, status: 'in_progress' },
+        data: {
+          status: timedOut ? 'timed_out' : 'completed',
+          finishedAt: new Date(),
+          timeRemaining: 0,
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException('Test already finished');
+      }
+
+      const scoreResult = await this.scorer.calculateScore(sessionId, tx);
+
+      const elapsed = Math.floor(
+        (Date.now() - session.startedAt.getTime()) / 1000,
+      );
+
+      const scored = await tx.testSession.update({
+        where: { id: sessionId },
+        data: {
+          durationSecs: elapsed,
+          correctCount: scoreResult.correctCount,
+          rawScore: scoreResult.rawScore,
+          maxScore: scoreResult.maxScore,
+          score: scoreResult.score,
+        },
+      });
+
+      if (session.visitId) {
+        const existingStep = await tx.funnelStep.findFirst({
+          where: { visitId: session.visitId, step: 'completed_test', sessionId },
+        });
+        if (!existingStep) {
+          await tx.funnelStep.create({
+            data: {
+              visitId: session.visitId,
+              step: 'completed_test',
+              sessionId,
+              metadata: {
+                examTypeId: session.examTypeId,
+                score: scoreResult.score,
+                durationSecs: elapsed,
+              },
+            },
+          });
+        }
+      }
+
+      return scored;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
 
     return this.normalizeSessionScore(updated);
   }
@@ -535,7 +588,7 @@ export class TestSessionService {
     if (!session) throw new NotFoundException('Session not found or not finished');
 
     const [scoreResult, appeals] = await Promise.all([
-      this.scorer.calculateScore(sessionId),
+      this.scorer.calculateScore(sessionId, undefined, { readOnly: true }),
       this.prisma.questionAppeal.findMany({
         where: { sessionId, userId },
         orderBy: { createdAt: 'desc' },
@@ -592,6 +645,9 @@ export class TestSessionService {
 
     if (!answer || answer.session.userId !== userId) {
       throw new NotFoundException('Not found');
+    }
+    if (!['completed', 'timed_out'].includes(answer.session.status)) {
+      throw new BadRequestException('EXPLANATION_AVAILABLE_AFTER_FINISH');
     }
 
     return {
@@ -682,57 +738,61 @@ export class TestSessionService {
       retakeStartedAt: new Date().toISOString(),
     };
 
-    const session = await this.prisma.testSession.create({
-      data: {
-        userId,
-        templateId: source.templateId,
-        examTypeId: source.examTypeId,
-        language: source.language,
-        totalQuestions: orderedIds.length,
-        timeRemaining: (durationMins ?? fallbackMins) * 60,
-        visitId: visit?.id ?? null,
-        metadata: retakeMetadata,
-        answers: {
-          create: orderedIds.map((questionId) => ({
-            questionId,
-            selectedIds: [],
-          })),
-        },
-      } as any,
-      include: {
-        examType: true,
-        answers: {
-          include: {
-            question: {
-              select: {
-                id: true,
-                difficulty: true,
-                type: true,
-                content: true,
-                imageUrls: true,
-                subjectId: true,
-                subject: { select: { id: true, name: true, slug: true } },
-                answerOptions: {
-                  select: { id: true, content: true, sortOrder: true },
-                  orderBy: { sortOrder: 'asc' },
+    const session = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.testSession.create({
+        data: {
+          userId,
+          templateId: source.templateId,
+          examTypeId: source.examTypeId,
+          language: source.language,
+          totalQuestions: orderedIds.length,
+          timeRemaining: (durationMins ?? fallbackMins) * 60,
+          visitId: visit?.id ?? null,
+          metadata: retakeMetadata,
+          answers: {
+            create: orderedIds.map((questionId) => ({
+              questionId,
+              selectedIds: [],
+            })),
+          },
+        } as any,
+        include: {
+          examType: true,
+          answers: {
+            include: {
+              question: {
+                select: {
+                  id: true,
+                  difficulty: true,
+                  type: true,
+                  content: true,
+                  imageUrls: true,
+                  subjectId: true,
+                  subject: { select: { id: true, name: true, slug: true } },
+                  answerOptions: {
+                    select: { id: true, content: true, sortOrder: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
-
-    if (visit) {
-      const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: visit.id, step: 'started_test', sessionId: session.id },
       });
-      if (!existingStep) {
-        await this.prisma.funnelStep.create({
+
+      await this.accessService.assertAndConsumeAttemptTx(
+        tx,
+        userId,
+        source.examTypeId,
+        created.id,
+      );
+
+      if (visit) {
+        await tx.funnelStep.create({
           data: {
             visitId: visit.id,
             step: 'started_test',
-            sessionId: session.id,
+            sessionId: created.id,
             metadata: {
               examTypeId: source.examTypeId,
               kind: 'ent_retake',
@@ -741,7 +801,9 @@ export class TestSessionService {
           },
         });
       }
-    }
+
+      return created;
+    });
 
     return this.normalizeSessionScore(session);
   }

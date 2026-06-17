@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   ENT_CONFIG,
@@ -153,8 +154,10 @@ export class TestScorerService {
   private async persistAnswerCorrectness(
     correctAnswerIds: string[],
     incorrectAnswerIds: string[],
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    const answerDelegate = this.prisma.testAnswer as typeof this.prisma.testAnswer & {
+    const db = tx ?? this.prisma;
+    const answerDelegate = db.testAnswer as typeof this.prisma.testAnswer & {
       updateMany?: typeof this.prisma.testAnswer.updateMany;
     };
 
@@ -178,13 +181,13 @@ export class TestScorerService {
 
     await Promise.all([
       ...correctAnswerIds.map((id) =>
-        this.prisma.testAnswer.update({
+        db.testAnswer.update({
           where: { id },
           data: { isCorrect: true },
         }),
       ),
       ...incorrectAnswerIds.map((id) =>
-        this.prisma.testAnswer.update({
+        db.testAnswer.update({
           where: { id },
           data: { isCorrect: false },
         }),
@@ -192,8 +195,9 @@ export class TestScorerService {
     ]);
   }
 
-  async calculateScore(sessionId: string): Promise<ScoreResult> {
-    const session = await this.prisma.testSession.findUnique({
+  async calculateScore(sessionId: string, tx?: Prisma.TransactionClient, opts?: { readOnly?: boolean }): Promise<ScoreResult> {
+    const db = tx ?? this.prisma;
+    const session = await db.testSession.findUnique({
       where: { id: sessionId },
       include: {
         examType: true,
@@ -313,7 +317,9 @@ export class TestScorerService {
       sec.maxPoints += wMax;
     }
 
-    await this.persistAnswerCorrectness(correctAnswerIds, incorrectAnswerIds);
+    if (!opts?.readOnly) {
+      await this.persistAnswerCorrectness(correctAnswerIds, incorrectAnswerIds, tx);
+    }
 
     if (entWeightedActive && weightedMax > 0) {
       const score = Math.round((weightedRaw / weightedMax) * 100 * 100) / 100;

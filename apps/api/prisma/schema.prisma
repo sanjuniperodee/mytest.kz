@@ -141,27 +141,28 @@ model TestTemplateSection {
 }
 
 model User {
-  id                String    @id @default(uuid()) @db.Uuid
-  telegramId        BigInt?   @unique @map("telegram_id")
-  telegramUsername  String?   @map("telegram_username") @db.VarChar(100)
-  googleId          String?   @unique @map("google_id") @db.VarChar(255)
-  email             String?   @unique @map("email") @db.VarChar(255)
-  emailVerified     Boolean   @default(false) @map("email_verified")
-  passwordHash      String?   @map("password_hash") @db.VarChar(255)
+  id                   String    @id @default(uuid()) @db.Uuid
+  telegramId           BigInt?   @unique @map("telegram_id")
+  telegramUsername     String?   @map("telegram_username") @db.VarChar(100)
+  googleId             String?   @unique @map("google_id") @db.VarChar(255)
+  email                String?   @unique @map("email") @db.VarChar(255)
+  emailVerified        Boolean   @default(false) @map("email_verified")
+  passwordHash         String?   @map("password_hash") @db.VarChar(255)
   /// E.164 digits without +, e.g. 77001234567 — set when user shares contact in bot; used for web login
-  phone             String?   @unique @map("phone") @db.VarChar(20)
-  firstName         String?   @map("first_name") @db.VarChar(100)
-  lastName          String?   @map("last_name") @db.VarChar(100)
-  avatarUrl         String?   @map("avatar_url") @db.Text
-  preferredLanguage String    @default("ru") @map("preferred_language") @db.VarChar(2)
-  isChannelMember   Boolean   @default(false) @map("is_channel_member")
-  channelCheckedAt  DateTime? @map("channel_checked_at") @db.Timestamptz
-  timezone          String    @default("Asia/Almaty") @db.VarChar(80)
-  timezoneChangedAt DateTime? @map("timezone_changed_at") @db.Timestamptz
-  entTrialUsed      Int       @default(0) @map("ent_trial_used")
-  isAdmin           Boolean   @default(false) @map("is_admin")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  phone                String?   @unique @map("phone") @db.VarChar(20)
+  firstName            String?   @map("first_name") @db.VarChar(100)
+  lastName             String?   @map("last_name") @db.VarChar(100)
+  avatarUrl            String?   @map("avatar_url") @db.Text
+  preferredLanguage    String    @default("ru") @map("preferred_language") @db.VarChar(2)
+  isChannelMember      Boolean   @default(false) @map("is_channel_member")
+  channelCheckedAt     DateTime? @map("channel_checked_at") @db.Timestamptz
+  timezone             String    @default("Asia/Almaty") @db.VarChar(80)
+  timezoneChangedAt    DateTime? @map("timezone_changed_at") @db.Timestamptz
+  notificationsMutedAt DateTime? @map("notifications_muted_at") @db.Timestamptz
+  entTrialUsed         Int       @default(0) @map("ent_trial_used")
+  isAdmin              Boolean   @default(false) @map("is_admin")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   subscriptions          Subscription[]             @relation("UserSubscriptions")
   authSessions           AuthSession[]
@@ -177,6 +178,7 @@ model User {
   questionAppeals        QuestionAppeal[]           @relation("QuestionAppealsByUser")
   reviewedAppeals        QuestionAppeal[]           @relation("QuestionAppealsReviewedBy")
   notificationDeliveries NotificationDelivery[]
+  adminAudits            AdminAudit[]           @relation("AdminAudits")
 
   @@map("users")
 }
@@ -202,26 +204,29 @@ model AuthSession {
 }
 
 model Subscription {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  planType    String   @map("plan_type") @db.VarChar(20)
-  examTypeId  String?  @map("exam_type_id") @db.Uuid
-  grantedBy   String?  @map("granted_by") @db.Uuid
-  startsAt    DateTime @map("starts_at") @db.Timestamptz
-  expiresAt   DateTime @map("expires_at") @db.Timestamptz
-  isActive    Boolean  @default(true) @map("is_active")
-  paymentNote String?  @map("payment_note") @db.Text
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  planType       String   @map("plan_type") @db.VarChar(20)
+  examTypeId     String?  @map("exam_type_id") @db.Uuid
+  grantedBy      String?  @map("granted_by") @db.Uuid
+  paymentOrderId String? @map("payment_order_id") @db.Uuid
+  startsAt       DateTime @map("starts_at") @db.Timestamptz
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz
+  isActive       Boolean  @default(true) @map("is_active")
+  paymentNote    String?  @map("payment_note") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user                   User                   @relation("UserSubscriptions", fields: [userId], references: [id])
   grantor                User?                  @relation("GrantedSubscriptions", fields: [grantedBy], references: [id])
   examType               ExamType?              @relation(fields: [examTypeId], references: [id])
+  paymentOrder           PaymentOrder?          @relation(fields: [paymentOrderId], references: [id], onDelete: SetNull)
   entitlements           UserExamEntitlement[]
   notificationDeliveries NotificationDelivery[]
 
   @@index([userId, isActive, expiresAt])
   @@index([userId, isActive, startsAt, expiresAt], map: "subscriptions_user_active_window_idx")
   @@index([isActive, expiresAt], map: "subscriptions_active_expires_idx")
+  @@index([paymentOrderId], map: "subscriptions_payment_order_idx")
   @@map("subscriptions")
 }
 
@@ -424,6 +429,7 @@ model TestSession {
   @@index([examTypeId, status, maxScore, rawScore], map: "test_sessions_exam_status_score_idx")
   @@index([templateId], map: "test_sessions_template_idx")
   @@index([visitId])
+  @@index([status, finishedAt])
   @@map("test_sessions")
 }
 
@@ -580,13 +586,43 @@ model PaymentOrder {
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-  user User @relation(fields: [userId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+  subscriptions Subscription[]
+  refunds       PaymentRefund[]
 
   @@index([userId, status, createdAt])
   @@index([status, updatedAt], map: "payment_orders_status_updated_idx")
   @@index([provider, status, updatedAt], map: "payment_orders_provider_status_updated_idx")
   @@index([status, paidAt], map: "payment_orders_status_paid_idx")
   @@map("payment_orders")
+}
+
+enum PaymentRefundStatus {
+  pending
+  succeeded
+  failed
+}
+
+model PaymentRefund {
+  id               String              @id @default(uuid()) @db.Uuid
+  paymentOrderId   String              @unique @map("payment_order_id") @db.Uuid
+  provider         String              @db.VarChar(32)
+  providerRefundId String?             @map("provider_refund_id") @db.VarChar(120)
+  status           PaymentRefundStatus @default(pending)
+  amount           Decimal             @db.Decimal(10, 2)
+  currency         String              @default("KZT") @db.VarChar(8)
+  requestedBy      String              @map("requested_by") @db.Uuid
+  requestedAt      DateTime            @default(now()) @map("requested_at") @db.Timestamptz
+  completedAt      DateTime?           @map("completed_at") @db.Timestamptz
+  failureReason    String?             @map("failure_reason") @db.Text
+  providerPayload  Json?               @map("provider_payload")
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@index([provider, status, requestedAt], map: "payment_refunds_provider_status_requested_idx")
+  @@map("payment_refunds")
 }
 
 model VisitEvent {
@@ -609,6 +645,31 @@ model VisitEvent {
   @@index([userId, createdAt])
   @@index([createdAt])
   @@map("visit_events")
+}
+
+enum LeadNotificationStatus {
+  pending
+  sent
+  failed
+}
+
+model Lead {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  name               String                 @db.VarChar(100)
+  phone              String                 @db.VarChar(30)
+  message            String?                @db.Text
+  source             String                 @default("landing") @db.VarChar(60)
+  ip                 String?                @db.VarChar(64)
+  userAgent          String?                @map("user_agent") @db.VarChar(500)
+  notificationStatus LeadNotificationStatus @default(pending) @map("notification_status")
+  notificationError  String?                @map("notification_error") @db.Text
+  notifiedAt         DateTime?              @map("notified_at") @db.Timestamptz
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([createdAt], map: "leads_created_idx")
+  @@index([notificationStatus, createdAt], map: "leads_notification_status_created_idx")
+  @@map("leads")
 }
 
 model FunnelStep {
@@ -656,6 +717,8 @@ model NotificationDelivery {
   sentAt           DateTime? @map("sent_at") @db.Timestamptz
   errorCode        String?   @map("error_code") @db.VarChar(80)
   errorMessage     String?   @map("error_message") @db.Text
+  retryCount       Int       @default(0) @map("retry_count")
+  nextAttemptAt    DateTime? @map("next_attempt_at") @db.Timestamptz
   metadata         Json?
 
   campaign     NotificationCampaign @relation(fields: [campaignKey], references: [key], onDelete: Cascade)
@@ -697,3 +760,22 @@ model SiteSetting {
 
   @@map("site_settings")
 }
+
+model AdminAudit {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  targetType  String   @map("target_type") @db.VarChar(100)
+  targetId    String?  @map("target_id") @db.VarChar(100)
+  action      String   @db.VarChar(100)
+  reason      String?  @db.Text
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  actor User @relation("AdminAudits", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId])
+  @@map("admin_audits")
+}
+

@@ -35,7 +35,9 @@ export type EntScores = {
 };
 
 function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n));
+  const v = Number(n);
+  if (!Number.isFinite(v)) return min;
+  return Math.min(max, Math.max(min, v));
 }
 
 export function totalEntScore(s: EntScores): number {
@@ -54,7 +56,8 @@ export function passesThresholds(s: EntScores): boolean {
     s.readingLit >= ENT_THRESHOLD_2026.readingLit &&
     s.history >= ENT_THRESHOLD_2026.history &&
     s.profile1 >= ENT_THRESHOLD_2026.profile1 &&
-    s.profile2 >= ENT_THRESHOLD_2026.profile2
+    s.profile2 >= ENT_THRESHOLD_2026.profile2 &&
+    totalEntScore(s) >= 50
   );
 }
 
