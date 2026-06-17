@@ -75,8 +75,8 @@ export function CTA() {
               <span className="font-serif italic font-normal">Узнай его.</span>
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-pretty text-base leading-relaxed text-background/70 sm:text-lg">
-              Первый пробный — бесплатно, без карты, без подвоха. 240 минут — и ты
-              точно знаешь, где стоишь.
+              Разовый доступ открывает полный пробный ЕНТ, подробный разбор и
+              понятную картину, где ты стоишь.
             </p>
 
             <form

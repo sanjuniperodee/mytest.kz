@@ -12,6 +12,7 @@ import {
   Typography,
   Drawer,
   Dropdown,
+  Grid,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -23,6 +24,7 @@ import {
   RocketOutlined,
   FundProjectionScreenOutlined,
   AppstoreOutlined,
+  CreditCardOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LogoutOutlined,
@@ -30,8 +32,11 @@ import {
   FormOutlined,
   GlobalOutlined,
   NotificationOutlined,
+  ExportOutlined,
+  SafetyCertificateOutlined,
+  FlagOutlined,
 } from '@ant-design/icons';
-import { api, clearTokens } from './api/client';
+import { api, clearTokens, revokeCurrentSession } from './api/client';
 import { getPageMeta } from './lib/pageMeta';
 import { UsersPage } from './pages/UsersPage';
 import { UserDetailPage } from './pages/UserDetailPage';
@@ -47,11 +52,21 @@ import { ExamCatalogPage } from './pages/ExamCatalogPage';
 import { LandingSettingsPage } from './pages/LandingSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { FinancePage } from './pages/FinancePage';
+import { QuestionAppealsPage } from './pages/QuestionAppealsPage';
 
 const { Sider, Content, Header } = Layout;
+const { useBreakpoint } = Grid;
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  },
 });
 
 const MENU_NAV: Record<string, string> = {
@@ -61,10 +76,12 @@ const MENU_NAV: Record<string, string> = {
   'analytics-thresholds': '/analytics/thresholds',
   admission: '/admission',
   explanations: '/explanations',
+  appeals: '/appeals',
   users: '/users',
   questions: '/questions',
   exams: '/exams',
   subscriptions: '/subscriptions',
+  finance: '/finance',
   notifications: '/notifications',
   'landing-settings': '/landing-settings',
 };
@@ -76,10 +93,12 @@ function menuKeyFromPath(pathname: string): string {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
   if (pathname.startsWith('/admission')) return 'admission';
   if (pathname.startsWith('/explanations')) return 'explanations';
+  if (pathname.startsWith('/appeals')) return 'appeals';
   if (pathname.startsWith('/users')) return 'users';
   if (pathname.startsWith('/questions')) return 'questions';
   if (pathname.startsWith('/exams')) return 'exams';
   if (pathname.startsWith('/subscriptions')) return 'subscriptions';
+  if (pathname.startsWith('/finance')) return 'finance';
   if (pathname.startsWith('/notifications')) return 'notifications';
   if (pathname.startsWith('/landing-settings')) return 'landing-settings';
   return 'dashboard';
@@ -88,13 +107,26 @@ function menuKeyFromPath(pathname: string): string {
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
+  const isMobile = !screens.lg;
   const selectedKey = useMemo(() => menuKeyFromPath(location.pathname), [location.pathname]);
   const pageMeta = useMemo(() => getPageMeta(location.pathname), [location.pathname]);
+  const userDisplayName = useMemo(() => {
+    if (!user) return 'Администратор';
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+    return fullName || user.telegramUsername || 'Администратор';
+  }, [user]);
+  const userMetaLine = useMemo(() => {
+    if (!user) return 'Команда MyTest';
+    if (user.telegramUsername) return `@${user.telegramUsername}`;
+    if (user.phone) return `+${user.phone}`;
+    return 'Команда MyTest';
+  }, [user]);
 
 
   const menuItems: MenuProps['items'] = useMemo(
@@ -119,6 +151,7 @@ function AdminLayout() {
         children: [
           { key: 'questions', icon: <FormOutlined />, label: 'Вопросы' },
           { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
+          { key: 'appeals', icon: <FlagOutlined />, label: 'Апелляции' },
           { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены' },
           { key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' },
         ],
@@ -129,6 +162,7 @@ function AdminLayout() {
         children: [
           { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
           { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
+          { key: 'finance', icon: <CreditCardOutlined />, label: 'Финансы' },
           { key: 'notifications', icon: <NotificationOutlined />, label: 'Рассылки' },
         ],
       },
@@ -139,6 +173,30 @@ function AdminLayout() {
       },
     ],
     [],
+  );
+
+  const userMenuItems: MenuProps['items'] = useMemo(
+    () => [
+      {
+        key: 'site',
+        label: 'Открыть my-test.kz',
+        icon: <ExportOutlined />,
+        onClick: () => {
+          window.open('https://my-test.kz', '_blank', 'noopener,noreferrer');
+        },
+      },
+      {
+        key: 'logout',
+        label: 'Выйти',
+        icon: <LogoutOutlined />,
+        onClick: () => {
+          void revokeCurrentSession();
+          clearTokens();
+          navigate('/login', { replace: true });
+        },
+      },
+    ],
+    [navigate],
   );
 
   useEffect(() => {
@@ -172,109 +230,172 @@ function AdminLayout() {
 
   return (
     <Layout className="admin-shell">
-      {/* Desktop sidebar */}
       <Sider
+        trigger={null}
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        width={256}
+        collapsedWidth={92}
+        width={292}
         breakpoint="lg"
         onBreakpoint={(broken) => {
-          if (broken) setCollapsed(true);
+          if (broken) {
+            setCollapsed(true);
+            setMobileOpen(false);
+          }
         }}
         className="admin-desktop-sider admin-sider"
       >
-        <div className="admin-sider-brand">
-          <div className="admin-sider-logo">{collapsed ? 'MT' : 'M'}</div>
+        <div className="admin-sider-stage">
+          <div className="admin-sider-brand">
+            <div className="admin-sider-logo">{collapsed ? 'MT' : 'M'}</div>
+            {!collapsed && (
+              <div className="admin-sider-brand-text">
+                <div className="admin-sider-brand-title">MyTest Control</div>
+                <div className="admin-sider-brand-sub">операционная панель</div>
+              </div>
+            )}
+          </div>
           {!collapsed && (
-            <div className="admin-sider-brand-text">
-              <div className="admin-sider-brand-title">MyTest</div>
-              <div className="admin-sider-brand-sub">admin</div>
+            <div className="admin-sider-summary">
+              <span className="admin-sider-summary-kicker">Production workspace</span>
+              <p className="admin-sider-summary-copy">
+                Команда, контент и продуктовая аналитика в одном потоке без лишнего шума.
+              </p>
+              <div className="admin-sider-summary-pills">
+                <span className="admin-sider-summary-pill">
+                  <SafetyCertificateOutlined />
+                  Admin
+                </span>
+                <a
+                  className="admin-sider-summary-link"
+                  href="https://my-test.kz"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Открыть сайт
+                  <ExportOutlined />
+                </a>
+              </div>
+            </div>
+          )}
+          <Menu
+            theme="light"
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            onClick={({ key }) => {
+              const path = MENU_NAV[key];
+              if (path) navigate(path);
+            }}
+            className="admin-sider-menu"
+            items={menuItems}
+          />
+          {!collapsed && (
+            <div className="admin-sider-footer">
+              <div className="admin-sider-user-card">
+                <Avatar className="admin-sider-user-avatar">
+                  {userDisplayName.slice(0, 1).toUpperCase()}
+                </Avatar>
+                <div className="admin-sider-user-copy">
+                  <div className="admin-sider-user-name">{userDisplayName}</div>
+                  <div className="admin-sider-user-meta">{userMetaLine}</div>
+                </div>
+              </div>
             </div>
           )}
         </div>
-        <Menu
-          theme="light"
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          onClick={({ key }) => {
-            const path = MENU_NAV[key];
-            if (path) navigate(path);
-          }}
-          className="admin-sider-menu"
-          items={menuItems}
-        />
       </Sider>
 
-      {/* Mobile drawer sidebar */}
       <Drawer
         placement="left"
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        width={260}
+        width={296}
         closable={false}
         rootClassName="admin-mobile-drawer"
         styles={{ body: { padding: 0, background: 'var(--admin-sider-bg)' } }}
       >
-        <div className="admin-sider-brand">
-          <div className="admin-sider-logo">M</div>
-          <div className="admin-sider-brand-text">
-            <div className="admin-sider-brand-title">MyTest</div>
-            <div className="admin-sider-brand-sub">admin</div>
+        <div className="admin-sider-stage admin-sider-stage--mobile">
+          <div className="admin-sider-brand">
+            <div className="admin-sider-logo">M</div>
+            <div className="admin-sider-brand-text">
+              <div className="admin-sider-brand-title">MyTest Control</div>
+              <div className="admin-sider-brand-sub">операционная панель</div>
+            </div>
+          </div>
+          <div className="admin-sider-summary">
+            <span className="admin-sider-summary-kicker">Production workspace</span>
+            <p className="admin-sider-summary-copy">
+              Быстрые переходы, продуктовые срезы и контент-команды в одном месте.
+            </p>
+          </div>
+          <Menu
+            theme="light"
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            onClick={({ key }) => {
+              const path = MENU_NAV[key];
+              if (path) navigate(path);
+              setMobileOpen(false);
+            }}
+            className="admin-sider-menu"
+            items={menuItems}
+          />
+          <div className="admin-sider-footer">
+            <div className="admin-sider-user-card">
+              <Avatar className="admin-sider-user-avatar">
+                {userDisplayName.slice(0, 1).toUpperCase()}
+              </Avatar>
+              <div className="admin-sider-user-copy">
+                <div className="admin-sider-user-name">{userDisplayName}</div>
+                <div className="admin-sider-user-meta">{userMetaLine}</div>
+              </div>
+            </div>
           </div>
         </div>
-        <Menu
-          theme="light"
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          onClick={({ key }) => {
-            const path = MENU_NAV[key];
-            if (path) navigate(path);
-            setMobileOpen(false);
-          }}
-          className="admin-sider-menu"
-          items={menuItems}
-        />
       </Drawer>
 
       <Layout>
         <Header className="admin-top-header">
-          <Button
-            type="text"
-            icon={mobileOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-            onClick={() => setMobileOpen((v) => !v)}
-            className="admin-header-hamburger"
-            aria-label="Меню"
-          />
-          <div className="admin-header-titles">
-            <Typography.Title level={4} className="admin-header-title">
-              {pageMeta.title}
-            </Typography.Title>
+          <div className="admin-header-main">
+            <Button
+              type="text"
+              icon={mobileOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+              onClick={() => setMobileOpen((v) => !v)}
+              className="admin-header-hamburger"
+              aria-label="Меню"
+            />
+            <div className="admin-header-titles">
+              <div className="admin-header-kicker">{pageMeta.section}</div>
+              <Typography.Title level={4} className="admin-header-title">
+                {pageMeta.title}
+              </Typography.Title>
+              <p className="admin-header-subtitle">{pageMeta.description}</p>
+            </div>
           </div>
-          <div className="admin-header-user">
+          <div className="admin-header-actions">
+            <a
+              className="admin-header-link"
+              href="https://my-test.kz"
+              target="_blank"
+              rel="noreferrer"
+            >
+              my-test.kz
+              <ExportOutlined />
+            </a>
+            {!isMobile && <span className="admin-header-badge">Production</span>}
             <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: 'logout',
-                    label: 'Выйти',
-                    icon: <LogoutOutlined />,
-                    onClick: () => {
-                      clearTokens();
-                      navigate('/login', { replace: true });
-                    },
-                  },
-                ],
-              }}
+              menu={{ items: userMenuItems }}
               trigger={['click']}
               placement="bottomRight"
             >
               <Button type="text" className="admin-header-user-btn">
                 <Avatar size="small" className="admin-header-avatar">
-                  {(user.firstName || user.telegramUsername || 'A').slice(0, 1).toUpperCase()}
+                  {userDisplayName.slice(0, 1).toUpperCase()}
                 </Avatar>
-                <span className="admin-header-username">
-                  {user.firstName} {user.lastName}
+                <span className="admin-header-usercopy">
+                  <strong className="admin-header-username">{userDisplayName}</strong>
+                  {!isMobile && <span className="admin-header-usersub">{userMetaLine}</span>}
                 </span>
               </Button>
             </Dropdown>
@@ -289,11 +410,13 @@ function AdminLayout() {
             <Route path="/analytics/thresholds" element={<UniversityThresholdsPage />} />
             <Route path="/admission" element={<AdmissionChancePage />} />
             <Route path="/explanations" element={<ExplanationsPage />} />
+            <Route path="/appeals" element={<QuestionAppealsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/:id" element={<UserDetailPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/exams" element={<ExamCatalogPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/finance" element={<FinancePage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/landing-settings" element={<LandingSettingsPage />} />
           </Routes>
@@ -309,7 +432,7 @@ export function App() {
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
-          borderRadius: 10,
+          borderRadius: 14,
           colorPrimary: '#007aff',
           colorInfo: '#007aff',
           colorSuccess: '#34c759',
@@ -324,23 +447,23 @@ export function App() {
           colorSplit: 'rgba(60, 60, 67, 0.12)',
           colorBgContainer: '#ffffff',
           colorBgLayout: 'transparent',
-          colorFillAlter: '#fafafa',
-          colorFillSecondary: '#e5e5ea',
-          fontSize: 13,
+          colorFillAlter: '#f5f1ea',
+          colorFillSecondary: '#ece6dc',
+          fontSize: 14,
           fontSizeSM: 12,
-          fontSizeLG: 15,
+          fontSizeLG: 16,
           lineHeight: 1.45,
-          controlHeight: 32,
-          controlHeightSM: 28,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-          boxShadowSecondary: '0 4px 16px rgba(0, 0, 0, 0.1)',
+          controlHeight: 38,
+          controlHeightSM: 32,
+          fontFamily: '"Manrope", "SF Pro Text", "Segoe UI", system-ui, sans-serif',
+          boxShadow: '0 8px 24px rgba(41, 51, 61, 0.08)',
+          boxShadowSecondary: '0 24px 60px rgba(28, 33, 40, 0.16)',
         },
         components: {
           Menu: {
-            itemHeight: 40,
-            itemBorderRadius: 8,
-            subMenuItemBorderRadius: 8,
+            itemHeight: 44,
+            itemBorderRadius: 12,
+            subMenuItemBorderRadius: 12,
             iconSize: 16,
             collapsedIconSize: 16,
             groupTitleFontSize: 11,
@@ -351,11 +474,11 @@ export function App() {
             itemSelectedBg: 'rgba(0, 122, 255, 0.12)',
             groupTitleColor: 'rgba(60, 60, 67, 0.55)',
           },
-          Card: { paddingLG: 16, boxShadow: 'none' },
+          Card: { paddingLG: 18, boxShadow: 'none' },
           Table: {
-            cellPaddingBlock: 8,
-            cellPaddingInline: 12,
-            fontSize: 13,
+            cellPaddingBlock: 10,
+            cellPaddingInline: 14,
+            fontSize: 14,
             headerColor: 'rgba(60, 60, 67, 0.55)',
             rowHoverBg: 'rgba(0, 0, 0, 0.02)',
           },
@@ -366,7 +489,7 @@ export function App() {
             titleFontSize: 13,
             inkBarColor: '#007aff',
           },
-          Button: { controlHeight: 32, fontWeight: 500, borderRadius: 10, primaryShadow: 'none' },
+          Button: { controlHeight: 38, fontWeight: 600, borderRadius: 12, primaryShadow: 'none' },
           Input: { activeBorderColor: '#007aff', hoverBorderColor: 'rgba(60, 60, 67, 0.28)' },
           Select: { optionSelectedBg: 'rgba(0, 122, 255, 0.1)' },
           Form: { labelFontSize: 12, labelColor: 'rgba(60, 60, 67, 0.75)' },

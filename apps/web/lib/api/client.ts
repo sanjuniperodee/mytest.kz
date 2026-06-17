@@ -31,6 +31,7 @@ interface ApiOptions {
   scope?: Scope
   auth?: boolean // default: true if access token exists
   formData?: FormData
+  signal?: AbortSignal
 }
 
 function buildUrl(path: string, query?: ApiOptions["query"]) {
@@ -45,28 +46,36 @@ function buildUrl(path: string, query?: ApiOptions["query"]) {
 }
 
 let refreshInFlight: Promise<boolean> | null = null
+const authGeneration: Record<Scope, number> = { user: 0, admin: 0 }
 
-async function refresh(scope: Scope): Promise<boolean> {
+export function invalidateAuthScope(scope: Scope) {
+  authGeneration[scope] += 1
+  refreshInFlight = null
+}
+
+export async function refreshAuthSession(scope: Scope = "user"): Promise<boolean> {
   const refreshToken = getRefreshToken(scope)
-  if (!refreshToken) return false
   if (refreshInFlight) return refreshInFlight
+  const generation = authGeneration[scope]
   refreshInFlight = (async () => {
     try {
       const res = await fetch(`${BASE}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify(refreshToken ? { refreshToken } : {}),
         credentials: "include",
       })
       if (!res.ok) {
-        clearTokens(scope)
+        if (res.status === 401 || res.status === 403) clearTokens(scope)
         return false
       }
-      const data = (await res.json()) as { accessToken: string; refreshToken: string }
+      const data = (await res.json()) as { accessToken: string; refreshToken?: string }
+      if (authGeneration[scope] !== generation) {
+        return false
+      }
       setTokens(scope, data)
       return true
     } catch {
-      clearTokens(scope)
       return false
     } finally {
       refreshInFlight = null
@@ -98,13 +107,31 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
       headers,
       body,
       credentials: "include",
+      signal: opts.signal,
     })
   }
 
   let res = await doFetch()
 
-  if (res.status === 401 && useAuth) {
-    const ok = await refresh(scope)
+  let shouldRefresh = false
+  if (useAuth) {
+    if (res.status === 401) {
+      shouldRefresh = true
+    } else if (res.status === 403) {
+      try {
+        const clone = res.clone()
+        const body = await clone.json()
+        if (body && (body.code === "TOKEN_EXPIRED" || body.message === "TOKEN_EXPIRED")) {
+          shouldRefresh = true
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  if (shouldRefresh) {
+    const ok = await refreshAuthSession(scope)
     if (ok) {
       res = await doFetch()
     }
@@ -127,7 +154,9 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
           ? rawMsg.filter((x) => typeof x === "string").join(". ")
           : typeof rawMsg === "number"
             ? String(rawMsg)
-            : res.statusText || "Request failed"
+            : typeof bodyObj?.error === "string"
+              ? bodyObj.error
+              : res.statusText || "Request failed"
     const nested =
       rawMsg !== null &&
       typeof rawMsg === "object" &&

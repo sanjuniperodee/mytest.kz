@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
+import { ENT_MAX, ENT_TOTAL_MAX, totalEntScore } from "@bilimland/shared"
 import type {
   AdmissionCycle,
   ChanceProgram,
@@ -55,12 +56,27 @@ const SCORE_FIELDS: {
   short: string
   max: number
 }[] = [
-  { key: "mathLit", label: "Мат. грамотность", short: "МатГр", max: 10 },
-  { key: "readingLit", label: "Чит. грамотность", short: "ЧитГр", max: 10 },
-  { key: "history", label: "История Казахстана", short: "ИстКЗ", max: 20 },
-  { key: "profile1", label: "Профильный 1", short: "Проф 1", max: 50 },
-  { key: "profile2", label: "Профильный 2", short: "Проф 2", max: 50 },
+  { key: "mathLit", label: "Мат. грамотность", short: "МатГр", max: ENT_MAX.mathLit },
+  { key: "readingLit", label: "Чит. грамотность", short: "ЧитГр", max: ENT_MAX.readingLit },
+  { key: "history", label: "История Казахстана", short: "ИстКЗ", max: ENT_MAX.history },
+  { key: "profile1", label: "Профильный 1", short: "Проф 1", max: ENT_MAX.profile1 },
+  { key: "profile2", label: "Профильный 2", short: "Проф 2", max: ENT_MAX.profile2 },
 ]
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value)
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(timeout)
+  }, [value, delayMs])
+
+  return debounced
+}
+
+function isGrantFallback(cutoffSource?: ChanceProgram["cutoffSource"] | ChanceUniversity["cutoffSource"]) {
+  return cutoffSource === "GRANT_FALLBACK"
+}
 
 export default function AdmissionPage() {
   const [cycleSlug, setCycleSlug] = useState<string>("")
@@ -77,8 +93,8 @@ export default function AdmissionPage() {
   const [tab, setTab] = useState<Tab>("programs")
   const [search, setSearch] = useState("")
 
-  const total =
-    scores.mathLit + scores.readingLit + scores.history + scores.profile1 + scores.profile2
+  const total = useMemo(() => totalEntScore(scores), [scores])
+  const debouncedScores = useDebouncedValue(scores, 250)
 
   // Cycles
   const { data: cycles } = useSWR<AdmissionCycle[]>("/admission/cycles")
@@ -111,19 +127,19 @@ export default function AdmissionPage() {
 
   // Build chance programs query
   const chanceQuery = useMemo(() => {
-    if (!cycleSlug || !profileSubjects) return null
+    if (step !== 2 || !cycleSlug || !profileSubjects) return null
     const params = new URLSearchParams({
       cycleSlug,
       quotaType,
       profileSubjects,
-      mathLit: String(scores.mathLit),
-      readingLit: String(scores.readingLit),
-      history: String(scores.history),
-      profile1: String(scores.profile1),
-      profile2: String(scores.profile2),
+      mathLit: String(debouncedScores.mathLit),
+      readingLit: String(debouncedScores.readingLit),
+      history: String(debouncedScores.history),
+      profile1: String(debouncedScores.profile1),
+      profile2: String(debouncedScores.profile2),
     })
     return params.toString()
-  }, [cycleSlug, quotaType, profileSubjects, scores])
+  }, [cycleSlug, quotaType, profileSubjects, debouncedScores, step])
 
   const programsKey = chanceQuery ? `/admission/chance/programs?${chanceQuery}` : null
   const { data: programs, isLoading: progLoading } = useSWR<ChanceProgram[]>(programsKey)
@@ -275,7 +291,7 @@ export default function AdmissionPage() {
                             : "bg-secondary text-muted-foreground",
                       )}
                     >
-                      {total}/140
+                      {total}/{ENT_TOTAL_MAX}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-2">
@@ -369,9 +385,10 @@ export default function AdmissionPage() {
             <UniversitiesList
               cycleSlug={cycleSlug}
               quotaType={quotaType}
-              scores={scores}
+              scores={debouncedScores}
               search={search}
-              profileSubjects={profileSubjects}
+              programs={programs ?? []}
+              programsLoading={progLoading}
             />
           )}
         </div>
@@ -480,9 +497,16 @@ function ProgramRow({ program }: { program: ChanceProgram }) {
           <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-1">
             <div className="flex flex-col items-end">
               <span className="text-xs text-muted-foreground">Порог</span>
-              <span className="font-semibold tabular-nums">
-                {program.displayedMinScore ?? "—"}
-              </span>
+              <div className="flex flex-wrap justify-end gap-1">
+                <span className="font-semibold tabular-nums">
+                  {program.displayedMinScore ?? "—"}
+                </span>
+                {isGrantFallback(program.cutoffSource) && (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
+                    общий грант
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex flex-col items-end">
               <span className="text-xs text-muted-foreground">
@@ -509,33 +533,37 @@ function UniversitiesList({
   quotaType,
   scores,
   search,
-  profileSubjects,
+  programs,
+  programsLoading,
 }: {
   cycleSlug: string
   quotaType: QuotaType
   scores: Scores
   search: string
-  profileSubjects: string
+  programs: ChanceProgram[]
+  programsLoading: boolean
 }) {
   const [programId, setProgramId] = useState<string>("")
 
-  const { data: programs, isLoading: progLoading } = useSWR<
-    { id: string; code: string; name: string }[]
-  >(`/admission/programs?take=200`)
-
   const filteredPrograms = useMemo(() => {
-    if (!programs) return []
     const q = search.trim().toLowerCase()
-    if (!q) return programs.slice(0, 200)
+    if (!q) return programs
     return programs.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q),
+      (p) =>
+        p.programName.toLowerCase().includes(q) ||
+        p.programCode.toLowerCase().includes(q),
     )
   }, [programs, search])
 
   useEffect(() => {
-    if (!programId && filteredPrograms.length > 0) {
-      setProgramId(filteredPrograms[0].id)
+    if (programId && filteredPrograms.some((program) => program.programId === programId)) {
+      return
     }
+    if (filteredPrograms.length > 0) {
+      setProgramId(filteredPrograms[0].programId)
+      return
+    }
+    if (programId) setProgramId("")
   }, [filteredPrograms, programId])
 
   const uniKey =
@@ -565,7 +593,7 @@ function UniversitiesList({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
         <Label>Специальность</Label>
-        {progLoading ? (
+        {programsLoading ? (
           <Skeleton className="h-10" />
         ) : (
           <Select value={programId} onValueChange={setProgramId}>
@@ -574,11 +602,11 @@ function UniversitiesList({
             </SelectTrigger>
             <SelectContent className="max-h-80">
               {filteredPrograms.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
+                <SelectItem key={p.programId} value={p.programId}>
                   <span className="font-mono text-xs text-muted-foreground mr-2">
-                    {p.code}
+                    {p.programCode}
                   </span>
-                  {p.name}
+                  {p.programName}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -627,6 +655,14 @@ function UniversitiesList({
                     <p className="truncate font-medium">{u.universityName}</p>
                     <p className="text-xs text-muted-foreground">
                       Код {u.universityCode} · Порог {u.displayedMinScore ?? "—"}
+                      {isGrantFallback(u.cutoffSource) && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 h-5 px-1.5 align-middle text-[10px] font-medium"
+                        >
+                          общий грант
+                        </Badge>
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-col items-end">

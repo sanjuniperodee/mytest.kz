@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,9 +15,11 @@ import { BILLING_PLANS, ENT_TRIAL_LIMIT } from './billing.config';
 import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './freedompay-signature';
 import { AccessService } from '../subscriptions/access.service';
 import { KaspiPosService } from './kaspi-pos.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 type KaspiOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
+type KaspiPaymentType = 'invoice' | 'qr';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -27,6 +30,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function getString(value: unknown): string | null {
   if (typeof value === 'string' && value.trim()) return value.trim();
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function getNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const clean = value.replace(/[^\d.,+-]/g, '').replace(',', '.');
+    const parsed = Number(clean);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
   return null;
 }
 
@@ -43,6 +56,42 @@ function isInvalidKaspiOperationId(value: string | null | undefined): boolean {
   return !normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'unknown';
 }
 
+function parseTimestamp(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const direct = Date.parse(raw);
+  if (!Number.isNaN(direct)) return new Date(direct);
+
+  const withUtc = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? raw : `${raw}Z`;
+  const asUtc = Date.parse(withUtc);
+  if (!Number.isNaN(asUtc)) return new Date(asUtc);
+
+  return null;
+}
+
+function isKaspiTemporaryFailureMessage(message: string): boolean {
+  const normalized = message.toUpperCase();
+  return (
+    normalized.includes('TIMEOUT') ||
+    normalized.includes('UNAVAILABLE') ||
+    normalized.includes('UPSTREAM_TIMEOUT') ||
+    normalized.includes('HTTP_502') ||
+    normalized.includes('HTTP_503') ||
+    normalized.includes('HTTP_504')
+  );
+}
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -50,6 +99,7 @@ export class BillingService {
     private config: ConfigService,
     private accessService: AccessService,
     private kaspiPosService: KaspiPosService,
+    private analytics: AnalyticsService,
   ) {}
 
   getPlans() {
@@ -62,6 +112,9 @@ export class BillingService {
       return await this.kaspiPosService.initAuth(phoneNumber);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (isKaspiTemporaryFailureMessage(message)) {
+        throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+      }
       throw new BadRequestException(
         message.startsWith('KASPI_') ? message : `KASPI_SETUP_FAILED:${message}`,
       );
@@ -78,6 +131,9 @@ export class BillingService {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (isKaspiTemporaryFailureMessage(message)) {
+        throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+      }
       if (
         message === 'KASPI_NEEDS_PASSWORD' ||
         message === 'KASPI_NEEDS_MOBILE_CONFIRMATION' ||
@@ -99,9 +155,10 @@ export class BillingService {
     return { configured, sessionActive };
   }
 
-  async createKaspiCheckout(userId: string, planId: string, phoneNumber: string) {
+  async createKaspiCheckout(userId: string, planId: string, phoneNumber: string, method?: string) {
     const plan = BILLING_PLANS.find((p) => p.id === planId);
     if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
+    const preferredMethod = method?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
 
     const pending = await this.prisma.paymentOrder.findFirst({
       where: { userId, provider: 'kaspi', status: 'pending', planCode: plan.id },
@@ -125,96 +182,165 @@ export class BillingService {
       }
     }
 
-    const normalized = normalizeKzPhone(phoneNumber || '');
-    if (!normalized) {
-      throw new BadRequestException('INVALID_PHONE');
-    }
-
     const comment = `MyTest ${plan.name} - ${userId.slice(0, 8)}`;
 
-    let invoiceId: string;
-    let receiptUrl: string;
-    let orderNumber: string;
-    let invoiceStatus: string;
-    let clientMobile: string;
+    let providerOrderId = '';
+    let checkoutUrl = '';
+    let receiptUrl = '';
+    let orderNumber = '';
+    let paymentStatus = '';
+    let clientMobile = '';
+    let qrToken = '';
+    let expiresAt = '';
+    let paymentType: KaspiPaymentType = 'invoice';
+    let fallbackToQr = false;
+    let fallbackReason = '';
 
-    try {
-      const invoice = await this.kaspiPosService.createInvoice(
-        normalized,
-        Number(plan.priceKzt),
-        comment,
-      );
-      invoiceId = String(invoice.id);
-      receiptUrl = invoice.receiptUrl;
-      orderNumber = invoice.orderNumber;
-      invoiceStatus = invoice.status;
-      clientMobile = invoice.clientMobile;
-      if (!receiptUrl) {
-        try {
-          const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(invoiceId));
-          const details = asRecord(detailsPayload?.Data) ?? asRecord(detailsPayload?.data) ?? detailsPayload;
-          receiptUrl =
-            firstString(
-              details?.ReceiptUrl,
-              details?.receiptUrl,
-              details?.CheckoutUrl,
-              details?.checkoutUrl,
-              details?.PaymentUrl,
-              details?.paymentUrl,
-              details?.Url,
-              details?.url,
-            ) ?? '';
-          orderNumber = firstString(orderNumber, details?.OrderNumber, details?.orderNumber) ?? orderNumber;
-          invoiceStatus = firstString(invoiceStatus, details?.Status, details?.status) ?? invoiceStatus;
-        } catch {
-          // The invoice is already created; keep it and let polling/webhook reconcile details later.
+    const createQrPayment = async () => {
+      try {
+        const qr = await this.kaspiPosService.createQr(Number(plan.priceKzt));
+        paymentType = 'qr';
+        providerOrderId = String(qr.id);
+        paymentStatus = qr.status;
+        qrToken = qr.qrToken;
+        receiptUrl = qr.receiptUrl;
+        expiresAt = qr.expiresAt;
+        checkoutUrl = firstString(qrToken, receiptUrl) ?? '';
+
+        if (!checkoutUrl || !expiresAt || !paymentStatus) {
+          try {
+            const statusPayload = asRecord(await this.kaspiPosService.getQrStatus(providerOrderId));
+            const details = asRecord(statusPayload?.Data) ?? asRecord(statusPayload?.data) ?? statusPayload;
+            qrToken = firstString(qrToken, details?.QrToken, details?.qrToken, details?.PaymentUrl, details?.paymentUrl) ?? qrToken;
+            receiptUrl = firstString(receiptUrl, details?.ReceiptUrl, details?.receiptUrl) ?? receiptUrl;
+            expiresAt = firstString(expiresAt, details?.ExpireDate, details?.expireDate, details?.ExpiresAt, details?.expiresAt) ?? expiresAt;
+            paymentStatus = firstString(paymentStatus, details?.Status, details?.status) ?? paymentStatus;
+            checkoutUrl = firstString(checkoutUrl, qrToken, receiptUrl) ?? checkoutUrl;
+          } catch {
+            // QR is already created; let polling/webhook reconcile the rest.
+          }
         }
+      } catch (qrErr) {
+        const qrMessage = qrErr instanceof Error ? qrErr.message : String(qrErr);
+        if (isKaspiTemporaryFailureMessage(qrMessage)) {
+          throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+        }
+        throw new BadRequestException(`KASPI_QR_CREATE_ERROR:${qrMessage}`);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message === 'KASPI_NOT_AUTHENTICATED') {
-        throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
+    };
+
+    if (preferredMethod === 'qr') {
+      await createQrPayment();
+    } else {
+      const normalized = normalizeKzPhone(phoneNumber || '');
+      if (!normalized) {
+        throw new BadRequestException('INVALID_PHONE');
       }
-      throw new BadRequestException(`KASPI_INVOICE_ERROR:${message}`);
+
+      try {
+        const invoice = await this.kaspiPosService.createInvoice(
+          normalized,
+          Number(plan.priceKzt),
+          comment,
+        );
+        providerOrderId = String(invoice.id);
+        receiptUrl = invoice.receiptUrl;
+        orderNumber = invoice.orderNumber;
+        paymentStatus = invoice.status;
+        clientMobile = invoice.clientMobile;
+        if (!receiptUrl) {
+          try {
+            const detailsPayload = asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
+            const details = asRecord(detailsPayload?.Data) ?? asRecord(detailsPayload?.data) ?? detailsPayload;
+            receiptUrl =
+              firstString(
+                details?.ReceiptUrl,
+                details?.receiptUrl,
+                details?.CheckoutUrl,
+                details?.checkoutUrl,
+                details?.PaymentUrl,
+                details?.paymentUrl,
+                details?.Url,
+                details?.url,
+              ) ?? '';
+            orderNumber = firstString(orderNumber, details?.OrderNumber, details?.orderNumber) ?? orderNumber;
+            paymentStatus = firstString(paymentStatus, details?.Status, details?.status) ?? paymentStatus;
+          } catch {
+            // The invoice is already created; keep it and let polling/webhook reconcile details later.
+          }
+        }
+        checkoutUrl = receiptUrl;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message === 'KASPI_NOT_AUTHENTICATED') {
+          throw new BadRequestException('KASPI_NOT_AUTHENTICATED');
+        }
+        if (isKaspiTemporaryFailureMessage(message)) {
+          throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+        }
+        throw new BadRequestException(`KASPI_INVOICE_CREATE_ERROR:${message}`);
+      }
     }
 
     await this.prisma.paymentOrder.upsert({
-      where: { providerOrderId: invoiceId },
+      where: { providerOrderId },
       create: {
         userId,
         planCode: plan.id,
         amount: plan.priceKzt,
         provider: 'kaspi',
-        providerOrderId: invoiceId,
-        checkoutUrl: receiptUrl,
+        providerOrderId,
+        checkoutUrl,
         status: 'pending',
         providerPayload: {
           orderNumber,
           provider: 'kaspi',
-          status: invoiceStatus,
+          paymentType,
+          status: paymentStatus,
           receiptUrl,
+          qrToken,
+          expiresAt,
           clientMobile,
+          fallbackToQr,
+          fallbackReason,
         },
       },
       update: {
         status: 'pending',
-        checkoutUrl: receiptUrl,
+        checkoutUrl,
         providerPayload: {
           orderNumber,
           provider: 'kaspi',
-          status: invoiceStatus,
+          paymentType,
+          status: paymentStatus,
           receiptUrl,
+          qrToken,
+          expiresAt,
           clientMobile,
+          fallbackToQr,
+          fallbackReason,
         },
       },
     });
 
+    await this.recordBillingEvent(userId, 'checkout_created', {
+      provider: 'kaspi',
+      planCode: plan.id,
+      amount: plan.priceKzt,
+      paymentType,
+      reused: false,
+    });
+
     return {
-      invoiceId,
-      providerOrderId: invoiceId,
-      checkoutUrl: receiptUrl,
+      invoiceId: providerOrderId,
+      providerOrderId,
+      checkoutUrl,
       receiptUrl,
       orderNumber,
+      paymentType,
+      qrToken,
+      expiresAt,
+      fallbackToQr,
       reused: false,
     };
   }
@@ -230,10 +356,11 @@ export class BillingService {
   ) {
     const secret = this.config.get<string>('KASPI_WEBHOOK_SECRET')?.trim();
     const sig = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
-    if (secret) {
-      if (!sig || !this.verifyKaspiWebhookSignature(rawBody, sig, secret)) {
-        throw new UnauthorizedException('INVALID_WEBHOOK_SIGNATURE');
-      }
+    if (!secret) {
+      throw new UnauthorizedException('KASPI_WEBHOOK_SECRET_REQUIRED');
+    }
+    if (!sig || !this.verifyKaspiWebhookSignature(rawBody, sig, secret)) {
+      throw new UnauthorizedException('INVALID_WEBHOOK_SIGNATURE');
     }
 
     const event = String(payload.event ?? '');
@@ -244,18 +371,39 @@ export class BillingService {
       return { ok: false, reason: 'PAYMENT_ID_REQUIRED' };
     }
 
-    if (event === 'payment.success' && type === 'invoice') {
-      return this.finalizeKaspiInvoicePaid(paymentId, payload);
+    if (event === 'payment.success' && (type === 'invoice' || type === 'qr')) {
+      return this.finalizeKaspiPaymentPaid(paymentId, payload);
     }
 
     if (event === 'payment.failed' || event === 'payment.expired') {
-      await this.prisma.paymentOrder.updateMany({
-        where: { providerOrderId: paymentId, provider: 'kaspi', status: { not: 'paid' } },
+      const order = await this.prisma.paymentOrder.findUnique({
+        where: { providerOrderId: paymentId },
+      });
+      if (!order || order.provider !== 'kaspi' || order.status === 'paid') {
+        return { ok: true, ignored: true };
+      }
+      const previousPayload = asRecord(order.providerPayload);
+      const updated = await this.prisma.paymentOrder.updateMany({
+        where: { id: order.id, status: { not: 'paid' } },
         data: {
-          status: 'failed',
-          providerPayload: payload as object,
+          status:
+            this.normalizeKaspiPaymentStatus(getString(payload.status)).status === 'pending'
+              ? 'failed'
+              : this.normalizeKaspiPaymentStatus(getString(payload.status)).status,
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            ...payload,
+          } as Prisma.InputJsonObject,
         },
       });
+      if (updated.count > 0) {
+        await this.recordBillingEvent(order.userId, 'payment_failed', {
+          provider: 'kaspi',
+          planCode: order.planCode,
+          providerOrderId: order.providerOrderId,
+          event,
+        });
+      }
       return { ok: true, status: 'failed' };
     }
 
@@ -274,7 +422,7 @@ export class BillingService {
     }
   }
 
-  private async finalizeKaspiInvoicePaid(paymentId: string, payload: Record<string, unknown>) {
+  private async finalizeKaspiPaymentPaid(paymentId: string, payload: Record<string, unknown>) {
     const order = await this.prisma.paymentOrder.findUnique({
       where: { providerOrderId: paymentId },
     });
@@ -292,6 +440,10 @@ export class BillingService {
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
     if (!plan) {
       return { ok: false, reason: 'PLAN_NOT_FOUND' };
+    }
+    const validation = await this.validateKaspiPaidOrderPayload(order, payload);
+    if (!validation.ok) {
+      return { ok: false, reason: validation.reason };
     }
 
     const now = new Date();
@@ -316,6 +468,7 @@ export class BillingService {
         data: {
           userId: order.userId,
           planType: plan.id,
+          paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
           paymentNote: `Kaspi:${order.providerOrderId}`,
@@ -324,6 +477,12 @@ export class BillingService {
     });
     if (createdSubscription) {
       await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+      await this.recordBillingEvent(order.userId, 'payment_paid', {
+        provider: 'kaspi',
+        planCode: plan.id,
+        amount: Number(order.amount),
+        providerOrderId: order.providerOrderId,
+      });
     }
 
     return { ok: true, status: 'paid' };
@@ -423,6 +582,12 @@ export class BillingService {
       },
     });
 
+    await this.recordBillingEvent(userId, 'checkout_created', {
+      provider: 'freedompay',
+      planCode: plan.id,
+      amount: plan.priceKzt,
+    });
+
     return { orderId, checkoutUrl };
   }
 
@@ -435,45 +600,77 @@ export class BillingService {
       normalized[key] = value == null ? '' : String(value);
     }
 
+    const ack = (status: 'ok' | 'rejected', description: string) =>
+      this.buildFreedomPayXmlAck(callbackScript, secretKey, status, description);
+
     const signatureOk = freedomPayVerifySignature(callbackScript, normalized, secretKey);
     if (!signatureOk) {
-      return { ok: false, reason: 'INVALID_SIGNATURE' };
+      return ack('rejected', 'INVALID_SIGNATURE');
     }
 
     const orderId = normalized.pg_order_id;
-    if (!orderId) return { ok: false, reason: 'ORDER_ID_REQUIRED' };
+    if (!orderId) return ack('rejected', 'ORDER_ID_REQUIRED');
 
     const order = await this.prisma.paymentOrder.findUnique({
       where: { providerOrderId: orderId },
     });
-    if (!order) return { ok: false, reason: 'ORDER_NOT_FOUND' };
+    if (!order) return ack('rejected', 'ORDER_NOT_FOUND');
+    if (order.provider !== 'freedompay') {
+      return ack('rejected', 'NOT_FREEDOMPAY_ORDER');
+    }
+
+    if (this.isFreedomPayCheckRequest(normalized)) {
+      if (!this.isFreedomPayCallbackAmountValid(normalized, order.amount)) {
+        return ack('rejected', 'AMOUNT_MISMATCH');
+      }
+      if (normalized.pg_currency && normalized.pg_currency.toUpperCase() !== order.currency) {
+        return ack('rejected', 'CURRENCY_MISMATCH');
+      }
+      return ack('ok', 'CHECK_OK');
+    }
 
     const isPaid = this.isPaidCallback(normalized);
     if (!isPaid) {
-      await this.prisma.paymentOrder.update({
-        where: { id: order.id },
+      if (order.status === 'paid') {
+        return ack('ok', 'ALREADY_PAID');
+      }
+      const updated = await this.prisma.paymentOrder.updateMany({
+        where: { id: order.id, status: { not: 'paid' } },
         data: {
           status: 'failed',
           providerPayload: normalized,
           providerPaymentId: normalized.pg_payment_id || order.providerPaymentId,
         },
       });
-      return { ok: true, status: 'failed' };
+      if (updated.count > 0) {
+        await this.recordBillingEvent(order.userId, 'payment_failed', {
+          provider: 'freedompay',
+          planCode: order.planCode,
+          providerOrderId: order.providerOrderId,
+        });
+      }
+      return ack('ok', 'PAYMENT_FAILED');
     }
 
     if (order.status === 'paid') {
-      return { ok: true, status: 'paid' };
+      return ack('ok', 'ALREADY_PAID');
     }
 
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
-    if (!plan) return { ok: false, reason: 'PLAN_NOT_FOUND' };
+    if (!plan) return ack('rejected', 'PLAN_NOT_FOUND');
+    if (!this.isFreedomPayCallbackAmountValid(normalized, order.amount)) {
+      return ack('rejected', 'AMOUNT_MISMATCH');
+    }
+    if (normalized.pg_currency && normalized.pg_currency.toUpperCase() !== order.currency) {
+      return ack('rejected', 'CURRENCY_MISMATCH');
+    }
 
     const now = new Date();
     const expiresAt = this.addDays(now, plan.durationDays);
 
     const createdSubscription = await this.prisma.$transaction(async (tx) => {
-      await tx.paymentOrder.update({
-        where: { id: order.id },
+      const updated = await tx.paymentOrder.updateMany({
+        where: { id: order.id, status: { not: 'paid' } },
         data: {
           status: 'paid',
           paidAt: now,
@@ -481,19 +678,29 @@ export class BillingService {
           providerPaymentId: normalized.pg_payment_id || order.providerPaymentId,
         },
       });
+      if (updated.count === 0) return null;
       return tx.subscription.create({
         data: {
           userId: order.userId,
           planType: plan.id,
+          paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
           paymentNote: `FreedomPay:${order.providerOrderId}`,
         },
       });
     });
-    await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+    if (createdSubscription) {
+      await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+      await this.recordBillingEvent(order.userId, 'payment_paid', {
+        provider: 'freedompay',
+        planCode: plan.id,
+        amount: Number(order.amount),
+        providerOrderId: order.providerOrderId,
+      });
+    }
 
-    return { ok: true, status: 'paid' };
+    return ack('ok', 'PAYMENT_ACCEPTED');
   }
 
   async getOrder(userId: string, orderId: string) {
@@ -510,6 +717,11 @@ export class BillingService {
         ? (await this.reconcileKaspiOrder(found.providerOrderId)) ?? found
         : found;
 
+    if (order.provider === 'kaspi' && order.status === 'pending') {
+      const locallyExpired = await this.expireStaleKaspiOrder(order);
+      return this.presentPaymentOrder(locallyExpired ?? order);
+    }
+
     return this.presentPaymentOrder(order);
   }
 
@@ -523,13 +735,17 @@ export class BillingService {
       orderBy: { createdAt: 'desc' },
     });
 
-    for (const order of pendingOrders) {
-      if (isInvalidKaspiOperationId(order.providerOrderId)) {
-        await this.cancelInvalidKaspiOrder(order, 'invalid-provider-order-active-list');
-      } else {
-        await this.reconcileKaspiOrder(order.providerOrderId);
-      }
-    }
+    await Promise.allSettled(
+      pendingOrders.map(async (order) => {
+        if (isInvalidKaspiOperationId(order.providerOrderId)) {
+          await this.cancelInvalidKaspiOrder(order, 'invalid-provider-order-active-list');
+          return;
+        }
+
+        const reconciled = (await this.reconcileKaspiOrder(order.providerOrderId)) ?? order;
+        await this.expireStaleKaspiOrder(reconciled);
+      }),
+    );
 
     const orders = await this.prisma.paymentOrder.findMany({
       where: {
@@ -571,20 +787,26 @@ export class BillingService {
     if (reconciled.status !== 'pending') {
       return this.presentPaymentOrder(reconciled);
     }
+    if (this.getKaspiPaymentType(reconciled.providerPayload) === 'qr') {
+      throw new BadRequestException('KASPI_QR_CANCEL_NOT_SUPPORTED');
+    }
 
     let cancelPayload: Record<string, unknown> | null = null;
     try {
       cancelPayload = asRecord(await this.kaspiPosService.cancelInvoice(reconciled.providerOrderId));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (isKaspiTemporaryFailureMessage(message)) {
+        throw new ServiceUnavailableException('KASPI_TEMPORARILY_UNAVAILABLE');
+      }
       throw new BadRequestException(`KASPI_CANCEL_ERROR:${message}`);
     }
 
     const cancelData = asRecord(cancelPayload?.Data) ?? asRecord(cancelPayload?.data) ?? cancelPayload;
     const cancelStatus = getString(cancelData?.Status ?? cancelData?.status);
-    const normalized = this.normalizeKaspiInvoiceStatus(cancelStatus);
-    if (normalized === 'paid') {
-      await this.finalizeKaspiInvoicePaid(reconciled.providerOrderId, {
+    const normalized = this.normalizeKaspiPaymentStatus(cancelStatus);
+    if (normalized.kind === 'paid') {
+      await this.finalizeKaspiPaymentPaid(reconciled.providerOrderId, {
         event: 'payment.success',
         paymentId: reconciled.providerOrderId,
         type: 'invoice',
@@ -596,7 +818,7 @@ export class BillingService {
       const paid = await this.prisma.paymentOrder.findUnique({ where: { id: reconciled.id } });
       return this.presentPaymentOrder(paid ?? reconciled);
     }
-    if (normalized !== 'failed' && normalized !== 'cancelled') {
+    if (normalized.kind !== 'failed' && normalized.kind !== 'cancelled') {
       throw new BadRequestException(`KASPI_CANCEL_NOT_CONFIRMED:${cancelStatus ?? 'UNKNOWN'}`);
     }
 
@@ -612,6 +834,12 @@ export class BillingService {
           cancelSource: 'user',
         } as Prisma.InputJsonObject,
       },
+    });
+
+    await this.recordBillingEvent(userId, 'payment_cancelled', {
+      provider: 'kaspi',
+      planCode: updated.planCode,
+      providerOrderId: updated.providerOrderId,
     });
 
     return this.presentPaymentOrder(updated);
@@ -644,16 +872,28 @@ export class BillingService {
       return order;
     }
 
+    const paymentType = this.getKaspiPaymentType(order.providerPayload);
     let payload: Record<string, unknown> | null = null;
     try {
-      payload = asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
+      payload =
+        paymentType === 'qr'
+          ? asRecord(await this.kaspiPosService.getQrStatus(providerOrderId))
+          : asRecord(await this.kaspiPosService.getInvoiceDetails(providerOrderId));
     } catch {
       return order;
     }
 
     const data = asRecord(payload?.Data) ?? payload;
     const status = getString(data?.Status);
-    const normalized = this.normalizeKaspiInvoiceStatus(status);
+    const normalized = this.normalizeKaspiPaymentStatus(status);
+    const qrToken = firstString(
+      data?.QrToken,
+      data?.qrToken,
+      data?.PaymentUrl,
+      data?.paymentUrl,
+      data?.Url,
+      data?.url,
+    );
     const receiptUrl = firstString(
       data?.ReceiptUrl,
       data?.receiptUrl,
@@ -664,39 +904,57 @@ export class BillingService {
       data?.Url,
       data?.url,
     );
+    const expiresAt = firstString(
+      data?.ExpireDate,
+      data?.expireDate,
+      data?.ExpiresAt,
+      data?.expiresAt,
+    );
     const orderNumber = firstString(data?.OrderNumber, data?.orderNumber, data?.OrderNo, data?.orderNo);
-    if (receiptUrl || orderNumber) {
+    const checkoutUrl =
+      paymentType === 'qr'
+        ? firstString(qrToken, receiptUrl, order.checkoutUrl)
+        : firstString(receiptUrl, order.checkoutUrl);
+    if (checkoutUrl || receiptUrl || orderNumber || qrToken || expiresAt) {
       const previousPayload = asRecord(order.providerPayload);
       await this.prisma.paymentOrder.updateMany({
         where: { id: order.id, status: 'pending' },
         data: {
-          ...(receiptUrl ? { checkoutUrl: receiptUrl } : {}),
+          ...(checkoutUrl ? { checkoutUrl } : {}),
           providerPayload: {
             ...(previousPayload ?? {}),
             ...(payload ?? {}),
+            paymentType,
             ...(orderNumber ? { orderNumber } : {}),
             ...(receiptUrl ? { receiptUrl } : {}),
+            ...(qrToken ? { qrToken } : {}),
+            ...(expiresAt ? { expiresAt } : {}),
           } as Prisma.InputJsonObject,
         },
       });
     }
-    if (normalized === 'paid') {
-      await this.finalizeKaspiInvoicePaid(providerOrderId, {
+    if (normalized.kind === 'paid') {
+      await this.finalizeKaspiPaymentPaid(providerOrderId, {
         event: 'payment.success',
         paymentId: providerOrderId,
-        type: 'invoice',
+        type: paymentType,
         status,
         data: payload,
         source: 'reconcile',
         timestamp: new Date().toISOString(),
       });
     }
-    if (normalized === 'failed' || normalized === 'cancelled') {
+    if (normalized.kind === 'failed' || normalized.kind === 'cancelled') {
+      const previousPayload = asRecord(order.providerPayload);
       await this.prisma.paymentOrder.updateMany({
         where: { id: order.id, status: { not: 'paid' } },
         data: {
-          status: normalized,
-          providerPayload: payload as object,
+          status: normalized.status,
+          providerPayload: {
+            ...(previousPayload ?? {}),
+            ...(payload ?? {}),
+            paymentType,
+          } as Prisma.InputJsonObject,
         },
       });
     }
@@ -707,7 +965,56 @@ export class BillingService {
     );
   }
 
-  private normalizeKaspiInvoiceStatus(status: string | null): KaspiOrderStatus {
+  private async expireStaleKaspiOrder(order: {
+    id: string;
+    provider: string;
+    providerOrderId: string;
+    amount: unknown;
+    currency: string;
+    planCode: string;
+    checkoutUrl: string | null;
+    providerPayload: unknown;
+    status: string;
+    paidAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    if (order.provider !== 'kaspi' || order.status !== 'pending') {
+      return order;
+    }
+
+    const expiresAt = this.getKaspiPaymentExpiry(order.providerPayload);
+    if (!expiresAt || expiresAt.getTime() > Date.now()) {
+      return order;
+    }
+
+    const previousPayload = asRecord(order.providerPayload);
+    const updated = await this.prisma.paymentOrder.updateMany({
+      where: { id: order.id, status: 'pending' },
+      data: {
+        status: 'failed',
+        providerPayload: {
+          ...(previousPayload ?? {}),
+          status: 'expired',
+          statusDesc: firstString(
+            previousPayload?.statusDesc,
+            'Expired locally by my-test after payment window elapsed',
+          ),
+          locallyExpiredAt: new Date().toISOString(),
+        } as Prisma.InputJsonObject,
+      },
+    });
+
+    if (updated.count === 0) {
+      return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
+    }
+    return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
+  }
+
+  private normalizeKaspiPaymentStatus(status: string | null): {
+    status: KaspiOrderStatus;
+    kind: 'paid' | 'failed' | 'cancelled' | 'pending';
+  } {
     const normalized = status?.trim().toLowerCase();
     if (
       normalized === 'processed' ||
@@ -715,24 +1022,139 @@ export class BillingService {
       normalized === 'success' ||
       normalized === 'succeeded'
     ) {
-      return 'paid';
+      return { status: 'paid', kind: 'paid' };
     }
     if (
+      normalized === 'cancelledbyuser' ||
+      normalized === 'cancelledbyexternalsource' ||
       normalized === 'remotepaymentcanceled' ||
       normalized === 'cancelled' ||
       normalized === 'canceled'
     ) {
-      return 'cancelled';
+      return { status: 'cancelled', kind: 'cancelled' };
     }
     if (
+      normalized === 'notconfirmedbyuser' ||
+      normalized === 'processingfailed' ||
+      normalized === 'rejected' ||
+      normalized === 'insufficientfunds' ||
+      normalized === 'insufficientfundserror' ||
+      normalized === 'error' ||
+      normalized === 'qertokendiscarded' ||
+      normalized === 'qrtokendiscarded' ||
       normalized === 'remotepaymentrejected' ||
       normalized === 'expired' ||
       normalized === 'sessionexpired' ||
       normalized === 'failed'
     ) {
-      return 'failed';
+      return { status: 'failed', kind: 'failed' };
     }
-    return 'pending';
+    return { status: 'pending', kind: 'pending' };
+  }
+
+  private getKaspiPaymentType(payload: unknown): KaspiPaymentType {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    const raw = firstString(
+      view?.paymentType,
+      view?.type,
+      data?.paymentType,
+      data?.type,
+      data?.Type,
+    );
+    return raw?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
+  }
+
+  private getKaspiPaymentExpiry(payload: unknown): Date | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    return parseTimestamp(
+      firstString(
+        view?.expiresAt,
+        data?.ExpireDate,
+        data?.expireDate,
+        data?.ExpiresAt,
+        data?.expiresAt,
+      ),
+    );
+  }
+
+  private getKaspiPaymentAmount(payload: unknown): number | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    return (
+      getNumber(view?.amount) ??
+      getNumber(view?.Amount) ??
+      getNumber(view?.paymentAmount) ??
+      getNumber(view?.PaymentAmount) ??
+      getNumber(data?.Amount) ??
+      getNumber(data?.amount) ??
+      getNumber(data?.PaymentAmount) ??
+      getNumber(data?.paymentAmount) ??
+      getNumber(data?.TotalAmount) ??
+      getNumber(data?.totalAmount)
+    );
+  }
+
+  private getKaspiPaymentCurrency(payload: unknown): string | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    return firstString(
+      view?.currency,
+      view?.Currency,
+      data?.Currency,
+      data?.currency,
+    )?.toUpperCase() ?? null;
+  }
+
+  private async validateKaspiPaidOrderPayload(
+    order: {
+      providerOrderId: string;
+      amount: unknown;
+      currency: string;
+      providerPayload: unknown;
+    },
+    payload: Record<string, unknown>,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const previousPayload = asRecord(order.providerPayload);
+    const mergedPayload = {
+      ...(previousPayload ?? {}),
+      ...payload,
+    };
+    let amount = this.getKaspiPaymentAmount(payload) ?? this.getKaspiPaymentAmount(mergedPayload);
+    let currency =
+      this.getKaspiPaymentCurrency(payload) ??
+      this.getKaspiPaymentCurrency(mergedPayload);
+
+    if (amount == null) {
+      const paymentType = this.getKaspiPaymentType(mergedPayload);
+      let details: Record<string, unknown> | null = null;
+      try {
+        details =
+          paymentType === 'qr'
+            ? asRecord(await this.kaspiPosService.getQrStatus(order.providerOrderId)) ?? null
+            : asRecord(await this.kaspiPosService.getInvoiceDetails(order.providerOrderId)) ?? null;
+      } catch {
+        return { ok: false, reason: 'KASPI_PAYMENT_DETAILS_UNAVAILABLE' };
+      }
+      amount = this.getKaspiPaymentAmount(details);
+      currency = currency ?? this.getKaspiPaymentCurrency(details);
+    }
+
+    const expectedAmount = Number(order.amount);
+    if (
+      amount == null ||
+      !Number.isFinite(expectedAmount) ||
+      Math.abs(amount - expectedAmount) >= 0.01
+    ) {
+      return { ok: false, reason: 'AMOUNT_MISMATCH' };
+    }
+
+    if (currency && currency !== order.currency.toUpperCase()) {
+      return { ok: false, reason: 'CURRENCY_MISMATCH' };
+    }
+
+    return { ok: true };
   }
 
   private presentPaymentOrder(order: {
@@ -749,10 +1171,18 @@ export class BillingService {
   }) {
     const payload = asRecord(order.providerPayload);
     const data = asRecord(payload?.Data) ?? asRecord(payload?.data);
-    const checkoutUrl = firstString(
-      order.checkoutUrl,
+    const paymentType = this.getKaspiPaymentType(payload);
+    const qrToken = firstString(
+      payload?.qrToken,
+      data?.QrToken,
+      data?.qrToken,
+      data?.PaymentUrl,
+      data?.paymentUrl,
+      data?.Url,
+      data?.url,
+    );
+    const receiptUrl = firstString(
       payload?.receiptUrl,
-      payload?.checkoutUrl,
       data?.ReceiptUrl,
       data?.receiptUrl,
       data?.CheckoutUrl,
@@ -762,6 +1192,10 @@ export class BillingService {
       data?.Url,
       data?.url,
     );
+    const checkoutUrl =
+      paymentType === 'qr'
+        ? firstString(order.checkoutUrl, qrToken, receiptUrl)
+        : firstString(order.checkoutUrl, receiptUrl);
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
     return {
       invoiceId: order.providerOrderId,
@@ -771,13 +1205,168 @@ export class BillingService {
       currency: order.currency,
       planCode: order.planCode,
       planName: plan?.name ?? order.planCode,
+      paymentType,
       checkoutUrl,
-      receiptUrl: checkoutUrl,
+      receiptUrl,
+      qrToken,
+      expiresAt: firstString(
+        payload?.expiresAt,
+        data?.ExpireDate,
+        data?.expireDate,
+        data?.ExpiresAt,
+        data?.expiresAt,
+      ),
+      fallbackToQr: Boolean(payload?.fallbackToQr),
       orderNumber: firstString(payload?.orderNumber, data?.OrderNumber, data?.orderNumber),
+      statusDesc: firstString(payload?.statusDesc, data?.StatusDesc, data?.statusDesc),
       paidAt: order.paidAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
+  }
+
+  async verifyAppleReceipt(userId: string, receiptData: string, requestedProductId?: string) {
+    const secret = this.config.get<string>('APPLE_IAP_SHARED_SECRET')?.trim();
+    if (!secret) throw new InternalServerErrorException('APPLE_IAP_NOT_CONFIGURED');
+    if (!receiptData?.trim()) throw new BadRequestException('RECEIPT_REQUIRED');
+
+    const verifyBody = {
+      'receipt-data': receiptData.trim(),
+      password: secret,
+      'exclude-old-transactions': true,
+    };
+
+    let response = await this.verifyAppleWithUrl('https://buy.itunes.apple.com/verifyReceipt', verifyBody);
+    if (response.status === 21007) {
+      response = await this.verifyAppleWithUrl('https://sandbox.itunes.apple.com/verifyReceipt', verifyBody);
+    }
+    if (response.status !== 0) {
+      throw new BadRequestException(`APPLE_RECEIPT_INVALID:${String(response.status)}`);
+    }
+
+    const receipt = asRecord(response.receipt);
+    const expectedBundleId = this.config.get<string>('APPLE_IAP_BUNDLE_ID')?.trim();
+    const bundleId = getString(receipt?.bundle_id);
+    if (expectedBundleId && bundleId !== expectedBundleId) {
+      throw new BadRequestException('APPLE_BUNDLE_MISMATCH');
+    }
+    const inAppRaw = Array.isArray(response.latest_receipt_info)
+      ? response.latest_receipt_info
+      : Array.isArray(receipt?.in_app)
+        ? receipt.in_app
+        : [];
+    const inApp = inAppRaw
+      .map((item) => asRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item));
+    if (!inApp.length) throw new BadRequestException('APPLE_RECEIPT_EMPTY');
+
+    const matched = requestedProductId
+      ? inApp.filter((item) => getString(item.product_id) === requestedProductId)
+      : inApp;
+    if (!matched.length) throw new BadRequestException('APPLE_PRODUCT_NOT_FOUND');
+
+    const selected = [...matched].sort((a, b) => {
+      const am = Number(getString(a.expires_date_ms) || getString(a.purchase_date_ms) || 0);
+      const bm = Number(getString(b.expires_date_ms) || getString(b.purchase_date_ms) || 0);
+      return bm - am;
+    })[0];
+
+    const productId = getString(selected.product_id);
+    const transactionId = getString(selected.transaction_id);
+    const originalTransactionId = getString(selected.original_transaction_id);
+    if (!productId || !transactionId) throw new BadRequestException('APPLE_TRANSACTION_INVALID');
+    if (getString(selected.cancellation_date_ms) || getString(selected.cancellation_date)) {
+      throw new BadRequestException('APPLE_TRANSACTION_CANCELLED');
+    }
+
+    const planId = this.mapAppleProductToPlan(productId);
+    const plan = BILLING_PLANS.find((p) => p.id === planId);
+    if (!plan) throw new BadRequestException('APPLE_PLAN_NOT_MAPPED');
+
+    const existingOrder = await this.prisma.paymentOrder.findFirst({
+      where: {
+        provider: 'apple_iap',
+        OR: [{ providerPaymentId: transactionId }, { providerOrderId: transactionId }],
+      },
+    });
+    if (existingOrder) return { ok: true, reused: true, planId };
+
+    const now = new Date();
+    const expiresMs = Number(getString(selected.expires_date_ms) || 0);
+    const expiresAt = Number.isFinite(expiresMs) && expiresMs > 0 ? new Date(expiresMs) : this.addDays(now, plan.durationDays);
+
+    let createdSubscription;
+    try {
+      createdSubscription = await this.prisma.$transaction(async (tx) => {
+        const order = await tx.paymentOrder.create({
+          data: {
+            userId,
+            planCode: plan.id,
+            amount: plan.priceKzt,
+            provider: 'apple_iap',
+            providerOrderId: transactionId,
+            providerPaymentId: transactionId,
+            status: 'paid',
+            paidAt: now,
+            providerPayload: {
+              provider: 'apple_iap',
+              productId,
+              transactionId,
+              originalTransactionId,
+              bundleId,
+              receipt: response,
+            } as Prisma.InputJsonObject,
+          },
+        });
+        return tx.subscription.create({
+          data: {
+            userId,
+            planType: plan.id,
+            paymentOrderId: order.id,
+            startsAt: now,
+            expiresAt,
+            paymentNote: `AppleIAP:${productId}:${transactionId}`,
+          },
+        });
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        return { ok: true, reused: true, planId };
+      }
+      throw error;
+    }
+    await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
+
+    return { ok: true, reused: false, planId, expiresAt };
+  }
+
+  private mapAppleProductToPlan(productId: string): string {
+    const mappingRaw = this.config.get<string>('APPLE_IAP_PRODUCT_PLAN_MAP')?.trim();
+    if (mappingRaw) {
+      try {
+        const parsed = JSON.parse(mappingRaw) as Record<string, string>;
+        if (parsed[productId]) return parsed[productId];
+      } catch {
+        // no-op
+      }
+    }
+    const defaults: Record<string, string> = {
+      'com.sanjuniperodee.mobile.premium.trial': 'trial',
+      'com.sanjuniperodee.mobile.premium.week': 'week',
+      'com.sanjuniperodee.mobile.premium.month': 'month',
+      'com.sanjuniperodee.mobile.premium.annual': 'annual',
+    };
+    return defaults[productId] || '';
+  }
+
+  private async verifyAppleWithUrl(url: string, payload: Record<string, unknown>) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new BadRequestException(`APPLE_VERIFY_HTTP_${res.status}`);
+    return (await res.json()) as Record<string, unknown>;
   }
 
   private resolveFreedomPayApiUrl() {
@@ -820,6 +1409,18 @@ export class BillingService {
     const next = new Date(date);
     next.setDate(next.getDate() + days);
     return next;
+  }
+
+  private async recordBillingEvent(
+    userId: string,
+    step: 'checkout_created' | 'payment_paid' | 'payment_cancelled' | 'payment_failed',
+    metadata: Record<string, unknown>,
+  ) {
+    try {
+      await this.analytics.recordEvent({ userId, step, metadata });
+    } catch {
+      // Analytics must never block payment creation or activation.
+    }
   }
 
   private parseGatewayResponse(body: string): Record<string, string> {
@@ -869,5 +1470,51 @@ export class BillingService {
     const isSuccessStatus = status === 'ok' || status === 'success' || status === 'paid';
     const isSuccessResult = resultFlag === '1' || resultFlag === 'true';
     return isSuccessStatus || isSuccessResult;
+  }
+
+  private isFreedomPayCheckRequest(payload: Record<string, string>) {
+    return !payload.pg_result && !payload.pg_payment_id;
+  }
+
+  private buildFreedomPayXmlAck(
+    callbackScript: string,
+    secretKey: string,
+    status: 'ok' | 'rejected',
+    description: string,
+  ) {
+    const fields = {
+      pg_status: status,
+      pg_description: description,
+      pg_salt: freedomPaySalt(16),
+    };
+    const pgSig = freedomPaySign(callbackScript, fields, secretKey);
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<response>',
+      `<pg_status>${this.escapeXml(fields.pg_status)}</pg_status>`,
+      `<pg_description>${this.escapeXml(fields.pg_description)}</pg_description>`,
+      `<pg_salt>${this.escapeXml(fields.pg_salt)}</pg_salt>`,
+      `<pg_sig>${this.escapeXml(pgSig)}</pg_sig>`,
+      '</response>',
+    ].join('');
+  }
+
+  private escapeXml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  private isFreedomPayCallbackAmountValid(
+    payload: Record<string, string>,
+    expectedAmount: unknown,
+  ): boolean {
+    if (!payload.pg_amount) return false;
+    const received = Number(payload.pg_amount);
+    const expected = Number(expectedAmount);
+    return Number.isFinite(received) && Number.isFinite(expected) && Math.abs(received - expected) < 0.01;
   }
 }

@@ -14,9 +14,15 @@ import {
 } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/lib/api/auth-context"
+import { api } from "@/lib/api/client"
 
 const CHANNEL_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL || "https://t.me/bilimilimland"
+
+type ChannelMembershipRecheck = {
+  status: "member" | "not_member" | "not_required" | "unknown"
+  isChannelMember: boolean
+}
 
 export default function ChannelGatePage() {
   const router = useRouter()
@@ -26,13 +32,23 @@ export default function ChannelGatePage() {
   async function checkSubscription() {
     setChecking(true)
     try {
-      const updated = await refresh()
-      if (updated?.isChannelMember) {
+      const result = await api<ChannelMembershipRecheck>(
+        "/users/me/channel-membership/recheck",
+        { method: "POST" },
+      )
+      if (result.isChannelMember) {
+        await refresh({ silent: true })
         toast.success("Подписка подтверждена")
         router.replace("/dashboard")
         return
       }
+      if (result.status === "unknown") {
+        toast.error("Telegram не ответил. Попробуйте проверить ещё раз.")
+        return
+      }
       toast.error("Подписка пока не найдена")
+    } catch {
+      toast.error("Не удалось проверить подписку. Попробуйте ещё раз.")
     } finally {
       setChecking(false)
     }

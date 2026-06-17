@@ -3,7 +3,9 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
+  HttpCode,
   Param,
   Post,
   Req,
@@ -11,6 +13,7 @@ import {
   type RawBodyRequest,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { KaspiSessionSetupSecretGuard } from '../../common/guards/kaspi-session-setup-secret.guard';
@@ -45,8 +48,9 @@ export class BillingController {
     @CurrentUser('id') userId: string,
     @Body('planId') planId: string,
     @Body('phoneNumber') phoneNumber: string,
+    @Body('method') method?: string,
   ) {
-    return this.billingService.createKaspiCheckout(userId, planId, phoneNumber);
+    return this.billingService.createKaspiCheckout(userId, planId, phoneNumber, method);
   }
 
   /** Одноразовая настройка сессии кассира (секрет в заголовке). Сессия пишется в Redis. */
@@ -74,6 +78,8 @@ export class BillingController {
 
   /** Вызов из kaspi-pos-automation (webhooks.json). Требуется `rawBody: true` в main.ts. */
   @Post('kaspi/webhook')
+  @HttpCode(200)
+  @SkipThrottle()
   kaspiWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers('x-webhook-signature') signature: string | string[] | undefined,
@@ -92,6 +98,9 @@ export class BillingController {
   }
 
   @Post('freedompay/callback')
+  @HttpCode(200)
+  @SkipThrottle()
+  @Header('Content-Type', 'text/xml; charset=utf-8')
   freedomPayCallback(@Body() payload: Record<string, unknown>) {
     return this.billingService.handleFreedomPayCallback(payload);
   }
@@ -118,5 +127,15 @@ export class BillingController {
     @Param('orderId') orderId: string,
   ) {
     return this.billingService.cancelKaspiOrder(userId, orderId);
+  }
+
+  @Post('apple/verify-receipt')
+  @UseGuards(AuthGuard('jwt'))
+  verifyAppleReceipt(
+    @CurrentUser('id') userId: string,
+    @Body('receiptData') receiptData: string,
+    @Body('productId') productId?: string,
+  ) {
+    return this.billingService.verifyAppleReceipt(userId, receiptData, productId);
   }
 }

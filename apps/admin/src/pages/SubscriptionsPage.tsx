@@ -39,6 +39,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
 import { HigTableCard } from '../components/HigBlocks';
+import { useDebouncedValue } from '../lib/useDebouncedValue';
 
 function formatNowRu() {
   return new Date().toLocaleDateString('ru-RU', {
@@ -68,20 +69,20 @@ function apiErr(e: unknown, fallback: string): string {
 const LEGACY_PLAN_TYPES = [
   {
     value: 'trial',
-    label: 'trial — микропакет',
-    hint: 'В коде как «разовая попытка»: 1 тест ЕНТ за период, как у платного пакета trial в биллинге.',
+    label: 'trial — 1 пробный ЕНТ',
+    hint: '1 полная попытка ЕНТ за период, с Premium-разбором.',
   },
-  { value: 'week', label: 'week — 5 пробных ЕНТ', hint: '5 полных попыток ЕНТ за период, с Premium-разбором.' },
-  { value: 'month', label: 'month', hint: 'Как «месяц».' },
-  { value: 'annual', label: 'annual', hint: 'Как «год».' },
+  { value: 'week', label: 'week — 3 пробных ЕНТ', hint: '3 полных попытки ЕНТ за период, с Premium-разбором.' },
+  { value: 'month', label: 'month — месяц без лимита', hint: 'Безлимитные попытки ЕНТ на 30 дней.' },
+  { value: 'annual', label: 'annual — 5 пробных ЕНТ', hint: '5 полных попыток ЕНТ за период, с Premium-разбором.' },
 ];
 
 /** Длительность по умолчанию для дат в legacy-модалке (календарные дни с «сейчас»). */
 const LEGACY_PLAN_DAYS: Record<string, number> = {
-  trial: 14,
-  week: 7,
+  trial: 7,
+  week: 30,
   month: 30,
-  annual: 365,
+  annual: 30,
 };
 
 type PlanTemplateExamRule = {
@@ -132,6 +133,7 @@ export function SubscriptionsPage() {
   const [entitlementModalOpen, setEntitlementModalOpen] = useState(false);
   const [applyTemplateIdPrefill, setApplyTemplateIdPrefill] = useState<string | null>(null);
   const [subscriptionTab, setSubscriptionTab] = useState('grant');
+  const debouncedUserSearch = useDebouncedValue(userSearch, 350);
 
   const [applyForm] = Form.useForm();
   const [templateForm] = Form.useForm();
@@ -140,8 +142,13 @@ export function SubscriptionsPage() {
   const [entitlementForm] = Form.useForm();
 
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['admin-users', userSearch],
-    queryFn: async () => (await api.get('/admin/users', { params: { search: userSearch, limit: 200 } })).data,
+    queryKey: ['admin-users', debouncedUserSearch, 'compact-picker'],
+    queryFn: async () =>
+      (
+        await api.get('/admin/users', {
+          params: { search: debouncedUserSearch, limit: 200, compact: true },
+        })
+      ).data,
   });
 
   const { data: examTypes, isPending: examTypesPending } = useQuery({

@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { ExamTimer } from "@/components/exam/timer"
 import { Calculator as ExamCalculator } from "@/components/exam/calculator"
 import { QuestionMedia } from "@/components/exam/question-media"
@@ -42,7 +43,12 @@ import type { Locale } from "@/lib/api/i18n"
 import { localize } from "@/lib/api/i18n"
 import { flattenSessionQuestions, type FlatSessionQuestion } from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
-import type { TestSession } from "@/lib/api/types"
+import type {
+  QuestionAppeal,
+  QuestionAppealReason,
+  QuestionAppealStatus,
+  TestSession,
+} from "@/lib/api/types"
 
 const TELEGRAM_CHANNEL_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_URL ?? "https://t.me/bilimilimland"
@@ -125,7 +131,6 @@ export default function ExamSessionPage({
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [activeIdx, setActiveIdx] = useState(0)
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [remaining, setRemaining] = useState<number | null>(null)
   const [showFinish, setShowFinish] = useState(false)
   const [showNav, setShowNav] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
@@ -158,7 +163,6 @@ export default function ExamSessionPage({
     if (!Number.isFinite(s)) return
     timerEndMsRef.current = Date.now() + s * 1000
     syncedServerRemainingRef.current = s
-    setRemaining(s)
     setTimerEpoch((n) => n + 1)
   }, [])
 
@@ -168,7 +172,6 @@ export default function ExamSessionPage({
     timeoutFinishRef.current = false
     timerEndMsRef.current = null
     syncedServerRemainingRef.current = null
-    setRemaining(null)
     setAnswers({})
     setActiveIdx(0)
     setTimerEpoch((n) => n + 1)
@@ -210,31 +213,7 @@ export default function ExamSessionPage({
     }
   }, [session, sessionId, router])
 
-  // Отображение относительно wall-clock дедлайна; при возврате на вкладку / из bfcache подтягиваем тик.
-  useEffect(() => {
-    if (timerEndMsRef.current == null) return
 
-    const tick = () => {
-      const end = timerEndMsRef.current
-      if (end == null) return
-      const next = Math.max(0, Math.ceil((end - Date.now()) / 1000))
-      setRemaining(next)
-      if (next <= 0) timerEndMsRef.current = null
-    }
-    tick()
-    const id = setInterval(tick, 250)
-    const onVis = () => {
-      if (document.visibilityState === "visible") tick()
-    }
-    document.addEventListener("visibilitychange", onVis)
-    const onPageShow = () => tick()
-    window.addEventListener("pageshow", onPageShow)
-    return () => {
-      clearInterval(id)
-      document.removeEventListener("visibilitychange", onVis)
-      window.removeEventListener("pageshow", onPageShow)
-    }
-  }, [sessionId, timerEpoch])
 
   // Вкладка / мини-приложение: при возврате фокуса синхронизируем время с сервером
   useEffect(() => {
@@ -255,12 +234,75 @@ export default function ExamSessionPage({
     }
   }, [revalidateSession, armCountdown])
 
+  const abortControllersRef = useRef<Record<string, AbortController>>({})
+  const debounceTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
+  const pendingAnswersRef = useRef<Record<string, { selectedIds: string[]; promise?: Promise<any> }>>({})
+
+  // Clear timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimeoutsRef.current).forEach(clearTimeout)
+    }
+  }, [])
+
+  const submitAnswer = useCallback(
+    async (questionId: string, selectedIds: string[]) => {
+      setSavingId(questionId)
+
+      if (abortControllersRef.current[questionId]) {
+        abortControllersRef.current[questionId].abort()
+      }
+      const controller = new AbortController()
+      abortControllersRef.current[questionId] = controller
+
+      try {
+        const res = await api<AnswerResponse>(
+          `/tests/sessions/${sessionId}/answer`,
+          {
+            method: "POST",
+            body: { questionId, selectedIds },
+            signal: controller.signal,
+          },
+        )
+        if (res.serverTimeRemaining != null && res.serverTimeRemaining !== undefined) {
+          armCountdown(Number(res.serverTimeRemaining))
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return
+        toast.error(err instanceof ApiError ? err.message : "Ошибка сохранения ответа")
+      } finally {
+        setSavingId((cur) => (cur === questionId ? null : cur))
+      }
+    },
+    [sessionId, armCountdown],
+  )
+
   // Auto-finish on timeout
   const finish = useCallback(
     async (reason?: "timeout") => {
       if (finishing) return
       setFinishing(true)
       try {
+        // Flush any pending debounced answers
+        const flushPromises: Promise<any>[] = []
+        for (const qId of Object.keys(pendingAnswersRef.current)) {
+          if (debounceTimeoutsRef.current[qId]) {
+            clearTimeout(debounceTimeoutsRef.current[qId])
+            delete debounceTimeoutsRef.current[qId]
+          }
+          const pending = pendingAnswersRef.current[qId]
+          if (pending && !pending.promise) {
+            pending.promise = submitAnswer(qId, pending.selectedIds)
+          }
+          if (pending && pending.promise) {
+            flushPromises.push(pending.promise)
+          }
+        }
+        if (flushPromises.length > 0) {
+          await Promise.allSettled(flushPromises)
+        }
+        pendingAnswersRef.current = {}
+
         await api(`/tests/sessions/${sessionId}/finish`, { method: "POST" })
         if (reason === "timeout") toast.message("Время вышло, тест завершён")
         else toast.success("Тест завершён")
@@ -271,45 +313,21 @@ export default function ExamSessionPage({
         if (reason === "timeout") timeoutFinishRef.current = false
       }
     },
-    [finishing, router, sessionId],
+    [finishing, router, sessionId, submitAnswer],
   )
 
-  useEffect(() => {
-    if (remaining !== 0 || session?.status !== "in_progress") return
+  const handleZero = useCallback(() => {
+    if (session?.status !== "in_progress") return
     if (timeoutFinishRef.current) return
     timeoutFinishRef.current = true
     void finish("timeout")
-  }, [remaining, session?.status, finish])
-
-  const submitAnswer = useCallback(
-    async (questionId: string, selectedIds: string[]) => {
-      setSavingId(questionId)
-      try {
-        const res = await api<AnswerResponse>(
-          `/tests/sessions/${sessionId}/answer`,
-          {
-            method: "POST",
-            body: { questionId, selectedIds },
-          },
-        )
-        if (res.serverTimeRemaining != null && res.serverTimeRemaining !== undefined) {
-          armCountdown(Number(res.serverTimeRemaining))
-        }
-      } catch (err) {
-        toast.error(err instanceof ApiError ? err.message : "Ошибка сохранения ответа")
-      } finally {
-        setSavingId((cur) => (cur === questionId ? null : cur))
-      }
-    },
-    [sessionId, armCountdown],
-  )
+  }, [session?.status, finish])
 
   const onSelect = (q: FlatSessionQuestion, optionId: string) => {
     const current = answers[q.id] || []
     let next: string[]
     if (q.multiSelect) {
       if (q.maxSelections && !current.includes(optionId) && current.length >= q.maxSelections) {
-        toast.message(`Можно выбрать максимум ${q.maxSelections} варианта`)
         return
       }
       next = current.includes(optionId)
@@ -319,7 +337,24 @@ export default function ExamSessionPage({
       next = [optionId]
     }
     setAnswers((a) => ({ ...a, [q.id]: next }))
-    submitAnswer(q.id, next)
+
+    // Track pending answer
+    pendingAnswersRef.current[q.id] = { selectedIds: next }
+
+    if (debounceTimeoutsRef.current[q.id]) {
+      clearTimeout(debounceTimeoutsRef.current[q.id])
+    }
+    debounceTimeoutsRef.current[q.id] = setTimeout(() => {
+      delete debounceTimeoutsRef.current[q.id]
+      const pending = pendingAnswersRef.current[q.id]
+      if (pending) {
+        pending.promise = submitAnswer(q.id, pending.selectedIds).then(() => {
+          if (pendingAnswersRef.current[q.id] === pending) {
+            delete pendingAnswersRef.current[q.id]
+          }
+        })
+      }
+    }, 600)
   }
 
   if (isLoading) {
@@ -417,7 +452,7 @@ export default function ExamSessionPage({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <ExamTimer remaining={remaining} />
+            <ExamTimer timerEndMs={timerEndMsRef.current} timerEpoch={timerEpoch} onZero={handleZero} />
             <Button
               size="sm"
               variant="outline"
@@ -426,6 +461,22 @@ export default function ExamSessionPage({
             >
               <Calculator className="size-4" />
             </Button>
+            <ExamQuestionAppealBlock
+              sessionId={sessionId}
+              questionId={current.id}
+              appeal={session.appeals?.find((item) => item.questionId === current.id) ?? null}
+              compact
+              onAppealSaved={(appeal) => {
+                void revalidateSession((currentSession) => {
+                  if (!currentSession) return currentSession
+                  const nextAppeals = upsertAppeal(currentSession.appeals || [], appeal)
+                  return {
+                    ...currentSession,
+                    appeals: nextAppeals,
+                  }
+                }, false)
+              }}
+            />
             <Button
               size="sm"
               variant="outline"
@@ -544,14 +595,6 @@ export default function ExamSessionPage({
                   )
                 })}
               </div>
-
-              {current.multiSelect && (
-                <p className="text-xs text-muted-foreground">
-                  {current.maxSelections
-                    ? `Можно выбрать до ${current.maxSelections} вариантов`
-                    : "Можно выбрать несколько вариантов"}
-                </p>
-              )}
             </CardContent>
           </Card>
 
@@ -648,6 +691,279 @@ export default function ExamSessionPage({
 
       <ExamCalculator open={showCalculator} onClose={() => setShowCalculator(false)} />
     </div>
+  )
+}
+
+const APPEAL_REASON_OPTIONS: Array<{
+  value: QuestionAppealReason
+  label: string
+  hint: string
+}> = [
+  {
+    value: "incorrect_answer",
+    label: "Неверный ответ",
+    hint: "Ключ ответа не совпадает с условием или отмечен неправильно.",
+  },
+  {
+    value: "ambiguous_wording",
+    label: "Неясная формулировка",
+    hint: "Условие или варианты читаются двусмысленно.",
+  },
+  {
+    value: "outdated_content",
+    label: "Устаревший контент",
+    hint: "В вопросе устаревший факт, цифра или формулировка.",
+  },
+  {
+    value: "broken_media",
+    label: "Проблема с медиа",
+    hint: "Картинка, схема или часть контента отображается некорректно.",
+  },
+  {
+    value: "other",
+    label: "Другое",
+    hint: "Любая другая проблема, которую важно описать вручную.",
+  },
+]
+
+function appealStatusMeta(status: QuestionAppealStatus): {
+  label: string
+  className: string
+  textClassName: string
+} {
+  if (status === "resolved") {
+    return {
+      label: "Решена",
+      className: "bg-emerald-600 hover:bg-emerald-600",
+      textClassName: "text-emerald-700",
+    }
+  }
+  if (status === "rejected") {
+    return {
+      label: "Отклонена",
+      className: "bg-rose-600 hover:bg-rose-600",
+      textClassName: "text-rose-700",
+    }
+  }
+  if (status === "under_review") {
+    return {
+      label: "На проверке",
+      className: "bg-amber-600 hover:bg-amber-600",
+      textClassName: "text-amber-700",
+    }
+  }
+  return {
+    label: "Отправлена",
+    className: "bg-sky-600 hover:bg-sky-600",
+    textClassName: "text-sky-700",
+  }
+}
+
+function appealReasonLabel(reason: QuestionAppealReason) {
+  return APPEAL_REASON_OPTIONS.find((item) => item.value === reason)?.label || "Апелляция"
+}
+
+function upsertAppeal(appeals: QuestionAppeal[], next: QuestionAppeal) {
+  const existingIndex = appeals.findIndex((item) => item.questionId === next.questionId)
+  if (existingIndex === -1) return [next, ...appeals]
+  const cloned = [...appeals]
+  cloned[existingIndex] = next
+  return cloned
+}
+
+function ExamQuestionAppealBlock({
+  sessionId,
+  questionId,
+  appeal,
+  compact,
+  onAppealSaved,
+}: {
+  sessionId: string
+  questionId: string
+  appeal: QuestionAppeal | null
+  compact?: boolean
+  onAppealSaved: (appeal: QuestionAppeal) => void
+}) {
+  const editable = !appeal || appeal.status === "pending"
+  const meta = appeal ? appealStatusMeta(appeal.status) : null
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState<QuestionAppealReason>(appeal?.reason || "incorrect_answer")
+  const [message, setMessage] = useState(appeal?.message || "")
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setReason(appeal?.reason || "incorrect_answer")
+    setMessage(appeal?.message || "")
+  }, [appeal, open])
+
+  const submitAppeal = async () => {
+    const trimmed = message.trim()
+    if (trimmed.length < 12) {
+      toast.error("Опишите проблему чуть подробнее")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const saved = await api<QuestionAppeal>(
+        `/tests/sessions/${sessionId}/questions/${questionId}/appeal`,
+        {
+          method: "POST",
+          body: { reason, message: trimmed },
+        },
+      )
+      onAppealSaved(saved)
+      toast.success(appeal ? "Апелляция обновлена" : "Апелляция отправлена")
+      setOpen(false)
+    } catch (e) {
+      const apiErr = e as ApiError
+      toast.error(apiErr.message || "Не удалось отправить апелляцию")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      {compact ? (
+        <div className="flex items-center gap-1.5">
+          {appeal && meta ? (
+            <span
+              className={cn(
+                "hidden rounded-full px-2 py-0.5 text-[10px] font-medium text-white sm:inline-flex",
+                meta.className,
+              )}
+            >
+              {meta.label}
+            </span>
+          ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 px-2 text-[11px] sm:text-xs"
+            onClick={() => setOpen(true)}
+          >
+            <Flag className="size-3.5" />
+            <span className="hidden md:inline">
+              {appeal ? "Апелляция" : "Ошибка?"}
+            </span>
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-md border border-border bg-secondary/20 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 text-sm font-medium">
+                  <Flag className="size-4" />
+                  Нашли ошибку в вопросе?
+                </span>
+                {appeal && meta ? <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium text-white", meta.className)}>{meta.label}</span> : null}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Можно отправить апелляцию прямо во время экзамена и продолжить попытку без потери времени.
+              </p>
+              {appeal ? (
+                <div className="mt-2 flex flex-col gap-1 text-sm">
+                  <span className={meta?.textClassName}>
+                    Причина: {appealReasonLabel(appeal.reason)}
+                  </span>
+                  {appeal.adminNote ? (
+                    <span className="text-muted-foreground">Комментарий команды: {appeal.adminNote}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Статус сохранён и будет доступен после проверки.</span>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+              {appeal ? "Открыть апелляцию" : "Подать апелляцию"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Апелляция по текущему вопросу</DialogTitle>
+            <DialogDescription>
+              Мы сохраним снимок вопроса и вашего ответа на момент отправки. После этого можно сразу продолжить экзамен.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            {appeal && meta ? (
+              <div className="rounded-md border border-border bg-secondary/40 p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Текущий статус:</span>
+                  <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium text-white", meta.className)}>
+                    {meta.label}
+                  </span>
+                </div>
+                {appeal.reviewedAt ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Обновлено: {new Date(appeal.reviewedAt).toLocaleString("ru-RU")}
+                  </p>
+                ) : null}
+                {appeal.adminNote ? (
+                  <p className="mt-2 whitespace-pre-wrap text-foreground">{appeal.adminNote}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor={`exam-appeal-reason-${questionId}`}>
+                Причина
+              </label>
+              <select
+                id={`exam-appeal-reason-${questionId}`}
+                value={reason}
+                onChange={(event) => setReason(event.target.value as QuestionAppealReason)}
+                disabled={!editable || submitting}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {APPEAL_REASON_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {APPEAL_REASON_OPTIONS.find((item) => item.value === reason)?.hint}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor={`exam-appeal-message-${questionId}`}>
+                Комментарий
+              </label>
+              <Textarea
+                id={`exam-appeal-message-${questionId}`}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                disabled={!editable || submitting}
+                rows={5}
+                placeholder="Опишите ошибку: какой фрагмент вопроса неверный, чего не хватает или что отображается криво."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+              Закрыть
+            </Button>
+            {editable ? (
+              <Button onClick={submitAppeal} disabled={submitting}>
+                {submitting ? <Spinner className="size-4" /> : <Flag className="size-4" />}
+                {appeal ? "Сохранить" : "Отправить"}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

@@ -1,11 +1,10 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { LeadsService } from './leads.service';
 
 @Controller('leads')
-@UseGuards(ThrottlerGuard)
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 

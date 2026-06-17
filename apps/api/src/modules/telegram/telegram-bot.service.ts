@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  OnApplicationShutdown,
   OnModuleInit,
   BadRequestException,
   Inject,
@@ -17,7 +18,7 @@ import { AuthService } from '../auth/auth.service';
 const DEFAULT_LEAD_NOTIFY_USER_ID = '22f36334-d7ac-435f-a834-a6bdb4349217';
 
 @Injectable()
-export class TelegramBotService implements OnModuleInit {
+export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
   private bot: Telegraf | null = null;
   private channelId: string;
   private readonly channelUrl: string;
@@ -63,6 +64,54 @@ export class TelegramBotService implements OnModuleInit {
     const trimmed = (channelId || '').trim();
     if (!trimmed.startsWith('@')) return '';
     return `https://t.me/${trimmed.slice(1)}`;
+  }
+
+  private ensureBotClient() {
+    if (!this.bot && this.botToken) {
+      this.bot = new Telegraf(this.botToken);
+    }
+    return this.bot;
+  }
+
+  private telegramErrorDescription(error: unknown) {
+    if (!error || typeof error !== 'object') return String(error);
+    const response = (error as { response?: { description?: unknown } }).response;
+    if (typeof response?.description === 'string') return response.description;
+    const description = (error as { description?: unknown }).description;
+    if (typeof description === 'string') return description;
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+    return String(error);
+  }
+
+  private isDefiniteNonMemberError(error: unknown) {
+    const description = this.telegramErrorDescription(error).toLowerCase();
+    return (
+      description.includes('member not found') ||
+      description.includes('user not found') ||
+      description.includes('user_id_invalid')
+    );
+  }
+
+  private async syncKnownChannelMembership(telegramUserId: number) {
+    const membership = await this.checkChannelMembership(telegramUserId);
+    if (membership !== null) {
+      await this.prisma.user.updateMany({
+        where: { telegramId: BigInt(telegramUserId) },
+        data: { isChannelMember: membership, channelCheckedAt: new Date() },
+      });
+    }
+    return membership;
+  }
+
+  private channelMembershipReplyLine(membership: boolean | null) {
+    if (membership === true) {
+      return '\n\n✅ <b>Подписка на канал подтверждена.</b>';
+    }
+    if (membership === false) {
+      return `\n\n📣 Чтобы открыть пробные тесты, подпишитесь на канал: ${this.escapeHtml(this.channelUrl)}`;
+    }
+    return '\n\n⚠️ Не удалось проверить подписку на канал прямо сейчас. В MyTest нажмите «Проверить подписку» ещё раз.';
   }
 
   /** Chat id (numeric) or @username for lead notifications. */
@@ -135,6 +184,7 @@ export class TelegramBotService implements OnModuleInit {
           telegramUsername: tgUser.username || null,
           firstName: tgUser.first_name,
           lastName: tgUser.last_name || null,
+          notificationsMutedAt: null,
         },
         create: {
           telegramId: BigInt(tgUser.id),
@@ -142,6 +192,7 @@ export class TelegramBotService implements OnModuleInit {
           firstName: tgUser.first_name,
           lastName: tgUser.last_name || null,
           preferredLanguage: tgUser.language_code === 'kk' ? 'kk' : 'ru',
+          notificationsMutedAt: null,
         },
       });
 
@@ -149,12 +200,14 @@ export class TelegramBotService implements OnModuleInit {
         where: { telegramId: BigInt(tgUser.id) },
         select: { phone: true },
       });
+      const membership = await this.syncKnownChannelMembership(tgUser.id);
 
       if (user?.phone) {
         await ctx.reply(
           '✅ <b>Номер уже привязан.</b>\n\n' +
             'Нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.\n' +
-            'Если хотите поменять номер для входа на сайте, используйте кнопку ниже.',
+            'Если хотите поменять номер для входа на сайте, используйте кнопку ниже.' +
+            this.channelMembershipReplyLine(membership),
           {
             parse_mode: 'HTML',
             ...this.mainReplyKeyboard(),
@@ -168,7 +221,8 @@ export class TelegramBotService implements OnModuleInit {
           'Чтобы включить вход и открыть приложение:\n' +
           '1) Нажмите <b>«Поделиться номером»</b>\n' +
           '2) Отправьте <b>свой</b> номер KZ через кнопку\n' +
-          '3) После этого появится кнопка <b>«Открыть MyTest»</b>, и вход будет работать сразу',
+          '3) После этого появится кнопка <b>«Открыть MyTest»</b>, и вход будет работать сразу' +
+          this.channelMembershipReplyLine(membership),
         {
           parse_mode: 'HTML',
           ...this.contactOnlyKeyboard(),
@@ -185,23 +239,45 @@ export class TelegramBotService implements OnModuleInit {
       this.logger.warn('TELEGRAM_BOT_TOKEN пуст — бот не запускается.');
       return;
     }
+    const bot = this.ensureBotClient();
+    if (!bot) {
+      this.logger.warn('Telegram bot client unavailable.');
+      return;
+    }
+    const pollingEnabled = (
+      this.config.get<string>('TELEGRAM_BOT_POLLING_ENABLED') ?? ''
+    ).trim().toLowerCase();
+    if (process.env.NODE_ENV === 'production' && pollingEnabled !== 'true') {
+      this.logger.warn(
+        'TELEGRAM_BOT_POLLING_ENABLED is not true — Telegram long polling disabled for this API process; outbound bot API calls remain enabled.',
+      );
+      return;
+    }
 
-    this.bot = new Telegraf(this.botToken);
-    this.bot.catch((err, ctx) => {
+    bot.catch((err, ctx) => {
       this.logger.error(
         `Unhandled Telegram update error (updateId=${ctx.update?.update_id ?? 'n/a'}): ${err}`,
       );
     });
 
-    this.bot.start(async (ctx) => {
+    bot.start(async (ctx) => {
       await this.sendStartWelcome(ctx);
+    });
+
+    bot.command(['stop', 'unsubscribe'], async (ctx) => {
+      if (!ctx.from) return;
+      await this.prisma.user.updateMany({
+        where: { telegramId: BigInt(ctx.from.id) },
+        data: { notificationsMutedAt: new Date() },
+      });
+      await ctx.reply('Уведомления отключены. Чтобы снова пользоваться входом и кнопками MyTest, отправьте /start.');
     });
 
     /**
      * Сообщения вида «буду /start», «hi /start» — без entity bot_command, поэтому `bot.start` не срабатывает.
      * Реагируем, если `/start` есть в конце после пробела (кроме случаев с длинным «хвостом» после /start).
      */
-    this.bot.on('text', async (ctx, next) => {
+    bot.on('text', async (ctx, next) => {
       const raw = ctx.message?.text?.trim() ?? '';
       if (!raw || raw.startsWith('//')) return next();
       const startTail = /^(.+)\s\/start(@[A-Za-z0-9_]*)?(?:\s+(\S.*))?$/i.exec(raw);
@@ -211,7 +287,7 @@ export class TelegramBotService implements OnModuleInit {
       await this.sendStartWelcome(ctx);
     });
 
-    this.bot.on('message', async (ctx, next) => {
+    bot.on('message', async (ctx, next) => {
       if (!ctx.message || !ctx.from) return next();
 
       const from = ctx.from;
@@ -233,8 +309,11 @@ export class TelegramBotService implements OnModuleInit {
       } else if ('text' in ctx.message) {
         const text = ctx.message.text.trim();
         if (text.startsWith('/')) return next();
-        normalized = normalizeKzPhone(text);
-        if (!normalized) return next();
+        if (!normalizeKzPhone(text)) return next();
+        await ctx.reply('Для безопасности нажмите кнопку «Поделиться номером» и отправьте свой Telegram-контакт.', {
+          ...this.contactOnlyKeyboard(),
+        });
+        return;
       } else {
         return next();
       }
@@ -247,6 +326,7 @@ export class TelegramBotService implements OnModuleInit {
             firstName: from.first_name,
             lastName: from.last_name || null,
             phone: normalized,
+            notificationsMutedAt: null,
           },
           create: {
             telegramId: BigInt(from.id),
@@ -255,11 +335,14 @@ export class TelegramBotService implements OnModuleInit {
             lastName: from.last_name || null,
             preferredLanguage: from.language_code === 'kk' ? 'kk' : 'ru',
             phone: normalized,
+            notificationsMutedAt: null,
           },
         });
+        const membership = await this.syncKnownChannelMembership(from.id);
         await ctx.reply(
           '✅ <b>Номер сохранён.</b>\n\n' +
-            'Теперь нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.',
+            'Теперь нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.' +
+            this.channelMembershipReplyLine(membership),
           {
             parse_mode: 'HTML',
             ...this.mainReplyKeyboard(),
@@ -290,21 +373,20 @@ export class TelegramBotService implements OnModuleInit {
     // If Telegram is slow/unreachable, API should still start and serve HTTP.
     void this.launchBotUpdateLoop();
 
-    const safeStop = (signal: NodeJS.Signals) => {
-      try {
-        this.bot?.stop(signal);
-      } catch {
-        /* telegraf throws if bot was not running */
-      }
-      if (this.launchRetryTimer) {
-        clearTimeout(this.launchRetryTimer);
-        this.launchRetryTimer = null;
-      }
-      this.isUpdateLoopRunning = false;
-      this.launchInProgress = false;
-    };
-    process.once('SIGINT', () => safeStop('SIGINT'));
-    process.once('SIGTERM', () => safeStop('SIGTERM'));
+  }
+
+  onApplicationShutdown(signal?: string) {
+    try {
+      this.bot?.stop(signal);
+    } catch {
+      /* telegraf throws if bot was not running */
+    }
+    if (this.launchRetryTimer) {
+      clearTimeout(this.launchRetryTimer);
+      this.launchRetryTimer = null;
+    }
+    this.isUpdateLoopRunning = false;
+    this.launchInProgress = false;
   }
 
   private async withTimeout<T>(
@@ -436,21 +518,32 @@ export class TelegramBotService implements OnModuleInit {
     }, delayMs);
   }
 
-  async checkChannelMembership(telegramUserId: number): Promise<boolean> {
-    if (!this.bot) return false;
+  async checkChannelMembership(telegramUserId: number): Promise<boolean | null> {
+    const bot = this.ensureBotClient();
+    if (!bot) return null;
+    if (!this.channelId.trim()) {
+      this.logger.warn('Cannot check channel membership: TELEGRAM_CHANNEL_ID is empty.');
+      return null;
+    }
     try {
-      const member = await this.bot.telegram.getChatMember(
+      const member = await bot.telegram.getChatMember(
         this.channelId,
         telegramUserId,
       );
-      return ['member', 'administrator', 'creator', 'restricted'].includes(
-        member.status,
-      );
+      // A 'restricted' user is only still in the channel when is_member === true;
+      // restricted-and-removed users must NOT pass the membership check.
+      if (member.status === 'restricted') {
+        return (member as { is_member?: boolean }).is_member === true;
+      }
+      return ['member', 'administrator', 'creator'].includes(member.status);
     } catch (error) {
+      if (this.isDefiniteNonMemberError(error)) {
+        return false;
+      }
       this.logger.warn(
-        `Failed to check channel membership for ${telegramUserId}: ${error}`,
+        `Failed to check channel membership for ${telegramUserId}: ${error}. Keeping cached membership state.`,
       );
-      return false;
+      return null;
     }
   }
 
@@ -480,10 +573,13 @@ export class TelegramBotService implements OnModuleInit {
       `<b>🔐 Код для входа в MyTest:</b> <code>${code}</code>\n\n` +
       `Код действителен 5 минут.`;
     try {
-      await this.bot.telegram.sendMessage(Number(telegramId), body, {
-        parse_mode: 'HTML',
-        ...this.openAppInlineKeyboard(),
-      });
+      await Promise.race([
+        this.bot.telegram.sendMessage(Number(telegramId), body, {
+          parse_mode: 'HTML',
+          ...this.openAppInlineKeyboard(),
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
     } catch (error) {
       this.logger.error(`Failed to send auth code to telegramId ${telegramId}: ${error}`);
       throw new BadRequestException(
@@ -523,9 +619,12 @@ export class TelegramBotService implements OnModuleInit {
       .join('\n');
 
     try {
-      await this.bot.telegram.sendMessage(target, body, {
-        parse_mode: 'HTML',
-      });
+      await Promise.race([
+        this.bot.telegram.sendMessage(target, body, {
+          parse_mode: 'HTML',
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
     } catch (error) {
       this.logger.error(
         `Failed to send lead notification to ${target}: ${error}`,
@@ -558,7 +657,10 @@ export class TelegramBotService implements OnModuleInit {
         ]);
 
     try {
-      await this.bot.telegram.sendMessage(Number(telegramId), body, keyboard);
+      await Promise.race([
+        this.bot.telegram.sendMessage(Number(telegramId), body, keyboard),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
     } catch (error) {
       this.logger.error(
         `Failed to send lifecycle notification to telegramId ${telegramId}: ${error}`,

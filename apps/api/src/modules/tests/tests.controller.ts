@@ -31,6 +31,7 @@ export class TestsController {
   }
 
   @Post('mistakes/practice')
+  @UseGuards(PremiumGuard)
   async mistakesPractice(
     @CurrentUser('id') userId: string,
     @Body() dto: MistakesPracticeDto,
@@ -112,6 +113,15 @@ export class TestsController {
     return this.testSessionService.finishTest(sessionId, userId);
   }
 
+  @Post('sessions/:id/retake')
+  @UseGuards(PremiumGuard)
+  async retakeEntSession(
+    @CurrentUser('id') userId: string,
+    @Param('id') sessionId: string,
+  ) {
+    return this.testSessionService.startEntRetakeSession(userId, sessionId);
+  }
+
   @Get('sessions/:id/review')
   async getReview(
     @CurrentUser('id') userId: string,
@@ -121,6 +131,7 @@ export class TestsController {
   }
 
   @Get('sessions/:id/review/:questionId/explanation')
+  @UseGuards(PremiumGuard)
   async getExplanation(
     @CurrentUser('id') userId: string,
     @Param('id') sessionId: string,

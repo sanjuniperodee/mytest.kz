@@ -34,3 +34,24 @@ export async function recordVisit() {
     // silent
   }
 }
+
+export async function recordFunnelEvent(
+  step: string,
+  metadata?: Record<string, unknown>,
+  sessionId?: string,
+) {
+  if (typeof window === "undefined") return
+  try {
+    await api("/analytics/event", {
+      method: "POST",
+      body: {
+        step,
+        sessionId,
+        metadata,
+        landingPath: window.location.pathname,
+      },
+    })
+  } catch {
+    // Analytics is intentionally non-blocking.
+  }
+}

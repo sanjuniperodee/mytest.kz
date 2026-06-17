@@ -20,6 +20,7 @@ import type { User } from "@/lib/api/types"
 import { t, useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
+import { clearTokens } from "@/lib/api/storage"
 
 const TIMEZONES = [
   "Asia/Almaty",
@@ -36,13 +37,14 @@ const MAX_AVATAR_BYTES = 3 * 1024 * 1024
 
 export function ProfileView() {
   const { colors, resolved } = useAppTheme()
-  const { user, refresh } = useAuth()
+  const { user, refresh, signOut } = useAuth()
   const { locale: uiLocale, setLocale } = useUiLocale()
   const ui = uiLocale
   const [language, setLanguage] = useState<"ru" | "kk">("ru")
   const [timezone, setTimezone] = useState("Asia/Almaty")
   const [saving, setSaving] = useState(false)
   const [avatarSaving, setAvatarSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -187,6 +189,36 @@ export function ProfileView() {
     }
   }
 
+  const onDeleteAccount = () => {
+    Alert.alert(
+      t("deleteAccountTitle", ui),
+      t("deleteAccountDesc", ui),
+      [
+        { text: t("deleteAccountCancel", ui), style: "cancel" },
+        {
+          text: t("deleteAccountConfirm", ui),
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true)
+            try {
+              await api("/users/me", { method: "DELETE" })
+              await clearTokens("user")
+              signOut()
+              router.replace("/landing")
+            } catch (err) {
+              Alert.alert(
+                t("alertError", ui),
+                err instanceof ApiError ? err.message : t("deleteAccountFail", ui),
+              )
+            } finally {
+              setDeleting(false)
+            }
+          },
+        },
+      ],
+    )
+  }
+
   if (!user) {
     return (
       <View style={[styles.center, { backgroundColor: colors.secondary }]}>
@@ -329,6 +361,22 @@ export function ProfileView() {
           </Pressable>
         </View>
       </Card>
+
+      <Card style={{ marginTop: 12, borderColor: "#ef4444" }}>
+        <Text style={[styles.cardTitle, { color: "#ef4444" }]}>{t("deleteAccount", ui)}</Text>
+        <Text style={[styles.deleteDesc, { color: colors.mutedForeground }]}>
+          {t("deleteAccountDesc", ui)}
+        </Text>
+        <View style={{ marginTop: 12 }}>
+          <Button
+            variant="outline"
+            disabled={deleting}
+            onPress={onDeleteAccount}
+          >
+            {deleting ? t("loading", ui) : t("deleteAccount", ui)}
+          </Button>
+        </View>
+      </Card>
     </ScrollView>
   )
 }
@@ -364,4 +412,5 @@ const styles = StyleSheet.create({
   avatarHint: { fontSize: 12, marginTop: 12 },
   label: { fontSize: 13, marginBottom: 8 },
   legalNav: { fontSize: 15, paddingVertical: 4 },
+  deleteDesc: { fontSize: 13, lineHeight: 18 },
 })

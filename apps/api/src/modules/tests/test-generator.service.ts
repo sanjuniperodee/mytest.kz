@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { questionWhereForTestLanguage } from '../../common/question-locale';
-import { ENT_CONFIG } from '@bilimland/shared';
+import { ENT_CONFIG, type EntScope } from '@bilimland/shared';
 
 export interface GeneratedSection {
   subjectId: string;
@@ -12,7 +13,7 @@ export interface GeneratedSection {
 }
 
 /** Режим прохождения ЕНТ (только для exam slug `ent`). */
-export type EntPassScope = 'mandatory' | 'profile' | 'full';
+export type EntPassScope = EntScope;
 
 @Injectable()
 export class TestGeneratorService {
@@ -22,7 +23,7 @@ export class TestGeneratorService {
    * Generate questions from a template.
    * If profileSubjectIds are provided, they are added as extra sections
    * (for exams like ENT where user picks 2 profile subjects).
-   * Для ЕНТ: entScope — только обязательные блоки, только профиль или полный вариант.
+   * Для ЕНТ: entScope — обязательные блоки, профиль, полный вариант или формат для творческих специальностей.
    */
   async generateFromTemplate(
     templateId: string,
@@ -51,37 +52,61 @@ export class TestGeneratorService {
 
     const examSlug = template.examType?.slug ?? '';
     const entScope = examSlug === 'ent' ? opts?.entScope : undefined;
-    const strictEntFull = examSlug === 'ent' && entScope === 'full';
+    /** Строгая выборка истории Казахстана для любого ENT с обязательными блоками. */
+    const strictEntHistory = examSlug === 'ent' && entScope !== 'profile';
+    /** Строгая выборка профильных предметов для ENT (full или profile). */
+    const strictEntProfile = examSlug === 'ent' && (entScope === 'full' || entScope === 'profile');
+    /** Все шаблонные секции ENT подчиняются строгой padding/validation. */
+    const strictEntSections = examSlug === 'ent' && entScope !== 'profile';
+    const seenQuestionIds = await this.loadSeenQuestionIds(userId);
 
     const sections: GeneratedSection[] = [];
 
-    if (strictEntFull && profileQuestionCount !== ENT_CONFIG.profileQuestionsPerSubject) {
+    if (strictEntProfile && profileQuestionCount !== ENT_CONFIG.profileQuestionsPerSubject) {
       throw new BadRequestException(
-        `ENT full requires ${ENT_CONFIG.profileQuestionsPerSubject} questions per profile subject`,
+        `ENT ${entScope} requires ${ENT_CONFIG.profileQuestionsPerSubject} questions per profile subject`,
       );
     }
 
     const includeTemplateSections = !entScope || entScope !== 'profile';
     if (includeTemplateSections) {
-      for (const section of template.sections) {
-        const questionIds =
-          strictEntFull && section.subject?.slug === 'history_kz'
+      const templateSections =
+        examSlug === 'ent' && entScope === 'creative'
+          ? template.sections.filter((section) =>
+              ENT_CONFIG.creativeSubjects.includes(
+                section.subject?.slug as (typeof ENT_CONFIG.creativeSubjects)[number],
+              ),
+            )
+          : template.sections;
+
+      for (const section of templateSections) {
+        let questionIds =
+          strictEntHistory && section.subject?.slug === 'history_kz'
             ? await this.selectStrictEntHistoryQuestions(
                 section.subjectId,
-                userId,
                 language,
+                seenQuestionIds,
               )
             : await this.selectQuestions(
                 section.subjectId,
                 section.questionCount,
                 section.selectionMode,
-                userId,
                 language,
-                strictEntFull,
+                strictEntHistory,
+                seenQuestionIds,
               );
-        if (strictEntFull && questionIds.length !== section.questionCount) {
+        if (strictEntSections && questionIds.length < section.questionCount) {
+          questionIds = await this.padSubjectQuestionIds(
+            section.subjectId,
+            questionIds,
+            section.questionCount,
+            language,
+            seenQuestionIds,
+          );
+        }
+        if (strictEntSections && questionIds.length !== section.questionCount) {
           throw new BadRequestException(
-            `ENT full question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
+            `ENT ${entScope} question bank is insufficient for subject ${section.subjectId}: expected ${section.questionCount}, got ${questionIds.length}`,
           );
         }
         sections.push({
@@ -106,19 +131,28 @@ export class TestGeneratorService {
         const subjectId = profileSubjectIds![i];
         if (sections.some((s) => s.subjectId === subjectId)) continue;
 
-        const questionIds = strictEntFull
-          ? await this.selectStrictEntProfileQuestions(subjectId, userId, language)
+        let questionIds = strictEntProfile
+          ? await this.selectStrictEntProfileQuestions(subjectId, language, seenQuestionIds)
           : await this.selectQuestions(
               subjectId,
               profileQuestionCount,
               'random',
-              userId,
               language,
               false,
+              seenQuestionIds,
             );
-        if (strictEntFull && questionIds.length !== profileQuestionCount) {
+        if (strictEntProfile && questionIds.length < profileQuestionCount) {
+          questionIds = await this.padSubjectQuestionIds(
+            subjectId,
+            questionIds,
+            profileQuestionCount,
+            language,
+            seenQuestionIds,
+          );
+        }
+        if (strictEntProfile && questionIds.length !== profileQuestionCount) {
           throw new BadRequestException(
-            `ENT full question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
+            `ENT ${entScope} question bank is insufficient for profile subject ${subjectId}: expected ${profileQuestionCount}, got ${questionIds.length}`,
           );
         }
         sections.push({
@@ -137,15 +171,15 @@ export class TestGeneratorService {
     subjectId: string,
     count: number,
     selectionMode: string,
-    userId?: string,
     language?: string,
     allowLanguageFallback = false,
+    seenQuestionIds?: Set<string>,
   ): Promise<string[]> {
     const localeWhere = questionWhereForTestLanguage(language);
     const makeWhere = (withLocale: boolean) => ({
       AND: withLocale
-        ? [{ subjectId }, { isActive: true }, localeWhere]
-        : [{ subjectId }, { isActive: true }],
+        ? [...this.questionPoolScope(subjectId), localeWhere]
+        : this.questionPoolScope(subjectId),
     });
     const selectFromWhere = async (where: ReturnType<typeof makeWhere>) => {
       if (selectionMode === 'random') {
@@ -156,7 +190,7 @@ export class TestGeneratorService {
         if (questions.length === 0) return [];
 
         const ids = questions.map((q) => q.id);
-        const ordered = await this.orderWithFreshFirst(ids, userId);
+        const ordered = this.orderWithFreshFirst(ids, seenQuestionIds);
         return ordered.slice(0, count);
       }
 
@@ -181,6 +215,47 @@ export class TestGeneratorService {
     return fallbackSelected;
   }
 
+  /** Добирает вопросы того же предмета до targetCount (строгий отбор уже взял часть пула). */
+  private async padSubjectQuestionIds(
+    subjectId: string,
+    selectedIds: string[],
+    targetCount: number,
+    language?: string,
+    seenQuestionIds?: Set<string>,
+  ): Promise<string[]> {
+    if (selectedIds.length >= targetCount) return selectedIds;
+    const used = new Set(selectedIds);
+    const collectIds = async (withLocaleFilter: boolean) => {
+      const localeWhere =
+        withLocaleFilter && language ? questionWhereForTestLanguage(language) : null;
+      const rows = await this.prisma.question.findMany({
+        where: {
+          AND: localeWhere
+            ? [...this.questionPoolScope(subjectId), localeWhere]
+            : this.questionPoolScope(subjectId),
+        },
+        select: { id: true },
+      });
+      return rows.map((r) => r.id).filter((id) => !used.has(id));
+    };
+
+    let pool = await collectIds(true);
+    if (pool.length < targetCount - selectedIds.length && language) {
+      const more = await collectIds(false);
+      const seen = new Set(pool);
+      for (const id of more) {
+        if (!seen.has(id)) {
+          pool.push(id);
+          seen.add(id);
+        }
+      }
+    }
+
+    const ordered = this.orderWithFreshFirst(pool, seenQuestionIds);
+    const need = targetCount - selectedIds.length;
+    return [...selectedIds, ...ordered.slice(0, need)];
+  }
+
   /**
    * Strict ENT full profile generation:
    * - first 30 questions stay in 1-point tier
@@ -190,13 +265,13 @@ export class TestGeneratorService {
    */
   private async selectStrictEntProfileQuestions(
     subjectId: string,
-    userId?: string,
     language?: string,
+    seenQuestionIds?: Set<string>,
   ): Promise<string[]> {
     const selectedWithLocale = await this.selectStrictEntProfileQuestionsFromPool(
       subjectId,
-      userId,
       language,
+      seenQuestionIds,
     );
     if (
       selectedWithLocale.length >= ENT_CONFIG.profileQuestionsPerSubject ||
@@ -207,7 +282,8 @@ export class TestGeneratorService {
 
     const selectedWithFallback = await this.selectStrictEntProfileQuestionsFromPool(
       subjectId,
-      userId,
+      undefined,
+      seenQuestionIds,
     );
     if (selectedWithFallback.length <= selectedWithLocale.length) {
       return selectedWithLocale;
@@ -217,26 +293,30 @@ export class TestGeneratorService {
 
   private async selectStrictEntProfileQuestionsFromPool(
     subjectId: string,
-    userId?: string,
     language?: string,
+    seenQuestionIds?: Set<string>,
   ): Promise<string[]> {
     const localeWhere = questionWhereForTestLanguage(language);
     const questions = await this.prisma.question.findMany({
       where: {
         AND: language
-          ? [{ subjectId }, { isActive: true }, localeWhere]
-          : [{ subjectId }, { isActive: true }],
+          ? [...this.questionPoolScope(subjectId), localeWhere]
+          : this.questionPoolScope(subjectId),
       },
       select: {
         id: true,
+        content: true,
         answerOptions: { select: { isCorrect: true } },
+        subject: { select: { slug: true } },
       },
     });
     if (questions.length === 0) return [];
 
-    const regularIds = questions
-      .filter((q) => this.isStrictEntProfileTier1Question(q))
-      .map((q) => q.id);
+    const subjectSlug = questions.find((q) => q.subject?.slug)?.subject?.slug;
+    const tier1Questions = questions.filter((q) =>
+      this.isStrictEntProfileTier1Question(q),
+    );
+    const regularIds = tier1Questions.map((q) => q.id);
     const tier2AIds = questions
       .filter((q) => this.isStrictEntProfileTier2AQuestion(q))
       .map((q) => q.id);
@@ -244,14 +324,14 @@ export class TestGeneratorService {
       .filter((q) => this.isStrictEntProfileTier2BQuestion(q))
       .map((q) => q.id);
 
-    const orderedRegular = await this.orderWithFreshFirst(regularIds, userId);
-    const orderedTier2A = await this.orderWithFreshFirst(tier2AIds, userId);
-    const orderedTier2B = await this.orderWithFreshFirst(tier2BIds, userId);
+    const orderedRegular = this.orderWithFreshFirst(regularIds, seenQuestionIds);
+    const orderedTier2A = this.orderWithFreshFirst(tier2AIds, seenQuestionIds);
+    const orderedTier2B = this.orderWithFreshFirst(tier2BIds, seenQuestionIds);
 
-    const selectedTier1 = this.takeUnique(
-      [orderedRegular],
-      ENT_CONFIG.profileTier1Count,
-    );
+    const selectedTier1 =
+      subjectSlug === 'informatics'
+        ? this.takeUnique([orderedRegular], ENT_CONFIG.profileTier1Count)
+        : this.selectProfileTier1WithTextBlock(tier1Questions, seenQuestionIds);
     const selectedTier2A = this.takeUnique(
       [orderedTier2A],
       ENT_CONFIG.profileTier2ACount,
@@ -262,21 +342,95 @@ export class TestGeneratorService {
     );
 
     return [
-      ...this.shuffle(selectedTier1),
+      ...selectedTier1,
       ...this.shuffle(selectedTier2A),
       ...this.shuffle(selectedTier2B),
     ];
   }
 
+  private selectProfileTier1WithTextBlock(
+    questions: Array<{
+      id: string;
+      content: unknown;
+      answerOptions?: Array<{ isCorrect: boolean }>;
+    }>,
+    seenQuestionIds?: Set<string>,
+  ): string[] {
+    const textBlock = this.selectProfileTextBlock(questions, seenQuestionIds);
+    if (!textBlock) {
+      return this.takeUnique(
+        [this.orderWithFreshFirst(questions.map((q) => q.id), seenQuestionIds)],
+        ENT_CONFIG.profileTier1Count,
+      );
+    }
+
+    const textBlockIds = new Set(textBlock);
+    const noTextIds = questions
+      .filter((q) => !textBlockIds.has(q.id) && !this.getPassageKey(q.content))
+      .map((q) => q.id);
+    const fallbackRegularIds = questions
+      .filter((q) => !textBlockIds.has(q.id))
+      .map((q) => q.id);
+    const firstSlotCount = ENT_CONFIG.profileTextBlockStart - 1;
+    const firstSlots = this.takeUnique(
+      [
+        this.orderWithFreshFirst(noTextIds, seenQuestionIds),
+        this.orderWithFreshFirst(fallbackRegularIds, seenQuestionIds),
+      ],
+      firstSlotCount,
+    );
+
+    if (firstSlots.length < firstSlotCount) {
+      return this.takeUnique(
+        [this.orderWithFreshFirst(questions.map((q) => q.id), seenQuestionIds)],
+        ENT_CONFIG.profileTier1Count,
+      );
+    }
+
+    return [...this.shuffle(firstSlots), ...textBlock];
+  }
+
+  private selectProfileTextBlock(
+    questions: Array<{ id: string; content: unknown }>,
+    seenQuestionIds?: Set<string>,
+  ): string[] | null {
+    const groups = new Map<string, string[]>();
+    for (const question of questions) {
+      const key = this.getPassageKey(question.content);
+      if (!key) continue;
+      groups.set(key, [...(groups.get(key) ?? []), question.id]);
+    }
+
+    const candidates = [...groups.values()].filter(
+      (ids) => ids.length >= ENT_CONFIG.profileTextBlockQuestionCount,
+    );
+    if (candidates.length === 0) return null;
+
+    const ranked = this.shuffle(candidates).sort((a, b) => {
+      const freshA = seenQuestionIds
+        ? a.filter((id) => !seenQuestionIds.has(id)).length
+        : a.length;
+      const freshB = seenQuestionIds
+        ? b.filter((id) => !seenQuestionIds.has(id)).length
+        : b.length;
+      return freshB - freshA;
+    });
+
+    return this.orderWithFreshFirst(ranked[0], seenQuestionIds).slice(
+      0,
+      ENT_CONFIG.profileTextBlockQuestionCount,
+    );
+  }
+
   private async selectStrictEntHistoryQuestions(
     subjectId: string,
-    userId?: string,
     language?: string,
+    seenQuestionIds?: Set<string>,
   ): Promise<string[]> {
     const selectedWithLocale = await this.selectStrictEntHistoryQuestionsFromPool(
       subjectId,
-      userId,
       language,
+      seenQuestionIds,
     );
     const expected = ENT_CONFIG.mandatoryQuestionCounts.history_kz;
     if (selectedWithLocale.length >= expected || !language) {
@@ -285,7 +439,8 @@ export class TestGeneratorService {
 
     const selectedWithFallback = await this.selectStrictEntHistoryQuestionsFromPool(
       subjectId,
-      userId,
+      undefined,
+      seenQuestionIds,
     );
     if (selectedWithFallback.length <= selectedWithLocale.length) {
       return selectedWithLocale;
@@ -295,15 +450,15 @@ export class TestGeneratorService {
 
   private async selectStrictEntHistoryQuestionsFromPool(
     subjectId: string,
-    userId?: string,
     language?: string,
+    seenQuestionIds?: Set<string>,
   ): Promise<string[]> {
     const localeWhere = questionWhereForTestLanguage(language);
     const questions = await this.prisma.question.findMany({
       where: {
         AND: language
-          ? [{ subjectId }, { isActive: true }, localeWhere]
-          : [{ subjectId }, { isActive: true }],
+          ? [...this.questionPoolScope(subjectId), localeWhere]
+          : this.questionPoolScope(subjectId),
       },
       select: {
         id: true,
@@ -319,8 +474,8 @@ export class TestGeneratorService {
       .filter((q) => this.isHistoryTextQuestion(q.content))
       .map((q) => q.id);
 
-    const orderedNoText = await this.orderWithFreshFirst(noTextIds, userId);
-    const orderedText = await this.orderWithFreshFirst(textIds, userId);
+    const orderedNoText = this.orderWithFreshFirst(noTextIds, seenQuestionIds);
+    const orderedText = this.orderWithFreshFirst(textIds, seenQuestionIds);
 
     return [
       ...this.shuffle(this.takeUnique([orderedNoText], 10)),
@@ -373,25 +528,41 @@ export class TestGeneratorService {
       : 0;
   }
 
+  /** 11–20: только вопросы с непустым контекстом в поле `passage` (строка или локализованный объект).
+   *  passage может быть на верхнем уровне (e.g. `{ passage: { kk, ru } }`)
+   *  или внутри языкового ключа (e.g. `{ kk: { passage, text } }`). */
   private isHistoryTextQuestion(content: unknown): boolean {
     if (!content || typeof content !== 'object' || Array.isArray(content)) {
       return false;
     }
     const root = content as Record<string, unknown>;
     if (this.hasNonEmptyString(root.passage)) return true;
-    const candidateText = this.collectLocalizedContentText(root).join('\n');
-    const normalized = candidateText.toLocaleUpperCase('ru');
-    return normalized.includes('ТЕКСТ') || normalized.includes('МӘТІН');
+    for (const locale of ['kk', 'ru', 'en']) {
+      const slot = root[locale];
+      if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
+        if (this.hasNonEmptyString((slot as Record<string, unknown>).passage)) return true;
+      }
+    }
+    return false;
   }
 
-  private collectLocalizedContentText(value: unknown): string[] {
-    if (typeof value === 'string') return [value];
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
-    const out: string[] = [];
-    for (const child of Object.values(value as Record<string, unknown>)) {
-      out.push(...this.collectLocalizedContentText(child));
+  private getPassageKey(content: unknown): string | null {
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+      return null;
     }
-    return out;
+    const root = content as Record<string, unknown>;
+    const direct = this.firstNonEmptyString(root.passage);
+    if (direct) return this.normalizePassageKey(direct);
+    for (const locale of ['kk', 'ru', 'en']) {
+      const slot = root[locale];
+      if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
+        const localized = this.firstNonEmptyString(
+          (slot as Record<string, unknown>).passage,
+        );
+        if (localized) return this.normalizePassageKey(localized);
+      }
+    }
+    return null;
   }
 
   private hasNonEmptyString(value: unknown): boolean {
@@ -402,25 +573,52 @@ export class TestGeneratorService {
     );
   }
 
-  private async orderWithFreshFirst(
-    ids: string[],
-    userId?: string,
-  ): Promise<string[]> {
-    if (ids.length === 0) return [];
-    if (!userId) return this.shuffle([...ids]);
+  private firstNonEmptyString(value: unknown): string | null {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      if (typeof child === 'string' && child.trim().length > 0) {
+        return child.trim();
+      }
+    }
+    return null;
+  }
 
-    const seenRows = await this.prisma.testAnswer.findMany({
-      where: {
-        session: { userId },
-        questionId: { in: ids },
-      },
+  private normalizePassageKey(value: string): string {
+    return value.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  private orderWithFreshFirst(
+    ids: string[],
+    seenQuestionIds?: Set<string>,
+  ): string[] {
+    if (ids.length === 0) return [];
+    if (!seenQuestionIds || seenQuestionIds.size === 0) return this.shuffle([...ids]);
+
+    const fresh = ids.filter((id) => !seenQuestionIds.has(id));
+    const repeat = ids.filter((id) => seenQuestionIds.has(id));
+    return [...this.shuffle(fresh), ...this.shuffle(repeat)];
+  }
+
+  private questionPoolScope(subjectId: string): Prisma.QuestionWhereInput[] {
+    return [
+      { subjectId },
+      { isActive: true },
+      { topic: { is: { subjectId } } },
+    ];
+  }
+
+  private async loadSeenQuestionIds(userId?: string): Promise<Set<string> | undefined> {
+    if (!userId) return undefined;
+    const rows = await this.prisma.testAnswer.findMany({
+      where: { session: { userId } },
       distinct: ['questionId'],
       select: { questionId: true },
     });
-    const seen = new Set(seenRows.map((r) => r.questionId));
-    const fresh = ids.filter((id) => !seen.has(id));
-    const repeat = ids.filter((id) => seen.has(id));
-    return [...this.shuffle(fresh), ...this.shuffle(repeat)];
+    return new Set(rows.map((row) => row.questionId));
   }
 
   private takeUnique(pools: string[][], count: number): string[] {

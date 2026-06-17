@@ -17,37 +17,37 @@ type Plan = {
 
 const plans: Plan[] = [
   {
-    name: "Разовый доступ",
-    oldPrice: "1 500",
-    price: "750",
-    period: "₸ / 1 день · 1 тест",
-    description: "Один полный пробный ЕНТ — чтобы проверить себя.",
+    name: "1 пробный ЕНТ",
+    oldPrice: "1 140",
+    price: "570",
+    period: "₸ / 7 дней · 1 тест",
+    description: "Один полный пробный ЕНТ с Premium-разбором.",
     features: [
-      "Доступ к одному полному тесту",
-      "Подробный разбор ошибок",
-      "Объяснения к каждому вопросу",
-      "Статистика по попытке",
+      "1 полный пробный ЕНТ",
+      "Premium-разбор вопросов",
+      "Статистика результата",
+      "Доступ 7 дней",
     ],
     cta: "Купить 1 тест",
     discount: "−50%",
   },
   {
-    name: "5 пробных ЕНТ",
-    oldPrice: "4 800",
-    price: "2 400",
-    period: "₸ / 7 дней · 5 тестов",
-    description: "Пять полных попыток для короткого интенсива.",
+    name: "3 пробных ЕНТ",
+    oldPrice: "2 980",
+    price: "1 490",
+    period: "₸ / 30 дней · 3 теста",
+    description: "Три полные попытки ЕНТ с Premium-разбором.",
     features: [
-      "5 полных пробных ЕНТ",
+      "3 полных пробных ЕНТ",
       "Premium-разбор вопросов",
       "Статистика по попыткам",
-      "Объяснения ко всем вопросам",
+      "Доступ 30 дней",
     ],
-    cta: "Готовиться неделю",
+    cta: "Взять 3 попытки",
     discount: "−50%",
   },
   {
-    name: "Месяц",
+    name: "Месяц без лимита",
     oldPrice: "7 800",
     price: "3 900",
     perDay: "≈ 130 ₸ в день",
@@ -67,20 +67,18 @@ const plans: Plan[] = [
     discount: "−50%",
   },
   {
-    name: "Годовой",
-    oldPrice: "56 000",
-    price: "28 000",
-    perDay: "≈ 76 ₸ в день",
-    period: "₸ / 365 дней",
-    description: "Лучшее соотношение цены за день доступа.",
+    name: "5 пробных ЕНТ",
+    oldPrice: "3 980",
+    price: "1 990",
+    period: "₸ / 30 дней · 5 тестов",
+    description: "Пять полных попыток ЕНТ с Premium-разбором.",
     features: [
-      "Доступ на 12 месяцев",
-      "Все обновления каталога на период подписки",
-      "Полная аналитика и план подготовки",
-      "Долгий горизонт до экзамена",
-      "Объяснения ко всем вопросам",
+      "5 полных пробных ЕНТ",
+      "Premium-разбор вопросов",
+      "Статистика по попыткам",
+      "Доступ 30 дней",
     ],
-    cta: "Оформить на год",
+    cta: "Взять 5 попыток",
     badge: "Выгодно",
     badgeTone: "muted",
     discount: "−50%",
@@ -98,13 +96,13 @@ export function Pricing() {
           </span>
           <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
             Сначала{" "}
-            <span className="font-serif italic font-normal">бесплатно</span>. Потом
-            — дешевле, чем{" "}
+            <span className="font-serif italic font-normal">диагностика</span>. Потом
+            — понятный план дешевле, чем{" "}
             <span className="font-serif italic font-normal">пара чашек кофе.</span>
           </h2>
           <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground">
-            Первый пробный — 0 ₸ и без карты. Дальше выбираешь любой тариф со скидкой
-            и получаешь объяснения ко всем вопросам после сдачи.
+            Выбираешь тариф, сдаёшь пробный в реальном формате и получаешь объяснения
+            ко всем вопросам после сдачи.
           </p>
         </div>
 
@@ -224,16 +222,16 @@ export function Pricing() {
 
         <div className="mt-10 flex flex-col items-center gap-2 text-center">
           <p className="text-sm font-medium">
-            Не уверен? Начни с бесплатного пробного — без карты и обязательств.
+            Не уверен? Начни с разового доступа за 570 ₸ и проверь формат на одном полном ЕНТ.
           </p>
           <a
             href="#start"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent underline-offset-4 hover:underline"
           >
-            Пройти бесплатный пробный →
+            Купить 1 пробный →
           </a>
           <p className="mt-4 text-xs text-muted-foreground">
-            Цены указаны в тенге. Оплата картой Visa / Mastercard, Kaspi, Halyk. Возврат в течение 14 дней.
+            Цены указаны в тенге. Оплата через Freedom Pay, картой Visa / Mastercard или через Kaspi.
           </p>
         </div>
       </div>

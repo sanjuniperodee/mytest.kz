@@ -4,11 +4,15 @@ import {
   EntitlementStatus,
   EntitlementTier,
 } from '@prisma/client';
+import { existsSync, unlinkSync } from 'fs';
+import { join, normalize, sep } from 'path';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
-import { BILLING_PLANS, ENT_TRIAL_LIMIT } from '../billing/billing.config';
+import { BILLING_PLANS } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
+
+type ChannelMembershipStatus = 'member' | 'not_member' | 'not_required' | 'unknown';
 
 @Injectable()
 export class UsersService {
@@ -25,30 +29,25 @@ export class UsersService {
 
     if (!user) return null;
 
-    // Re-check channel membership:
-    // - Always re-check if currently false (user might have just subscribed)
-    // - If true, cache for 5 min to avoid spamming Telegram API
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    let isChannelMember = user.telegramId ? user.isChannelMember : true;
-
-    const shouldRecheck =
-      !!user.telegramId &&
-      (!isChannelMember || !user.channelCheckedAt || user.channelCheckedAt < fiveMinAgo);
-    if (shouldRecheck) {
-      isChannelMember = await this.telegramBot.checkChannelMembership(
-        Number(user.telegramId),
-      );
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { isChannelMember, channelCheckedAt: new Date() },
-      });
-    }
+    const membership = await this.refreshChannelMembership(user);
+    const isChannelMember = membership.isChannelMember;
 
     await this.accessService.ensureSignupEntitlementsForUser(userId);
 
     const accessByExam = await this.accessService.getUserAccessByExam(userId);
     const entAccess = accessByExam.find((x) => x.examSlug === 'ent');
     const activePaidAccess = accessByExam.some((x) => x.hasPaidTier && x.hasAccess);
+    const now = new Date();
+    const activePaidSubscription = await this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        isActive: true,
+        startsAt: { lte: now },
+        expiresAt: { gt: now },
+        planType: { not: 'free' },
+      },
+      select: { id: true },
+    });
 
     const signupEntitlement = await this.prisma.userExamEntitlement.findFirst({
       where: {
@@ -60,7 +59,9 @@ export class UsersService {
       select: { totalAttemptsLimit: true, usedAttemptsTotal: true },
       orderBy: { createdAt: 'desc' },
     });
-    const freeLimit = signupEntitlement?.totalAttemptsLimit ?? ENT_TRIAL_LIMIT;
+    const freeLimit =
+      signupEntitlement?.totalAttemptsLimit ??
+      this.accessService.getSignupFreeAttemptLimit(user.createdAt);
     const freeUsed = Math.max(
       0,
       signupEntitlement?.usedAttemptsTotal ?? user.entTrialUsed,
@@ -81,6 +82,7 @@ export class UsersService {
     });
     const hasActivePaidSubscription =
       activePaidAccess ||
+      Boolean(activePaidSubscription) ||
       (currentTariff?.sourceType === 'subscription' &&
         currentTariff.isActive === true &&
         currentTariff.isPaid === true);
@@ -121,6 +123,83 @@ export class UsersService {
     };
   }
 
+  async recheckChannelMembership(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        telegramId: true,
+        isChannelMember: true,
+        channelCheckedAt: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return this.refreshChannelMembership(user, { force: true });
+  }
+
+  private async refreshChannelMembership(
+    user: {
+      id: string;
+      telegramId: bigint | null;
+      isChannelMember: boolean;
+      channelCheckedAt: Date | null;
+    },
+    options?: { force?: boolean },
+  ): Promise<{
+    status: ChannelMembershipStatus;
+    isChannelMember: boolean;
+    checkedAt: Date | null;
+  }> {
+    if (!user.telegramId) {
+      return {
+        status: 'not_required',
+        isChannelMember: true,
+        checkedAt: user.channelCheckedAt,
+      };
+    }
+
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const shouldRecheck =
+      options?.force === true ||
+      !user.isChannelMember ||
+      !user.channelCheckedAt ||
+      user.channelCheckedAt < fiveMinAgo;
+
+    if (!shouldRecheck) {
+      return {
+        status: user.isChannelMember ? 'member' : 'not_member',
+        isChannelMember: user.isChannelMember,
+        checkedAt: user.channelCheckedAt,
+      };
+    }
+
+    const checkedAt = new Date();
+    const membership = await this.telegramBot.checkChannelMembership(
+      Number(user.telegramId),
+    );
+
+    if (membership === null) {
+      return {
+        status: 'unknown',
+        isChannelMember: user.isChannelMember,
+        checkedAt: user.channelCheckedAt,
+      };
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { isChannelMember: membership, channelCheckedAt: checkedAt },
+    });
+
+    return {
+      status: membership ? 'member' : 'not_member',
+      isChannelMember: membership,
+      checkedAt,
+    };
+  }
+
   private async getCurrentTariff(
     userId: string,
     free: { freeLimit: number; freeUsed: number; freeRemaining: number },
@@ -141,19 +220,74 @@ export class UsersService {
         examType: { select: { id: true, slug: true, name: true } },
       },
     });
-    const activeSubscription = [...subscriptions].sort((a, b) => {
+    const sortedSubscriptions = [...subscriptions].sort((a, b) => {
       const rank = (planType: string) =>
         planType === 'free' ? 0 : planType === 'trial' ? 1 : 2;
       const aPaid = rank(a.planType);
       const bPaid = rank(b.planType);
       if (aPaid !== bPaid) return bPaid - aPaid;
       return b.expiresAt.getTime() - a.expiresAt.getTime();
-    })[0];
+    });
 
-    if (activeSubscription) {
+    const limitedSubscriptionIds = sortedSubscriptions
+      .filter((sub) => this.subscriptionTotalAttemptsLimit(sub.planType) != null)
+      .map((sub) => sub.id);
+    const entitlementUsageBySubscription = new Map<string, number>();
+    if (limitedSubscriptionIds.length > 0) {
+      const entitlementDelegate = this.prisma.userExamEntitlement as typeof this.prisma.userExamEntitlement & {
+        groupBy?: typeof this.prisma.userExamEntitlement.groupBy;
+      };
+      if (typeof entitlementDelegate.groupBy === 'function') {
+        const usageRows = await entitlementDelegate.groupBy({
+          by: ['subscriptionId'],
+          where: {
+            userId,
+            subscriptionId: { in: limitedSubscriptionIds },
+            sourceType: EntitlementSourceType.subscription,
+            status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+          },
+          _sum: { usedAttemptsTotal: true },
+        });
+        for (const row of usageRows) {
+          if (!row.subscriptionId) continue;
+          entitlementUsageBySubscription.set(
+            row.subscriptionId,
+            Math.max(0, row._sum.usedAttemptsTotal ?? 0),
+          );
+        }
+      } else {
+        await Promise.all(
+          limitedSubscriptionIds.map(async (subscriptionId) => {
+            const agg = await this.prisma.userExamEntitlement.aggregate({
+              where: {
+                userId,
+                subscriptionId,
+                sourceType: EntitlementSourceType.subscription,
+                status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+              },
+              _sum: { usedAttemptsTotal: true },
+            });
+            entitlementUsageBySubscription.set(
+              subscriptionId,
+              Math.max(0, agg._sum.usedAttemptsTotal ?? 0),
+            );
+          }),
+        );
+      }
+    }
+
+    let exhaustedSubscriptionTariff: Record<string, unknown> | null = null;
+    for (const activeSubscription of sortedSubscriptions) {
       const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
       const isPaid = activeSubscription.planType !== 'free';
-      return {
+      const totalLimit = this.subscriptionTotalAttemptsLimit(activeSubscription.planType);
+      const usedAttemptsTotal =
+        totalLimit != null
+          ? (entitlementUsageBySubscription.get(activeSubscription.id) ?? 0)
+          : 0;
+      const exhausted = totalLimit != null && usedAttemptsTotal >= totalLimit;
+      const isActive = !exhausted;
+      const tariff = {
         code: activeSubscription.planType,
         name: plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
         description: plan?.description ?? null,
@@ -162,12 +296,19 @@ export class UsersService {
         subscriptionId: activeSubscription.id,
         startsAt: activeSubscription.startsAt.toISOString(),
         expiresAt: activeSubscription.expiresAt.toISOString(),
-        isActive: true,
+        isActive,
         isPaid,
         examSlug: activeSubscription.examType?.slug ?? null,
-        totalAttemptsLimit: this.subscriptionTotalAttemptsLimit(activeSubscription.planType),
+        totalAttemptsLimit: totalLimit,
         dailyAttemptsLimit: this.subscriptionDailyAttemptsLimit(activeSubscription.planType),
+        usedAttemptsTotal,
+        remainingAttempts:
+          totalLimit == null
+            ? null
+            : Math.max(0, totalLimit - usedAttemptsTotal),
       };
+      if (isActive) return tariff;
+      exhaustedSubscriptionTariff ??= tariff;
     }
 
     const entitlements = await this.prisma.userExamEntitlement.findMany({
@@ -210,6 +351,9 @@ export class UsersService {
     })[0];
 
     if (activeEntitlement && activeEntitlement.tier !== EntitlementTier.free) {
+      const limit = activeEntitlement.totalAttemptsLimit;
+      const used = activeEntitlement.usedAttemptsTotal;
+      const hasAttemptsLeft = limit == null || used < limit;
       return {
         code:
           activeEntitlement.planTemplate?.code ??
@@ -224,7 +368,7 @@ export class UsersService {
         planTemplateId: activeEntitlement.planTemplate?.id ?? null,
         startsAt: activeEntitlement.windowStartsAt.toISOString(),
         expiresAt: activeEntitlement.windowEndsAt?.toISOString() ?? null,
-        isActive: true,
+        isActive: hasAttemptsLeft,
         isPaid:
           activeEntitlement.tier === EntitlementTier.paid ||
           activeEntitlement.tier === EntitlementTier.admin,
@@ -240,6 +384,27 @@ export class UsersService {
                 activeEntitlement.totalAttemptsLimit -
                   activeEntitlement.usedAttemptsTotal,
               ),
+      };
+    }
+
+    if (exhaustedSubscriptionTariff) return exhaustedSubscriptionTariff;
+
+    if (free.freeRemaining <= 0) {
+      return {
+        code: 'premium_required',
+        name: 'Premium не подключён',
+        description: 'Пробники, пересдача и работа над ошибками открываются в Premium',
+        tier: 'free',
+        sourceType: 'none',
+        startsAt: null,
+        expiresAt: null,
+        isActive: false,
+        isPaid: false,
+        examSlug: 'ent',
+        totalAttemptsLimit: free.freeLimit,
+        dailyAttemptsLimit: null,
+        usedAttemptsTotal: free.freeUsed,
+        remainingAttempts: 0,
       };
     }
 
@@ -262,8 +427,10 @@ export class UsersService {
   }
 
   private fallbackTariffName(code: string) {
-    if (code === 'trial') return 'Разовый доступ';
-    if (code === 'week') return '5 пробных ЕНТ';
+    if (code === 'trial') return '1 пробный ЕНТ';
+    if (code === 'week') return '3 пробных ЕНТ';
+    if (code === 'month') return 'Месяц без лимита';
+    if (code === 'annual') return '5 пробных ЕНТ';
     if (code === 'paid') return 'Premium';
     if (code === 'admin') return 'Админ-доступ';
     return code;
@@ -271,15 +438,13 @@ export class UsersService {
 
   private subscriptionTotalAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
-    if (planType === 'week') return 5;
+    if (planType === 'week') return 3;
+    if (planType === 'annual') return 5;
     return null;
   }
 
   private subscriptionDailyAttemptsLimit(planType: string): number | null {
     if (planType === 'trial') return 1;
-    if (planType === 'week') return 5;
-    if (planType === 'month') return 5;
-    if (planType === 'annual') return 5;
     return null;
   }
 
@@ -299,10 +464,19 @@ export class UsersService {
       updateData.avatarUrl = this.normalizeAvatarUrl(data.avatarUrl);
     }
     if (Object.keys(updateData).length > 0) {
+      const previous = 'avatarUrl' in updateData
+        ? await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { avatarUrl: true },
+          })
+        : null;
       await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
       });
+      if ('avatarUrl' in updateData && previous?.avatarUrl !== updateData.avatarUrl) {
+        this.deleteLocalAvatar(previous?.avatarUrl);
+      }
     }
     if (data.timezone) {
       await this.accessService.updateUserTimezone(userId, data.timezone);
@@ -326,19 +500,52 @@ export class UsersService {
     return trimmed;
   }
 
+  private deleteLocalAvatar(avatarUrl: string | null | undefined) {
+    if (!avatarUrl || !/^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(avatarUrl)) {
+      return;
+    }
+    const relative = avatarUrl.replace(/^\/uploads\//, '');
+    const uploadRoot = join(process.cwd(), 'uploads');
+    const fullPath = normalize(join(uploadRoot, relative));
+    if (!fullPath.startsWith(`${normalize(uploadRoot)}${sep}`)) return;
+    try {
+      if (existsSync(fullPath)) unlinkSync(fullPath);
+    } catch {
+      // Best-effort cleanup; profile mutations should not fail because the file vanished.
+    }
+  }
+
   async getStats(userId: string) {
     const finishedStatuses = ['completed', 'timed_out'] as const;
 
     const [finishedSessions, inProgressSessions] = await Promise.all([
       this.prisma.testSession.findMany({
         where: { userId, status: { in: [...finishedStatuses] } },
-        include: {
+        select: {
+          examTypeId: true,
+          status: true,
+          score: true,
+          rawScore: true,
+          maxScore: true,
+          totalQuestions: true,
+          correctCount: true,
+          durationSecs: true,
+          finishedAt: true,
           examType: { select: { id: true, slug: true, name: true } },
         },
       }),
       this.prisma.testSession.findMany({
         where: { userId, status: 'in_progress' },
-        include: {
+        select: {
+          examTypeId: true,
+          status: true,
+          score: true,
+          rawScore: true,
+          maxScore: true,
+          totalQuestions: true,
+          correctCount: true,
+          durationSecs: true,
+          finishedAt: true,
           examType: { select: { id: true, slug: true, name: true } },
         },
       }),
@@ -619,6 +826,52 @@ export class UsersService {
       page,
       limit,
     };
+  }
+
+  async deleteAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    });
+    await this.prisma.$transaction(async (tx) => {
+      // Delete visit events (funnel steps cascade)
+      await tx.visitEvent.deleteMany({ where: { userId } });
+
+      // Daily usage
+      await tx.userExamDailyUsage.deleteMany({ where: { userId } });
+      // Usage ledger
+      await tx.attemptUsageLedger.deleteMany({ where: { userId } });
+
+      // Test sessions
+      await tx.testSession.deleteMany({ where: { userId } });
+      // Entitlements granted by this user
+      await tx.userExamEntitlement.updateMany({
+        where: { createdBy: userId },
+        data: { createdBy: null },
+      });
+      // Entitlements for this user
+      await tx.userExamEntitlement.deleteMany({ where: { userId } });
+      // Granted subscriptions
+      await tx.subscription.updateMany({
+        where: { grantedBy: userId },
+        data: { grantedBy: null },
+      });
+      // Subscriptions
+      await tx.subscription.deleteMany({ where: { userId } });
+      // Payment orders
+      await tx.paymentOrder.deleteMany({ where: { userId } });
+      // Plan templates created by user
+      await tx.subscriptionPlanTemplate.updateMany({
+        where: { createdBy: userId },
+        data: { createdBy: null },
+      });
+      // Notification deliveries
+      await tx.notificationDelivery.deleteMany({ where: { userId } });
+
+      // Finally delete the user
+      await tx.user.delete({ where: { id: userId } });
+    }, { timeout: 30_000, maxWait: 5_000 });
+    this.deleteLocalAvatar(user?.avatarUrl);
   }
 
   private mapEntHistoryRow(s: {

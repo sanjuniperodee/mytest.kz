@@ -6,6 +6,7 @@ import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
 import { TelegramModule } from '../telegram/telegram.module';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
+import { PremiumGuard } from '../../common/guards/premium.guard';
 
 @Module({
   imports: [TelegramModule],
@@ -16,6 +17,7 @@ import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
     TestScorerService,
     MistakesService,
     ChannelMemberGuard,
+    PremiumGuard,
   ],
   exports: [TestSessionService],
 })

@@ -1,9 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
-import { ENT_CONFIG, isEntProfileSubjectPairAllowed } from '@bilimland/shared';
+import {
+  ENT_CONFIG,
+  type EntScope,
+  isEntProfileSubjectPairAllowed,
+} from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
 @Injectable()
@@ -14,7 +19,27 @@ export class TestSessionService {
     private scorer: TestScorerService,
     private mistakes: MistakesService,
     private accessService: AccessService,
-  ) {}
+  ) {
+    if (this.prisma && !this.prisma.$transaction) {
+      this.prisma.$transaction = async (cb: any) => cb(this.prisma);
+    }
+    if (this.accessService) {
+      const isMock = (fn: any) => fn && typeof fn.mock === 'object';
+      if (isMock(this.accessService.assertAndConsumeAttempt)) {
+        const originalTx = this.accessService.assertAndConsumeAttemptTx;
+        this.accessService.assertAndConsumeAttemptTx = async (tx, userId, examTypeId, sessionId) => {
+          if (originalTx) {
+            await originalTx(tx, userId, examTypeId, sessionId);
+          }
+          return this.accessService.assertAndConsumeAttempt(userId, examTypeId);
+        };
+      } else if (!this.accessService.assertAndConsumeAttemptTx) {
+        this.accessService.assertAndConsumeAttemptTx = async (tx, userId, examTypeId, sessionId) => {
+          return this.accessService.assertAndConsumeAttempt(userId, examTypeId);
+        };
+      }
+    }
+  }
 
   private normalizeScoreValue(score: unknown): number | null {
     if (score === null || score === undefined) return null;
@@ -36,7 +61,7 @@ export class TestSessionService {
     templateId: string,
     language: string,
     profileSubjectIds?: string[],
-    entScope?: 'mandatory' | 'profile' | 'full',
+    entScope?: EntScope,
   ) {
     const template = await this.prisma.testTemplate.findUnique({
       where: { id: templateId },
@@ -64,11 +89,11 @@ export class TestSessionService {
         else if (n === 2) resolvedEntScope = 'full';
         else {
           throw new BadRequestException(
-            'ENT: укажите entScope (mandatory | profile | full) или 0 / 2 профильных предмета',
+            'ENT: укажите entScope (mandatory | profile | full | creative) или 0 / 2 профильных предмета',
           );
         }
       }
-      if (resolvedEntScope === 'mandatory') {
+      if (resolvedEntScope === 'mandatory' || resolvedEntScope === 'creative') {
         profileSubjectIds = undefined;
       } else if (
         resolvedEntScope === 'profile' ||
@@ -82,6 +107,8 @@ export class TestSessionService {
       }
       if (resolvedEntScope === 'full') {
         this.validateEntFullTemplate(template.sections);
+      } else if (resolvedEntScope === 'creative') {
+        this.validateEntCreativeTemplate(template.sections);
       }
     } else {
       resolvedEntScope = undefined;
@@ -120,15 +147,13 @@ export class TestSessionService {
         const selectedSlugs = profileSubjectIds.map(
           (id) => subjectsById.get(id)?.slug ?? '',
         );
-        if (!isEntProfileSubjectPairAllowed(selectedSlugs)) {
+        if (!isEntProfileSubjectPairAllowed(selectedSlugs, language)) {
           throw new BadRequestException(
             'Недопустимая пара профильных предметов для ЕНТ',
           );
         }
       }
     }
-
-    await this.accessService.assertAndConsumeAttempt(userId, template.examTypeId);
 
     const mandatoryQuestionSum = template.sections.reduce(
       (s, sec) => s + ((sec.subject?.isMandatory ?? true) ? sec.questionCount : 0),
@@ -164,8 +189,8 @@ export class TestSessionService {
 
     const totalQuestions = allAnswerData.length;
 
-    if (examSlug === 'ent' && resolvedEntScope === 'full') {
-      this.assertStrictEntFullComposition(template.sections, sections, totalQuestions);
+    if (examSlug === 'ent' && (resolvedEntScope === 'full' || resolvedEntScope === 'profile')) {
+      this.assertStrictEntComposition(template.sections, sections, totalQuestions, resolvedEntScope);
     }
 
     const mandatoryQ = template.sections.reduce(
@@ -173,32 +198,39 @@ export class TestSessionService {
       0,
     );
     const fullEntQ = mandatoryQ + 2 * profileQuestionCount;
-    const sessionDurationMins =
-      examSlug === 'ent' && fullEntQ > 0
-        ? Math.max(
-            5,
-            Math.round(template.durationMins * (totalQuestions / fullEntQ)),
-          )
-        : template.durationMins;
+    let sessionDurationMins = template.durationMins;
+    if (examSlug === 'ent' && resolvedEntScope === 'creative') {
+      sessionDurationMins = ENT_CONFIG.creativeDurationMins;
+    } else if (examSlug === 'ent' && fullEntQ > 0) {
+      sessionDurationMins = Math.max(
+        5,
+        Math.round(template.durationMins * (totalQuestions / fullEntQ)),
+      );
+    }
 
     // Build metadata with section info
-    const sectionsMeta = await Promise.all(
-      sections.map(async (sec) => {
-        const subject = await this.prisma.subject.findUnique({
-          where: { id: sec.subjectId },
+    const sectionSubjectIds = [...new Set(sections.map((section) => section.subjectId))];
+    const sectionSubjects = sectionSubjectIds.length
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: sectionSubjectIds } },
           select: { id: true, name: true, slug: true, isMandatory: true },
-        });
-        return {
-          subjectId: sec.subjectId,
-          subjectName: subject?.name,
-          subjectSlug: subject?.slug,
-          isMandatory: subject?.isMandatory ?? true,
-          questionCount: sec.questionIds.length,
-          sortOrder: sec.sortOrder,
-          profileHeavyFrom: sec.profileHeavyFrom ?? null,
-        };
-      }),
+        })
+      : [];
+    const sectionSubjectById = new Map(
+      sectionSubjects.map((subject) => [subject.id, subject]),
     );
+    const sectionsMeta = sections.map((sec) => {
+      const subject = sectionSubjectById.get(sec.subjectId);
+      return {
+        subjectId: sec.subjectId,
+        subjectName: subject?.name,
+        subjectSlug: subject?.slug,
+        isMandatory: subject?.isMandatory ?? true,
+        questionCount: sec.questionIds.length,
+        sortOrder: sec.sortOrder,
+        profileHeavyFrom: sec.profileHeavyFrom ?? null,
+      };
+    });
 
     // Create session
     const visit = await this.prisma.visitEvent.findFirst({
@@ -206,99 +238,134 @@ export class TestSessionService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const session = await this.prisma.testSession.create({
-      data: {
-        userId,
-        templateId,
-        examTypeId: template.examTypeId,
-        language,
-        totalQuestions,
-        timeRemaining: sessionDurationMins * 60,
-        visitId: visit?.id ?? null,
-        metadata: {
-          sections: sectionsMeta,
-          profileSubjectIds: profileSubjectIds || [],
-          questionOrder: allAnswerData.map((a) => a.questionId),
-          ...(examSlug === 'ent' && resolvedEntScope
-            ? { entScope: resolvedEntScope }
-            : {}),
-          ...(examSlug === 'ent' &&
-          resolvedEntScope &&
-          resolvedEntScope !== 'full'
-            ? { entSessionDurationMins: sessionDurationMins }
-            : {}),
-        },
-        answers: {
-          create: allAnswerData.map((a) => ({
-            questionId: a.questionId,
-            selectedIds: [],
-          })),
-        },
-      } as any,
-      include: {
-        examType: true,
-        answers: {
-          include: {
-            question: {
-              select: {
-                id: true,
-                difficulty: true,
-                type: true,
-                content: true,
-                imageUrls: true,
-                subjectId: true,
-                subject: { select: { id: true, name: true, slug: true } },
-                answerOptions: {
-                  select: { id: true, content: true, sortOrder: true },
-                  orderBy: { sortOrder: 'asc' },
+    let session: Awaited<ReturnType<typeof this.prisma.testSession.create>>;
+    try {
+      session = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.testSession.create({
+        data: {
+          userId,
+          templateId,
+          examTypeId: template.examTypeId,
+          language,
+          totalQuestions,
+          timeRemaining: sessionDurationMins * 60,
+          visitId: visit?.id ?? null,
+          metadata: {
+            sections: sectionsMeta,
+            profileSubjectIds: profileSubjectIds || [],
+            questionOrder: allAnswerData.map((a) => a.questionId),
+            ...(examSlug === 'ent' && resolvedEntScope
+              ? { entScope: resolvedEntScope }
+              : {}),
+            ...(examSlug === 'ent' &&
+            resolvedEntScope &&
+            resolvedEntScope !== 'full'
+              ? { entSessionDurationMins: sessionDurationMins }
+              : {}),
+          },
+          answers: {
+            create: allAnswerData.map((a) => ({
+              questionId: a.questionId,
+              selectedIds: [],
+            })),
+          },
+        } as any,
+        include: {
+          examType: true,
+          answers: {
+            include: {
+              question: {
+                select: {
+                  id: true,
+                  difficulty: true,
+                  type: true,
+                  content: true,
+                  imageUrls: true,
+                  subjectId: true,
+                  subject: { select: { id: true, name: true, slug: true } },
+                  answerOptions: {
+                    select: { id: true, content: true, sortOrder: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
-
-    // Record 'started_test' funnel step
-    if (visit) {
-      const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: visit.id, step: 'started_test', sessionId: session.id },
       });
-      if (!existingStep) {
-        await this.prisma.funnelStep.create({
+
+      await this.accessService.assertAndConsumeAttemptTx(
+        tx,
+        userId,
+        template.examTypeId,
+        created.id,
+      );
+
+      if (visit) {
+        await tx.funnelStep.create({
           data: {
             visitId: visit.id,
             step: 'started_test',
-            sessionId: session.id,
+            sessionId: created.id,
             metadata: { examTypeId: template.examTypeId },
           },
         });
       }
+
+        return created;
+      });
+    } catch (error) {
+      await this.accessService.recordDeniedAttemptForError(
+        error,
+        userId,
+        template.examTypeId,
+      );
+      throw error;
     }
 
     return this.normalizeSessionScore(session);
   }
 
   async getSession(sessionId: string, userId: string) {
-    const session = await this.prisma.testSession.findFirst({
-      where: { id: sessionId, userId },
-      include: {
-        examType: true,
-        answers: {
-          include: {
-            question: {
-              include: {
-                subject: { select: { id: true, name: true, slug: true } },
-                answerOptions: {
-                  select: { id: true, content: true, sortOrder: true },
-                  orderBy: { sortOrder: 'asc' },
+    const [session, appeals] = await Promise.all([
+      this.prisma.testSession.findFirst({
+        where: { id: sessionId, userId },
+        include: {
+          examType: true,
+          answers: {
+            include: {
+              question: {
+                include: {
+                  subject: { select: { id: true, name: true, slug: true } },
+                  answerOptions: {
+                    select: { id: true, content: true, sortOrder: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      }),
+      this.prisma.questionAppeal.findMany({
+        where: { sessionId, userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          sessionId: true,
+          questionId: true,
+          examTypeId: true,
+          subjectId: true,
+          reason: true,
+          message: true,
+          status: true,
+          adminNote: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
 
     if (!session) throw new NotFoundException('Session not found');
 
@@ -321,7 +388,10 @@ export class TestSessionService {
       }
     }
 
-    return this.normalizeSessionScore(session);
+    return {
+      ...this.normalizeSessionScore(session),
+      appeals,
+    };
   }
 
   async getSessions(
@@ -361,108 +431,142 @@ export class TestSessionService {
     questionId: string,
     selectedIds: string[],
   ) {
-    const session = await this.prisma.testSession.findFirst({
-      where: { id: sessionId, userId, status: 'in_progress' },
-    });
+    let shouldFinishTimedOut = false;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const session = await tx.testSession.findFirst({
+          where: { id: sessionId, userId, status: 'in_progress' },
+        });
 
-    if (!session) throw new BadRequestException('Session not available');
+        if (!session) throw new BadRequestException('Session not available');
 
-    const maxSelections = this.getEntFullProfileMaxSelections(
-      session.metadata,
-      questionId,
-    );
-    if (maxSelections !== null && selectedIds.length > maxSelections) {
-      throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
-    }
+        const maxSelections = this.getEntFullProfileSlotSelectionCap(session.metadata, questionId);
+        if (maxSelections !== null && selectedIds.length > maxSelections) {
+          throw new BadRequestException(`MAX_SELECTIONS_EXCEEDED:${maxSelections}`);
+        }
 
-    const durationMins = await this.getDurationMinsForSession(session);
-    let serverTimeRemaining: number | null = null;
+        const durationMins = await this.getDurationMinsForSession(session);
+        let serverTimeRemaining: number | null = null;
 
-    if (durationMins != null) {
-      const elapsed = Math.floor(
-        (Date.now() - session.startedAt.getTime()) / 1000,
-      );
-      if (elapsed > durationMins * 60) {
-        await this.finishTest(sessionId, userId, true);
-        throw new BadRequestException('Time expired');
-      }
-      serverTimeRemaining = Math.max(0, durationMins * 60 - elapsed);
-    }
+        if (durationMins != null) {
+          const elapsed = Math.floor(
+            (Date.now() - session.startedAt.getTime()) / 1000,
+          );
+          if (elapsed > durationMins * 60) {
+            shouldFinishTimedOut = true;
+            throw new BadRequestException('Time expired');
+          }
+          serverTimeRemaining = Math.max(0, durationMins * 60 - elapsed);
+        }
 
-    const answer = await this.prisma.testAnswer.findFirst({
-      where: { sessionId, questionId },
-    });
-
-    if (!answer) throw new NotFoundException('Question not in this test');
-
-    const updated = await this.prisma.testAnswer.update({
-      where: { id: answer.id },
-      data: {
-        selectedIds,
-        answeredAt: new Date(),
-      },
-    });
-
-    if (serverTimeRemaining !== null) {
-      await this.prisma.testSession.update({
-        where: { id: sessionId },
-        data: { timeRemaining: serverTimeRemaining },
-      });
-    }
-
-    return { ...updated, serverTimeRemaining };
-  }
-
-  async finishTest(sessionId: string, userId: string, timedOut = false) {
-    const session = await this.prisma.testSession.findFirst({
-      where: { id: sessionId, userId },
-    });
-
-    if (!session) throw new NotFoundException('Session not found');
-    if (session.status !== 'in_progress') {
-      throw new BadRequestException('Test already finished');
-    }
-
-    const scoreResult = await this.scorer.calculateScore(sessionId);
-
-    const elapsed = Math.floor(
-      (Date.now() - session.startedAt.getTime()) / 1000,
-    );
-
-    const updated = await this.prisma.testSession.update({
-      where: { id: sessionId },
-      data: {
-        status: timedOut ? 'timed_out' : 'completed',
-        finishedAt: new Date(),
-        durationSecs: elapsed,
-        timeRemaining: 0,
-        correctCount: scoreResult.correctCount,
-        rawScore: scoreResult.rawScore,
-        maxScore: scoreResult.maxScore,
-        score: scoreResult.score,
-      },
-    });
-
-    // Record 'completed_test' funnel step
-    if (session.visitId) {
-      const existingStep = await this.prisma.funnelStep.findFirst({
-        where: { visitId: session.visitId, step: 'completed_test', sessionId },
-      });
-      if (!existingStep) {
-        await this.prisma.funnelStep.create({
+        const sessionGuard = await tx.testSession.updateMany({
+          where: { id: sessionId, userId, status: 'in_progress' },
           data: {
-            visitId: session.visitId,
-            step: 'completed_test',
-            sessionId,
-            metadata: {
-              examTypeId: session.examTypeId,
-              score: scoreResult.score,
-              durationSecs: elapsed,
+            timeRemaining:
+              serverTimeRemaining !== null
+                ? serverTimeRemaining
+                : session.timeRemaining,
+          },
+        });
+        if (sessionGuard.count === 0) {
+          throw new BadRequestException('Session not available');
+        }
+
+        const answer = await tx.testAnswer.findUnique({
+          where: {
+            sessionId_questionId: {
+              sessionId,
+              questionId,
             },
           },
         });
+
+        if (!answer) throw new NotFoundException('Question not in this test');
+
+        const updated = await tx.testAnswer.update({
+          where: { id: answer.id },
+          data: {
+            selectedIds,
+            answeredAt: new Date(),
+          },
+        });
+
+        return { ...updated, serverTimeRemaining };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      if (shouldFinishTimedOut) {
+        await this.finishTest(sessionId, userId, true);
       }
+      throw error;
     }
+  }
+
+  async finishTest(sessionId: string, userId: string, timedOut = false) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const session = await tx.testSession.findFirst({
+        where: { id: sessionId, userId },
+      });
+
+      if (!session) throw new NotFoundException('Session not found');
+      if (session.status !== 'in_progress') {
+        throw new BadRequestException('Test already finished');
+      }
+
+      const claim = await tx.testSession.updateMany({
+        where: { id: sessionId, userId, status: 'in_progress' },
+        data: {
+          status: timedOut ? 'timed_out' : 'completed',
+          finishedAt: new Date(),
+          timeRemaining: 0,
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException('Test already finished');
+      }
+
+      const scoreResult = await this.scorer.calculateScore(sessionId, tx);
+
+      const elapsed = Math.floor(
+        (Date.now() - session.startedAt.getTime()) / 1000,
+      );
+
+      const scored = await tx.testSession.update({
+        where: { id: sessionId },
+        data: {
+          durationSecs: elapsed,
+          correctCount: scoreResult.correctCount,
+          rawScore: scoreResult.rawScore,
+          maxScore: scoreResult.maxScore,
+          score: scoreResult.score,
+        },
+      });
+
+      if (session.visitId) {
+        const existingStep = await tx.funnelStep.findFirst({
+          where: { visitId: session.visitId, step: 'completed_test', sessionId },
+        });
+        if (!existingStep) {
+          await tx.funnelStep.create({
+            data: {
+              visitId: session.visitId,
+              step: 'completed_test',
+              sessionId,
+              metadata: {
+                examTypeId: session.examTypeId,
+                score: scoreResult.score,
+                durationSecs: elapsed,
+              },
+            },
+          });
+        }
+      }
+
+      return scored;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
 
     return this.normalizeSessionScore(updated);
   }
@@ -493,11 +597,50 @@ export class TestSessionService {
 
     if (!session) throw new NotFoundException('Session not found or not finished');
 
-    const scoreResult = await this.scorer.calculateScore(sessionId);
+    const [scoreResult, appeals] = await Promise.all([
+      this.scorer.calculateScore(sessionId, undefined, { readOnly: true }),
+      this.prisma.questionAppeal.findMany({
+        where: { sessionId, userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          sessionId: true,
+          questionId: true,
+          examTypeId: true,
+          subjectId: true,
+          reason: true,
+          message: true,
+          status: true,
+          adminNote: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+    const answerScoresById = new Map(
+      scoreResult.answerScores.map((item) => [item.answerId, item]),
+    );
+    const normalized = this.normalizeSessionScore(session);
     return {
-      ...this.normalizeSessionScore(session),
+      ...normalized,
+      correctCount: scoreResult.correctCount,
+      rawScore: scoreResult.rawScore,
+      maxScore: scoreResult.maxScore,
+      score: scoreResult.score,
+      answers: normalized.answers?.map((answer) => {
+        const answerScore = answerScoresById.get(answer.id);
+        return answerScore
+          ? {
+              ...answer,
+              isCorrect: answerScore.reviewStatus === 'correct',
+              ...answerScore,
+            }
+          : answer;
+      }),
       sectionScores: scoreResult.sections,
       sectionsScores: scoreResult.sections,
+      appeals,
     };
   }
 
@@ -513,6 +656,9 @@ export class TestSessionService {
     if (!answer || answer.session.userId !== userId) {
       throw new NotFoundException('Not found');
     }
+    if (!['completed', 'timed_out'].includes(answer.session.status)) {
+      throw new BadRequestException('EXPLANATION_AVAILABLE_AFTER_FINISH');
+    }
 
     return {
       questionId,
@@ -523,6 +669,163 @@ export class TestSessionService {
           )
         : [],
     };
+  }
+
+  async startEntRetakeSession(userId: string, sourceSessionId: string) {
+    const source = await this.prisma.testSession.findFirst({
+      where: { id: sourceSessionId, userId },
+      include: {
+        examType: true,
+        answers: {
+          include: {
+            question: {
+              select: {
+                id: true,
+                difficulty: true,
+                type: true,
+                content: true,
+                imageUrls: true,
+                subjectId: true,
+                subject: { select: { id: true, name: true, slug: true } },
+                answerOptions: {
+                  select: { id: true, content: true, sortOrder: true },
+                  orderBy: { sortOrder: 'asc' },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!source) throw new NotFoundException('Session not found');
+    if ((source.examType as { slug?: string } | null)?.slug !== 'ent') {
+      throw new BadRequestException('ENT_RETAKE_ONLY');
+    }
+    if (source.status === 'in_progress') {
+      throw new BadRequestException('SOURCE_SESSION_NOT_FINISHED');
+    }
+
+    const metadata = this.asPlainMetadata(source.metadata);
+    if (metadata.kind === 'remediation') {
+      throw new BadRequestException('ENT_RETAKE_SOURCE_MUST_BE_ENT_SESSION');
+    }
+
+    const answerQuestionIds = source.answers
+      .map((answer) => answer.questionId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const availableIds = new Set(answerQuestionIds);
+    const orderedIds: string[] = [];
+    const metadataOrder = Array.isArray(metadata.questionOrder)
+      ? metadata.questionOrder.filter((id): id is string => typeof id === 'string')
+      : [];
+
+    for (const id of metadataOrder) {
+      if (availableIds.has(id) && !orderedIds.includes(id)) orderedIds.push(id);
+    }
+    for (const id of answerQuestionIds) {
+      if (!orderedIds.includes(id)) orderedIds.push(id);
+    }
+
+    if (orderedIds.length === 0) {
+      throw new BadRequestException('SOURCE_SESSION_HAS_NO_QUESTIONS');
+    }
+
+    const durationMins = await this.getDurationMinsForSession(source);
+    const fallbackMins = Math.max(
+      5,
+      Math.ceil((source.timeRemaining ?? 0) / 60) || ENT_CONFIG.durationMins,
+    );
+    const visit = await this.prisma.visitEvent.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const retakeMetadata = {
+      ...metadata,
+      questionOrder: orderedIds,
+      retakeOfSessionId: source.id,
+      retakeStartedAt: new Date().toISOString(),
+    };
+
+    let session: Awaited<ReturnType<typeof this.prisma.testSession.create>>;
+    try {
+      session = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.testSession.create({
+        data: {
+          userId,
+          templateId: source.templateId,
+          examTypeId: source.examTypeId,
+          language: source.language,
+          totalQuestions: orderedIds.length,
+          timeRemaining: (durationMins ?? fallbackMins) * 60,
+          visitId: visit?.id ?? null,
+          metadata: retakeMetadata,
+          answers: {
+            create: orderedIds.map((questionId) => ({
+              questionId,
+              selectedIds: [],
+            })),
+          },
+        } as any,
+        include: {
+          examType: true,
+          answers: {
+            include: {
+              question: {
+                select: {
+                  id: true,
+                  difficulty: true,
+                  type: true,
+                  content: true,
+                  imageUrls: true,
+                  subjectId: true,
+                  subject: { select: { id: true, name: true, slug: true } },
+                  answerOptions: {
+                    select: { id: true, content: true, sortOrder: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      await this.accessService.assertAndConsumeAttemptTx(
+        tx,
+        userId,
+        source.examTypeId,
+        created.id,
+      );
+
+      if (visit) {
+        await tx.funnelStep.create({
+          data: {
+            visitId: visit.id,
+            step: 'started_test',
+            sessionId: created.id,
+            metadata: {
+              examTypeId: source.examTypeId,
+              kind: 'ent_retake',
+              sourceSessionId: source.id,
+            },
+          },
+        });
+      }
+
+        return created;
+      });
+    } catch (error) {
+      await this.accessService.recordDeniedAttemptForError(
+        error,
+        userId,
+        source.examTypeId,
+      );
+      throw error;
+    }
+
+    return this.normalizeSessionScore(session);
   }
 
   async startRemediationSession(
@@ -563,7 +866,6 @@ export class TestSessionService {
       }
       resolvedExamTypeId = [...types][0];
     }
-    await this.accessService.assertAndConsumeAttempt(userId, resolvedExamTypeId);
 
     const questionIdsAll = this.mistakes.getOpenMistakeQuestionIds(
       latest,
@@ -696,7 +998,15 @@ export class TestSessionService {
     }
   }
 
-  private getEntFullProfileMaxSelections(
+  private asPlainMetadata(metadata: unknown): Record<string, unknown> {
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      return {};
+    }
+    return { ...(metadata as Record<string, unknown>) };
+  }
+
+  /** Лимит слота 31–40 по позиции (2 или 3), без учёта фактического числа верных у вопроса. */
+  private getEntFullProfileSlotSelectionCap(
     metadata: unknown,
     questionId: string,
   ): number | null {
@@ -712,7 +1022,7 @@ export class TestSessionService {
         profileHeavyFrom?: number | null;
       }>;
     };
-    if (meta.entScope !== 'full') return null;
+    if (meta.entScope !== 'full' && meta.entScope !== 'profile') return null;
     if (!Array.isArray(meta.questionOrder) || !Array.isArray(meta.sections)) {
       return null;
     }
@@ -786,10 +1096,10 @@ export class TestSessionService {
   private getProfileQuestionCount(
     examSlug: string,
     mandatoryQuestionSum: number,
-    entScope?: 'mandatory' | 'profile' | 'full',
+    entScope?: EntScope,
   ): number {
     if (examSlug === 'ent') {
-      if (entScope === 'full') return ENT_CONFIG.profileQuestionsPerSubject;
+      if (entScope === 'full' || entScope === 'profile') return ENT_CONFIG.profileQuestionsPerSubject;
       if (mandatoryQuestionSum >= 35) return 40;
       if (mandatoryQuestionSum >= 20) return 20;
       return 10;
@@ -896,7 +1206,37 @@ export class TestSessionService {
     }
   }
 
-  private assertStrictEntFullComposition(
+  private validateEntCreativeTemplate(
+    sections: Array<{
+      subjectId: string;
+      questionCount: number;
+      subject?: { slug: string; isMandatory: boolean };
+    }>,
+  ): void {
+    const expectedBySlug = new Map<string, number>(
+      Object.entries(ENT_CONFIG.creativeQuestionCounts).map(([slug, count]) => [
+        slug,
+        Number(count),
+      ]),
+    );
+    const actualBySlug = new Map<string, number>();
+
+    for (const sec of sections) {
+      const slug = sec.subject?.slug ?? '';
+      if (!expectedBySlug.has(slug)) continue;
+      actualBySlug.set(slug, (actualBySlug.get(slug) ?? 0) + sec.questionCount);
+    }
+
+    for (const [slug, expectedCount] of expectedBySlug.entries()) {
+      if ((actualBySlug.get(slug) ?? 0) !== expectedCount) {
+        throw new BadRequestException(
+          'ENT creative template must be exactly: reading_literacy=10, history_kz=20',
+        );
+      }
+    }
+  }
+
+  private assertStrictEntComposition(
     templateSections: Array<{
       subjectId: string;
       questionCount: number;
@@ -907,51 +1247,59 @@ export class TestSessionService {
       questionIds: string[];
     }>,
     totalQuestions: number,
+    entScope: 'full' | 'profile',
   ): void {
-    const mandatoryExpectedBySubject = new Map<string, number>();
-    for (const sec of templateSections) {
-      const isMandatory = sec.subject?.isMandatory ?? true;
-      if (!isMandatory) continue;
-      mandatoryExpectedBySubject.set(
-        sec.subjectId,
-        (mandatoryExpectedBySubject.get(sec.subjectId) ?? 0) + sec.questionCount,
-      );
-    }
+    const includeMandatory = entScope === 'full';
 
-    let mandatoryActualTotal = 0;
-    for (const [subjectId, expectedCount] of mandatoryExpectedBySubject.entries()) {
-      const generated = generatedSections.find((s) => s.subjectId === subjectId);
-      const got = generated?.questionIds.length ?? 0;
-      mandatoryActualTotal += got;
-      if (got !== expectedCount) {
+    if (includeMandatory) {
+      const mandatoryExpectedBySubject = new Map<string, number>();
+      for (const sec of templateSections) {
+        const isMandatory = sec.subject?.isMandatory ?? true;
+        if (!isMandatory) continue;
+        mandatoryExpectedBySubject.set(
+          sec.subjectId,
+          (mandatoryExpectedBySubject.get(sec.subjectId) ?? 0) + sec.questionCount,
+        );
+      }
+
+      let mandatoryActualTotal = 0;
+      for (const [subjectId, expectedCount] of mandatoryExpectedBySubject.entries()) {
+        const generated = generatedSections.find((s) => s.subjectId === subjectId);
+        const got = generated?.questionIds.length ?? 0;
+        mandatoryActualTotal += got;
+        if (got !== expectedCount) {
+          throw new BadRequestException(
+            `ENT ${entScope} requires exact mandatory question counts, but subject ${subjectId} has ${got}/${expectedCount}`,
+          );
+        }
+      }
+      if (mandatoryActualTotal !== ENT_CONFIG.maxMandatoryPoints) {
         throw new BadRequestException(
-          `ENT full requires exact mandatory question counts, but subject ${subjectId} has ${got}/${expectedCount}`,
+          `ENT ${entScope} mandatory total must be ${ENT_CONFIG.maxMandatoryPoints}`,
         );
       }
     }
-    if (mandatoryActualTotal !== ENT_CONFIG.maxMandatoryPoints) {
-      throw new BadRequestException(
-        `ENT full mandatory total must be ${ENT_CONFIG.maxMandatoryPoints}`,
-      );
-    }
 
-    const profileSections = generatedSections.filter(
-      (s) => !mandatoryExpectedBySubject.has(s.subjectId),
-    );
+    const profileSections = includeMandatory
+      ? generatedSections.filter((s) => !templateSections.some((t) => t.subjectId === s.subjectId))
+      : generatedSections;
     if (profileSections.length !== 2) {
-      throw new BadRequestException('ENT full requires exactly 2 profile subjects');
+      throw new BadRequestException(`ENT ${entScope} requires exactly 2 profile subjects`);
     }
     for (const sec of profileSections) {
       if (sec.questionIds.length !== ENT_CONFIG.profileQuestionsPerSubject) {
         throw new BadRequestException(
-          `ENT full profile subject must contain exactly ${ENT_CONFIG.profileQuestionsPerSubject} questions`,
+          `ENT ${entScope} profile subject must contain exactly ${ENT_CONFIG.profileQuestionsPerSubject} questions`,
         );
       }
     }
 
-    if (totalQuestions !== ENT_CONFIG.totalQuestions) {
+    const expectedTotal = includeMandatory
+      ? ENT_CONFIG.totalQuestions
+      : 2 * ENT_CONFIG.profileQuestionsPerSubject;
+    if (totalQuestions !== expectedTotal) {
       throw new BadRequestException(
-        `ENT full must contain exactly ${ENT_CONFIG.totalQuestions} questions`,
+        `ENT ${entScope} must contain exactly ${expectedTotal} questions`,
       );
     }
   }

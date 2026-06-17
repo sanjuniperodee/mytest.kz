@@ -1,11 +1,13 @@
 "use client"
 
 import useSWR from "swr"
+import { useState } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/api/auth-context"
 import { BarChart3 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 type EntHistorySession = {
   sessionId: string
@@ -21,6 +23,10 @@ type EntHistorySession = {
 
 type EntHistoryResponse = {
   sessions: EntHistorySession[]
+  chartSessions?: EntHistorySession[]
+  total?: number
+  page?: number
+  limit?: number
 }
 
 function formatDate(dateStr: string | null): string {
@@ -60,8 +66,12 @@ function CustomTooltip(props: {
 
 export default function StatsPage() {
   const { user } = useAuth()
+  const [page, setPage] = useState(1)
+  const limit = 50
 
-  const { data, isLoading } = useSWR<EntHistoryResponse>("/users/me/ent-history")
+  const { data, isLoading } = useSWR<EntHistoryResponse>(
+    `/users/me/ent-history?page=${page}&limit=${limit}`,
+  )
 
   if (isLoading) {
     return (
@@ -73,6 +83,9 @@ export default function StatsPage() {
   }
 
   const sessions = data?.sessions ?? []
+  const chartSessions = data?.chartSessions ?? sessions
+  const total = data?.total ?? sessions.length
+  const pageCount = Math.max(1, Math.ceil(total / limit))
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 p-4">
@@ -97,7 +110,7 @@ export default function StatsPage() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={sessions}
+                    data={chartSessions}
                     margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -148,7 +161,7 @@ export default function StatsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {[...sessions].reverse().map((s) => {
+                  {sessions.map((s) => {
                     const pct =
                       s.rawScore != null && s.maxScore != null && s.maxScore > 0
                         ? Math.round((s.rawScore / s.maxScore) * 100)
@@ -169,6 +182,31 @@ export default function StatsPage() {
                   })}
                 </tbody>
               </table>
+              {pageCount > 1 ? (
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Страница {page} из {pageCount}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={page <= 1}
+                    >
+                      Назад
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                      disabled={page >= pageCount}
+                    >
+                      Вперёд
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </>

@@ -16,6 +16,10 @@ export function computeEntTotalErrors(
 /**
  * Баллы за один вопрос по правилам weighted ENT.
  * При пустом ответе (ничего не отмечено) — 0 баллов даже если wMax положительный.
+ *
+ * Правила для двухбалльных задач (max === 2):
+ * - 1 правильный ответ: только точное совпадение даёт 2 балла, иначе 0.
+ * - 2+ правильных ответа: 0 ошибок → 2 балла, 1 ошибка → 1 балл, 2+ ошибок → 0 баллов.
  */
 export function earnEntQuestionPoints(
   wMax: number,
@@ -28,11 +32,17 @@ export function earnEntQuestionPoints(
   if (selectedIds.length > 0) {
     if (errors === 0) {
       earned = max;
-    } else if (errors === 1 && max === 2) {
-      earned = 1;
+    } else if (max === 2) {
+      // Двухбалльные задачи: если 1 правильный — только exact match
+      if (correctIds.length === 1) {
+        earned = 0;
+      } else if (errors === 1) {
+        earned = 1;
+      }
+      // errors >= 2 → earned = 0
     }
   }
-  return { earned, max: wMax <= 0 ? 0 : max, errors };
+  return { earned, max, errors };
 }
 
 /**
@@ -60,4 +70,45 @@ export function getEntProfileMaxSelections(opts: {
   }
   if (rel0 < ENT_CONFIG.profileTier2ACount) return ENT_CONFIG.profileTier2ACorrectCount;
   return ENT_CONFIG.profileTier2BCorrectCount;
+}
+
+/**
+ * Верхняя граница веса вопроса по структуре ответов (независимо от позиции в варианте).
+ * Нужна при доборе вопросов из банка: слот 31–40 не должен давать 2 балла за типичный 4×1.
+ */
+export function getEntProfileIntrinsicMaxPoints(
+  answerOptions: ReadonlyArray<{ isCorrect: boolean }>,
+): number {
+  const n = answerOptions.length;
+  const c = answerOptions.filter((o) => o.isCorrect).length;
+  if (
+    n === ENT_CONFIG.profileTier1OptionCount &&
+    c === ENT_CONFIG.profileTier1CorrectCount
+  ) {
+    return ENT_CONFIG.profileTier1Points;
+  }
+  if (
+    n === ENT_CONFIG.profileTier2AOptionCount &&
+    c >= 1 &&
+    c <= ENT_CONFIG.profileTier2ACorrectCount
+  ) {
+    return ENT_CONFIG.profileTier2Points;
+  }
+  if (
+    n === ENT_CONFIG.profileTier2BOptionCount &&
+    c >= 1 &&
+    c <= ENT_CONFIG.profileTier2BCorrectCount
+  ) {
+    return ENT_CONFIG.profileTier2Points;
+  }
+  if (c <= 1) return ENT_CONFIG.profileTier1Points;
+  return ENT_CONFIG.profileTier2Points;
+}
+
+/** Лимит выбора в тяжёлом слоте — всегда равен slotCap, без зажатия до числа верных ответов. */
+export function clampEntProfileHeavySlotSelections(
+  slotCap: number,
+  _answerOptions?: ReadonlyArray<{ isCorrect: boolean }>,
+): number {
+  return slotCap;
 }

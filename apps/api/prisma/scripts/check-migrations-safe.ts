@@ -29,6 +29,14 @@ function stripSqlLineComments(sql: string): string {
     .join('\n');
 }
 
+function hasReviewedDestructiveMarker(sql: string, patternName: string): boolean {
+  const escaped = patternName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    `--\\s*migration-safety-reviewed:\\s*${escaped}\\b`,
+    'i',
+  ).test(sql);
+}
+
 function main() {
   const files = listMigrationSqlFiles(MIGRATIONS_DIR);
   if (files.length === 0) {
@@ -42,6 +50,7 @@ function main() {
     const sql = stripSqlLineComments(raw);
     for (const p of DANGEROUS_PATTERNS) {
       if (p.re.test(sql)) {
+        if (hasReviewedDestructiveMarker(raw, p.name)) continue;
         violations.push({ file, pattern: p.name });
       }
     }

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 type Scalar = string | number | boolean | null | undefined;
 
@@ -32,7 +32,10 @@ export function freedomPayVerifySignature(
   const receivedSig = normalizeValue(fields.pg_sig);
   if (!receivedSig) return false;
   const expectedSig = freedomPaySign(scriptName, fields, secretKey);
-  return receivedSig === expectedSig;
+  const received = Buffer.from(receivedSig, 'hex');
+  const expected = Buffer.from(expectedSig, 'hex');
+  if (received.length !== expected.length || expected.length === 0) return false;
+  return timingSafeEqual(received, expected);
 }
 
 export function freedomPaySalt(length = 16): string {

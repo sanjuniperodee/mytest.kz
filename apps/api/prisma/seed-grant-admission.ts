@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, GrantQuotaType } from '@prisma/client';
+import Redis from 'ioredis';
 
 const JSON_PATH = path.join(__dirname, 'data', 'grant-admission', 'grant-admission-seed-data.json');
 
@@ -148,6 +149,32 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
   if (skipped > 0) {
     // eslint-disable-next-line no-console
     console.warn(`seed-grant-admission: skipped ${skipped} cutoff rows (missing program or cycle).`);
+  }
+
+  await bumpAdmissionCacheVersions(data.cycles.map((c) => c.slug));
+}
+
+async function bumpAdmissionCacheVersions(cycleSlugs: string[]) {
+  const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    connectTimeout: 1000,
+    maxRetriesPerRequest: 1,
+    lazyConnect: true,
+  });
+  redis.on('error', () => undefined);
+  try {
+    await redis.connect();
+    await Promise.all(
+      [...new Set(cycleSlugs)].map((slug) => redis.incr(`admission-cache-version:${slug}`)),
+    );
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `seed-grant-admission: could not invalidate Redis admission cache: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  } finally {
+    redis.disconnect();
   }
 }
 

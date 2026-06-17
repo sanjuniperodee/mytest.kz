@@ -13,6 +13,6 @@ export class StartTestDto {
   profileSubjectIds?: string[];
 
   @IsOptional()
-  @IsEnum(['mandatory', 'profile', 'full'])
-  entScope?: 'mandatory' | 'profile' | 'full';
+  @IsEnum(['mandatory', 'profile', 'full', 'creative'])
+  entScope?: 'mandatory' | 'profile' | 'full' | 'creative';
 }

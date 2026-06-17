@@ -1070,7 +1070,9 @@ export function QuestionsPage() {
                 const params = new URLSearchParams();
                 if (examTypeId) params.set('examTypeId', examTypeId);
                 if (subjectId) params.set('subjectId', subjectId);
-                if (contentLocale) params.set('contentLocale', contentLocale);
+                if (localeFilter === 'kk' || localeFilter === 'ru') {
+                  params.set('contentLocale', localeFilter);
+                }
                 const query = params.toString() ? `?${params.toString()}` : '';
                 window.open(`/admin/questions/export${query}`, '_blank');
               }}

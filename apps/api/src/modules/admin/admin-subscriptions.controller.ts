@@ -12,7 +12,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AdminService } from './admin.service';
+import { AdminSubscriptionService } from './services/admin-subscription.service';
+import { AdminPlanTemplateService } from './services/admin-plan-template.service';
 import {
   EntitlementSourceType,
   EntitlementStatus,
@@ -22,7 +23,10 @@ import {
 @Controller('admin/subscriptions')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class AdminSubscriptionsController {
-  constructor(private adminService: AdminService) {}
+  constructor(
+    private subscriptionService: AdminSubscriptionService,
+    private planTemplateService: AdminPlanTemplateService,
+  ) {}
 
   @Post()
   async grantSubscription(
@@ -36,7 +40,7 @@ export class AdminSubscriptionsController {
       paymentNote?: string;
     },
   ) {
-    return this.adminService.grantSubscription(adminId, data);
+    return this.subscriptionService.grantSubscription(adminId, data);
   }
 
   @Post('apply-plan-template')
@@ -51,17 +55,20 @@ export class AdminSubscriptionsController {
       paymentNote?: string | null;
     },
   ) {
-    return this.adminService.applyPlanTemplateToUser(adminId, data);
+    return this.planTemplateService.applyPlanTemplateToUser(adminId, data);
   }
 
   @Delete(':id')
-  async revokeSubscription(@Param('id') id: string) {
-    return this.adminService.revokeSubscription(id);
+  async revokeSubscription(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+  ) {
+    return this.subscriptionService.revokeSubscription(adminId, id);
   }
 
   @Get('plan-templates')
   async listPlanTemplates() {
-    return this.adminService.listPlanTemplates();
+    return this.planTemplateService.listPlanTemplates();
   }
 
   @Post('plan-templates')
@@ -87,11 +94,12 @@ export class AdminSubscriptionsController {
       }>;
     },
   ) {
-    return this.adminService.createPlanTemplate(adminId, data);
+    return this.planTemplateService.createPlanTemplate(adminId, data);
   }
 
   @Patch('plan-templates/:id')
   async updatePlanTemplate(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     data: {
@@ -113,12 +121,12 @@ export class AdminSubscriptionsController {
       }>;
     },
   ) {
-    return this.adminService.updatePlanTemplate(id, data);
+    return this.planTemplateService.updatePlanTemplate(adminId, id, data);
   }
 
   @Get('users/:userId/entitlements')
   async listUserEntitlements(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.adminService.listUserEntitlements(userId);
+    return this.subscriptionService.listUserEntitlements(userId);
   }
 
   @Post('entitlements')
@@ -143,11 +151,12 @@ export class AdminSubscriptionsController {
       metadata?: unknown;
     },
   ) {
-    return this.adminService.grantEntitlement(adminId, data);
+    return this.subscriptionService.grantEntitlement(adminId, data);
   }
 
   @Patch('entitlements/:id')
   async updateEntitlement(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     data: {
@@ -162,7 +171,7 @@ export class AdminSubscriptionsController {
       metadata?: unknown;
     },
   ) {
-    return this.adminService.updateEntitlement(id, data);
+    return this.subscriptionService.updateEntitlement(adminId, id, data);
   }
 
   @Post('entitlements/:id/adjust-attempts')
@@ -171,6 +180,6 @@ export class AdminSubscriptionsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() data: { delta: number; reasonCode?: string },
   ) {
-    return this.adminService.adjustEntitlementAttempts(adminId, id, data);
+    return this.subscriptionService.adjustEntitlementAttempts(adminId, id, data);
   }
 }

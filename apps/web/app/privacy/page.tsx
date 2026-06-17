@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { LegalShell } from "@/components/legal/legal-shell"
-import { MarkdownIshDocument } from "@/components/legal/markdown-ish-document"
-import { buildPrivacyMarkdown } from "@/lib/legal-content"
+import { LocalizedLegalDocument } from "@/components/legal/localized-legal-document"
 import { getSiteUrl } from "@/lib/site"
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,7 +22,7 @@ export default function PrivacyPage() {
   const siteUrl = getSiteUrl()
   return (
     <LegalShell title="Политика конфиденциальности">
-      <MarkdownIshDocument source={buildPrivacyMarkdown(siteUrl)} />
+      <LocalizedLegalDocument kind="privacy" siteUrl={siteUrl} />
     </LegalShell>
   )
 }

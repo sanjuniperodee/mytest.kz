@@ -26,6 +26,29 @@ function nameJson(dto: NameI18nDto): Prisma.InputJsonValue {
 export class AdminExamsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async assertTemplateSectionSubjects(
+    tx: Prisma.TransactionClient,
+    examTypeId: string,
+    sections: Array<{ subjectId: string }>,
+  ) {
+    const subjectIds = [...new Set(sections.map((section) => section.subjectId))];
+    if (subjectIds.length !== sections.length) {
+      throw new BadRequestException('Template sections must use unique subjects');
+    }
+    const subjects = await tx.subject.findMany({
+      where: { id: { in: subjectIds } },
+      select: { id: true, examTypeId: true },
+    });
+    const byId = new Map(subjects.map((subject) => [subject.id, subject]));
+    for (const subjectId of subjectIds) {
+      const subject = byId.get(subjectId);
+      if (!subject) throw new BadRequestException(`Subject not found: ${subjectId}`);
+      if (subject.examTypeId !== examTypeId) {
+        throw new BadRequestException('Template section subject belongs to another exam type');
+      }
+    }
+  }
+
   async getCatalog(includeInactive: boolean) {
     return this.prisma.examType.findMany({
       where: includeInactive ? {} : { isActive: true },
@@ -183,6 +206,7 @@ export class AdminExamsService {
   async createTemplate(examTypeId: string, dto: CreateTestTemplateDto) {
     await this.ensureExamType(examTypeId);
     return this.prisma.$transaction(async (tx) => {
+      await this.assertTemplateSectionSubjects(tx, examTypeId, dto.sections);
       const tpl = await tx.testTemplate.create({
         data: {
           examTypeId,
@@ -191,10 +215,8 @@ export class AdminExamsService {
           isActive: dto.isActive ?? true,
         },
       });
-      for (let i = 0; i < dto.sections.length; i++) {
-        const s = dto.sections[i];
-        await tx.testTemplateSection.create({
-          data: {
+      await tx.testTemplateSection.createMany({
+        data: dto.sections.map((s, i) => ({
             templateId: tpl.id,
             subjectId: s.subjectId,
             questionCount: s.questionCount,
@@ -204,9 +226,8 @@ export class AdminExamsService {
               s.profileHeavyFrom !== undefined && s.profileHeavyFrom !== null
                 ? s.profileHeavyFrom
                 : null,
-          },
-        });
-      }
+        })),
+      });
       return tx.testTemplate.findUnique({
         where: { id: tpl.id },
         include: {
@@ -232,13 +253,16 @@ export class AdminExamsService {
   }
 
   async replaceTemplateSections(templateId: string, dto: ReplaceTemplateSectionsDto) {
-    await this.ensureTemplate(templateId);
     await this.prisma.$transaction(async (tx) => {
+      const template = await tx.testTemplate.findUnique({
+        where: { id: templateId },
+        select: { id: true, examTypeId: true },
+      });
+      if (!template) throw new NotFoundException('Template not found');
+      await this.assertTemplateSectionSubjects(tx, template.examTypeId, dto.sections);
       await tx.testTemplateSection.deleteMany({ where: { templateId } });
-      for (let i = 0; i < dto.sections.length; i++) {
-        const s = dto.sections[i];
-        await tx.testTemplateSection.create({
-          data: {
+      await tx.testTemplateSection.createMany({
+        data: dto.sections.map((s, i) => ({
             templateId,
             subjectId: s.subjectId,
             questionCount: s.questionCount,
@@ -248,9 +272,8 @@ export class AdminExamsService {
               s.profileHeavyFrom !== undefined && s.profileHeavyFrom !== null
                 ? s.profileHeavyFrom
                 : null,
-          },
-        });
-      }
+        })),
+      });
     });
     return this.prisma.testTemplate.findUnique({
       where: { id: templateId },

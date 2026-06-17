@@ -168,13 +168,14 @@ function entProfileMaxSelections(
   session: TestSession,
   section: SessionMetadataSection | null,
   indexInSection: number,
+  answerOptions: AnswerOption[],
 ): number | null {
   if (session.metadata?.entScope !== "full") return null
   if (section?.isMandatory !== false) return null
   const from = section.profileHeavyFrom ?? 31
   const rel0 = indexInSection + 1 - from
   if (rel0 < 0 || rel0 >= 10) return null
-  return rel0 < 5 ? 2 : 3
+  return 3
 }
 
 export function flattenSessionQuestions(
@@ -200,7 +201,7 @@ export function flattenSessionQuestions(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
     )
 
-    const maxSelections = entProfileMaxSelections(session, section, indexInSection)
+    const maxSelections = entProfileMaxSelections(session, section, indexInSection, options)
 
     return {
       id: question.id,

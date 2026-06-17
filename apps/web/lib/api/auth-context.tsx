@@ -1,11 +1,13 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { api } from "./client"
+import { useSWRConfig } from "swr"
+import { ApiError, api, invalidateAuthScope, refreshAuthSession } from "./client"
 import {
   Scope,
   clearTokens,
   getAccessToken,
+  getRefreshToken,
   setTokens,
 } from "./storage"
 import { prepareTelegramWebApp, waitForTelegramInitData } from "@/lib/telegram-webapp"
@@ -32,10 +34,21 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setLoading] = useState(true)
+  const { mutate } = useSWRConfig()
+
+  const clearUserCache = useCallback(() => {
+    void mutate(() => true, undefined, { revalidate: false })
+  }, [mutate])
 
   const loadCurrentUser = useCallback(async (): Promise<User | null> => {
-    const token = getAccessToken(scope)
-    if (!token) {
+    if (!getAccessToken(scope)) {
+      const hydrated = await refreshAuthSession(scope)
+      if (!hydrated) {
+        setUser(null)
+        return null
+      }
+    }
+    if (!getAccessToken(scope)) {
       setUser(null)
       return null
     }
@@ -43,12 +56,16 @@ export function AuthProvider({
       const me = await api<User>("/users/me", { scope })
       setUser(me)
       return me
-    } catch {
-      clearTokens(scope)
-      setUser(null)
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        invalidateAuthScope(scope)
+        clearTokens(scope)
+        clearUserCache()
+        setUser(null)
+      }
       return null
     }
-  }, [scope])
+  }, [clearUserCache, scope])
 
   useEffect(() => {
     let cancelled = false
@@ -89,18 +106,28 @@ export function AuthProvider({
 
   const setSession = useCallback(
     (data: AuthResponse) => {
+      invalidateAuthScope(scope)
+      clearUserCache()
       setTokens(scope, data)
       setUser(data.user)
       setLoading(false)
     },
-    [scope],
+    [clearUserCache, scope],
   )
 
   const signOut = useCallback(() => {
+    const refreshToken = getRefreshToken(scope)
+    void api("/auth/logout", {
+      method: "POST",
+      auth: false,
+      body: refreshToken ? { refreshToken } : {},
+    }).catch(() => null)
+    invalidateAuthScope(scope)
     clearTokens(scope)
+    clearUserCache()
     setUser(null)
     setLoading(false)
-  }, [scope])
+  }, [clearUserCache, scope])
 
   const refresh = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true)

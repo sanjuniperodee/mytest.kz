@@ -8,15 +8,15 @@ export default defineConfig({
   reporter: 'list',
   use: {
     ...devices['Desktop Chrome'],
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
   },
   webServer: process.env.PW_NO_WEB_SERVER
     ? undefined
     : {
-        command: 'npx vite --host 127.0.0.1 --port 5173',
+        command: 'npm run dev -- --hostname 127.0.0.1 --port 3000',
         cwd: './apps/web',
-        url: 'http://127.0.0.1:5173',
+        url: 'http://127.0.0.1:3000',
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
       },

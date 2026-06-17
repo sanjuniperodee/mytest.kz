@@ -1,7 +1,23 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EntitlementStatus, EntitlementTier } from '@prisma/client';
+import { EntitlementStatus, EntitlementTier, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { AccessService } from '../../subscriptions/access.service';
+
+function localizedLabel(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.ru === 'string' && obj.ru.trim()) return obj.ru;
+    if (typeof obj.kk === 'string' && obj.kk.trim()) return obj.kk;
+    if (typeof obj.en === 'string' && obj.en.trim()) return obj.en;
+  }
+  return '—';
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
 
 @Injectable()
 export class AdminUserService {
@@ -10,8 +26,36 @@ export class AdminUserService {
     private accessService: AccessService,
   ) {}
 
-  async getUsers(search?: string, page = 1, limit = 20) {
+  private presentAdminUser<T extends {
+    telegramId: bigint | number | null;
+    entitlements?: Array<{ tier: EntitlementTier; status?: EntitlementStatus; windowStartsAt?: Date; windowEndsAt?: Date | null }>;
+    subscriptions?: unknown;
+  }>(user: T) {
+    const now = new Date();
+    return {
+      ...user,
+      telegramId: user.telegramId ? Number(user.telegramId) : null,
+      hasActiveSubscription: Array.isArray(user.entitlements)
+        ? user.entitlements.some((e) => {
+            if (e.tier !== EntitlementTier.paid) return false;
+            if (e.status !== undefined && e.status !== EntitlementStatus.active) return false;
+            if (e.windowStartsAt && e.windowStartsAt > now) return false;
+            if (e.windowEndsAt != null && e.windowEndsAt <= now) return false;
+            return true;
+          })
+        : false,
+    };
+  }
+
+  async getUsers(
+    search?: string,
+    page = 1,
+    limit = 20,
+    options?: { compact?: boolean },
+  ) {
     const digits = search?.replace(/\D/g, '') ?? '';
+    const now = new Date();
+    const compact = options?.compact === true;
     const where = search
       ? {
           OR: [
@@ -24,10 +68,71 @@ export class AdminUserService {
         }
       : {};
 
-    let [items, total] = await Promise.all([
+    if (compact) {
+      const [items, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            telegramId: true,
+            telegramUsername: true,
+            email: true,
+            phone: true,
+            firstName: true,
+            lastName: true,
+            preferredLanguage: true,
+            isChannelMember: true,
+            isAdmin: true,
+            createdAt: true,
+            subscriptions: {
+              where: {
+                isActive: true,
+                expiresAt: { gt: now },
+              },
+              select: { id: true },
+              take: 1,
+            },
+          },
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.user.count({ where }),
+      ]);
+
+      return {
+        items: items.map(({ subscriptions, ...u }) => ({
+          ...u,
+          telegramId: u.telegramId ? Number(u.telegramId) : null,
+          hasActiveSubscription: subscriptions.length > 0,
+        })),
+        total,
+        page,
+        limit,
+      };
+    }
+
+    const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          telegramId: true,
+          telegramUsername: true,
+          email: true,
+          phone: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          preferredLanguage: true,
+          isChannelMember: true,
+          channelCheckedAt: true,
+          timezone: true,
+          timezoneChangedAt: true,
+          entTrialUsed: true,
+          isAdmin: true,
+          createdAt: true,
+          updatedAt: true,
           subscriptions: {
             where: { isActive: true },
             orderBy: { expiresAt: 'desc' },
@@ -35,8 +140,8 @@ export class AdminUserService {
           entitlements: {
             where: {
               status: EntitlementStatus.active,
-              windowStartsAt: { lte: new Date() },
-              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: new Date() } }],
+              windowStartsAt: { lte: now },
+              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: now } }],
             },
             orderBy: { updatedAt: 'desc' },
             take: 20,
@@ -49,36 +154,9 @@ export class AdminUserService {
       this.prisma.user.count({ where }),
     ]);
 
-    await Promise.all(items.map((u) => this.accessService.ensureSignupEntitlementsForUser(u.id)));
-
-    if (items.length > 0) {
-      const refreshed = await this.prisma.user.findMany({
-        where: { id: { in: items.map((u) => u.id) } },
-        include: {
-          subscriptions: {
-            where: { isActive: true },
-            orderBy: { expiresAt: 'desc' },
-          },
-          entitlements: {
-            where: {
-              status: EntitlementStatus.active,
-              windowStartsAt: { lte: new Date() },
-              OR: [{ windowEndsAt: null }, { windowEndsAt: { gt: new Date() } }],
-            },
-            orderBy: { updatedAt: 'desc' },
-            take: 20,
-          },
-        },
-      });
-      const byId = new Map(refreshed.map((u) => [u.id, u]));
-      items = items.map((u) => byId.get(u.id) ?? u);
-    }
-
     return {
       items: items.map((u) => ({
-        ...u,
-        telegramId: u.telegramId ? Number(u.telegramId) : null,
-        hasActiveSubscription: u.entitlements.some((e) => e.tier === EntitlementTier.paid),
+        ...this.presentAdminUser(u),
       })),
       total,
       page,
@@ -86,8 +164,69 @@ export class AdminUserService {
     };
   }
 
-  async updateUser(id: string, data: { isAdmin?: boolean }) {
-    return this.prisma.user.update({ where: { id }, data });
+  async updateUser(adminId: string, id: string, data: { isAdmin?: boolean }) {
+    const keys = Object.keys(data ?? {});
+    if (keys.some((key) => key !== 'isAdmin')) {
+      throw new BadRequestException('UNKNOWN_USER_UPDATE_FIELD');
+    }
+    if (typeof data.isAdmin !== 'boolean') {
+      throw new BadRequestException('NO_USER_UPDATE_FIELDS');
+    }
+
+    const target = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, isAdmin: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
+    if (adminId === id && data.isAdmin === false) {
+      throw new BadRequestException('Cannot remove your own admin role');
+    }
+    if (target.isAdmin && data.isAdmin === false) {
+      const adminCount = await this.prisma.user.count({ where: { isAdmin: true } });
+      if (adminCount <= 1) {
+        throw new BadRequestException('Cannot remove the last admin');
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { isAdmin: data.isAdmin },
+      select: {
+        id: true,
+        telegramId: true,
+        telegramUsername: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        preferredLanguage: true,
+        isChannelMember: true,
+        channelCheckedAt: true,
+        timezone: true,
+        timezoneChangedAt: true,
+        entTrialUsed: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    await this.prisma.adminAudit.create({
+      data: {
+        actorUserId: adminId,
+        targetType: 'user',
+        targetId: id,
+        action: 'update_role',
+        before: { isAdmin: target.isAdmin },
+        after: { isAdmin: updated.isAdmin },
+      },
+    });
+
+    return {
+      ...updated,
+      telegramId: updated.telegramId ? Number(updated.telegramId) : null,
+    };
   }
 
   async deleteUser(adminId: string, id: string) {
@@ -110,28 +249,6 @@ export class AdminUserService {
     if (!user) throw new NotFoundException('User not found');
 
     const deleted = await this.prisma.$transaction(async (tx) => {
-      const sessionIds = (
-        await tx.testSession.findMany({
-          where: { userId: id },
-          select: { id: true },
-        })
-      ).map((s) => s.id);
-
-      if (sessionIds.length > 0) {
-        await tx.funnelStep.updateMany({
-          where: { sessionId: { in: sessionIds } },
-          data: { sessionId: null },
-        });
-        await tx.attemptUsageLedger.updateMany({
-          where: { sessionId: { in: sessionIds } },
-          data: { sessionId: null },
-        });
-        await tx.testAnswer.deleteMany({
-          where: { sessionId: { in: sessionIds } },
-        });
-        await tx.testSession.deleteMany({ where: { id: { in: sessionIds } } });
-      }
-
       await tx.visitEvent.updateMany({
         where: { userId: id },
         data: { userId: null },
@@ -155,13 +272,33 @@ export class AdminUserService {
         usageLedger,
         entitlements,
         subscriptions,
+        testSessions
       ] = await Promise.all([
         tx.paymentOrder.deleteMany({ where: { userId: id } }),
         tx.userExamDailyUsage.deleteMany({ where: { userId: id } }),
         tx.attemptUsageLedger.deleteMany({ where: { userId: id } }),
         tx.userExamEntitlement.deleteMany({ where: { userId: id } }),
         tx.subscription.deleteMany({ where: { userId: id } }),
+        tx.testSession.deleteMany({ where: { userId: id } })
       ]);
+
+      await tx.adminAudit.create({
+        data: {
+          actorUserId: adminId,
+          targetType: 'user',
+          targetId: id,
+          action: 'delete_user',
+          before: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            telegramUsername: user.telegramUsername,
+            email: user.email,
+            phone: user.phone,
+          },
+          after: Prisma.DbNull,
+        },
+      });
 
       await tx.user.delete({ where: { id } });
 
@@ -171,7 +308,7 @@ export class AdminUserService {
         usageLedger: usageLedger.count,
         entitlements: entitlements.count,
         subscriptions: subscriptions.count,
-        testSessions: sessionIds.length,
+        testSessions: testSessions.count,
       };
     });
 
@@ -188,7 +325,24 @@ export class AdminUserService {
   async getUserDetail(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        telegramId: true,
+        telegramUsername: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        preferredLanguage: true,
+        isChannelMember: true,
+        channelCheckedAt: true,
+        timezone: true,
+        timezoneChangedAt: true,
+        entTrialUsed: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
         subscriptions: {
           orderBy: { createdAt: 'desc' },
         },
@@ -207,23 +361,7 @@ export class AdminUserService {
 
     await this.accessService.ensureSignupEntitlementsForUser(id);
 
-    const userWithEntitlements = await this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        subscriptions: {
-          orderBy: { createdAt: 'desc' },
-        },
-        entitlements: {
-          include: {
-            examType: { select: { id: true, slug: true, name: true } },
-            planTemplate: { select: { id: true, code: true, name: true } },
-            subscription: { select: { id: true, planType: true, isActive: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
-    if (!userWithEntitlements) throw new NotFoundException('User not found');
+    const userWithEntitlements = user;
 
     const sessions = await this.prisma.testSession.findMany({
       where: { userId: id },
@@ -239,25 +377,41 @@ export class AdminUserService {
       orderBy: { timestamp: 'desc' },
     });
 
+    const subjectIds = new Set<string>();
+    for (const session of sessions) {
+      const meta = asRecord(session.metadata);
+      const profileSubjectIds = Array.isArray(meta.profileSubjectIds)
+        ? meta.profileSubjectIds.filter((v): v is string => typeof v === 'string')
+        : [];
+      for (const subjectId of profileSubjectIds) subjectIds.add(subjectId);
+
+      const sections = Array.isArray(meta.sections)
+        ? meta.sections.filter((v): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v))
+        : [];
+      for (const section of sections) {
+        if (typeof section.subjectId === 'string') subjectIds.add(section.subjectId);
+      }
+    }
+
+    const subjects = subjectIds.size
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: [...subjectIds] } },
+          select: { id: true, slug: true, name: true },
+        })
+      : [];
+    const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
+
     return {
       user: {
-        ...userWithEntitlements,
-        telegramId: userWithEntitlements.telegramId ? Number(userWithEntitlements.telegramId) : null,
-        hasActiveSubscription: userWithEntitlements.entitlements.some((e) => {
-          const now = new Date();
-          return (
-            e.tier === EntitlementTier.paid &&
-            e.status === EntitlementStatus.active &&
-            e.windowStartsAt <= now &&
-            (e.windowEndsAt == null || e.windowEndsAt > now)
-          );
-        }),
+        ...this.presentAdminUser(userWithEntitlements),
       },
       sessions: sessions.map((s) => ({
+        ...(this.presentSessionMeta(s.examType.slug, s.metadata, subjectMap)),
         id: s.id,
         examTypeSlug: s.examType.slug,
         examTypeName: s.examType.name,
         status: s.status,
+        language: s.language,
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
         durationSecs: s.durationSecs,
@@ -270,6 +424,82 @@ export class AdminUserService {
         step: f.step,
         createdAt: f.timestamp,
       })),
+    };
+  }
+
+  private presentSessionMeta(
+    examTypeSlug: string,
+    metadata: unknown,
+    subjectMap: Map<string, { id: string; slug: string; name: unknown }>,
+  ) {
+    const meta = asRecord(metadata);
+    const sections = Array.isArray(meta.sections)
+      ? meta.sections.filter((v): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v))
+      : [];
+    const profileSubjectIds = Array.isArray(meta.profileSubjectIds)
+      ? meta.profileSubjectIds.filter((v): v is string => typeof v === 'string')
+      : [];
+    const entScope =
+      meta.entScope === 'mandatory' ||
+      meta.entScope === 'profile' ||
+      meta.entScope === 'full' ||
+      meta.entScope === 'creative'
+        ? meta.entScope
+        : null;
+    const kind = typeof meta.kind === 'string' ? meta.kind : null;
+    const isRetake = typeof meta.retakeOfSessionId === 'string';
+
+    const allSectionSubjectIds = sections
+      .map((section) => (typeof section.subjectId === 'string' ? section.subjectId : null))
+      .filter((value): value is string => Boolean(value));
+    const mandatorySubjectIds = sections
+      .filter((section) => section.isMandatory !== false)
+      .map((section) => (typeof section.subjectId === 'string' ? section.subjectId : null))
+      .filter((value): value is string => Boolean(value));
+
+    const toNames = (ids: string[]) =>
+      [...new Set(ids)]
+        .map((id) => subjectMap.get(id))
+        .filter((value): value is { id: string; slug: string; name: unknown } => Boolean(value))
+        .map((subject) => localizedLabel(subject.name));
+
+    const profileSubjectNames = toNames(profileSubjectIds);
+    const mandatorySubjectNames = toNames(mandatorySubjectIds);
+    const sectionSubjectNames = toNames(allSectionSubjectIds);
+
+    let modeLabel = 'Обычная сессия';
+    if (kind === 'remediation') {
+      modeLabel = 'Работа над ошибками';
+    } else if (isRetake) {
+      modeLabel = 'Повторная попытка';
+    } else if (examTypeSlug === 'ent' && entScope === 'full') {
+      modeLabel = 'Полный ЕНТ';
+    } else if (examTypeSlug === 'ent' && entScope === 'profile') {
+      modeLabel = 'Только профильные';
+    } else if (examTypeSlug === 'ent' && entScope === 'mandatory') {
+      modeLabel = 'Только обязательные';
+    } else if (examTypeSlug === 'ent' && entScope === 'creative') {
+      modeLabel = 'Творческий экзамен';
+    }
+
+    const subjectSummaryParts: string[] = [];
+    if (profileSubjectNames.length > 0) {
+      subjectSummaryParts.push(`Профиль: ${profileSubjectNames.join(' + ')}`);
+    }
+    if (mandatorySubjectNames.length > 0 && entScope !== 'profile') {
+      subjectSummaryParts.push(`Обязательные: ${mandatorySubjectNames.join(', ')}`);
+    } else if (subjectSummaryParts.length === 0 && sectionSubjectNames.length > 0) {
+      subjectSummaryParts.push(sectionSubjectNames.join(', '));
+    }
+
+    return {
+      modeLabel,
+      entScope,
+      kind,
+      profileSubjectNames,
+      mandatorySubjectNames,
+      sectionSubjectNames,
+      subjectSummary: subjectSummaryParts.join(' · ') || '—',
     };
   }
 }

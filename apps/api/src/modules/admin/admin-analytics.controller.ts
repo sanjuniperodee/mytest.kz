@@ -1,37 +1,37 @@
 import { Controller, Get, Header, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
-import { AdminService } from './admin.service';
+import { AdminAnalyticsService } from './services/admin-analytics.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 
 @Controller('admin/analytics')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class AdminAnalyticsController {
   constructor(
-    private adminService: AdminService,
+    private adminAnalyticsService: AdminAnalyticsService,
     private analyticsService: AnalyticsService,
   ) {}
 
   @Get('overview')
   async getOverview() {
-    return this.adminService.getAnalyticsOverview();
+    return this.adminAnalyticsService.getAnalyticsOverview();
   }
 
   @Get('ent-trials')
   async getEntTrials() {
-    return this.adminService.getEntTrialAnalytics();
+    return this.adminAnalyticsService.getEntTrialAnalytics();
   }
 
   @Get('ent-trials/export')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="ent-trials-analytics.csv"')
   async exportEntTrials() {
-    return `\ufeff${await this.adminService.exportEntTrialAnalytics()}`;
+    return `\ufeff${await this.adminAnalyticsService.exportEntTrialAnalytics()}`;
   }
 
   @Get('ent-profile-pairs')
   async getEntProfilePairs() {
-    return this.adminService.getEntProfilePairsAnalytics();
+    return this.adminAnalyticsService.getEntProfilePairsAnalytics();
   }
 
   @Get('funnel')

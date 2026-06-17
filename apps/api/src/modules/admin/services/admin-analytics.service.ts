@@ -234,64 +234,148 @@ export class AdminAnalyticsService {
       where: { slug: 'ent' },
       select: { id: true },
     });
-    if (!ent) return { pairs: [] };
+    if (!ent) return { pairs: [], languages: [] };
 
-    const finishedStatuses = ['completed', 'timed_out'] as const;
-    const sessions = await this.prisma.testSession.findMany({
-      where: {
-        examTypeId: ent.id,
-        status: { in: [...finishedStatuses] },
-        metadata: { not: Prisma.DbNull },
-      },
-      select: {
-        metadata: true,
-        language: true,
-        rawScore: true,
-        maxScore: true,
-        score: true,
-      },
-    });
+    const pairRows = await this.prisma.$queryRaw<
+      Array<{
+        subject1Id: string;
+        subject2Id: string;
+        sessions: number | bigint;
+        avgRawScore: number | null;
+        avgScore: number | null;
+      }>
+    >`
+      WITH ent_sessions AS (
+        SELECT
+          metadata->'profileSubjectIds'->>0 AS "subject1Id",
+          metadata->'profileSubjectIds'->>1 AS "subject2Id",
+          raw_score::double precision AS "rawScore",
+          score::double precision AS "score"
+        FROM test_sessions
+        WHERE exam_type_id = ${ent.id}::uuid
+          AND status IN ('completed', 'timed_out')
+          AND metadata IS NOT NULL
+      )
+      SELECT
+        "subject1Id",
+        "subject2Id",
+        COUNT(*)::int AS "sessions",
+        AVG("rawScore") AS "avgRawScore",
+        AVG("score") AS "avgScore"
+      FROM ent_sessions
+      WHERE "subject1Id" IS NOT NULL
+        AND "subject2Id" IS NOT NULL
+      GROUP BY "subject1Id", "subject2Id"
+      ORDER BY "sessions" DESC
+    `;
 
-    const pairMap = new Map<
-      string,
-      {
-        profileSubjects: string
-        sessions: number
-        avgRawScore: number | null
-        avgScore: number | null
-      }
-    >()
+    const languageRows = await this.prisma.$queryRaw<
+      Array<{
+        subject1Id: string;
+        subject2Id: string;
+        language: string | null;
+        sessions: number | bigint;
+        avgRawScore: number | null;
+        avgScore: number | null;
+      }>
+    >`
+      WITH ent_sessions AS (
+        SELECT
+          metadata->'profileSubjectIds'->>0 AS "subject1Id",
+          metadata->'profileSubjectIds'->>1 AS "subject2Id",
+          language,
+          raw_score::double precision AS "rawScore",
+          score::double precision AS "score"
+        FROM test_sessions
+        WHERE exam_type_id = ${ent.id}::uuid
+          AND status IN ('completed', 'timed_out')
+          AND metadata IS NOT NULL
+      )
+      SELECT
+        "subject1Id",
+        "subject2Id",
+        COALESCE(language, '—') AS language,
+        COUNT(*)::int AS "sessions",
+        AVG("rawScore") AS "avgRawScore",
+        AVG("score") AS "avgScore"
+      FROM ent_sessions
+      WHERE "subject1Id" IS NOT NULL
+        AND "subject2Id" IS NOT NULL
+      GROUP BY "subject1Id", "subject2Id", COALESCE(language, '—')
+      ORDER BY "sessions" DESC
+    `;
 
-    for (const s of sessions) {
-      const meta = s.metadata as Record<string, unknown> | null
-      const profileSubjectIds = meta?.profileSubjectIds as string[] | undefined
-      if (!profileSubjectIds || !Array.isArray(profileSubjectIds) || profileSubjectIds.length < 2) continue
-      const key = profileSubjectIds.slice(0, 2).join('+')
-      const existing = pairMap.get(key)
-      if (existing) {
-        existing.sessions++
-        if (s.rawScore != null) {
-          existing.avgRawScore = ((existing.avgRawScore ?? 0) * (existing.sessions - 1) + s.rawScore) / existing.sessions
-        }
-      } else {
-        pairMap.set(key, {
-          profileSubjects: key,
-          sessions: 1,
-          avgRawScore: s.rawScore ?? null,
-          avgScore: s.score != null ? Number(s.score) : null,
-        })
-      }
+    const subjectIds = new Set<string>();
+    for (const row of pairRows) {
+      if (row.subject1Id) subjectIds.add(row.subject1Id);
+      if (row.subject2Id) subjectIds.add(row.subject2Id);
     }
 
-    const pairs = [...pairMap.entries()]
-      .map(([profileSubjects, stats]) => ({
-        profileSubjects,
-        sessions: stats.sessions,
-        avgRawScore: stats.avgRawScore,
-        avgScore: stats.avgScore,
-      }))
-      .sort((a, b) => b.sessions - a.sessions)
+    const subjects = subjectIds.size
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: [...subjectIds] } },
+          select: { id: true, slug: true, name: true },
+        })
+      : [];
+    const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
+    const byPairKey = new Map(
+      languageRows.reduce<
+        Array<
+          [
+            string,
+            Array<{
+              language: string;
+              sessions: number;
+              avgRawScore: number | null;
+              avgScore: number | null;
+            }>,
+          ]
+        >
+      >((acc, row) => {
+        const key = `${row.subject1Id}+${row.subject2Id}`;
+        const existing = acc.find(([pairKey]) => pairKey === key);
+        const nextRow = {
+          language: row.language || '—',
+          sessions: toNumber(row.sessions),
+          avgRawScore: row.avgRawScore != null ? Number(row.avgRawScore) : null,
+          avgScore: row.avgScore != null ? Number(row.avgScore) : null,
+        };
+        if (existing) {
+          existing[1].push(nextRow);
+        } else {
+          acc.push([key, [nextRow]]);
+        }
+        return acc;
+      }, []),
+    );
 
-    return { pairs }
+    const languages = [...new Set(languageRows.map((row) => row.language || '—'))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+
+    const pairs = pairRows.map((row) => {
+      const ids = [row.subject1Id, row.subject2Id];
+      const resolvedSubjects = ids.map((id) => subjectMap.get(id)).filter(Boolean);
+      const pairKey = ids.join('+');
+      const byLanguage = (byPairKey.get(pairKey) ?? []).sort((a, b) => b.sessions - a.sessions);
+      const profileSubjectNames = resolvedSubjects.map((subject) => localizedLabel(subject!.name));
+      const profileSubjectSlugs = resolvedSubjects.map((subject) => subject!.slug);
+      return {
+        pairKey,
+        profileSubjectIds: ids,
+        profileSubjectSlugs,
+        profileSubjectNames,
+        label: profileSubjectNames.join(' + ') || profileSubjectSlugs.join(' + ') || pairKey,
+        sessions: toNumber(row.sessions),
+        avgRawScore: row.avgRawScore != null ? Number(row.avgRawScore) : null,
+        avgScore: row.avgScore != null ? Number(row.avgScore) : null,
+        byLanguage,
+      };
+    });
+
+    return {
+      pairs,
+      languages,
+    };
   }
 }

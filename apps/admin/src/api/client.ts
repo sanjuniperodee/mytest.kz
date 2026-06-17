@@ -33,6 +33,16 @@ export function clearTokens() {
   localStorage.removeItem('admin_refreshToken');
 }
 
+export async function revokeCurrentSession() {
+  const refreshToken = localStorage.getItem('admin_refreshToken');
+  if (!refreshToken) return;
+  try {
+    await axios.post(`${API_BASE}/auth/logout`, { refreshToken });
+  } catch {
+    // Logout must remain local and reliable even if the API is unavailable.
+  }
+}
+
 function processQueue(error: unknown, token: string | null) {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);

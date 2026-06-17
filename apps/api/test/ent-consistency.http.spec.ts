@@ -11,6 +11,28 @@ function makeAnswerOptions(optionCount: number, correctCount: number) {
   }));
 }
 
+/**
+ * Wraps a partial Prisma mock with `$transaction` that delegates the callback
+ * back to the same mock, so transactional code paths (testSession.create,
+ * funnelStep.create, etc.) work transparently in unit tests.
+ */
+function withTransactionSupport(prismaMock: any): any {
+  (prismaMock as any).$transaction = jest.fn((cb: any) => cb(prismaMock));
+  return prismaMock;
+}
+
+/**
+ * Returns a ready-to-use AccessService mock that supports both the
+ * transaction-aware (`Tx`) variant called by the new startTest flow and the
+ * legacy standalone variant used elsewhere.
+ */
+function mockAccessService(): any {
+  return {
+    assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
+    assertAndConsumeAttemptTx: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 type EntSectionSeed = {
   subjectId: string;
   slug: string;
@@ -49,21 +71,82 @@ function buildEntFullSessionForScoring(params?: {
   for (const sec of ENT_FULL_SECTIONS) {
     const ids = makeQuestionIds(sec.subjectId, sec.questionCount);
     questionIdsBySubject.set(sec.subjectId, ids);
-    for (const qid of ids) {
+    for (let idx = 0; idx < ids.length; idx++) {
+      const qid = ids[idx];
+      const indexInSection = idx + 1;
       questionOrder.push(qid);
       const shouldBeCorrect =
         params?.allCorrect === true || (params?.correctQuestionIds?.has(qid) ?? false);
+
+      let answerOptions: Array<{ id: string; isCorrect: boolean }>;
+      let selectedIds: string[];
+      if (!sec.isMandatory) {
+        if (indexInSection <= ENT_CONFIG.profileTier1Count) {
+          answerOptions = [
+            { id: `opt-${qid}`, isCorrect: true },
+            ...Array.from({ length: ENT_CONFIG.profileTier1OptionCount - 1 }, (_, i) => ({
+              id: `wrong-${qid}-${i}`,
+              isCorrect: false,
+            })),
+          ];
+          selectedIds = shouldBeCorrect ? [answerOptions[0].id] : [];
+        } else if (indexInSection <= ENT_CONFIG.profileTier1Count + ENT_CONFIG.profileTier2ACount) {
+          answerOptions = [
+            ...Array.from({ length: ENT_CONFIG.profileTier2ACorrectCount }, (_, i) => ({
+              id: `opt-${qid}-${i}`,
+              isCorrect: true,
+            })),
+            ...Array.from(
+              {
+                length:
+                  ENT_CONFIG.profileTier2AOptionCount - ENT_CONFIG.profileTier2ACorrectCount,
+              },
+              (_, i) => ({
+                id: `wrong-${qid}-a-${i}`,
+                isCorrect: false,
+              }),
+            ),
+          ];
+          selectedIds = shouldBeCorrect
+            ? answerOptions.filter((o) => o.isCorrect).map((o) => o.id)
+            : [];
+        } else {
+          answerOptions = [
+            ...Array.from({ length: ENT_CONFIG.profileTier2BCorrectCount }, (_, i) => ({
+              id: `opt-${qid}-b-${i}`,
+              isCorrect: true,
+            })),
+            ...Array.from(
+              {
+                length:
+                  ENT_CONFIG.profileTier2BOptionCount - ENT_CONFIG.profileTier2BCorrectCount,
+              },
+              (_, i) => ({
+                id: `wrong-${qid}-b-${i}`,
+                isCorrect: false,
+              }),
+            ),
+          ];
+          selectedIds = shouldBeCorrect
+            ? answerOptions.filter((o) => o.isCorrect).map((o) => o.id)
+            : [];
+        }
+      } else {
+        answerOptions = [
+          { id: `opt-${qid}`, isCorrect: true },
+          { id: `wrong-${qid}`, isCorrect: false },
+        ];
+        selectedIds = shouldBeCorrect ? [`opt-${qid}`] : [];
+      }
+
       answers.push({
         id: `ans-${qid}`,
         questionId: qid,
-        selectedIds: shouldBeCorrect ? [`opt-${qid}`] : [],
+        selectedIds,
         question: {
           subjectId: sec.subjectId,
           scoreWeight: sec.isMandatory ? null : 5,
-          answerOptions: [
-            { id: `opt-${qid}`, isCorrect: true },
-            { id: `wrong-${qid}`, isCorrect: false },
-          ],
+          answerOptions,
           subject: {
             id: sec.subjectId,
             name: sec.slug,
@@ -202,6 +285,16 @@ describe('ENT 120/140 consistency', () => {
     expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints);
     expect(result.rawScore).toBe(3);
     expect(result.correctCount).toBe(2);
+    const heavyAnswerScore = result.answerScores.find(
+      (item) => item.questionId === profile1Ids[30],
+    );
+    expect(heavyAnswerScore).toMatchObject({
+      questionId: profile1Ids[30],
+      earnedPoints: 2,
+      maxPoints: 2,
+      errorCount: 0,
+      reviewStatus: 'correct',
+    });
   });
 
   it('scores 2-point ENT multiple-answer questions by TotalErrors', async () => {
@@ -232,6 +325,24 @@ describe('ENT 120/140 consistency', () => {
     expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints);
     expect(result.rawScore).toBe(1);
     expect(result.correctCount).toBe(0);
+    const heavyAnswerScore = result.answerScores.find(
+      (item) => item.questionId === heavyId,
+    );
+    expect(heavyAnswerScore).toMatchObject({
+      questionId: heavyId,
+      earnedPoints: 1,
+      maxPoints: 2,
+      errorCount: 1,
+      reviewStatus: 'partial',
+    });
+    const unansweredMandatory = result.answerScores.find(
+      (item) => item.questionId === built.questionIdsBySubject.get('history')?.[0],
+    );
+    expect(unansweredMandatory).toMatchObject({
+      earnedPoints: 0,
+      maxPoints: 1,
+      reviewStatus: 'unanswered',
+    });
   });
 
   it('starts ENT full with exactly 120 questions and 40 profile questions per subject', async () => {
@@ -277,6 +388,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sub-trial' }),
         findMany: jest.fn().mockResolvedValue([
           {
             isActive: true,
@@ -324,9 +436,7 @@ describe('ENT 120/140 consistency', () => {
     } as any;
     const scorerMock = {} as any;
     const mistakesMock = {} as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -356,6 +466,116 @@ describe('ENT 120/140 consistency', () => {
     expect(createData.totalQuestions).toBe(ENT_CONFIG.totalQuestions);
   });
 
+  it('starts creative ENT with reading literacy and Kazakhstan history only', async () => {
+    const generatedSections = [
+      {
+        subjectId: 'history',
+        questionIds: makeQuestionIds('history', ENT_CONFIG.creativeQuestionCounts.history_kz),
+        sortOrder: 1,
+        profileHeavyFrom: null,
+      },
+      {
+        subjectId: 'reading',
+        questionIds: makeQuestionIds('reading', ENT_CONFIG.creativeQuestionCounts.reading_literacy),
+        sortOrder: 2,
+        profileHeavyFrom: null,
+      },
+    ];
+    const subjectMetaById: Record<string, { id: string; slug: string; isMandatory: boolean }> = {
+      history: { id: 'history', slug: 'history_kz', isMandatory: true },
+      reading: { id: 'reading', slug: 'reading_literacy', isMandatory: true },
+      'math-lit': { id: 'math-lit', slug: 'math_literacy', isMandatory: true },
+    };
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: ENT_CONFIG.durationMins,
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: ENT_CONFIG.creativeQuestionCounts.history_kz,
+              selectionMode: 'random',
+              sortOrder: 1,
+              subject: subjectMetaById.history,
+            },
+            {
+              subjectId: 'reading',
+              questionCount: ENT_CONFIG.creativeQuestionCounts.reading_literacy,
+              selectionMode: 'random',
+              sortOrder: 2,
+              subject: subjectMetaById.reading,
+            },
+            {
+              subjectId: 'math-lit',
+              questionCount: ENT_CONFIG.mandatoryQuestionCounts.math_literacy,
+              selectionMode: 'random',
+              sortOrder: 3,
+              subject: subjectMetaById['math-lit'],
+            },
+          ],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue(Object.values(subjectMetaById)),
+        findUnique: jest.fn().mockImplementation(({ where: { id } }: any) =>
+          Promise.resolve({
+            ...subjectMetaById[id],
+            name: subjectMetaById[id].slug,
+          }),
+        ),
+      },
+      question: {
+        findMany: mockQuestionFindManyForIntegrity(generatedSections, 'exam-ent'),
+      },
+      testSession: {
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            id: 'session-creative',
+            score: null,
+            ...data,
+          }),
+        ),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue(generatedSections),
+    } as any;
+    const accessMock = mockAccessService();
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await service.startTest('user-1', 'tpl-ent', 'ru', undefined, 'creative');
+
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'creative' },
+    );
+    const createData = prismaMock.testSession.create.mock.calls[0][0].data;
+    expect(createData.totalQuestions).toBe(ENT_CONFIG.creativeTotalQuestions);
+    expect(createData.timeRemaining).toBe(ENT_CONFIG.creativeDurationMins * 60);
+    expect(createData.metadata.entScope).toBe('creative');
+    expect(createData.metadata.entSessionDurationMins).toBe(ENT_CONFIG.creativeDurationMins);
+    expect(createData.metadata.sections.map((section: any) => section.subjectSlug)).toEqual([
+      'history_kz',
+      'reading_literacy',
+    ]);
+  });
+
   it('rejects too many selected answers in ENT profile multi-answer slots', async () => {
     const built = buildEntFullSessionForScoring();
     const profile1Ids = built.questionIdsBySubject.get('profile-1')!;
@@ -371,6 +591,13 @@ describe('ENT 120/140 consistency', () => {
           metadata: built.session.metadata,
         }),
       },
+      question: {
+        findUnique: jest.fn().mockResolvedValue({
+          answerOptions: Array.from({ length: ENT_CONFIG.profileTier2AOptionCount }, (_, i) => ({
+            isCorrect: i < ENT_CONFIG.profileTier2ACorrectCount,
+          })),
+        }),
+      },
       testAnswer: {
         findFirst: jest.fn(),
       },
@@ -384,9 +611,123 @@ describe('ENT 120/140 consistency', () => {
     );
 
     await expect(
-      service.submitAnswer('session-1', 'user-1', tier2AId, ['a', 'b', 'c']),
-    ).rejects.toThrow('MAX_SELECTIONS_EXCEEDED:2');
+      service.submitAnswer('session-1', 'user-1', tier2AId, ['a', 'b', 'c', 'd']),
+    ).rejects.toThrow('MAX_SELECTIONS_EXCEEDED:3');
     expect(prismaMock.testAnswer.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('pads ENT full profile subject when tier-2 pools are empty', async () => {
+    const tier1Only = Array.from({ length: 50 }, (_, i) => ({
+      id: `p1-r${i + 1}`,
+      answerOptions: makeAnswerOptions(4, 1),
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(tier1Only),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(new Set(result[0].questionIds).size).toBe(ENT_CONFIG.profileQuestionsPerSubject);
+  });
+
+  it('pads Kazakhstan history ENT full when strict pools yield fewer than 20', async () => {
+    const noText = Array.from({ length: 15 }, (_, i) => ({
+      id: `history-no-text-${i + 1}`,
+      content: { text: `${i + 1}) Қарапайым сұрақ` },
+    }));
+    const withText = Array.from({ length: 5 }, (_, i) => ({
+      id: `history-text-${i + 1}`,
+      content: { passage: { ru: `Контекст ${i + 11}` }, text: `${i + 11}) Вопрос` },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: 20,
+              selectionMode: 'random',
+              sortOrder: 1,
+              profileHeavyFrom: null,
+              subject: { slug: 'history_kz', isMandatory: true },
+            },
+          ],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...noText, ...withText]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(20);
+    expect(new Set(result[0].questionIds).size).toBe(20);
+  });
+
+  it('caps max points when profile question 31 is tier-1 shaped (padded bank)', async () => {
+    const prismaMock = {
+      testSession: {
+        findUnique: jest.fn(),
+      },
+      testAnswer: {
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    } as any;
+    const scorer = new TestScorerService(prismaMock);
+
+    const built = buildEntFullSessionForScoring({ allCorrect: true });
+    const profile1Ids = built.questionIdsBySubject.get('profile-1')!;
+    const slot31Id = profile1Ids[30];
+    const ans = built.session.answers.find((a: any) => a.questionId === slot31Id)!;
+    ans.question.answerOptions = [
+      { id: `opt-${slot31Id}`, isCorrect: true },
+      ...Array.from({ length: ENT_CONFIG.profileTier1OptionCount - 1 }, (_, i) => ({
+        id: `w-${slot31Id}-${i}`,
+        isCorrect: false,
+      })),
+    ];
+    ans.selectedIds = [`opt-${slot31Id}`];
+    prismaMock.testSession.findUnique.mockResolvedValue(built.session);
+
+    const result = await scorer.calculateScore('ent-full-session');
+
+    expect(result.maxScore).toBe(ENT_CONFIG.maxTotalPoints - 1);
+    expect(result.rawScore).toBe(ENT_CONFIG.maxTotalPoints - 1);
   });
 
   it('rejects unsupported ENT profile subject pairs before consuming an attempt', async () => {
@@ -459,6 +800,477 @@ describe('ENT 120/140 consistency', () => {
     expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
     expect(generatorMock.generateFromTemplate).not.toHaveBeenCalled();
     expect(prismaMock.testSession.create).not.toHaveBeenCalled();
+  });
+
+  it('allows Biology + Geography ENT profile pair for Russian and reaches generation', async () => {
+    const biologyIds = makeQuestionIds('biology', ENT_CONFIG.profileQuestionsPerSubject);
+    const geographyIds = makeQuestionIds('geography', ENT_CONFIG.profileQuestionsPerSubject);
+    const rows = [...biologyIds, ...geographyIds].map((id) => {
+      const subjectId = id.startsWith('biology') ? 'biology' : 'geography';
+      return {
+        id,
+        subjectId,
+        examTypeId: 'exam-ent',
+        topic: { subjectId },
+      };
+    });
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'biology', slug: 'biology' },
+          { id: 'geography', slug: 'geography' },
+        ]),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            slug: where.id,
+            name: { ru: where.id, kk: where.id, en: where.id },
+            isMandatory: false,
+          }),
+        ),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-ru', score: null }),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue([
+        {
+          subjectId: 'biology',
+          questionIds: biologyIds,
+          sortOrder: 1,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+        {
+          subjectId: 'geography',
+          questionIds: geographyIds,
+          sortOrder: 2,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+      ]),
+    } as any;
+    const accessMock = mockAccessService();
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'ru', ['biology', 'geography'], 'profile'),
+    ).resolves.toMatchObject({ id: 'session-ru' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      ['biology', 'geography'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'profile' },
+    );
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it('allows Biology + Geography ENT profile pair for Kazakh and reaches generation', async () => {
+    const biologyIds = makeQuestionIds('biology', ENT_CONFIG.profileQuestionsPerSubject);
+    const geographyIds = makeQuestionIds('geography', ENT_CONFIG.profileQuestionsPerSubject);
+    const rows = [...biologyIds, ...geographyIds].map((id) => {
+      const subjectId = id.startsWith('biology') ? 'biology' : 'geography';
+      return {
+        id,
+        subjectId,
+        examTypeId: 'exam-ent',
+        topic: { subjectId },
+      };
+    });
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'biology', slug: 'biology' },
+          { id: 'geography', slug: 'geography' },
+        ]),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            slug: where.id,
+            name: { ru: where.id, kk: where.id, en: where.id },
+            isMandatory: false,
+          }),
+        ),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-1', score: null }),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue([
+        {
+          subjectId: 'biology',
+          questionIds: biologyIds,
+          sortOrder: 1,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+        {
+          subjectId: 'geography',
+          questionIds: geographyIds,
+          sortOrder: 2,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+      ]),
+    } as any;
+    const accessMock = mockAccessService();
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'kk', ['biology', 'geography'], 'profile'),
+    ).resolves.toMatchObject({ id: 'session-1' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      ['biology', 'geography'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
+      { entScope: 'profile' },
+    );
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Biology + Chemistry', ['biology', 'chemistry']],
+    ['Chemistry + Physics', ['chemistry', 'physics']],
+  ])('allows %s ENT profile pair for Kazakh and reaches generation', async (_label, subjectIds) => {
+    const firstIds = makeQuestionIds(subjectIds[0], ENT_CONFIG.profileQuestionsPerSubject);
+    const secondIds = makeQuestionIds(subjectIds[1], ENT_CONFIG.profileQuestionsPerSubject);
+    const rows = [...firstIds, ...secondIds].map((id) => {
+      const subjectId = id.startsWith(subjectIds[0]) ? subjectIds[0] : subjectIds[1];
+      return {
+        id,
+        subjectId,
+        examTypeId: 'exam-ent',
+        topic: { subjectId },
+      };
+    });
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue(
+          subjectIds.map((subjectId) => ({ id: subjectId, slug: subjectId })),
+        ),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            slug: where.id,
+            name: { ru: where.id, kk: where.id, en: where.id },
+            isMandatory: false,
+          }),
+        ),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-chemistry', score: null }),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue([
+        {
+          subjectId: subjectIds[0],
+          questionIds: firstIds,
+          sortOrder: 1,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+        {
+          subjectId: subjectIds[1],
+          questionIds: secondIds,
+          sortOrder: 2,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+      ]),
+    } as any;
+    const accessMock = mockAccessService();
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'kk', subjectIds, 'profile'),
+    ).resolves.toMatchObject({ id: 'session-chemistry' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      subjectIds,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
+      { entScope: 'profile' },
+    );
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Biology + Chemistry', ['biology', 'chemistry']],
+    ['Chemistry + Physics', ['chemistry', 'physics']],
+  ])('allows %s ENT profile pair for Russian and reaches generation', async (_label, subjectIds) => {
+    const firstIds = makeQuestionIds(subjectIds[0], ENT_CONFIG.profileQuestionsPerSubject);
+    const secondIds = makeQuestionIds(subjectIds[1], ENT_CONFIG.profileQuestionsPerSubject);
+    const rows = [...firstIds, ...secondIds].map((id) => {
+      const subjectId = id.startsWith(subjectIds[0]) ? subjectIds[0] : subjectIds[1];
+      return {
+        id,
+        subjectId,
+        examTypeId: 'exam-ent',
+        topic: { subjectId },
+      };
+    });
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          durationMins: 240,
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      subject: {
+        findMany: jest.fn().mockResolvedValue(
+          subjectIds.map((subjectId) => ({ id: subjectId, slug: subjectId })),
+        ),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            slug: where.id,
+            name: { ru: where.id, kk: where.id, en: where.id },
+            isMandatory: false,
+          }),
+        ),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-ru-chemistry', score: null }),
+      },
+    } as any;
+    const generatorMock = {
+      generateFromTemplate: jest.fn().mockResolvedValue([
+        {
+          subjectId: subjectIds[0],
+          questionIds: firstIds,
+          sortOrder: 1,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+        {
+          subjectId: subjectIds[1],
+          questionIds: secondIds,
+          sortOrder: 2,
+          profileHeavyFrom: ENT_CONFIG.profileTier1Count + 1,
+        },
+      ]),
+    } as any;
+    const accessMock = mockAccessService();
+    const service = new TestSessionService(
+      prismaMock,
+      generatorMock,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startTest('user-1', 'tpl-ent', 'ru', subjectIds, 'profile'),
+    ).resolves.toMatchObject({ id: 'session-ru-chemistry' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+    expect(generatorMock.generateFromTemplate).toHaveBeenCalledWith(
+      'tpl-ent',
+      subjectIds,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'profile' },
+    );
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it('starts remediation practice without consuming an attempt', async () => {
+    const prismaMock = {
+      question: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'q-1',
+            subjectId: 'math',
+            subject: {
+              id: 'math',
+              slug: 'math',
+              name: { ru: 'Математика', kk: 'Математика', en: 'Math' },
+              isMandatory: false,
+            },
+          },
+        ]),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      testSession: {
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            id: 'remediation-session',
+            score: null,
+            ...data,
+          }),
+        ),
+      },
+    } as any;
+    const mistakesMock = {
+      getLatestOutcomes: jest.fn().mockResolvedValue([
+        {
+          questionId: 'q-1',
+          examTypeId: 'exam-ent',
+          subjectId: 'math',
+          isCorrect: false,
+        },
+      ]),
+      getOpenMistakeQuestionIds: jest.fn().mockReturnValue(['q-1']),
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      {} as any,
+      mistakesMock,
+      accessMock,
+    );
+
+    await expect(
+      service.startRemediationSession('user-1', 'kk', { examTypeId: 'exam-ent' }),
+    ).resolves.toMatchObject({ id: 'remediation-session' });
+    expect(accessMock.assertAndConsumeAttempt).not.toHaveBeenCalled();
+    expect(prismaMock.testSession.create).toHaveBeenCalled();
+  });
+
+  it('starts an ENT retake from a finished session with the same question order and consumes an attempt', async () => {
+    const prismaMock = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'source-session',
+          userId: 'user-1',
+          templateId: 'tpl-ent',
+          examTypeId: 'exam-ent',
+          examType: { slug: 'ent' },
+          status: 'completed',
+          language: 'kk',
+          timeRemaining: 0,
+          metadata: {
+            entScope: 'profile',
+            entSessionDurationMins: 80,
+            questionOrder: ['q-2', 'q-1'],
+            sections: [],
+            profileSubjectIds: ['biology', 'geography'],
+          },
+          answers: [
+            { questionId: 'q-1' },
+            { questionId: 'q-2' },
+          ],
+        }),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            id: 'retake-session',
+            score: null,
+            ...data,
+          }),
+        ),
+      },
+      visitEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    } as any;
+    const accessMock = {
+      assertAndConsumeAttempt: jest.fn(),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      {} as any,
+      {} as any,
+      accessMock,
+    );
+
+    await expect(
+      service.startEntRetakeSession('user-1', 'source-session'),
+    ).resolves.toMatchObject({ id: 'retake-session' });
+    expect(accessMock.assertAndConsumeAttempt).toHaveBeenCalledWith('user-1', 'exam-ent');
+
+    const createData = prismaMock.testSession.create.mock.calls[0][0].data;
+    expect(createData.timeRemaining).toBe(80 * 60);
+    expect(createData.metadata).toMatchObject({
+      entScope: 'profile',
+      retakeOfSessionId: 'source-session',
+      questionOrder: ['q-2', 'q-1'],
+    });
+    expect(createData.answers.create.map((answer: any) => answer.questionId)).toEqual([
+      'q-2',
+      'q-1',
+    ]);
   });
 
   it('excludes non-120/140 ENT sessions from profile analytics stats', async () => {
@@ -578,6 +1390,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sub-trial' }),
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'sub-trial',
@@ -596,6 +1409,9 @@ describe('ENT 120/140 consistency', () => {
         findFirst: jest.fn().mockResolvedValue({
           totalAttemptsLimit: 2,
           usedAttemptsTotal: 1,
+        }),
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: { usedAttemptsTotal: 0 },
         }),
       },
     } as any;
@@ -668,6 +1484,7 @@ describe('ENT 120/140 consistency', () => {
         }),
       },
       subscription: {
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([
           {
             isActive: true,
@@ -706,9 +1523,7 @@ describe('ENT 120/140 consistency', () => {
     } as any;
     const scorerMock = {} as any;
     const mistakesMock = {} as any;
-    const accessMock = {
-      assertAndConsumeAttempt: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    const accessMock = mockAccessService();
     const service = new TestSessionService(
       prismaMock,
       generatorMock,
@@ -765,6 +1580,9 @@ describe('ENT 120/140 consistency', () => {
     expect(result).toHaveLength(1);
     const ids = result[0].questionIds;
     expect(ids).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(prismaMock.question.findMany.mock.calls[0][0].where.AND).toEqual(
+      expect.arrayContaining([{ topic: { is: { subjectId: 'profile-1' } } }]),
+    );
     expect(ids.slice(0, ENT_CONFIG.profileTier1Count).every((id) => id.startsWith('p1-r'))).toBe(
       true,
     );
@@ -774,6 +1592,125 @@ describe('ENT 120/140 consistency', () => {
     expect(ids.slice(35, 40).every((id) => id.startsWith('p1-b'))).toBe(
       true,
     );
+  });
+
+  it('places one shared text block into ENT profile questions 26-30 for non-informatics subjects', async () => {
+    const regular = Array.from({ length: 25 }, (_, i) => ({
+      id: `p1-r${i + 1}`,
+      content: { ru: { text: `Regular question ${i + 1}` } },
+      answerOptions: makeAnswerOptions(4, 1),
+      subject: { slug: 'math' },
+    }));
+    const textBlock = Array.from({ length: ENT_CONFIG.profileTextBlockQuestionCount }, (_, i) => ({
+      id: `p1-text-a${i + 1}`,
+      content: {
+        ru: {
+          passage: 'Один общий текст для пяти профильных вопросов.',
+          text: `Text question ${i + 1}`,
+        },
+      },
+      answerOptions: makeAnswerOptions(4, 1),
+      subject: { slug: 'math' },
+    }));
+    const tier2A = Array.from({ length: ENT_CONFIG.profileTier2ACount }, (_, i) => ({
+      id: `p1-a${i + 1}`,
+      answerOptions: makeAnswerOptions(8, 2),
+      subject: { slug: 'math' },
+    }));
+    const tier2B = Array.from({ length: ENT_CONFIG.profileTier2BCount }, (_, i) => ({
+      id: `p1-b${i + 1}`,
+      answerOptions: makeAnswerOptions(6, 3),
+      subject: { slug: 'math' },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...regular, ...textBlock, ...tier2A, ...tier2B]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    const ids = result[0].questionIds;
+    expect(ids).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
+    expect(ids.slice(0, 25).every((id) => id.startsWith('p1-r'))).toBe(true);
+    expect(ids.slice(25, 30).every((id) => id.startsWith('p1-text-a'))).toBe(true);
+    expect(ids.slice(30, 35).every((id) => id.startsWith('p1-a'))).toBe(true);
+    expect(ids.slice(35, 40).every((id) => id.startsWith('p1-b'))).toBe(true);
+  });
+
+  it('does not force the 26-30 shared text block for Informatics profile subjects', async () => {
+    const regular = Array.from({ length: ENT_CONFIG.profileTier1Count }, (_, i) => ({
+      id: `info-r${i + 1}`,
+      content:
+        i >= 25
+          ? {
+              ru: {
+                passage: 'Информатика не должна получать обязательный текстовый блок.',
+                text: `Info text question ${i + 1}`,
+              },
+            }
+          : { ru: { text: `Info regular ${i + 1}` } },
+      answerOptions: makeAnswerOptions(4, 1),
+      subject: { slug: 'informatics' },
+    }));
+    const tier2A = Array.from({ length: ENT_CONFIG.profileTier2ACount }, (_, i) => ({
+      id: `info-a${i + 1}`,
+      answerOptions: makeAnswerOptions(8, 2),
+      subject: { slug: 'informatics' },
+    }));
+    const tier2B = Array.from({ length: ENT_CONFIG.profileTier2BCount }, (_, i) => ({
+      id: `info-b${i + 1}`,
+      answerOptions: makeAnswerOptions(6, 3),
+      subject: { slug: 'informatics' },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...regular, ...tier2A, ...tier2B]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      ['profile-1'],
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'ru',
+      { entScope: 'full' },
+    );
+
+    const ids = result[0].questionIds;
+    expect(ids.slice(0, 30).every((id) => id.startsWith('info-r'))).toBe(true);
+    expect(ids.slice(30, 35).every((id) => id.startsWith('info-a'))).toBe(true);
+    expect(ids.slice(35, 40).every((id) => id.startsWith('info-b'))).toBe(true);
   });
 
   it('keeps Kazakhstan history 1-10 without text and 11-20 with text in ENT full', async () => {
@@ -786,7 +1723,7 @@ describe('ENT 120/140 consistency', () => {
       content:
         i === 0
           ? { passage: { ru: 'Отдельный текст' }, text: 'Вопрос по тексту' }
-          : { text: `${i + 11}) ТЕКСТ: Исторический материал. Вопрос:` },
+          : { passage: { ru: `Контекст ${i + 11}` }, text: `${i + 11}) Вопрос по контексту` },
     }));
     const prismaMock = {
       testTemplate: {
@@ -820,6 +1757,62 @@ describe('ENT 120/140 consistency', () => {
       ENT_CONFIG.profileQuestionsPerSubject,
       'user-1',
       'ru',
+      { entScope: 'full' },
+    );
+
+    expect(result[0].questionIds).toHaveLength(20);
+    expect(result[0].questionIds.slice(0, 10).every((id) => id.startsWith('history-no-text'))).toBe(
+      true,
+    );
+    expect(result[0].questionIds.slice(10).every((id) => id.startsWith('history-text'))).toBe(
+      true,
+    );
+  });
+
+  it('keeps Kazakhstan history 1-10 without text and 11-20 with text when passage is inside locale key', async () => {
+    const noText = Array.from({ length: 10 }, (_, i) => ({
+      id: `history-no-text-${i + 1}`,
+      content: { kk: { text: `${i + 1}) Қарапайым сұрақ` } },
+    }));
+    const withText = Array.from({ length: 10 }, (_, i) => ({
+      id: `history-text-${i + 1}`,
+      content: {
+        kk: { passage: 'Тарихи мәтін', text: `${i + 11}) Вопрос по контексту` },
+        ru: { passage: 'Исторический текст', text: `${i + 11}) Контекстный вопрос` },
+      },
+    }));
+    const prismaMock = {
+      testTemplate: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'tpl-ent',
+          examType: { slug: 'ent' },
+          sections: [
+            {
+              subjectId: 'history',
+              questionCount: 20,
+              selectionMode: 'random',
+              sortOrder: 1,
+              profileHeavyFrom: null,
+              subject: { slug: 'history_kz', isMandatory: true },
+            },
+          ],
+        }),
+      },
+      question: {
+        findMany: jest.fn().mockResolvedValue([...noText, ...withText]),
+      },
+      testAnswer: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const generator = new TestGeneratorService(prismaMock);
+
+    const result = await generator.generateFromTemplate(
+      'tpl-ent',
+      undefined,
+      ENT_CONFIG.profileQuestionsPerSubject,
+      'user-1',
+      'kk',
       { entScope: 'full' },
     );
 
@@ -885,5 +1878,85 @@ describe('ENT 120/140 consistency', () => {
 
     expect(result[0].questionIds).toHaveLength(ENT_CONFIG.profileQuestionsPerSubject);
     expect(result[0].questionIds.every((id) => id.startsWith('p1-any-'))).toBe(true);
+  });
+
+  it('merges per-question review scoring into the review response contract', async () => {
+    const prismaMock = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'session-review',
+          userId: 'user-1',
+          status: 'completed',
+          score: 50,
+          examType: { slug: 'ent' },
+          answers: [
+            {
+              id: 'ans-1',
+              questionId: 'q-1',
+              selectedIds: ['opt-a'],
+              isCorrect: false,
+              question: {
+                id: 'q-1',
+                subjectId: 'profile-1',
+                content: { ru: { text: 'Question 1' } },
+                answerOptions: [
+                  { id: 'opt-a', isCorrect: true, sortOrder: 1, content: { ru: 'A' } },
+                  { id: 'opt-b', isCorrect: true, sortOrder: 2, content: { ru: 'B' } },
+                  { id: 'opt-c', isCorrect: false, sortOrder: 3, content: { ru: 'C' } },
+                ],
+                subject: { id: 'profile-1', name: { ru: 'Math' }, slug: 'math' },
+              },
+            },
+          ],
+        }),
+      },
+      questionAppeal: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const scorerMock = {
+      calculateScore: jest.fn().mockResolvedValue({
+        correctCount: 0,
+        rawScore: 1,
+        maxScore: 2,
+        score: 50,
+        sections: [],
+        answerScores: [
+          {
+            answerId: 'ans-1',
+            questionId: 'q-1',
+            earnedPoints: 1,
+            maxPoints: 2,
+            errorCount: 1,
+            reviewStatus: 'partial',
+          },
+        ],
+      }),
+    } as any;
+    const service = new TestSessionService(
+      prismaMock,
+      {} as any,
+      scorerMock,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await service.getReview('session-review', 'user-1');
+
+    expect(result.answers?.[0]).toMatchObject({
+      id: 'ans-1',
+      questionId: 'q-1',
+      isCorrect: false,
+      earnedPoints: 1,
+      maxPoints: 2,
+      errorCount: 1,
+      reviewStatus: 'partial',
+    });
+    expect(result.correctCount).toBe(0);
+    expect(result.rawScore).toBe(1);
+    expect(result.maxScore).toBe(2);
+    expect(result.score).toBe(50);
+    expect(result.sectionScores).toEqual([]);
+    expect(result.appeals).toEqual([]);
   });
 });

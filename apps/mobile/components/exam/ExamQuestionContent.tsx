@@ -217,14 +217,6 @@ export const ExamQuestionContent = memo(
                     onOptionPress={onOptionPress}
                   />
                 ) : null}
-
-                {question.multiSelect ? (
-                  <Text style={[styles.multiHint, { color: colors.mutedForeground }]}>
-                    {question.maxSelections
-                      ? `Можно выбрать до ${question.maxSelections} вариантов`
-                      : "Можно выбрать несколько вариантов"}
-                  </Text>
-                ) : null}
               </View>
             </View>
           </RichHtmlLayoutGateContext.Provider>

@@ -1,71 +1,27 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType, Prisma } from '@prisma/client';
 import { compareEntToCutoff, type EntScores } from '@bilimland/shared';
-import { PrismaService } from '../../database/prisma.service';
-
-type ChanceRawCutoffRow = {
-  universityCode: number;
-  quotaType: GrantQuotaType;
-  minScore: number | null;
-  university: { name: string; shortName: string | null };
-  program: {
-    code: string;
-    name: string;
-    profileSubjects: string;
-    profileVariant: number;
-  };
-  programId: string;
-};
-
-type ResolvedChanceRow = {
-  universityCode: number;
-  universityName: string;
-  universityShortName: string | null;
-  programId: string;
-  programCode: string;
-  programName: string;
-  profileSubjects: string;
-  profileVariant: number;
-  displayedQuotaType: GrantQuotaType;
-  displayedMinScore: number;
-};
+import { resolveChanceRows } from './domain/chance-cutoffs';
+import type { ResolvedChanceRow } from './domain/chance-cutoffs';
+import { AdmissionRepository } from './infrastructure/admission.repository';
+import { REDIS_CLIENT } from '../../database/redis.module';
+import Redis from 'ioredis';
 
 @Injectable()
 export class AdmissionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly admissionRepository: AdmissionRepository,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   private async getCycleOrThrow(cycleSlug: string) {
-    const cycle = await this.prisma.grantAdmissionCycle.findUnique({
-      where: { slug: cycleSlug },
-    });
+    const cycle = await this.admissionRepository.findCycleBySlug(cycleSlug);
     if (!cycle) throw new NotFoundException(`Admission cycle "${cycleSlug}" not found`);
     return cycle;
   }
 
-  /**
-   * Resolver для отображаемого проходного балла:
-   * - GRANT: учитываем только GRANT
-   * - RURAL: сначала RURAL, если нет балла -> fallback на GRANT
-   */
-  private resolveDisplayedCutoff(
-    quotaType: GrantQuotaType,
-    rows: { quotaType: GrantQuotaType; minScore: number | null }[],
-  ): { displayedQuotaType: GrantQuotaType; displayedMinScore: number } | null {
-    const grant = rows.find((r) => r.quotaType === 'GRANT');
-    const rural = rows.find((r) => r.quotaType === 'RURAL');
-
-    if (quotaType === 'GRANT') {
-      if (grant?.minScore == null) return null;
-      return { displayedQuotaType: 'GRANT', displayedMinScore: grant.minScore };
-    }
-
-    if (rural?.minScore != null) {
-      return { displayedQuotaType: 'RURAL', displayedMinScore: rural.minScore };
-    }
-    if (grant?.minScore != null) {
-      return { displayedQuotaType: 'GRANT', displayedMinScore: grant.minScore };
-    }
-    return null;
+  private admissionCacheVersionKey(cycleSlug: string) {
+    return `admission-cache-version:${cycleSlug}`;
   }
 
   private async listResolvedChanceRows(input: {
@@ -74,78 +30,34 @@ export class AdmissionService {
     universityCode?: number;
     profileSubjects?: string;
     programId?: string;
-  }) {
-    const cycle = await this.getCycleOrThrow(input.cycleSlug);
-    const where: Prisma.GrantCutoffWhereInput = {
-      cycleId: cycle.id,
-      ...(input.universityCode != null ? { universityCode: input.universityCode } : {}),
-      ...(input.programId ? { programId: input.programId } : {}),
-      ...(input.profileSubjects
-        ? {
-            program: {
-              profileSubjects: input.profileSubjects,
-            },
-          }
-        : {}),
-    };
+  }): Promise<ResolvedChanceRow[]> {
+    const version = (await this.redis.get(this.admissionCacheVersionKey(input.cycleSlug))) || '0';
+    const cacheKey = `admission-chance-rows:v${version}:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as ResolvedChanceRow[];
+    }
 
-    const rows = await this.prisma.grantCutoff.findMany({
-      where,
-      include: {
-        university: { select: { name: true, shortName: true } },
-        program: {
-          select: { code: true, name: true, profileSubjects: true, profileVariant: true },
-        },
-      },
-      orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],
-      take: 15000,
+    const cycle = await this.getCycleOrThrow(input.cycleSlug);
+    const rows = await this.admissionRepository.listChanceCutoffs({
+      cycleId: cycle.id,
+      quotaType: input.quotaType,
+      universityCode: input.universityCode,
+      profileSubjects: input.profileSubjects,
+      programId: input.programId,
     });
 
-    const grouped = new Map<string, ChanceRawCutoffRow[]>();
-    for (const row of rows) {
-      const key = `${row.universityCode}:${row.programId}`;
-      const existing = grouped.get(key);
-      if (existing) {
-        existing.push(row);
-      } else {
-        grouped.set(key, [row]);
-      }
-    }
-
-    const resolved: ResolvedChanceRow[] = [];
-    for (const groupRows of grouped.values()) {
-      const resolvedCutoff = this.resolveDisplayedCutoff(input.quotaType, groupRows);
-      if (!resolvedCutoff) continue;
-      const base = groupRows[0];
-      resolved.push({
-        universityCode: base.universityCode,
-        universityName: base.university.name,
-        universityShortName: base.university.shortName,
-        programId: base.programId,
-        programCode: base.program.code,
-        programName: base.program.name,
-        profileSubjects: base.program.profileSubjects,
-        profileVariant: base.program.profileVariant,
-        displayedQuotaType: resolvedCutoff.displayedQuotaType,
-        displayedMinScore: resolvedCutoff.displayedMinScore,
-      });
-    }
-
+    const resolved = resolveChanceRows(input.quotaType, rows);
+    await this.redis.set(cacheKey, JSON.stringify(resolved), 'EX', 600); // 10 minutes cache TTL
     return resolved;
   }
 
   listCycles() {
-    return this.prisma.grantAdmissionCycle.findMany({
-      orderBy: { sortOrder: 'asc' },
-      select: { id: true, slug: true, sortOrder: true },
-    });
+    return this.admissionRepository.listCycles();
   }
 
   listUniversities() {
-    return this.prisma.university.findMany({
-      orderBy: { code: 'asc' },
-      select: { code: true, name: true, shortName: true },
-    });
+    return this.admissionRepository.listUniversities();
   }
 
   async listPrograms(input: { code?: string; q?: string; take?: number }) {
@@ -160,18 +72,9 @@ export class AdmissionService {
         { profileSubjects: { contains: input.q.trim(), mode: 'insensitive' } },
       ];
     }
-    return this.prisma.entEducationalProgram.findMany({
+    return this.admissionRepository.listPrograms({
       where,
-      orderBy: [{ code: 'asc' }, { profileVariant: 'asc' }],
       take,
-      select: {
-        id: true,
-        code: true,
-        profileVariant: true,
-        name: true,
-        profileSubjects: true,
-        profileShortLabel: true,
-      },
     });
   }
 
@@ -192,17 +95,7 @@ export class AdmissionService {
     if (input.programId) where.programId = input.programId;
     if (input.quotaType) where.quotaType = input.quotaType;
 
-    const rows = await this.prisma.grantCutoff.findMany({
-      where,
-      take: 8000,
-      include: {
-        university: { select: { name: true, shortName: true } },
-        program: {
-          select: { code: true, name: true, profileSubjects: true, profileVariant: true },
-        },
-      },
-      orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],
-    });
+    const rows = await this.admissionRepository.listCutoffs(where);
 
     return rows.map((r) => ({
       cycleSlug: input.cycleSlug,
@@ -228,13 +121,11 @@ export class AdmissionService {
   }) {
     const cycle = await this.getCycleOrThrow(input.cycleSlug);
 
-    const cutoff = await this.prisma.grantCutoff.findFirst({
-      where: {
-        cycleId: cycle.id,
-        universityCode: input.universityCode,
-        programId: input.programId,
-        quotaType: input.quotaType,
-      },
+    const cutoff = await this.admissionRepository.findCutoff({
+      cycleId: cycle.id,
+      universityCode: input.universityCode,
+      programId: input.programId,
+      quotaType: input.quotaType,
     });
 
     const minScore = cutoff?.minScore ?? null;
@@ -283,11 +174,11 @@ export class AdmissionService {
       }
     }
 
-    const total = compareEntToCutoff(input.scores, null).total;
     const result = [...grouped.values()].map((groupRows) => {
       const minRow = groupRows.reduce((acc, cur) =>
         cur.displayedMinScore < acc.displayedMinScore ? cur : acc,
       );
+      const comparison = compareEntToCutoff(input.scores, minRow.displayedMinScore);
       return {
         cycleSlug: input.cycleSlug,
         programId: minRow.programId,
@@ -296,11 +187,16 @@ export class AdmissionService {
         profileSubjects: minRow.profileSubjects,
         profileVariant: minRow.profileVariant,
         displayedQuotaType: minRow.displayedQuotaType,
+        cutoffSource:
+          minRow.displayedQuotaType === input.quotaType
+            ? input.quotaType
+            : 'GRANT_FALLBACK',
         displayedMinScore: minRow.displayedMinScore,
         universityCount: groupRows.length,
-        isPass: total >= minRow.displayedMinScore,
-        total,
-        gapToCutoff: total - minRow.displayedMinScore,
+        isPass: comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0,
+        total: comparison.total,
+        passesEntThresholds: comparison.passesEntThresholds,
+        gapToCutoff: comparison.gapToCutoff,
       };
     });
 
@@ -324,25 +220,31 @@ export class AdmissionService {
       programId: input.programId,
       universityCode: input.universityCode,
     });
-    const total = compareEntToCutoff(input.scores, null).total;
-
     return rows
-      .map((row) => ({
-        cycleSlug: input.cycleSlug,
-        universityCode: row.universityCode,
-        universityName: row.universityName,
-        universityShortName: row.universityShortName,
-        programId: row.programId,
-        programCode: row.programCode,
-        programName: row.programName,
-        profileSubjects: row.profileSubjects,
-        profileVariant: row.profileVariant,
-        displayedQuotaType: row.displayedQuotaType,
-        displayedMinScore: row.displayedMinScore,
-        isPass: total >= row.displayedMinScore,
-        total,
-        gapToCutoff: total - row.displayedMinScore,
-      }))
+      .map((row) => {
+        const comparison = compareEntToCutoff(input.scores, row.displayedMinScore);
+        return {
+          cycleSlug: input.cycleSlug,
+          universityCode: row.universityCode,
+          universityName: row.universityName,
+          universityShortName: row.universityShortName,
+          programId: row.programId,
+          programCode: row.programCode,
+          programName: row.programName,
+          profileSubjects: row.profileSubjects,
+          profileVariant: row.profileVariant,
+          displayedQuotaType: row.displayedQuotaType,
+          cutoffSource:
+            row.displayedQuotaType === input.quotaType
+              ? input.quotaType
+              : 'GRANT_FALLBACK',
+          displayedMinScore: row.displayedMinScore,
+          isPass: comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0,
+          total: comparison.total,
+          passesEntThresholds: comparison.passesEntThresholds,
+          gapToCutoff: comparison.gapToCutoff,
+        };
+      })
       .sort((a, b) => {
         if (a.isPass !== b.isPass) return a.isPass ? -1 : 1;
         if (a.displayedMinScore !== b.displayedMinScore) return a.displayedMinScore - b.displayedMinScore;

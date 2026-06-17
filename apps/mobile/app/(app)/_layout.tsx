@@ -49,7 +49,12 @@ export default function AppDrawerLayout() {
       screenOptions={{
         headerShown: false,
         drawerType: "front",
-        drawerStyle: { width: 300 },
+        overlayColor: "rgba(0,0,0,0.3)",
+        sceneStyle: { backgroundColor: colors.secondary },
+        drawerStyle: {
+          width: 316,
+          backgroundColor: colors.card,
+        },
       }}
     />
   )

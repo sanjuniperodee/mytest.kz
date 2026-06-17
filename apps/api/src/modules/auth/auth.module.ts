@@ -22,7 +22,7 @@ import {
         signOptions: {
           expiresIn: getJwtExpiresIn(
             config.get<string>('JWT_ACCESS_EXPIRES_IN'),
-            '12h',
+            '15m',
           ),
         },
       }),

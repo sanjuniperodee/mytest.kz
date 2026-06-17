@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import type { NextFunction, Request, Response } from 'express';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -12,12 +13,30 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  app.enableShutdownHooks();
+  app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
+  const logger = new Logger('HTTP');
+  const slowRequestMs = Math.max(
+    0,
+    Number.parseInt(process.env.SLOW_REQUEST_MS || '1000', 10) || 1000,
+  );
 
   const uploadRoot = join(process.cwd(), 'uploads');
   if (!existsSync(uploadRoot)) {
     mkdirSync(uploadRoot, { recursive: true });
   }
   app.use(cookieParser());
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const startedAt = Date.now();
+    res.on('finish', () => {
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs < slowRequestMs && res.statusCode < 500) return;
+      logger.warn(
+        `${req.method} ${req.originalUrl || req.url} -> ${res.statusCode} in ${elapsedMs}ms`,
+      );
+    });
+    next();
+  });
   app.use(
     helmet({
       crossOriginResourcePolicy: false,
@@ -37,6 +56,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );

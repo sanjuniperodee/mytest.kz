@@ -64,7 +64,7 @@ describe('subscription premium access', () => {
     );
   });
 
-  it('syncs weekly subscriptions as five premium ENT attempts', async () => {
+  it('syncs weekly subscriptions as three premium ENT attempts', async () => {
     const tx = {
       subscription: {
         findUnique: jest.fn().mockResolvedValue({
@@ -105,8 +105,97 @@ describe('subscription premium access', () => {
       expect.objectContaining({
         create: expect.objectContaining({
           tier: EntitlementTier.paid,
-          totalAttemptsLimit: 5,
+          totalAttemptsLimit: 3,
           subscriptionId: 'sub-week',
+        }),
+      }),
+    );
+  });
+
+  it('syncs annual subscriptions as five premium ENT attempts', async () => {
+    const tx = {
+      subscription: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'sub-annual',
+          userId: 'user-1',
+          planType: 'annual',
+          examTypeId: null,
+          startsAt: new Date(Date.now() - 1000),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          isActive: true,
+        }),
+      },
+      examType: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'exam-ent' }]),
+      },
+      userExamEntitlement: {
+        upsert: jest.fn().mockResolvedValue({}),
+      },
+    } as any;
+    const prisma = {
+      $transaction: jest.fn().mockImplementation((cb: any) => cb(tx)),
+    } as any;
+    const config = {
+      get: jest.fn((key: string) => {
+        if (key === 'SUBSCRIPTION_ENGINE_V2') return 'true';
+        return undefined;
+      }),
+    } as any;
+    const service = new AccessService(prisma, config);
+
+    await service.syncSubscriptionEntitlements('sub-annual');
+
+    expect(tx.userExamEntitlement.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          tier: EntitlementTier.paid,
+          totalAttemptsLimit: 5,
+          subscriptionId: 'sub-annual',
+        }),
+      }),
+    );
+  });
+
+  it('syncs month subscriptions without daily or total limits', async () => {
+    const tx = {
+      subscription: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'sub-month',
+          userId: 'user-1',
+          planType: 'month',
+          examTypeId: null,
+          startsAt: new Date(Date.now() - 1000),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          isActive: true,
+        }),
+      },
+      examType: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'exam-ent' }]),
+      },
+      userExamEntitlement: {
+        upsert: jest.fn().mockResolvedValue({}),
+      },
+    } as any;
+    const prisma = {
+      $transaction: jest.fn().mockImplementation((cb: any) => cb(tx)),
+    } as any;
+    const config = {
+      get: jest.fn((key: string) => {
+        if (key === 'SUBSCRIPTION_ENGINE_V2') return 'true';
+        return undefined;
+      }),
+    } as any;
+    const service = new AccessService(prisma, config);
+
+    await service.syncSubscriptionEntitlements('sub-month');
+
+    expect(tx.userExamEntitlement.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          tier: EntitlementTier.paid,
+          totalAttemptsLimit: null,
+          dailyAttemptsLimit: null,
+          subscriptionId: 'sub-month',
         }),
       }),
     );
@@ -114,7 +203,13 @@ describe('subscription premium access', () => {
 
   it('allows premium explanations for a session consumed from a paid entitlement', async () => {
     const prisma = {
+      testSession: {
+        findFirst: jest.fn().mockResolvedValue({ examTypeId: 'exam-ent' }),
+      },
       userExamEntitlement: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      subscription: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       attemptUsageLedger: {
@@ -145,5 +240,42 @@ describe('subscription premium access', () => {
         }),
       }),
     );
+  });
+
+  it('allows premium features while a paid subscription is active even if attempts are exhausted', async () => {
+    const prisma = {
+      userExamEntitlement: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      subscription: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sub-trial' }),
+      },
+      attemptUsageLedger: {
+        findFirst: jest.fn(),
+      },
+    } as any;
+    const access = { isV2Enabled: jest.fn().mockReturnValue(true) } as any;
+    const guard = new PremiumGuard(prisma, access);
+
+    await expect(
+      guard.canActivate(
+        httpContext({
+          user: { id: 'user-1' },
+          params: {},
+        }),
+      ),
+    ).resolves.toBe(true);
+
+    expect(prisma.subscription.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'user-1',
+          isActive: true,
+          planType: { not: 'free' },
+        }),
+        select: { id: true },
+      }),
+    );
+    expect(prisma.attemptUsageLedger.findFirst).not.toHaveBeenCalled();
   });
 });

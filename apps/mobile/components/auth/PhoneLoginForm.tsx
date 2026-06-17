@@ -120,6 +120,12 @@ export function PhoneLoginForm() {
           }}
         />
         {loading ? <Spinner /> : null}
+        <Text style={[styles.note, { color: colors.mutedForeground }]}>
+          Для входа по телефону сначала привяжите номер в @{botUsername}.
+        </Text>
+        <Pressable onPress={() => void Linking.openURL(botLink)}>
+          <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>Открыть бота</Text>
+        </Pressable>
         <Pressable onPress={() => setStep("phone")}>
           <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>Изменить номер</Text>
         </Pressable>
@@ -141,12 +147,6 @@ export function PhoneLoginForm() {
       <Button onPress={() => void sendCode()} disabled={loading}>
         {loading ? "Отправка..." : "Получить код"}
       </Button>
-      <Text style={[styles.note, { color: colors.mutedForeground }]}>
-        Для входа по телефону сначала привяжите номер в @{botUsername}.
-      </Text>
-      <Pressable onPress={() => void Linking.openURL(botLink)}>
-        <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>Открыть бота</Text>
-      </Pressable>
     </View>
   )
 }

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EntitlementSourceType, EntitlementStatus, EntitlementTier } from '@prisma/client';
+import { EntitlementSourceType, EntitlementStatus, EntitlementTier, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
@@ -39,7 +39,7 @@ export class AdminPlanTemplateService {
       }>;
     },
   ) {
-    return this.prisma.subscriptionPlanTemplate.create({
+    const created = await this.prisma.subscriptionPlanTemplate.create({
       data: {
         code: data.code,
         name: data.name,
@@ -65,9 +65,29 @@ export class AdminPlanTemplateService {
       },
       include: { examRules: true },
     });
+
+    await this.prisma.adminAudit.create({
+      data: {
+        actorUserId: adminId,
+        targetType: 'plan_template',
+        targetId: created.id,
+        action: 'create_plan_template',
+        before: Prisma.DbNull,
+        after: {
+          code: created.code,
+          name: created.name,
+          isPremium: created.isPremium,
+          durationDays: created.durationDays,
+          rulesCount: created.examRules.length,
+        },
+      },
+    });
+
+    return created;
   }
 
   async updatePlanTemplate(
+    adminId: string,
     id: string,
     data: {
       name?: string;
@@ -89,12 +109,17 @@ export class AdminPlanTemplateService {
     },
   ) {
     return this.prisma.$transaction(async (tx) => {
+      const before = await tx.subscriptionPlanTemplate.findUnique({
+        where: { id },
+      });
+      if (!before) throw new NotFoundException('Plan template not found');
+
       if (data.replaceRules) {
         await tx.subscriptionPlanTemplateExamRule.deleteMany({
           where: { planTemplateId: id },
         });
       }
-      return tx.subscriptionPlanTemplate.update({
+      const updated = await tx.subscriptionPlanTemplate.update({
         where: { id },
         data: {
           ...(data.name !== undefined ? { name: data.name } : {}),
@@ -126,6 +151,29 @@ export class AdminPlanTemplateService {
         },
         include: { examRules: true },
       });
+
+      await tx.adminAudit.create({
+        data: {
+          actorUserId: adminId,
+          targetType: 'plan_template',
+          targetId: id,
+          action: 'update_plan_template',
+          before: {
+            name: before.name,
+            isActive: before.isActive,
+            isPremium: before.isPremium,
+            durationDays: before.durationDays,
+          },
+          after: {
+            name: updated.name,
+            isActive: updated.isActive,
+            isPremium: updated.isPremium,
+            durationDays: updated.durationDays,
+          },
+        },
+      });
+
+      return updated;
     });
   }
 

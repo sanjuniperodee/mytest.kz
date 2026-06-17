@@ -15,12 +15,18 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Card } from "@/components/ui/card"
 import { useAuth } from "@/lib/api/auth-context"
+import { api } from "@/lib/api/client"
 import { getTelegramChannelUrl } from "@/lib/config"
 import { t, useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
 
 const FAB_CLEARANCE = 72
+
+type ChannelMembershipRecheck = {
+  status: "member" | "not_member" | "not_required" | "unknown"
+  isChannelMember: boolean
+}
 
 export function ChannelGateView() {
   const { locale: ui } = useUiLocale()
@@ -35,13 +41,23 @@ export function ChannelGateView() {
   async function checkSubscription() {
     setChecking(true)
     try {
-      const updated = await refresh()
-      if (updated?.isChannelMember) {
+      const result = await api<ChannelMembershipRecheck>(
+        "/users/me/channel-membership/recheck",
+        { method: "POST" },
+      )
+      if (result.isChannelMember) {
+        await refresh()
         Alert.alert(t("cgAlertOkTitle", ui), t("cgAlertOkBody", ui))
         router.replace("/dashboard")
         return
       }
+      if (result.status === "unknown") {
+        Alert.alert(t("cgAlertCheckFailTitle", ui), t("cgAlertCheckFailBody", ui))
+        return
+      }
       Alert.alert(t("cgAlertPendingTitle", ui), t("cgAlertPendingBody", ui))
+    } catch {
+      Alert.alert(t("cgAlertCheckFailTitle", ui), t("cgAlertCheckFailBody", ui))
     } finally {
       setChecking(false)
     }

@@ -192,7 +192,7 @@ export interface SessionMetadataSection {
 
 export interface SessionMetadata {
   kind?: "remediation"
-  entScope?: "mandatory" | "profile" | "full"
+  entScope?: "mandatory" | "profile" | "full" | "creative"
   remediationDurationMins?: number
   entSessionDurationMins?: number
   sections?: SessionMetadataSection[]

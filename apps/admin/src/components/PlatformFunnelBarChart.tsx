@@ -9,12 +9,15 @@ const CHART = [
   { name: 'Регистрация', key: 'registered' as const, fill: '#0a84ff' },
   { name: 'Старт теста', key: 'started' as const, fill: '#40a0ff' },
   { name: 'Завершили', key: 'completed' as const, fill: '#5ac8fa' },
+  { name: 'Открыли тарифы', key: 'billingOpened' as const, fill: '#34c759' },
+  { name: 'Создали оплату', key: 'checkoutCreated' as const, fill: '#30d158' },
+  { name: 'Оплатили', key: 'paymentPaid' as const, fill: '#248a3d' },
 ];
 
 export function PlatformFunnelBarChart({ data }: Props) {
   const chartData = CHART.map((c) => ({
     name: c.name,
-    value: data.totals[c.key],
+    value: data.totals[c.key] ?? 0,
     fill: c.fill,
   }));
 

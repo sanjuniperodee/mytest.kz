@@ -38,6 +38,28 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   drawerCurrentExam: { ru: "Текущий пробник", kk: "Ағымдағы сынақ" },
   stats: { ru: "Динамика ЕНТ", kk: "ЕНТ динамикасы" },
   channelGate: { ru: "Подписка", kk: "Жазылу" },
+  entLimitReached: { ru: "Лимит попыток", kk: "Әрекет шегі" },
+  entLimitTitleDaily: { ru: "На сегодня достаточно", kk: "Бүгін үшін жеткілікті" },
+  entLimitBodyDaily: {
+    ru: "Дневной лимит пробных попыток по ЕНТ исчерпан. Зайдите позже или выберите другой экзамен.",
+    kk: "ЕНТ бойынша сынақ әрекеттерінің күнделікті шегі таусылды. Кейінірек қайталып немесе басқа емтихан таңдаңыз.",
+  },
+  entLimitTitleTotal: { ru: "Попытки закончились", kk: "Әрекеттер таусылды" },
+  entLimitBodyTotal: {
+    ru: "Пробный лимит по этому направлению пока исчерпан. Можно вернуться в каталог экзаменов.",
+    kk: "Бұл бағыттағы сынақ шегі әзірге таусылды. Емтихан каталогына оралуға болады.",
+  },
+  entLimitCtaExams: { ru: "К каталогу экзаменов", kk: "Емтихан каталогына" },
+  reviewExplBlockedTitle: { ru: "Разбор недоступен", kk: "Талдау қолжетімсіз" },
+  reviewExplBlockedBody: {
+    ru: "Детальные объяснения для этого входа сейчас не отображаются.",
+    kk: "Бұл кіру үшін толық талдаулар әзір көрсетілмейді.",
+  },
+  billingOutsideKzTitle: { ru: "Тарифы в приложении", kk: "Қолданбадағы тарифтер" },
+  billingOutsideKzBody: {
+    ru: "Оформление подписки в приложении доступно при нахождении в Казахстане.",
+    kk: "Қолданбада жазылманы рәсімдеу Қазақстан аумағында болғанда қолжетімді.",
+  },
   login: { ru: "Вход", kk: "Кіру" },
   logout: { ru: "Выйти", kk: "Шығу" },
   menu: { ru: "Меню", kk: "Мәзір" },
@@ -49,10 +71,22 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
     ru: "Тот же аккаунт, что на сайте my-test.kz",
     kk: "Сайттағы my-test.kz сияқты аккаунт",
   },
+  loginEmail: { ru: "Email", kk: "Email" },
   loginPhone: { ru: "Телефон", kk: "Телефон" },
   loginGoogle: { ru: "Google", kk: "Google" },
   loginBack: { ru: "Назад", kk: "Артқа" },
   loginGoogleFail: { ru: "Не удалось войти", kk: "Кіру мүмкін болмады" },
+  loginBtn: { ru: "Войти", kk: "Кіру" },
+  registerBtn: { ru: "Создать аккаунт", kk: "Аккаунт құру" },
+  noAccount: { ru: "Нет аккаунта? Зарегистрироваться", kk: "Аккаунт жоқ па? Тіркелу" },
+  haveAccount: { ru: "Уже есть аккаунт? Войти", kk: "Аккаунт бар ма? Кіру" },
+  emailInvalid: { ru: "Введите корректный email", kk: "Дұрыс email енгізіңіз" },
+  passwordShort: { ru: "Пароль должен быть не менее 6 символов", kk: "Құпия сөз кемінде 6 таңба болуы керек" },
+  passwordPlaceholder: { ru: "Пароль", kk: "Құпия сөз" },
+  emailFirstName: { ru: "Имя", kk: "Аты" },
+  emailLastName: { ru: "Фамилия", kk: "Тегі" },
+  emailAuthFail: { ru: "Не удалось войти", kk: "Кіру мүмкін болмады" },
+  loading: { ru: "Загрузка...", kk: "Жүктелуде..." },
 
   cgTitle: { ru: "Подпишитесь на канал", kk: "Арнаға жазылыңыз" },
   cgDesc: {
@@ -76,6 +110,11 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   cgAlertPendingBody: {
     ru: "Подпишитесь на канал и попробуйте снова.",
     kk: "Арнаға жазылып, қайта көріңіз.",
+  },
+  cgAlertCheckFailTitle: { ru: "Не удалось проверить", kk: "Тексеру мүмкін болмады" },
+  cgAlertCheckFailBody: {
+    ru: "Telegram не ответил. Попробуйте проверить ещё раз.",
+    kk: "Telegram жауап бермеді. Қайта тексеріп көріңіз.",
   },
 
   profileSubtitle: {
@@ -145,6 +184,16 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
     ru: "Не удалось открыть галерею",
     kk: "Галереяны ашу мүмкін болмады",
   },
+  deleteAccount: { ru: "Удалить аккаунт", kk: "Аккаунтты жою" },
+  deleteAccountTitle: { ru: "Удаление аккаунта", kk: "Аккаунтты жою" },
+  deleteAccountDesc: {
+    ru: "Это действие необратимо. Все ваши данные, результаты тестов, подписки и баллы будут безвозвратно удалены.",
+    kk: "Бұл әрекет қайтымсыз. Сіздің барлық деректеріңіз, тест нәтижелеріңіз, жазылымдарыңыз бен баллдарыңыз толығымен жойылады.",
+  },
+  deleteAccountConfirm: { ru: "Да, удалить", kk: "Иә, жою" },
+  deleteAccountCancel: { ru: "Отмена", kk: "Бас тарту" },
+  deleteAccountSuccess: { ru: "Аккаунт успешно удалён", kk: "Аккаунт сәтті жойылды" },
+  deleteAccountFail: { ru: "Не удалось удалить аккаунт", kk: "Аккаунтты жою мүмкін болмады" },
 
   mistakesTitle: { ru: "Работа над ошибками", kk: "Қателермен жұмыс" },
   mistakesLead: {
@@ -215,8 +264,8 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   },
   billEmpty: { ru: "Тарифы временно недоступны", kk: "Тарифтер уақытша қолжетімсіз" },
   billFooter: {
-    ru: "Для оплаты откройте WhatsApp: мы выставим счёт и подключим Premium после подтверждения платежа.",
-    kk: "Төлем үшін WhatsApp ашыңыз: шот ұсынамыз және төлем расталғаннан кейін Premium қосамыз.",
+    ru: "На iOS оплата доступна через App Store. В Казахстане также доступна оплата через Kaspi.",
+    kk: "iOS-та төлем App Store арқылы қолжетімді. Қазақстанда Kaspi арқылы да төлеуге болады.",
   },
   billRecommended: { ru: "Рекомендуем", kk: "Ұсынамыз" },
   billCurrentBadge: { ru: "Текущий", kk: "Ағымдағы" },
@@ -240,6 +289,11 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   billUnlimitedDaily: { ru: "Без дневного лимита", kk: "Күнделікті шектеусіз" },
   billDailyUnknown: { ru: "Дневной лимит не задан", kk: "Күнделікті лимит көрсетілмеген" },
   billUnlimited: { ru: "Без лимита", kk: "Шектеусіз" },
+  billIosNotice: {
+    ru: "Для управления подпиской перейдите на сайт my-test.kz. В приложении покупки временно недоступны.",
+    kk: "Жазылымды басқару үшін my-test.kz сайтына өтіңіз. Қолданбада сатып алу уақытша қолжетімсіз.",
+  },
+  billIosBtn: { ru: "Перейти на сайт", kk: "Сайтқа өту" },
 
   lbPill: { ru: "Соревнование", kk: "Жарыс" },
   lbTitle: { ru: "Лидерборд ЕНТ", kk: "ЕНТ көшбасшылары" },
@@ -397,6 +451,11 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
     ru: "Все обязательные и профильные предметы",
     kk: "Барлық міндетті және профильді пәндер",
   },
+  examScopeCreative: { ru: "Творческий экзамен", kk: "Шығармашылық емтихан" },
+  examScopeCreativeSub: {
+    ru: "Грамотность чтения + история; творческие экзамены проходят в вузе",
+    kk: "Оқу сауаттылығы + тарих; шығармашылық емтихандар ЖОО-да өтеді",
+  },
   examQAbbr: { ru: "вопр.", kk: "сұрақ" },
   examQuickStartEnt: { ru: "Быстрый старт ЕНТ", kk: "ЕНТ жылдам бастау" },
   examTaskLanguage: { ru: "Язык заданий", kk: "Тапсырма тілі" },
@@ -419,6 +478,10 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   examWhatsInTest: { ru: "Что войдёт в тест", kk: "Тестке не кіреді" },
   examMandatoryBlock: { ru: "Обязательные", kk: "Міндетті пәндер" },
   examProfileBlock: { ru: "Профильные", kk: "Профильді пәндер" },
+  examCreativeExternalNote: {
+    ru: "Два творческих экзамена проводятся в выбранном вузе. С ними максимальный результат составляет 130 баллов.",
+    kk: "Екі шығармашылық емтихан таңдаған ЖОО-да өтеді. Олармен бірге ең жоғары нәтиже 130 балл болады.",
+  },
   examPickPairBeforeStart: {
     ru: "Выберите пару перед стартом",
     kk: "Бастамас бұрын жұпты таңдаңыз",
@@ -574,6 +637,7 @@ export function useUiLocale() {
 export function dashboardScreenTitle(pathname: string, locale: UiLocale): string {
   const p = pathname.replace(/\/$/, "") || "/dashboard"
   if (p === "/dashboard/channel-gate") return t("channelGate", locale)
+  if (p === "/dashboard/ent-limit-reached") return t("entLimitReached", locale)
   if (p === "/dashboard") return t("overview", locale)
   const segments: { prefix: string; key: string }[] = [
     { prefix: "/dashboard/exams", key: "exams" },

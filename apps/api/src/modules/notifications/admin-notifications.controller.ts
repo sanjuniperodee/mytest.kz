@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
 import { getNotificationCampaignDefinition, type NotificationCampaignKey } from './notification-campaigns';
 
@@ -30,19 +31,23 @@ export class AdminNotificationsController {
   }
 
   @Post('run')
-  async runNow(@Body() body: { campaignKey?: NotificationCampaignKey }) {
+  async runNow(
+    @CurrentUser('id') adminId: string,
+    @Body() body: { campaignKey?: NotificationCampaignKey },
+  ) {
     const campaignKey = body?.campaignKey;
     if (campaignKey && !getNotificationCampaignDefinition(campaignKey)) {
       throw new BadRequestException('Unknown notification campaign');
     }
-    return this.notifications.runAutomation('manual', { campaignKey });
+    return this.notifications.runAutomation('manual', { campaignKey, adminId });
   }
 
   @Patch('campaigns/:key')
   async updateCampaign(
+    @CurrentUser('id') adminId: string,
     @Param('key') key: string,
     @Body() body: { isActive?: boolean; cooldownHours?: number },
   ) {
-    return this.notifications.updateCampaign(key, body);
+    return this.notifications.updateCampaign(adminId, key, body);
   }
 }

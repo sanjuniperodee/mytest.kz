@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { ENT_CONFIG, earnEntQuestionPoints } from '@bilimland/shared';
+import {
+  ENT_CONFIG,
+  type EntScope,
+  earnEntQuestionPoints,
+  getEntProfileIntrinsicMaxPoints,
+} from '@bilimland/shared';
 
 export interface SectionScore {
   subjectId: string;
@@ -15,12 +21,28 @@ export interface SectionScore {
   maxPoints?: number;
 }
 
+export type ReviewAnswerStatus =
+  | 'correct'
+  | 'partial'
+  | 'incorrect'
+  | 'unanswered';
+
+export interface AnswerScore {
+  answerId: string;
+  questionId: string;
+  earnedPoints: number;
+  maxPoints: number;
+  errorCount: number;
+  reviewStatus: ReviewAnswerStatus;
+}
+
 interface ScoreResult {
   correctCount: number;
   rawScore: number;
   maxScore: number;
   score: number; // percentage
   sections: SectionScore[];
+  answerScores: AnswerScore[];
 }
 
 type QuestionPlacement = {
@@ -46,10 +68,17 @@ function entStrictFullMaxPoints(p: QuestionPlacement): number {
     : ENT_CONFIG.profileTier2Points;
 }
 
-function getEntScope(metadata: unknown): 'mandatory' | 'profile' | 'full' | undefined {
+function getEntScope(metadata: unknown): EntScope | undefined {
   if (!metadata || typeof metadata !== 'object') return undefined;
   const scope = (metadata as { entScope?: unknown }).entScope;
-  if (scope === 'mandatory' || scope === 'profile' || scope === 'full') return scope;
+  if (
+    scope === 'mandatory' ||
+    scope === 'profile' ||
+    scope === 'full' ||
+    scope === 'creative'
+  ) {
+    return scope;
+  }
   return undefined;
 }
 
@@ -107,12 +136,68 @@ function entMaxPointsForPlacement(
   return entProfileMaxPoints(p.indexInSubject, p.profileHeavyFrom);
 }
 
+function getReviewAnswerStatus(
+  selectedIds: readonly string[],
+  earnedPoints: number,
+  maxPoints: number,
+): ReviewAnswerStatus {
+  if (selectedIds.length === 0) return 'unanswered';
+  if (maxPoints > 0 && earnedPoints >= maxPoints) return 'correct';
+  if (earnedPoints > 0) return 'partial';
+  return 'incorrect';
+}
+
 @Injectable()
 export class TestScorerService {
   constructor(private prisma: PrismaService) {}
 
-  async calculateScore(sessionId: string): Promise<ScoreResult> {
-    const session = await this.prisma.testSession.findUnique({
+  private async persistAnswerCorrectness(
+    correctAnswerIds: string[],
+    incorrectAnswerIds: string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const db = tx ?? this.prisma;
+    const answerDelegate = db.testAnswer as typeof this.prisma.testAnswer & {
+      updateMany?: typeof this.prisma.testAnswer.updateMany;
+    };
+
+    if (typeof answerDelegate.updateMany === 'function') {
+      await Promise.all([
+        correctAnswerIds.length > 0
+          ? answerDelegate.updateMany({
+              where: { id: { in: correctAnswerIds } },
+              data: { isCorrect: true },
+            })
+          : Promise.resolve(),
+        incorrectAnswerIds.length > 0
+          ? answerDelegate.updateMany({
+              where: { id: { in: incorrectAnswerIds } },
+              data: { isCorrect: false },
+            })
+          : Promise.resolve(),
+      ]);
+      return;
+    }
+
+    await Promise.all([
+      ...correctAnswerIds.map((id) =>
+        db.testAnswer.update({
+          where: { id },
+          data: { isCorrect: true },
+        }),
+      ),
+      ...incorrectAnswerIds.map((id) =>
+        db.testAnswer.update({
+          where: { id },
+          data: { isCorrect: false },
+        }),
+      ),
+    ]);
+  }
+
+  async calculateScore(sessionId: string, tx?: Prisma.TransactionClient, opts?: { readOnly?: boolean }): Promise<ScoreResult> {
+    const db = tx ?? this.prisma;
+    const session = await db.testSession.findUnique({
       where: { id: sessionId },
       include: {
         examType: true,
@@ -153,6 +238,9 @@ export class TestScorerService {
 
     let weightedRaw = 0;
     let weightedMax = 0;
+    const answerScores: AnswerScore[] = [];
+    const correctAnswerIds: string[] = [];
+    const incorrectAnswerIds: string[] = [];
     const entWeightedActive =
       examSlug === 'ent' &&
       placement !== null &&
@@ -178,7 +266,12 @@ export class TestScorerService {
       const wMax =
         entWeightedActive && pos
           ? strictEntFullActive
-            ? entStrictFullMaxPoints(pos)
+            ? pos.isMandatory
+              ? entStrictFullMaxPoints(pos)
+              : Math.min(
+                  entStrictFullMaxPoints(pos),
+                  getEntProfileIntrinsicMaxPoints(answer.question.answerOptions),
+                )
             : entMaxPointsForPlacement(pos, qSw)
           : 1;
 
@@ -189,16 +282,22 @@ export class TestScorerService {
       );
 
       const isPerfectlyCorrect = selectedIds.length > 0 && errors === 0;
+      const reviewStatus = getReviewAnswerStatus(selectedIds, wEarned, wMax);
 
       if (isPerfectlyCorrect) correctCount++;
-
-      await this.prisma.testAnswer.update({
-        where: { id: answer.id },
-        data: { isCorrect: isPerfectlyCorrect },
-      });
+      if (isPerfectlyCorrect) correctAnswerIds.push(answer.id);
+      else incorrectAnswerIds.push(answer.id);
 
       weightedRaw += wEarned;
       weightedMax += wMax;
+      answerScores.push({
+        answerId: answer.id,
+        questionId: answer.questionId,
+        earnedPoints: wEarned,
+        maxPoints: wMax,
+        errorCount: errors,
+        reviewStatus,
+      });
 
       if (!sectionAgg.has(subjectId)) {
         sectionAgg.set(subjectId, {
@@ -216,6 +315,10 @@ export class TestScorerService {
       if (isPerfectlyCorrect) sec.correctCount++;
       sec.rawPoints += wEarned;
       sec.maxPoints += wMax;
+    }
+
+    if (!opts?.readOnly) {
+      await this.persistAnswerCorrectness(correctAnswerIds, incorrectAnswerIds, tx);
     }
 
     if (entWeightedActive && weightedMax > 0) {
@@ -239,6 +342,7 @@ export class TestScorerService {
         maxScore: weightedMax,
         score,
         sections,
+        answerScores,
       };
     }
 
@@ -264,6 +368,7 @@ export class TestScorerService {
       maxScore,
       score,
       sections,
+      answerScores,
     };
   }
 }

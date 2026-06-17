@@ -1,3 +1,7 @@
+import Link from "next/link"
+import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
+import { SUPPORT_EMAIL } from "@/lib/legal-content"
+
 const groups = [
   {
     title: "Платформа",
@@ -18,12 +22,12 @@ const groups = [
     ],
   },
   {
-    title: "Компания",
+    title: "Документы",
     links: [
-      { label: "О нас", href: "#" },
-      { label: "Контакты", href: "#lead" },
-      { label: "Для школ", href: "#lead" },
-      { label: "Стать преподавателем", href: "#lead" },
+      { label: "Оферта", href: "/terms" },
+      { label: "Конфиденциальность", href: "/privacy" },
+      { label: "Оплата и возврат", href: "/payment" },
+      { label: "Поддержка", href: "/support" },
     ],
   },
 ]
@@ -47,6 +51,20 @@ export function SiteFooter() {
               Пробные ЕНТ в реальном формате. Готовим школьников Казахстана к экзамену
               осознанно — без зубрёжки и страха.
             </p>
+
+            <div className="mt-5 space-y-2 text-sm text-muted-foreground">
+              <p>Все цены на сайте указаны в тенге (₸).</p>
+              <p>
+                Поддержка:{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-foreground hover:underline">
+                  {SUPPORT_EMAIL}
+                </a>
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <PaymentBrandStrip compact />
+            </div>
 
             <div className="mt-6 flex items-center gap-2">
               {[
@@ -76,12 +94,12 @@ export function SiteFooter() {
                 <ul className="mt-5 space-y-3">
                   {g.links.map((l) => (
                     <li key={l.label}>
-                      <a
+                      <Link
                         href={l.href}
                         className="text-sm text-foreground/85 transition-colors hover:text-foreground"
                       >
                         {l.label}
-                      </a>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -95,18 +113,21 @@ export function SiteFooter() {
             © {new Date().getFullYear()} mytest. Алматы, Казахстан. Все права защищены.
           </p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-            <a href="/terms" className="hover:text-foreground">
-              Условия
-            </a>
-            <a href="/privacy" className="hover:text-foreground">
+            <Link href="/terms" className="hover:text-foreground">
+              Оферта
+            </Link>
+            <Link href="/privacy" className="hover:text-foreground">
               Конфиденциальность
-            </a>
-            <a href="/support" className="hover:text-foreground">
+            </Link>
+            <Link href="/payment" className="hover:text-foreground">
+              Оплата
+            </Link>
+            <Link href="/support" className="hover:text-foreground">
               Поддержка
-            </a>
-            <a href="/mobile" className="hover:text-foreground">
+            </Link>
+            <Link href="/mobile" className="hover:text-foreground">
               Приложение
-            </a>
+            </Link>
           </div>
         </div>
       </div>

@@ -1,23 +1,39 @@
 "use client"
 
-import { use, useMemo, useState } from "react"
+import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import {
+  ArrowRight,
   ArrowLeft,
+  Flag,
   CheckCircle2,
   ChevronDown,
   Crown,
   Lightbulb,
+  RefreshCw,
+  Target,
+  TrendingUp,
   Trophy,
   XCircle,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Progress } from "@/components/ui/progress"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Accordion,
   AccordionContent,
@@ -32,16 +48,33 @@ import {
   imageReferenceText,
 } from "@/components/exam/rich-text"
 import { api, ApiError } from "@/lib/api/client"
+import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
-import { buildReviewSections, type ReviewSectionModel } from "@/lib/api/test-session"
+import {
+  buildReviewSections,
+  type FlatSessionQuestion,
+  type ReviewSectionModel,
+} from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
-import type { ReviewResponse } from "@/lib/api/types"
+import type {
+  QuestionAppeal,
+  QuestionAppealReason,
+  QuestionAppealStatus,
+  ReviewResponse,
+  TestSession,
+} from "@/lib/api/types"
 
 interface ExplanationData {
   questionId: string
   explanation: unknown
   imageUrls?: string[]
+}
+
+type ScoreSegment = {
+  key: "threshold" | "grant" | "top"
+  title: string
+  text: string
 }
 
 export default function ReviewPage({
@@ -50,11 +83,13 @@ export default function ReviewPage({
   params: Promise<{ sessionId: string }>
 }) {
   const { sessionId } = use(params)
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, refresh } = useAuth()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
-  const { data, isLoading, error } = useSWR<ReviewResponse>(
+  const { data, isLoading, error, mutate } = useSWR<ReviewResponse>(
     `/tests/sessions/${sessionId}/review`,
   )
+  const [retaking, setRetaking] = useState(false)
 
   const sections: ReviewSectionModel[] = useMemo(() => {
     if (!data) return []
@@ -67,7 +102,76 @@ export default function ReviewPage({
     data?.totalQuestions ?? sections.reduce((sum, sec) => sum + sec.totalCount, 0)
   const displayScore = data?.rawScore ?? data?.score ?? overallCorrect
   const displayMax = data?.maxScore ?? overallTotal
-  const accuracy = overallTotal ? Math.round((overallCorrect / overallTotal) * 100) : 0
+  const accuracy = displayMax ? Math.round((displayScore / displayMax) * 100) : 0
+  const canRetakeEnt =
+    data?.examType?.slug === "ent" && data.metadata?.kind !== "remediation"
+  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const scoreSegment = useMemo(
+    () => getScoreSegment(displayScore, displayMax),
+    [displayMax, displayScore],
+  )
+  const weakSections = useMemo(() => {
+    return sections
+      .map((sec) => {
+        const pct =
+          sec.score != null
+            ? Math.round(sec.score)
+            : sec.totalCount
+              ? Math.round((sec.correctCount / sec.totalCount) * 100)
+              : 0
+        return {
+          title: sec.title,
+          pct,
+          lost:
+            sec.maxPoints != null && sec.rawPoints != null
+              ? Math.max(0, sec.maxPoints - sec.rawPoints)
+              : Math.max(0, sec.totalCount - sec.correctCount),
+        }
+      })
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 3)
+  }, [sections])
+
+  useEffect(() => {
+    void refresh({ silent: true })
+  }, [refresh])
+
+  useEffect(() => {
+    if (!data) return
+    void recordFunnelEvent(
+      "review_opened",
+      {
+        examSlug: data.examType?.slug,
+        rawScore: data.rawScore,
+        score: data.score,
+        maxScore: data.maxScore,
+        accuracy,
+        scoreSegment: scoreSegment.key,
+      },
+      sessionId,
+    )
+  }, [accuracy, data, scoreSegment.key, sessionId])
+
+  const startRetake = async () => {
+    if (!data || retaking) return
+    setRetaking(true)
+    try {
+      const session = await api<TestSession>(`/tests/sessions/${sessionId}/retake`, {
+        method: "POST",
+      })
+      toast.success("Повтор ЕНТ создан")
+      router.push(`/exam/${session.id}`)
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 402 || e.status === 403)) {
+        void recordFunnelEvent("premium_gate", { feature: "retake" }, sessionId)
+        router.push(`/dashboard/billing?reason=retake&sessionId=${encodeURIComponent(sessionId)}`)
+        return
+      }
+      toast.error(e instanceof ApiError ? e.message : "Не удалось создать повтор")
+    } finally {
+      setRetaking(false)
+    }
+  }
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -122,8 +226,37 @@ export default function ReviewPage({
                     <span className="text-sm font-medium tabular-nums">{accuracy}%</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Правильных ответов: {overallCorrect} из {overallTotal}
+                    Точно верных ответов: {overallCorrect} из {overallTotal}
                   </p>
+                  {canRetakeEnt && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      {hasPremium ? (
+                        <Button onClick={startRetake} disabled={retaking}>
+                          {retaking ? (
+                            <Spinner className="size-4" />
+                          ) : (
+                            <RefreshCw className="size-4" />
+                          )}
+                          Повторить этот ЕНТ
+                        </Button>
+                      ) : (
+                        <Button asChild>
+                          <Link
+                            href={`/dashboard/billing?reason=retake&sessionId=${encodeURIComponent(sessionId)}`}
+                            onClick={() => void recordFunnelEvent("premium_gate", { feature: "retake" }, sessionId)}
+                          >
+                            <RefreshCw className="size-4" />
+                            Повторить в Premium
+                          </Link>
+                        </Button>
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {hasPremium
+                          ? "Повторите этот же ЕНТ после разбора, чтобы увидеть рост"
+                          : "Пересдача доступна в Premium и помогает проверить рост после разбора"}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex size-24 items-center justify-center rounded-full bg-foreground text-background">
                   <Trophy className="size-10" />
@@ -137,17 +270,33 @@ export default function ReviewPage({
                 {sections.map((sec) => {
                   const total = sec.totalCount
                   const correct = sec.correctCount
-                  const pct = total ? Math.round((correct / total) * 100) : 0
+                  const rawPoints = sec.rawPoints
+                  const maxPoints = sec.maxPoints
+                  const pct =
+                    sec.score != null
+                      ? Math.round(sec.score)
+                      : total
+                        ? Math.round((correct / total) * 100)
+                        : 0
+                  const pointsLabel =
+                    rawPoints != null && maxPoints != null
+                      ? `${rawPoints}/${maxPoints} ${pluralizePoints(maxPoints)}`
+                      : `${correct}/${total}`
                   return (
                     <Card key={sec.id}>
                       <CardContent className="flex flex-col gap-2 p-4">
                         <p className="text-sm font-medium">{sec.title}</p>
                         <div className="flex items-baseline gap-2">
                           <span className="text-2xl font-semibold tabular-nums">
-                            {correct}/{total}
+                            {pointsLabel}
                           </span>
                           <span className="text-xs text-muted-foreground">{pct}%</span>
                         </div>
+                        {rawPoints != null && maxPoints != null && (
+                          <p className="text-xs text-muted-foreground">
+                            Точно верно: {correct}/{total}
+                          </p>
+                        )}
                         <Progress value={pct} />
                       </CardContent>
                     </Card>
@@ -155,6 +304,16 @@ export default function ReviewPage({
                 })}
               </div>
             )}
+
+            <ReviewSalesCard
+              sessionId={sessionId}
+              score={displayScore}
+              maxScore={displayMax}
+              accuracy={accuracy}
+              scoreSegment={scoreSegment}
+              weakSections={weakSections}
+              hasPremium={hasPremium}
+            />
 
             {/* Sections + questions */}
             {sections.map((sec) => {
@@ -164,6 +323,7 @@ export default function ReviewPage({
                   <Accordion type="multiple" className="flex flex-col gap-2">
                     {sec.questions.map((q, idx) => {
                       const qSubject = localize(q.subjectName, locale)
+                      const reviewMeta = getQuestionReviewMeta(q)
                       const detachedImageUrls = getDetachedImageUrls(q.imageUrls, [
                         q.display.passage ?? "",
                         q.display.topicLine ?? "",
@@ -179,30 +339,55 @@ export default function ReviewPage({
                           value={q.id}
                           className={cn(
                             "rounded-lg border bg-card",
-                            q.isCorrect === true
+                            q.reviewStatus === "correct"
                               ? "border-emerald-200"
-                              : q.isCorrect === false
-                                ? "border-rose-200"
-                                : "border-border",
+                              : q.reviewStatus === "partial"
+                                ? "border-amber-200"
+                                : q.reviewStatus === "unanswered"
+                                  ? "border-slate-200"
+                                  : "border-rose-200",
                           )}
                         >
                           <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                            <div className="flex w-full items-center gap-3 pr-2 text-left">
-                              {q.isCorrect === true ? (
-                                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
-                              ) : (
-                                <XCircle className="size-5 shrink-0 text-rose-600" />
-                              )}
-                              <span className="text-sm font-medium tabular-nums text-muted-foreground">
-                                №{idx + 1}
-                              </span>
-                              <span className="line-clamp-1 flex-1 text-sm font-normal">
-                                {q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
-                              </span>
+                            <div className="flex w-full flex-wrap items-center gap-3 pr-2 text-left sm:flex-nowrap">
+                              <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <reviewMeta.Icon className={cn("size-5 shrink-0", reviewMeta.iconClassName)} />
+                                <span className="text-sm font-medium tabular-nums text-muted-foreground">
+                                  №{idx + 1}
+                                </span>
+                                <span className="line-clamp-1 flex-1 text-sm font-normal">
+                                  {q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
+                                </span>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "border-current/20 bg-background/80 text-xs",
+                                    reviewMeta.badgeClassName,
+                                  )}
+                                >
+                                  {reviewMeta.label}
+                                </Badge>
+                                <Badge variant="outline" className="tabular-nums">
+                                  {formatQuestionPoints(q.earnedPoints, q.maxPoints)}
+                                </Badge>
+                              </div>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="border-t border-border px-4 py-4">
                             <div className="flex flex-col gap-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge className={reviewMeta.fillClassName}>{reviewMeta.label}</Badge>
+                                <Badge variant="outline" className="tabular-nums">
+                                  {formatQuestionPoints(q.earnedPoints, q.maxPoints)}
+                                </Badge>
+                                {q.errorCount != null && q.errorCount > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatErrorCount(q.errorCount)}
+                                  </span>
+                                )}
+                              </div>
                               {q.display.passage && (
                                 <RichText
                                   as="div"
@@ -240,17 +425,13 @@ export default function ReviewPage({
                               <div className="flex flex-col gap-2">
                                 {q.answerOptions.map((opt, i) => {
                                   const isSelected = q.selectedIds.includes(opt.id)
-                                  const stateClass = opt.isCorrect
-                                    ? "border-emerald-300 bg-emerald-50"
-                                    : isSelected
-                                      ? "border-rose-300 bg-rose-50"
-                                      : "border-border bg-card"
+                                  const optionMeta = getReviewOptionMeta(isSelected, Boolean(opt.isCorrect))
                                   return (
                                     <div
                                       key={opt.id}
                                       className={cn(
                                         "flex items-start gap-3 rounded-md border px-4 py-3",
-                                        stateClass,
+                                        optionMeta.containerClassName,
                                       )}
                                     >
                                       <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold">
@@ -266,19 +447,33 @@ export default function ReviewPage({
                                         {opt.imageUrl && <QuestionMedia src={opt.imageUrl} />}
                                       </div>
                                       <div className="flex flex-col items-end gap-1">
-                                        {opt.isCorrect && (
-                                          <Badge className="bg-emerald-600 hover:bg-emerald-600">
-                                            Верно
+                                        {optionMeta.badges.map((badge) => (
+                                          <Badge
+                                            key={badge.label}
+                                            variant={badge.variant}
+                                            className={badge.className}
+                                          >
+                                            {badge.label}
                                           </Badge>
-                                        )}
-                                        {isSelected && !opt.isCorrect && (
-                                          <Badge variant="destructive">Ваш ответ</Badge>
-                                        )}
+                                        ))}
                                       </div>
                                     </div>
                                   )
                                 })}
                               </div>
+
+                              <QuestionAppealBlock
+                                sessionId={sessionId}
+                                questionId={q.id}
+                                appeal={data.appeals?.find((item) => item.questionId === q.id) ?? null}
+                                onAppealSaved={(appeal) => {
+                                  void mutate((current) => {
+                                    if (!current) return current
+                                    const nextAppeals = upsertAppeal(current.appeals || [], appeal)
+                                    return { ...current, appeals: nextAppeals }
+                                  }, false)
+                                }}
+                              />
 
                               {q.hasExplanation && (
                                 <ExplanationBlock
@@ -303,6 +498,207 @@ export default function ReviewPage({
   )
 }
 
+function pluralizeRu(
+  value: number,
+  forms: [one: string, few: string, many: string],
+) {
+  const abs = Math.abs(value) % 100
+  const tail = abs % 10
+  if (abs > 10 && abs < 20) return forms[2]
+  if (tail > 1 && tail < 5) return forms[1]
+  if (tail === 1) return forms[0]
+  return forms[2]
+}
+
+function pluralizePoints(value: number) {
+  return pluralizeRu(value, ["балл", "балла", "баллов"])
+}
+
+function formatQuestionPoints(earnedPoints: number, maxPoints: number) {
+  return `${earnedPoints}/${maxPoints} ${pluralizePoints(maxPoints)}`
+}
+
+function formatErrorCount(errorCount: number) {
+  return `${errorCount} ${pluralizeRu(errorCount, ["ошибка", "ошибки", "ошибок"])}`
+}
+
+function getQuestionReviewMeta(question: Pick<
+  FlatSessionQuestion,
+  "reviewStatus" | "earnedPoints" | "maxPoints"
+>) {
+  if (question.reviewStatus === "correct") {
+    return {
+      label: "Верно",
+      Icon: CheckCircle2,
+      iconClassName: "text-emerald-600",
+      badgeClassName: "text-emerald-700",
+      fillClassName: "bg-emerald-600 hover:bg-emerald-600 text-white",
+    }
+  }
+  if (question.reviewStatus === "partial") {
+    return {
+      label: "Частично",
+      Icon: Target,
+      iconClassName: "text-amber-600",
+      badgeClassName: "text-amber-700",
+      fillClassName: "bg-amber-600 hover:bg-amber-600 text-white",
+    }
+  }
+  if (question.reviewStatus === "unanswered") {
+    return {
+      label: "Без ответа",
+      Icon: Flag,
+      iconClassName: "text-slate-500",
+      badgeClassName: "text-slate-700",
+      fillClassName: "bg-slate-600 hover:bg-slate-600 text-white",
+    }
+  }
+  return {
+    label: question.earnedPoints > 0 && question.earnedPoints < question.maxPoints ? "Частично" : "Неверно",
+    Icon: XCircle,
+    iconClassName: "text-rose-600",
+    badgeClassName: "text-rose-700",
+    fillClassName: "bg-rose-600 hover:bg-rose-600 text-white",
+  }
+}
+
+function getReviewOptionMeta(isSelected: boolean, isCorrect: boolean) {
+  if (isSelected && isCorrect) {
+    return {
+      containerClassName: "border-emerald-400 bg-emerald-50",
+      badges: [
+        { label: "Ваш выбор", variant: "outline" as const, className: "border-emerald-300 text-emerald-800" },
+        { label: "Верно", variant: "default" as const, className: "bg-emerald-600 hover:bg-emerald-600" },
+      ],
+    }
+  }
+  if (isCorrect) {
+    return {
+      containerClassName: "border-emerald-200 bg-emerald-50/60",
+      badges: [
+        { label: "Правильный ответ", variant: "outline" as const, className: "border-emerald-300 text-emerald-800" },
+      ],
+    }
+  }
+  if (isSelected) {
+    return {
+      containerClassName: "border-rose-300 bg-rose-50",
+      badges: [
+        { label: "Ваш выбор", variant: "destructive" as const, className: "" },
+      ],
+    }
+  }
+  return {
+    containerClassName: "border-border bg-card",
+    badges: [],
+  }
+}
+
+function getScoreSegment(score: number, maxScore: number): ScoreSegment {
+  const pct = maxScore > 0 ? score / maxScore : 0
+  if (score >= 110 || pct >= 0.8) {
+    return {
+      key: "top",
+      title: "Стабилизируй 120+ и не теряй лёгкие баллы",
+      text: "У тебя уже сильная база, теперь важнее убрать случайные ошибки и закрепить высокий результат.",
+    }
+  }
+  if (score >= 70 || pct >= 0.5) {
+    return {
+      key: "grant",
+      title: "Добери баллы до гранта через слабые зоны",
+      text: "Ты уже близко к рабочей траектории, но часть баллов уходит в повторяющихся темах.",
+    }
+  }
+  return {
+    key: "threshold",
+    title: "Сначала догоняем порог и базовые темы",
+    text: "Сейчас важнее быстро найти базовые провалы и закрыть самые дорогие ошибки.",
+  }
+}
+
+function ReviewSalesCard({
+  sessionId,
+  score,
+  maxScore,
+  accuracy,
+  scoreSegment,
+  weakSections,
+  hasPremium,
+}: {
+  sessionId: string
+  score: number
+  maxScore: number
+  accuracy: number
+  scoreSegment: ScoreSegment
+  weakSections: Array<{ title: string; pct: number; lost: number }>
+  hasPremium: boolean
+}) {
+  const potentialGain = Math.max(6, Math.min(18, Math.round((100 - accuracy) / 4)))
+  const primaryWeak = weakSections[0]
+
+  return (
+    <Card className="overflow-hidden border-amber-200 bg-amber-50">
+      <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-amber-600 text-white hover:bg-amber-600">
+              {hasPremium ? "Premium активен" : "Персональный план"}
+            </Badge>
+            <span className="text-sm font-medium">
+              Результат: <span className="tabular-nums">{score}/{maxScore}</span>
+            </span>
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              {scoreSegment.title}
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900">
+              {hasPremium
+                ? `${scoreSegment.text} Объяснения, тренировки по ошибкам и повтор этого пробника уже открыты. Начните с ошибок, чтобы добрать ориентировочно +${potentialGain} баллов.`
+                : `${scoreSegment.text} Premium откроет объяснения, тренировки по ошибкам и следующий пробник, чтобы добрать ориентировочно +${potentialGain} баллов.`}
+            </p>
+          </div>
+          <div className="grid gap-2 text-sm sm:grid-cols-3">
+            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
+              <Target className="mb-2 size-4 text-amber-700" />
+              <p className="font-medium">Слабая зона</p>
+              <p className="mt-1 text-amber-800">{primaryWeak?.title ?? "Ошибки по предметам"}</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
+              <TrendingUp className="mb-2 size-4 text-amber-700" />
+              <p className="font-medium">Потенциал роста</p>
+              <p className="mt-1 text-amber-800">+{potentialGain} баллов при разборе ошибок</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
+              <Lightbulb className="mb-2 size-4 text-amber-700" />
+              <p className="font-medium">{hasPremium ? "Уже открыто" : "Что откроется"}</p>
+              <p className="mt-1 text-amber-800">Объяснения и тренировка ошибок</p>
+            </div>
+          </div>
+        </div>
+        <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
+          <Link
+            href={
+              hasPremium
+                ? "/dashboard/mistakes"
+                : `/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`
+            }
+            onClick={() => {
+              if (!hasPremium) {
+                void recordFunnelEvent("premium_gate", { feature: "review_recovery" }, sessionId)
+              }
+            }}
+          >
+            {hasPremium ? "Работать над ошибками" : "Открыть план роста"}
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ExplanationBlock({
   sessionId,
   questionId,
@@ -319,6 +715,7 @@ function ExplanationBlock({
 
   const load = async () => {
     if (data || loading) return
+    void recordFunnelEvent("explain_click", { questionId }, sessionId)
     setLoading(true)
     setErr(null)
     try {
@@ -329,6 +726,7 @@ function ExplanationBlock({
     } catch (e) {
       const apiErr = e as ApiError
       if (apiErr.status === 402 || apiErr.status === 403) {
+        void recordFunnelEvent("premium_gate", { questionId, feature: "explanation" }, sessionId)
         setErr("premium")
       } else {
         setErr(apiErr.message || "Не удалось загрузить объяснение")
@@ -349,7 +747,9 @@ function ExplanationBlock({
               Получите подробные разборы каждой ошибки, чтобы быстрее закрывать пробелы.
             </p>
             <Button size="sm" asChild className="self-start">
-              <Link href="/dashboard/billing">Подключить Premium</Link>
+              <Link href={`/dashboard/billing?reason=premium_explanation&sessionId=${encodeURIComponent(sessionId)}`}>
+                Подключить Premium
+              </Link>
             </Button>
           </div>
         </div>
@@ -419,4 +819,263 @@ function formatExplanation(explanation: unknown, locale: Locale): string {
   const localized = localize(explanation as LocalizedText, locale)
   if (localized) return localized
   return JSON.stringify(explanation, null, 2) || ""
+}
+
+const APPEAL_REASON_OPTIONS: Array<{
+  value: QuestionAppealReason
+  label: string
+  hint: string
+}> = [
+  {
+    value: "incorrect_answer",
+    label: "Неверный ответ",
+    hint: "Правильный вариант отмечен ошибочно или ключ не совпадает с условием.",
+  },
+  {
+    value: "ambiguous_wording",
+    label: "Неясная формулировка",
+    hint: "Вопрос или варианты допускают несколько трактовок.",
+  },
+  {
+    value: "outdated_content",
+    label: "Устаревший контент",
+    hint: "Данные, формулировка или факт уже неактуальны.",
+  },
+  {
+    value: "broken_media",
+    label: "Проблема с медиа",
+    hint: "Не загружается картинка, схема или часть условия.",
+  },
+  {
+    value: "other",
+    label: "Другое",
+    hint: "Любая другая проблема, которую важно описать вручную.",
+  },
+]
+
+function appealStatusMeta(status: QuestionAppealStatus): {
+  label: string
+  className: string
+  textClassName: string
+} {
+  if (status === "resolved") {
+    return {
+      label: "Решена",
+      className: "bg-emerald-600 hover:bg-emerald-600",
+      textClassName: "text-emerald-700",
+    }
+  }
+  if (status === "rejected") {
+    return {
+      label: "Отклонена",
+      className: "bg-rose-600 hover:bg-rose-600",
+      textClassName: "text-rose-700",
+    }
+  }
+  if (status === "under_review") {
+    return {
+      label: "На проверке",
+      className: "bg-amber-600 hover:bg-amber-600",
+      textClassName: "text-amber-700",
+    }
+  }
+  return {
+    label: "Отправлена",
+    className: "bg-sky-600 hover:bg-sky-600",
+    textClassName: "text-sky-700",
+  }
+}
+
+function appealReasonLabel(reason: QuestionAppealReason) {
+  return APPEAL_REASON_OPTIONS.find((item) => item.value === reason)?.label || "Апелляция"
+}
+
+function upsertAppeal(appeals: QuestionAppeal[], next: QuestionAppeal) {
+  const existingIndex = appeals.findIndex((item) => item.questionId === next.questionId)
+  if (existingIndex === -1) {
+    return [next, ...appeals]
+  }
+  const cloned = [...appeals]
+  cloned[existingIndex] = next
+  return cloned
+}
+
+function QuestionAppealBlock({
+  sessionId,
+  questionId,
+  appeal,
+  onAppealSaved,
+}: {
+  sessionId: string
+  questionId: string
+  appeal: QuestionAppeal | null
+  onAppealSaved: (appeal: QuestionAppeal) => void
+}) {
+  const editable = !appeal || appeal.status === "pending"
+  const meta = appeal ? appealStatusMeta(appeal.status) : null
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState<QuestionAppealReason>(appeal?.reason || "incorrect_answer")
+  const [message, setMessage] = useState(appeal?.message || "")
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setReason(appeal?.reason || "incorrect_answer")
+    setMessage(appeal?.message || "")
+  }, [appeal, open])
+
+  const submitAppeal = async () => {
+    const trimmed = message.trim()
+    if (trimmed.length < 12) {
+      toast.error("Опишите проблему чуть подробнее")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const saved = await api<QuestionAppeal>(
+        `/tests/sessions/${sessionId}/review/${questionId}/appeal`,
+        {
+          method: "POST",
+          body: {
+            reason,
+            message: trimmed,
+          },
+        },
+      )
+      onAppealSaved(saved)
+      toast.success(appeal ? "Апелляция обновлена" : "Апелляция отправлена")
+      setOpen(false)
+    } catch (e) {
+      const apiErr = e as ApiError
+      toast.error(apiErr.message || "Не удалось отправить апелляцию")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-background/70 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 text-sm font-medium">
+              <Flag className="size-4" />
+              Апелляция по вопросу
+            </span>
+            {appeal && meta ? (
+              <Badge className={meta.className}>{meta.label}</Badge>
+            ) : null}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Если в вопросе ошибка, неясная формулировка или сломанное медиа, отправьте это команде на проверку.
+          </p>
+          {appeal ? (
+            <div className="flex flex-col gap-1 text-sm">
+              <span className={meta?.textClassName}>
+                Причина: {appealReasonLabel(appeal.reason)}
+              </span>
+              {appeal.adminNote ? (
+                <span className="text-muted-foreground">
+                  Комментарий команды: {appeal.adminNote}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  Статус обновится здесь после проверки.
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+        <Button
+          variant={appeal ? "outline" : "default"}
+          size="sm"
+          onClick={() => setOpen(true)}
+        >
+          {appeal ? "Открыть апелляцию" : "Подать апелляцию"}
+        </Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Апелляция по вопросу</DialogTitle>
+            <DialogDescription>
+              Мы сохраняем ваш комментарий вместе со снимком вопроса и ответа из этой попытки.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            {appeal && meta ? (
+              <div className="rounded-md border border-border bg-secondary/40 p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Текущий статус:</span>
+                  <Badge className={meta.className}>{meta.label}</Badge>
+                </div>
+                {appeal.reviewedAt ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Обновлено: {new Date(appeal.reviewedAt).toLocaleString("ru-RU")}
+                  </p>
+                ) : null}
+                {appeal.adminNote ? (
+                  <p className="mt-2 whitespace-pre-wrap text-foreground">{appeal.adminNote}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor={`appeal-reason-${questionId}`}>
+                Причина
+              </label>
+              <select
+                id={`appeal-reason-${questionId}`}
+                value={reason}
+                onChange={(event) => setReason(event.target.value as QuestionAppealReason)}
+                disabled={!editable || submitting}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {APPEAL_REASON_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {APPEAL_REASON_OPTIONS.find((item) => item.value === reason)?.hint}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor={`appeal-message-${questionId}`}>
+                Комментарий
+              </label>
+              <Textarea
+                id={`appeal-message-${questionId}`}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                disabled={!editable || submitting}
+                rows={6}
+                placeholder="Опишите, что именно не так: какой ответ, формулировка, картинка или факт вызывают проблему."
+              />
+              <p className="text-xs text-muted-foreground">
+                Минимум 12 символов. Чем конкретнее описание, тем быстрее команда сможет проверить вопрос.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+              Закрыть
+            </Button>
+            {editable ? (
+              <Button onClick={submitAppeal} disabled={submitting}>
+                {submitting ? <Spinner className="size-4" /> : <Flag className="size-4" />}
+                {appeal ? "Сохранить" : "Отправить"}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
 }

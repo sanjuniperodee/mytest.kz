@@ -4,8 +4,13 @@ import {
   Body,
   Res,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
@@ -13,6 +18,7 @@ export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
 
   @Post('visit')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async recordVisit(
     @Body()
     body: {
@@ -26,7 +32,9 @@ export class AnalyticsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const visitorId = body.visitorId || req.cookies?.['blm_vid'] || crypto.randomUUID();
+    // Prefer the server-set httpOnly cookie over the client-supplied body id to
+    // limit analytics pollution; the body id is only a first-visit fallback.
+    const visitorId = req.cookies?.['blm_vid'] || body.visitorId || randomUUID();
 
     const result = await this.analyticsService.recordVisit({
       visitorId,
@@ -46,5 +54,28 @@ export class AnalyticsController {
     });
 
     return result;
+  }
+
+  @Post('event')
+  @UseGuards(AuthGuard('jwt'))
+  async recordEvent(
+    @CurrentUser('id') userId: string,
+    @Body()
+    body: {
+      step?: string;
+      sessionId?: string;
+      metadata?: Record<string, unknown>;
+      landingPath?: string;
+    },
+    @Req() req: Request,
+  ) {
+    return this.analyticsService.recordEvent({
+      userId,
+      visitorId: req.cookies?.['blm_vid'],
+      step: body.step || '',
+      sessionId: body.sessionId,
+      metadata: body.metadata,
+      landingPath: body.landingPath,
+    });
   }
 }

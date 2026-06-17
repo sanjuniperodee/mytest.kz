@@ -29,6 +29,7 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { reviewContentColumnWidth } from "@/lib/exam/layout"
+import { t, useUiLocale } from "@/lib/i18n/ui"
 
 /** Tailwind emerald / rose / amber — match apps/web review borders & badges */
 const EM = { 50: "#ECFDF5", 200: "#A7F3D0", 300: "#6EE7B7", 600: "#059669" }
@@ -500,6 +501,7 @@ function ExplanationBlock({
   innerCol: number
 }) {
   const { colors } = useAppTheme()
+  const { locale: ui } = useUiLocale()
   const [open, setOpen] = useState(false)
   const [payload, setPayload] = useState<ExplanationData | null>(null)
   const [loading, setLoading] = useState(false)

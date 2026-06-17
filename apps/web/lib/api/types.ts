@@ -1,6 +1,14 @@
 // Shared API types for mytest-v2. These mirror the current Nest backend contract.
 
 import type { LocalizedText } from "./i18n"
+import type {
+  AdmissionCompareResult,
+  AdmissionCycleDto,
+  ChanceProgramDto,
+  ChanceUniversityDto,
+  EntProgramDto,
+  UniversityDto,
+} from "@bilimland/shared"
 
 export type AccessReasonCode =
   | "DAILY_LIMIT_REACHED"
@@ -176,6 +184,10 @@ export interface TestAnswer {
   questionId: string
   selectedIds: string[]
   isCorrect: boolean | null
+  earnedPoints?: number
+  maxPoints?: number
+  errorCount?: number
+  reviewStatus?: "correct" | "partial" | "incorrect" | "unanswered"
   answeredAt?: string | null
   question: Question
 }
@@ -192,7 +204,7 @@ export interface SessionMetadataSection {
 
 export interface SessionMetadata {
   kind?: "remediation"
-  entScope?: "mandatory" | "profile" | "full"
+  entScope?: "mandatory" | "profile" | "full" | "creative"
   remediationDurationMins?: number
   entSessionDurationMins?: number
   sections?: SessionMetadataSection[]
@@ -209,6 +221,35 @@ export interface SessionSectionScore {
   score: number
   rawPoints?: number
   maxPoints?: number
+}
+
+export type QuestionAppealReason =
+  | "incorrect_answer"
+  | "ambiguous_wording"
+  | "outdated_content"
+  | "broken_media"
+  | "other"
+
+export type QuestionAppealStatus =
+  | "pending"
+  | "under_review"
+  | "resolved"
+  | "rejected"
+
+export interface QuestionAppeal {
+  id: string
+  userId?: string
+  sessionId: string
+  questionId: string
+  examTypeId?: string
+  subjectId?: string
+  reason: QuestionAppealReason
+  message: string
+  status: QuestionAppealStatus
+  adminNote?: string | null
+  reviewedAt?: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface TestSession {
@@ -231,6 +272,7 @@ export interface TestSession {
   examType?: ExamType
   sectionScores?: SessionSectionScore[]
   sectionsScores?: SessionSectionScore[]
+  appeals?: QuestionAppeal[]
 }
 
 export interface PaginatedResponse<T> {
@@ -374,63 +416,9 @@ export interface LeaderboardEntry {
   [key: string]: unknown
 }
 
-export interface AdmissionCycle {
-  id: string
-  slug: string
-  sortOrder: number
-}
-
-export interface University {
-  code: number
-  name: string
-  shortName: string | null
-}
-
-export interface AdmissionProgram {
-  id: string
-  code: string
-  profileVariant?: number
-  name: string
-  profileSubjects?: string
-  profileShortLabel?: string | null
-}
-
-export interface CompareResult {
-  total: number
-  passesEntThresholds: boolean
-  cutoff: number | null
-  hasCutoff: boolean
-  gapToCutoff: number | null
-}
-
-export interface ChanceProgram {
-  cycleSlug: string
-  programId: string
-  programCode: string
-  programName: string
-  profileSubjects: string
-  profileVariant?: number
-  displayedQuotaType: "GRANT" | "RURAL"
-  displayedMinScore: number | null
-  universityCount: number
-  isPass: boolean
-  total: number
-  gapToCutoff: number | null
-}
-
-export interface ChanceUniversity {
-  cycleSlug: string
-  universityCode: number
-  universityName: string
-  universityShortName: string | null
-  programId: string
-  programCode: string
-  programName: string
-  profileSubjects: string
-  profileVariant?: number
-  displayedQuotaType: "GRANT" | "RURAL"
-  displayedMinScore: number | null
-  isPass: boolean
-  total: number
-  gapToCutoff: number | null
-}
+export type AdmissionCycle = AdmissionCycleDto
+export type University = UniversityDto
+export type AdmissionProgram = EntProgramDto
+export type CompareResult = AdmissionCompareResult
+export type ChanceProgram = ChanceProgramDto
+export type ChanceUniversity = ChanceUniversityDto

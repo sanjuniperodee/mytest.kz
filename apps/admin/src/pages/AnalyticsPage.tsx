@@ -41,6 +41,7 @@ export function AnalyticsPage() {
   const [draftTo, setDraftTo] = useState(() => dayjs());
   const [visitorPage, setVisitorPage] = useState(1);
   const [takerPage, setTakerPage] = useState(1);
+  const [activeTab, setActiveTab] = useState('summary');
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['admin-analytics-overview'],
@@ -55,11 +56,13 @@ export function AnalyticsPage() {
   const { data: visitors, isLoading: visitorsLoading } = useQuery({
     queryKey: ['admin-analytics-visitors', { from, to, page: visitorPage }],
     queryFn: () => fetchVisitors({ from, to, page: visitorPage, limit: PAGE_SIZE }),
+    enabled: activeTab === 'visitors',
   });
 
   const { data: takers, isLoading: takersLoading } = useQuery({
     queryKey: ['admin-analytics-takers', { from, to, page: takerPage }],
     queryFn: () => fetchTestTakers({ from, to, page: takerPage, limit: PAGE_SIZE }),
+    enabled: activeTab === 'takers',
   });
 
   const applyDateFilters = () => {
@@ -144,7 +147,7 @@ export function AnalyticsPage() {
       key: 'done',
       width: 120,
       align: 'right' as const,
-      render: (_: unknown, v: Visitor) => v.completedSessions.length,
+      render: (_: unknown, v: Visitor) => v.completedSessionsCount,
     },
   ];
 
@@ -287,6 +290,8 @@ export function AnalyticsPage() {
         <Tabs
         className="hig-page-tabs"
         size="middle"
+        activeKey={activeTab}
+        onChange={setActiveTab}
         items={[
           {
             key: 'summary',
@@ -302,6 +307,9 @@ export function AnalyticsPage() {
                       { label: 'Зарегистрировано', value: funnel.totals.registered },
                       { label: 'Начали тест', value: funnel.totals.started },
                       { label: 'Завершили тест', value: funnel.totals.completed },
+                      { label: 'Открыли тарифы', value: funnel.totals.billingOpened ?? 0 },
+                      { label: 'Создали оплату', value: funnel.totals.checkoutCreated ?? 0 },
+                      { label: 'Оплатили', value: funnel.totals.paymentPaid ?? 0 },
                     ].map((x) => (
                       <div className="pg-a__tile" key={x.label}>
                         <Card bordered={false} size="small" style={{ background: 'transparent' }}>
