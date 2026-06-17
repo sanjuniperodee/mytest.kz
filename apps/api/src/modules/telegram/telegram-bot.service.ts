@@ -66,6 +66,54 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     return `https://t.me/${trimmed.slice(1)}`;
   }
 
+  private ensureBotClient() {
+    if (!this.bot && this.botToken) {
+      this.bot = new Telegraf(this.botToken);
+    }
+    return this.bot;
+  }
+
+  private telegramErrorDescription(error: unknown) {
+    if (!error || typeof error !== 'object') return String(error);
+    const response = (error as { response?: { description?: unknown } }).response;
+    if (typeof response?.description === 'string') return response.description;
+    const description = (error as { description?: unknown }).description;
+    if (typeof description === 'string') return description;
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+    return String(error);
+  }
+
+  private isDefiniteNonMemberError(error: unknown) {
+    const description = this.telegramErrorDescription(error).toLowerCase();
+    return (
+      description.includes('member not found') ||
+      description.includes('user not found') ||
+      description.includes('user_id_invalid')
+    );
+  }
+
+  private async syncKnownChannelMembership(telegramUserId: number) {
+    const membership = await this.checkChannelMembership(telegramUserId);
+    if (membership !== null) {
+      await this.prisma.user.updateMany({
+        where: { telegramId: BigInt(telegramUserId) },
+        data: { isChannelMember: membership, channelCheckedAt: new Date() },
+      });
+    }
+    return membership;
+  }
+
+  private channelMembershipReplyLine(membership: boolean | null) {
+    if (membership === true) {
+      return '\n\n✅ <b>Подписка на канал подтверждена.</b>';
+    }
+    if (membership === false) {
+      return `\n\n📣 Чтобы открыть пробные тесты, подпишитесь на канал: ${this.escapeHtml(this.channelUrl)}`;
+    }
+    return '\n\n⚠️ Не удалось проверить подписку на канал прямо сейчас. В MyTest нажмите «Проверить подписку» ещё раз.';
+  }
+
   /** Chat id (numeric) or @username for lead notifications. */
   private async resolveLeadNotificationTarget(): Promise<string | number> {
     if (this.leadNotifyUserId) {
@@ -152,12 +200,14 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
         where: { telegramId: BigInt(tgUser.id) },
         select: { phone: true },
       });
+      const membership = await this.syncKnownChannelMembership(tgUser.id);
 
       if (user?.phone) {
         await ctx.reply(
           '✅ <b>Номер уже привязан.</b>\n\n' +
             'Нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.\n' +
-            'Если хотите поменять номер для входа на сайте, используйте кнопку ниже.',
+            'Если хотите поменять номер для входа на сайте, используйте кнопку ниже.' +
+            this.channelMembershipReplyLine(membership),
           {
             parse_mode: 'HTML',
             ...this.mainReplyKeyboard(),
@@ -171,7 +221,8 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
           'Чтобы включить вход и открыть приложение:\n' +
           '1) Нажмите <b>«Поделиться номером»</b>\n' +
           '2) Отправьте <b>свой</b> номер KZ через кнопку\n' +
-          '3) После этого появится кнопка <b>«Открыть MyTest»</b>, и вход будет работать сразу',
+          '3) После этого появится кнопка <b>«Открыть MyTest»</b>, и вход будет работать сразу' +
+          this.channelMembershipReplyLine(membership),
         {
           parse_mode: 'HTML',
           ...this.contactOnlyKeyboard(),
@@ -188,28 +239,32 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
       this.logger.warn('TELEGRAM_BOT_TOKEN пуст — бот не запускается.');
       return;
     }
+    const bot = this.ensureBotClient();
+    if (!bot) {
+      this.logger.warn('Telegram bot client unavailable.');
+      return;
+    }
     const pollingEnabled = (
       this.config.get<string>('TELEGRAM_BOT_POLLING_ENABLED') ?? ''
     ).trim().toLowerCase();
     if (process.env.NODE_ENV === 'production' && pollingEnabled !== 'true') {
       this.logger.warn(
-        'TELEGRAM_BOT_POLLING_ENABLED is not true — Telegram long polling disabled for this API process.',
+        'TELEGRAM_BOT_POLLING_ENABLED is not true — Telegram long polling disabled for this API process; outbound bot API calls remain enabled.',
       );
       return;
     }
 
-    this.bot = new Telegraf(this.botToken);
-    this.bot.catch((err, ctx) => {
+    bot.catch((err, ctx) => {
       this.logger.error(
         `Unhandled Telegram update error (updateId=${ctx.update?.update_id ?? 'n/a'}): ${err}`,
       );
     });
 
-    this.bot.start(async (ctx) => {
+    bot.start(async (ctx) => {
       await this.sendStartWelcome(ctx);
     });
 
-    this.bot.command(['stop', 'unsubscribe'], async (ctx) => {
+    bot.command(['stop', 'unsubscribe'], async (ctx) => {
       if (!ctx.from) return;
       await this.prisma.user.updateMany({
         where: { telegramId: BigInt(ctx.from.id) },
@@ -222,7 +277,7 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
      * Сообщения вида «буду /start», «hi /start» — без entity bot_command, поэтому `bot.start` не срабатывает.
      * Реагируем, если `/start` есть в конце после пробела (кроме случаев с длинным «хвостом» после /start).
      */
-    this.bot.on('text', async (ctx, next) => {
+    bot.on('text', async (ctx, next) => {
       const raw = ctx.message?.text?.trim() ?? '';
       if (!raw || raw.startsWith('//')) return next();
       const startTail = /^(.+)\s\/start(@[A-Za-z0-9_]*)?(?:\s+(\S.*))?$/i.exec(raw);
@@ -232,7 +287,7 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
       await this.sendStartWelcome(ctx);
     });
 
-    this.bot.on('message', async (ctx, next) => {
+    bot.on('message', async (ctx, next) => {
       if (!ctx.message || !ctx.from) return next();
 
       const from = ctx.from;
@@ -283,9 +338,11 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
             notificationsMutedAt: null,
           },
         });
+        const membership = await this.syncKnownChannelMembership(from.id);
         await ctx.reply(
           '✅ <b>Номер сохранён.</b>\n\n' +
-            'Теперь нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.',
+            'Теперь нажмите <b>«Открыть MyTest»</b> — вход в мини-приложение выполнится автоматически.' +
+            this.channelMembershipReplyLine(membership),
           {
             parse_mode: 'HTML',
             ...this.mainReplyKeyboard(),
@@ -461,10 +518,15 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     }, delayMs);
   }
 
-  async checkChannelMembership(telegramUserId: number): Promise<boolean> {
-    if (!this.bot) return false;
+  async checkChannelMembership(telegramUserId: number): Promise<boolean | null> {
+    const bot = this.ensureBotClient();
+    if (!bot) return null;
+    if (!this.channelId.trim()) {
+      this.logger.warn('Cannot check channel membership: TELEGRAM_CHANNEL_ID is empty.');
+      return null;
+    }
     try {
-      const member = await this.bot.telegram.getChatMember(
+      const member = await bot.telegram.getChatMember(
         this.channelId,
         telegramUserId,
       );
@@ -475,10 +537,13 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
       }
       return ['member', 'administrator', 'creator'].includes(member.status);
     } catch (error) {
+      if (this.isDefiniteNonMemberError(error)) {
+        return false;
+      }
       this.logger.warn(
-        `Failed to check channel membership for ${telegramUserId}: ${error}`,
+        `Failed to check channel membership for ${telegramUserId}: ${error}. Keeping cached membership state.`,
       );
-      return false;
+      return null;
     }
   }
 

@@ -111,6 +111,11 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
     ru: "Подпишитесь на канал и попробуйте снова.",
     kk: "Арнаға жазылып, қайта көріңіз.",
   },
+  cgAlertCheckFailTitle: { ru: "Не удалось проверить", kk: "Тексеру мүмкін болмады" },
+  cgAlertCheckFailBody: {
+    ru: "Telegram не ответил. Попробуйте проверить ещё раз.",
+    kk: "Telegram жауап бермеді. Қайта тексеріп көріңіз.",
+  },
 
   profileSubtitle: {
     ru: "Личные данные и настройки аккаунта",

@@ -34,6 +34,11 @@ export class UsersController {
     return this.usersService.getProfile(userId);
   }
 
+  @Post('me/channel-membership/recheck')
+  async recheckChannelMembership(@CurrentUser('id') userId: string) {
+    return this.usersService.recheckChannelMembership(userId);
+  }
+
   @Patch('me')
   async updateProfile(
     @CurrentUser('id') userId: string,

@@ -12,6 +12,8 @@ import { BILLING_PLANS } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
+type ChannelMembershipStatus = 'member' | 'not_member' | 'not_required' | 'unknown';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -27,24 +29,8 @@ export class UsersService {
 
     if (!user) return null;
 
-    // Re-check channel membership:
-    // - Always re-check if currently false (user might have just subscribed)
-    // - If true, cache for 5 min to avoid spamming Telegram API
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    let isChannelMember = user.telegramId ? user.isChannelMember : true;
-
-    const shouldRecheck =
-      !!user.telegramId &&
-      (!isChannelMember || !user.channelCheckedAt || user.channelCheckedAt < fiveMinAgo);
-    if (shouldRecheck) {
-      isChannelMember = await this.telegramBot.checkChannelMembership(
-        Number(user.telegramId),
-      );
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { isChannelMember, channelCheckedAt: new Date() },
-      });
-    }
+    const membership = await this.refreshChannelMembership(user);
+    const isChannelMember = membership.isChannelMember;
 
     await this.accessService.ensureSignupEntitlementsForUser(userId);
 
@@ -134,6 +120,83 @@ export class UsersService {
           totalRemaining,
         },
       },
+    };
+  }
+
+  async recheckChannelMembership(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        telegramId: true,
+        isChannelMember: true,
+        channelCheckedAt: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return this.refreshChannelMembership(user, { force: true });
+  }
+
+  private async refreshChannelMembership(
+    user: {
+      id: string;
+      telegramId: bigint | null;
+      isChannelMember: boolean;
+      channelCheckedAt: Date | null;
+    },
+    options?: { force?: boolean },
+  ): Promise<{
+    status: ChannelMembershipStatus;
+    isChannelMember: boolean;
+    checkedAt: Date | null;
+  }> {
+    if (!user.telegramId) {
+      return {
+        status: 'not_required',
+        isChannelMember: true,
+        checkedAt: user.channelCheckedAt,
+      };
+    }
+
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const shouldRecheck =
+      options?.force === true ||
+      !user.isChannelMember ||
+      !user.channelCheckedAt ||
+      user.channelCheckedAt < fiveMinAgo;
+
+    if (!shouldRecheck) {
+      return {
+        status: user.isChannelMember ? 'member' : 'not_member',
+        isChannelMember: user.isChannelMember,
+        checkedAt: user.channelCheckedAt,
+      };
+    }
+
+    const checkedAt = new Date();
+    const membership = await this.telegramBot.checkChannelMembership(
+      Number(user.telegramId),
+    );
+
+    if (membership === null) {
+      return {
+        status: 'unknown',
+        isChannelMember: user.isChannelMember,
+        checkedAt: user.channelCheckedAt,
+      };
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { isChannelMember: membership, channelCheckedAt: checkedAt },
+    });
+
+    return {
+      status: membership ? 'member' : 'not_member',
+      isChannelMember: membership,
+      checkedAt,
     };
   }
 

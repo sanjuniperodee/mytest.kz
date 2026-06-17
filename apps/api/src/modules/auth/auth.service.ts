@@ -95,12 +95,14 @@ export class AuthService {
       },
     });
 
-    // Check channel membership
-    const isChannelMember = await this.telegramBot.checkChannelMembership(tgUser.id);
-    if (user.isChannelMember !== isChannelMember) {
+    // Check channel membership. Technical Telegram failures keep the cached value
+    // instead of turning into a false "not subscribed" state.
+    const membership = await this.telegramBot.checkChannelMembership(tgUser.id);
+    const isChannelMember = membership ?? user.isChannelMember;
+    if (membership !== null && user.isChannelMember !== membership) {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { isChannelMember, channelCheckedAt: new Date() },
+        data: { isChannelMember: membership, channelCheckedAt: new Date() },
       });
     }
 
@@ -305,14 +307,16 @@ export class AuthService {
       throw new UnauthorizedException('Для этого аккаунта вход через Telegram-код недоступен');
     }
 
-    // Check channel membership
-    const isChannelMember = await this.telegramBot.checkChannelMembership(
+    // Check channel membership. Technical Telegram failures keep the cached value
+    // instead of turning into a false "not subscribed" state.
+    const membership = await this.telegramBot.checkChannelMembership(
       Number(user.telegramId),
     );
-    if (user.isChannelMember !== isChannelMember) {
+    const isChannelMember = membership ?? user.isChannelMember;
+    if (membership !== null && user.isChannelMember !== membership) {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { isChannelMember, channelCheckedAt: new Date() },
+        data: { isChannelMember: membership, channelCheckedAt: new Date() },
       });
     }
 

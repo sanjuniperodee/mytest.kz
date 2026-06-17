@@ -41,6 +41,18 @@ export class ChannelMemberGuard implements CanActivate {
     );
   }
 
+  private telegramCheckUnavailable() {
+    return new HttpException(
+      {
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        error: 'Service Unavailable',
+        code: 'TELEGRAM_CHANNEL_CHECK_UNAVAILABLE',
+        message: 'Telegram channel membership check unavailable',
+      },
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const required = this.isTelegramChannelRequired();
     if (!required) return true;
@@ -81,6 +93,14 @@ export class ChannelMemberGuard implements CanActivate {
       const isChannelMember = await this.telegramBot.checkChannelMembership(
         Number(dbUser.telegramId),
       );
+
+      if (isChannelMember === null) {
+        request.user.isChannelMember = dbUser.isChannelMember;
+        if (dbUser.isChannelMember) {
+          return true;
+        }
+        throw this.telegramCheckUnavailable();
+      }
 
       await this.prisma.user.update({
         where: { id: dbUser.id },
