@@ -14,11 +14,12 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { randomUUID } from 'crypto';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { UsersService } from './users.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { isSupportedImageFile } from '../../common/files/image-signature';
 
 const AVATAR_IMAGE_SUBDIR = 'avatars';
 const AVATAR_IMAGE_MIME = /^image\/(jpeg|jpg|png|webp)$/i;
@@ -78,6 +79,15 @@ export class UsersController {
   ) {
     if (!file?.filename) {
       throw new BadRequestException('Файл не получен');
+    }
+    const fullPath = join(process.cwd(), 'uploads', AVATAR_IMAGE_SUBDIR, file.filename);
+    if (!isSupportedImageFile(fullPath, false)) {
+      try {
+        unlinkSync(fullPath);
+      } catch {
+        // Best effort cleanup; the request must still fail closed.
+      }
+      throw new BadRequestException('Файл не похож на допустимое изображение');
     }
     const avatarUrl = `/uploads/${AVATAR_IMAGE_SUBDIR}/${file.filename}`;
     return this.usersService.updateProfile(userId, { avatarUrl });

@@ -4,6 +4,8 @@ import {
   Inject,
   BadRequestException,
   forwardRef,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -11,7 +13,6 @@ import { OAuth2Client } from 'google-auth-library';
 import {
   createHash,
   randomInt,
-  randomBytes,
   randomUUID,
   scrypt,
   timingSafeEqual,
@@ -36,6 +37,9 @@ import { AccessService } from '../subscriptions/access.service';
 
 const WEB_AUTH_MAX_VERIFY_ATTEMPTS = 5;
 const WEB_AUTH_VERIFY_LOCK_SECONDS = 15 * 60;
+const WEB_AUTH_MAX_REQUESTS_PER_PHONE = 5;
+const WEB_AUTH_REQUEST_WINDOW_SECONDS = 60 * 60;
+const WEB_AUTH_MIN_RESEND_SECONDS = 60;
 
 type TokenUser = {
   id: string;
@@ -234,6 +238,8 @@ export class AuthService {
       throw new BadRequestException('Введите корректный номер телефона');
     }
 
+    await this.assertWebCodeRequestAllowed(normalized);
+
     const user = await this.prisma.user.findFirst({
       where: { phone: normalized },
     });
@@ -353,27 +359,9 @@ export class AuthService {
       throw new BadRequestException('Пользователь с таким email уже существует');
     }
 
-    const passwordHash = await hashPassword(dto.password);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        emailVerified: false,
-        passwordHash,
-        firstName: dto.firstName?.trim() || null,
-        lastName: dto.lastName?.trim() || null,
-        preferredLanguage: 'ru',
-        isChannelMember: true,
-      },
-    });
-
-    await this.accessService.ensureSignupEntitlementsForUser(user.id);
-
-    return this.generateTokens({
-      ...user,
-      telegramId: null,
-      isChannelMember: true,
-    });
+    throw new BadRequestException(
+      'Регистрация по email временно недоступна. Войдите через Google или Telegram.',
+    );
   }
 
   async loginEmail(email: string, password: string) {
@@ -392,6 +380,9 @@ export class AuthService {
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
       throw new UnauthorizedException('Неверный email или пароль');
+    }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Подтвердите email перед входом');
     }
 
     await this.accessService.ensureSignupEntitlementsForUser(user.id);
@@ -578,6 +569,43 @@ export class AuthService {
     return `auth:code:attempts:${normalizedPhone}`;
   }
 
+  private webAuthRequestKey(normalizedPhone: string): string {
+    return `auth:code:requests:${normalizedPhone}`;
+  }
+
+  private webAuthLastRequestKey(normalizedPhone: string): string {
+    return `auth:code:last-request:${normalizedPhone}`;
+  }
+
+  private async assertWebCodeRequestAllowed(normalizedPhone: string) {
+    const lastKey = this.webAuthLastRequestKey(normalizedPhone);
+    const lastSet = await this.redis.set(
+      lastKey,
+      String(Date.now()),
+      'EX',
+      WEB_AUTH_MIN_RESEND_SECONDS,
+      'NX',
+    );
+    if (lastSet !== 'OK') {
+      throw new HttpException(
+        'Код уже отправлен. Попробуйте чуть позже',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const requestKey = this.webAuthRequestKey(normalizedPhone);
+    const count = await this.redis.incr(requestKey);
+    if (count === 1) {
+      await this.redis.expire(requestKey, WEB_AUTH_REQUEST_WINDOW_SECONDS);
+    }
+    if (count > WEB_AUTH_MAX_REQUESTS_PER_PHONE) {
+      throw new HttpException(
+        'Слишком много запросов кода. Попробуйте позже',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
   private async assertWebAuthNotLocked(normalizedPhone: string) {
     const attempts = Number(await this.redis.get(this.webAuthAttemptKey(normalizedPhone)));
     if (Number.isFinite(attempts) && attempts >= WEB_AUTH_MAX_VERIFY_ATTEMPTS) {
@@ -622,18 +650,11 @@ export class AuthService {
   }
 }
 
-const SALT_LEN = 32;
 const KEY_LEN = 64;
 const HASH_SEP = ':';
 const scryptAsync = promisify(scrypt);
 
 const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 };
-
-async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(SALT_LEN).toString('hex');
-  const key = (await (scryptAsync as any)(password, salt, KEY_LEN, SCRYPT_OPTIONS)) as Buffer;
-  return `${salt}${HASH_SEP}${key.toString('hex')}`;
-}
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
   const [salt, keyHex] = hash.split(HASH_SEP);

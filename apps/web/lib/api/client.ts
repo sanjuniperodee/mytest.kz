@@ -53,9 +53,8 @@ export function invalidateAuthScope(scope: Scope) {
   refreshInFlight = null
 }
 
-async function refresh(scope: Scope): Promise<boolean> {
+export async function refreshAuthSession(scope: Scope = "user"): Promise<boolean> {
   const refreshToken = getRefreshToken(scope)
-  if (!refreshToken) return false
   if (refreshInFlight) return refreshInFlight
   const generation = authGeneration[scope]
   refreshInFlight = (async () => {
@@ -63,15 +62,15 @@ async function refresh(scope: Scope): Promise<boolean> {
       const res = await fetch(`${BASE}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify(refreshToken ? { refreshToken } : {}),
         credentials: "include",
       })
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) clearTokens(scope)
         return false
       }
-      const data = (await res.json()) as { accessToken: string; refreshToken: string }
-      if (authGeneration[scope] !== generation || getRefreshToken(scope) !== refreshToken) {
+      const data = (await res.json()) as { accessToken: string; refreshToken?: string }
+      if (authGeneration[scope] !== generation) {
         return false
       }
       setTokens(scope, data)
@@ -132,7 +131,7 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
   }
 
   if (shouldRefresh) {
-    const ok = await refresh(scope)
+    const ok = await refreshAuthSession(scope)
     if (ok) {
       res = await doFetch()
     }

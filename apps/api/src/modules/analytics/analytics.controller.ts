@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -18,7 +18,6 @@ export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
 
   @Post('visit')
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async recordVisit(
     @Body()

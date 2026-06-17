@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useSWRConfig } from "swr"
-import { ApiError, api, invalidateAuthScope } from "./client"
+import { ApiError, api, invalidateAuthScope, refreshAuthSession } from "./client"
 import {
   Scope,
   clearTokens,
@@ -41,8 +41,14 @@ export function AuthProvider({
   }, [mutate])
 
   const loadCurrentUser = useCallback(async (): Promise<User | null> => {
-    const token = getAccessToken(scope)
-    if (!token) {
+    if (!getAccessToken(scope)) {
+      const hydrated = await refreshAuthSession(scope)
+      if (!hydrated) {
+        setUser(null)
+        return null
+      }
+    }
+    if (!getAccessToken(scope)) {
       setUser(null)
       return null
     }
@@ -111,13 +117,11 @@ export function AuthProvider({
 
   const signOut = useCallback(() => {
     const refreshToken = getRefreshToken(scope)
-    if (refreshToken) {
-      void api("/auth/logout", {
-        method: "POST",
-        auth: false,
-        body: { refreshToken },
-      }).catch(() => null)
-    }
+    void api("/auth/logout", {
+      method: "POST",
+      auth: false,
+      body: refreshToken ? { refreshToken } : {},
+    }).catch(() => null)
     invalidateAuthScope(scope)
     clearTokens(scope)
     clearUserCache()

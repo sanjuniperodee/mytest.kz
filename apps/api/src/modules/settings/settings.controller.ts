@@ -11,11 +11,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { AdminGuard } from '../../common/guards/admin.guard';
+import { isSupportedImageFile } from '../../common/files/image-signature';
 import { UpdateLandingSettingsDto } from './dto/update-landing-settings.dto';
 import { SettingsService } from './settings.service';
 
@@ -73,6 +74,15 @@ export class SettingsController {
   async uploadLandingImage(@UploadedFile() file: Express.Multer.File) {
     if (!file?.filename) {
       throw new BadRequestException('Файл не получен');
+    }
+    const fullPath = join(process.cwd(), 'uploads', LANDING_IMAGE_SUBDIR, file.filename);
+    if (!isSupportedImageFile(fullPath)) {
+      try {
+        unlinkSync(fullPath);
+      } catch {
+        // Best effort cleanup; the request must still fail closed.
+      }
+      throw new BadRequestException('Файл не похож на допустимое изображение');
     }
     const url = `/uploads/${LANDING_IMAGE_SUBDIR}/${file.filename}`;
     return { url };

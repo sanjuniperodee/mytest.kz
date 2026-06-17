@@ -25,6 +25,7 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale } from "@/lib/i18n/ui"
+import { ENT_MAX, ENT_TOTAL_MAX, totalEntScore } from "@bilimland/shared"
 
 type QuotaType = "GRANT" | "RURAL"
 type Tab = "programs" | "universities"
@@ -49,11 +50,11 @@ const SCORE_FIELD_DEFS: {
   short: string
   max: number
 }[] = [
-  { key: "mathLit", labelKey: "admScoreMathLit", short: "МатГр", max: 10 },
-  { key: "readingLit", labelKey: "admScoreReadingLit", short: "ЧитГр", max: 10 },
-  { key: "history", labelKey: "admScoreHistory", short: "ИстКЗ", max: 20 },
-  { key: "profile1", labelKey: "admScoreProf1", short: "Проф 1", max: 50 },
-  { key: "profile2", labelKey: "admScoreProf2", short: "Проф 2", max: 50 },
+  { key: "mathLit", labelKey: "admScoreMathLit", short: "МатГр", max: ENT_MAX.mathLit },
+  { key: "readingLit", labelKey: "admScoreReadingLit", short: "ЧитГр", max: ENT_MAX.readingLit },
+  { key: "history", labelKey: "admScoreHistory", short: "ИстКЗ", max: ENT_MAX.history },
+  { key: "profile1", labelKey: "admScoreProf1", short: "Проф 1", max: ENT_MAX.profile1 },
+  { key: "profile2", labelKey: "admScoreProf2", short: "Проф 2", max: ENT_MAX.profile2 },
 ]
 
 const LG = 1024
@@ -87,8 +88,7 @@ export function AdmissionView() {
     [ui],
   )
 
-  const total =
-    scores.mathLit + scores.readingLit + scores.history + scores.profile1 + scores.profile2
+  const total = totalEntScore(scores)
 
   const { data: cycles } = useSWR<AdmissionCycle[]>("/admission/cycles")
   useEffect(() => {
@@ -276,7 +276,7 @@ export function AdmissionView() {
                   color: total >= 100 ? "#065F46" : total >= 70 ? "#92400E" : colors.mutedForeground,
                 }}
               >
-                {total}/140
+                {total}/{ENT_TOTAL_MAX}
               </Text>
             </View>
           </View>

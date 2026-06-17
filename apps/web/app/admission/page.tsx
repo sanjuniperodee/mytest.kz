@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
+import { ENT_MAX, ENT_TOTAL_MAX, totalEntScore } from "@bilimland/shared"
 import type {
   AdmissionCycle,
   ChanceProgram,
@@ -55,11 +56,11 @@ const SCORE_FIELDS: {
   short: string
   max: number
 }[] = [
-  { key: "mathLit", label: "Мат. грамотность", short: "МатГр", max: 10 },
-  { key: "readingLit", label: "Чит. грамотность", short: "ЧитГр", max: 10 },
-  { key: "history", label: "История Казахстана", short: "ИстКЗ", max: 20 },
-  { key: "profile1", label: "Профильный 1", short: "Проф 1", max: 50 },
-  { key: "profile2", label: "Профильный 2", short: "Проф 2", max: 50 },
+  { key: "mathLit", label: "Мат. грамотность", short: "МатГр", max: ENT_MAX.mathLit },
+  { key: "readingLit", label: "Чит. грамотность", short: "ЧитГр", max: ENT_MAX.readingLit },
+  { key: "history", label: "История Казахстана", short: "ИстКЗ", max: ENT_MAX.history },
+  { key: "profile1", label: "Профильный 1", short: "Проф 1", max: ENT_MAX.profile1 },
+  { key: "profile2", label: "Профильный 2", short: "Проф 2", max: ENT_MAX.profile2 },
 ]
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -92,9 +93,7 @@ export default function AdmissionPage() {
   const [tab, setTab] = useState<Tab>("programs")
   const [search, setSearch] = useState("")
 
-  const total = useMemo(() => {
-    return scores.mathLit + scores.readingLit + scores.history + scores.profile1 + scores.profile2
-  }, [scores])
+  const total = useMemo(() => totalEntScore(scores), [scores])
   const debouncedScores = useDebouncedValue(scores, 250)
 
   // Cycles
@@ -292,7 +291,7 @@ export default function AdmissionPage() {
                             : "bg-secondary text-muted-foreground",
                       )}
                     >
-                      {total}/140
+                      {total}/{ENT_TOTAL_MAX}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-2">

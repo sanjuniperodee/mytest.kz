@@ -600,26 +600,39 @@ export class BillingService {
       normalized[key] = value == null ? '' : String(value);
     }
 
+    const ack = (status: 'ok' | 'rejected', description: string) =>
+      this.buildFreedomPayXmlAck(callbackScript, secretKey, status, description);
+
     const signatureOk = freedomPayVerifySignature(callbackScript, normalized, secretKey);
     if (!signatureOk) {
-      return { ok: false, reason: 'INVALID_SIGNATURE' };
+      return ack('rejected', 'INVALID_SIGNATURE');
     }
 
     const orderId = normalized.pg_order_id;
-    if (!orderId) return { ok: false, reason: 'ORDER_ID_REQUIRED' };
+    if (!orderId) return ack('rejected', 'ORDER_ID_REQUIRED');
 
     const order = await this.prisma.paymentOrder.findUnique({
       where: { providerOrderId: orderId },
     });
-    if (!order) return { ok: false, reason: 'ORDER_NOT_FOUND' };
+    if (!order) return ack('rejected', 'ORDER_NOT_FOUND');
     if (order.provider !== 'freedompay') {
-      return { ok: false, reason: 'NOT_FREEDOMPAY_ORDER' };
+      return ack('rejected', 'NOT_FREEDOMPAY_ORDER');
+    }
+
+    if (this.isFreedomPayCheckRequest(normalized)) {
+      if (!this.isFreedomPayCallbackAmountValid(normalized, order.amount)) {
+        return ack('rejected', 'AMOUNT_MISMATCH');
+      }
+      if (normalized.pg_currency && normalized.pg_currency.toUpperCase() !== order.currency) {
+        return ack('rejected', 'CURRENCY_MISMATCH');
+      }
+      return ack('ok', 'CHECK_OK');
     }
 
     const isPaid = this.isPaidCallback(normalized);
     if (!isPaid) {
       if (order.status === 'paid') {
-        return { ok: true, status: 'paid' };
+        return ack('ok', 'ALREADY_PAID');
       }
       const updated = await this.prisma.paymentOrder.updateMany({
         where: { id: order.id, status: { not: 'paid' } },
@@ -636,20 +649,20 @@ export class BillingService {
           providerOrderId: order.providerOrderId,
         });
       }
-      return { ok: true, status: 'failed' };
+      return ack('ok', 'PAYMENT_FAILED');
     }
 
     if (order.status === 'paid') {
-      return { ok: true, status: 'paid' };
+      return ack('ok', 'ALREADY_PAID');
     }
 
     const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
-    if (!plan) return { ok: false, reason: 'PLAN_NOT_FOUND' };
+    if (!plan) return ack('rejected', 'PLAN_NOT_FOUND');
     if (!this.isFreedomPayCallbackAmountValid(normalized, order.amount)) {
-      return { ok: false, reason: 'AMOUNT_MISMATCH' };
+      return ack('rejected', 'AMOUNT_MISMATCH');
     }
     if (normalized.pg_currency && normalized.pg_currency.toUpperCase() !== order.currency) {
-      return { ok: false, reason: 'CURRENCY_MISMATCH' };
+      return ack('rejected', 'CURRENCY_MISMATCH');
     }
 
     const now = new Date();
@@ -687,7 +700,7 @@ export class BillingService {
       });
     }
 
-    return { ok: true, status: 'paid' };
+    return ack('ok', 'PAYMENT_ACCEPTED');
   }
 
   async getOrder(userId: string, orderId: string) {
@@ -1457,6 +1470,42 @@ export class BillingService {
     const isSuccessStatus = status === 'ok' || status === 'success' || status === 'paid';
     const isSuccessResult = resultFlag === '1' || resultFlag === 'true';
     return isSuccessStatus || isSuccessResult;
+  }
+
+  private isFreedomPayCheckRequest(payload: Record<string, string>) {
+    return !payload.pg_result && !payload.pg_payment_id;
+  }
+
+  private buildFreedomPayXmlAck(
+    callbackScript: string,
+    secretKey: string,
+    status: 'ok' | 'rejected',
+    description: string,
+  ) {
+    const fields = {
+      pg_status: status,
+      pg_description: description,
+      pg_salt: freedomPaySalt(16),
+    };
+    const pgSig = freedomPaySign(callbackScript, fields, secretKey);
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<response>',
+      `<pg_status>${this.escapeXml(fields.pg_status)}</pg_status>`,
+      `<pg_description>${this.escapeXml(fields.pg_description)}</pg_description>`,
+      `<pg_salt>${this.escapeXml(fields.pg_salt)}</pg_salt>`,
+      `<pg_sig>${this.escapeXml(pgSig)}</pg_sig>`,
+      '</response>',
+    ].join('');
+  }
+
+  private escapeXml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   private isFreedomPayCallbackAmountValid(

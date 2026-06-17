@@ -13,18 +13,24 @@ import {
   UseGuards,
   UseInterceptors,
   StreamableFile,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { Readable } from 'stream';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { AdminGuard } from '../../common/guards/admin.guard';
+import { isSupportedImageFile } from '../../common/files/image-signature';
 import { QuestionsService } from './questions.service';
 import { QUESTION_METADATA_LOCALE_KEY } from '../../common/question-locale';
 import { csvCell, csvHeader, toCsvRow } from '@bilimland/shared';
+import {
+  CreateAdminQuestionDto,
+  UpdateAdminQuestionDto,
+} from './dto/admin-question.dto';
 
 const QUESTION_IMAGE_SUBDIR = 'question-images';
 const IMAGE_MIME = /^image\/(jpeg|jpg|png|gif|webp)$/i;
@@ -65,12 +71,21 @@ export class QuestionsController {
     if (!file?.filename) {
       throw new BadRequestException('Файл не получен');
     }
+    const fullPath = join(process.cwd(), 'uploads', QUESTION_IMAGE_SUBDIR, file.filename);
+    if (!isSupportedImageFile(fullPath)) {
+      try {
+        unlinkSync(fullPath);
+      } catch {
+        // Best effort cleanup; the request must still fail closed.
+      }
+      throw new BadRequestException('Файл не похож на допустимое изображение');
+    }
     const url = `/uploads/${QUESTION_IMAGE_SUBDIR}/${file.filename}`;
     return { url };
   }
 
   @Post()
-  async create(@Body() data: any) {
+  async create(@Body() data: CreateAdminQuestionDto) {
     return this.questionsService.create(data);
   }
 
@@ -132,12 +147,15 @@ export class QuestionsController {
         hasExplanation === 'true' ? true : hasExplanation === 'false' ? false : undefined,
       contentLocale: loc,
       page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 20,
+      limit: Math.min(100, Math.max(1, limit ? parseInt(limit, 10) : 20)),
     });
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() data: any) {
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() data: UpdateAdminQuestionDto,
+  ) {
     if (
       data &&
       (data.content !== undefined ||
@@ -147,11 +165,14 @@ export class QuestionsController {
     ) {
       return this.questionsService.updateFull(id, data);
     }
-    return this.questionsService.update(id, data);
+    return this.questionsService.update(
+      id,
+      data as Parameters<QuestionsService['update']>[1],
+    );
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id', ParseUUIDPipe) id: string) {
     return this.questionsService.delete(id);
   }
 

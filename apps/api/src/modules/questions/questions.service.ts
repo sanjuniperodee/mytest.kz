@@ -175,7 +175,6 @@ export class QuestionsService {
       examTypeId: nextExamTypeId,
     });
 
-    // SECURITY: the controller binds @Body() data:any, so ValidationPipe cannot strip it.
     // Build an allowlist of editable scalar fields instead of passing the raw body into
     // prisma.update (otherwise a caller could set isActive, createdAt, metadata, FK columns…).
     // Content/answers/explanation/imageUrls are owned by updateFull().
@@ -184,7 +183,6 @@ export class QuestionsService {
     if (typeof scalarData.subjectId === 'string') updateData.subjectId = scalarData.subjectId;
     if (typeof scalarData.examTypeId === 'string') updateData.examTypeId = scalarData.examTypeId;
     if (typeof scalarData.type === 'string') updateData.type = scalarData.type;
-    if (typeof scalarData.isActive === 'boolean') updateData.isActive = scalarData.isActive;
     if (scalarData.difficulty !== undefined && scalarData.difficulty !== null) {
       const d = Math.round(Number(scalarData.difficulty));
       if (Number.isFinite(d)) updateData.difficulty = d;

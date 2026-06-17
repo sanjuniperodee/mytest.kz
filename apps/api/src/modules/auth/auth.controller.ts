@@ -1,12 +1,14 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { Request, Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 
+const REFRESH_COOKIE = 'mytest_refresh_token';
+const REFRESH_COOKIE_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
+
 @Controller('auth')
-@UseGuards(ThrottlerGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -15,9 +17,12 @@ export class AuthController {
   async authenticateTelegram(
     @Body('initData') initData: string,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const visitorId = req.cookies?.['blm_vid'];
-    return this.authService.authenticateTelegram(initData, visitorId);
+    const data = await this.authService.authenticateTelegram(initData, visitorId);
+    this.setRefreshCookie(res, data.refreshToken);
+    return data;
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -32,9 +37,12 @@ export class AuthController {
     @Body('phone') phone: string,
     @Body('code') code: string,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const visitorId = req.cookies?.['blm_vid'];
-    return this.authService.verifyWebCode(phone, code, visitorId);
+    const data = await this.authService.verifyWebCode(phone, code, visitorId);
+    this.setRefreshCookie(res, data.refreshToken);
+    return data;
   }
 
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
@@ -42,27 +50,47 @@ export class AuthController {
   async authenticateGoogle(
     @Body('credential') credential: string,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const visitorId = req.cookies?.['blm_vid'];
-    return this.authService.authenticateGoogle(credential, visitorId);
+    const data = await this.authService.authenticateGoogle(credential, visitorId);
+    this.setRefreshCookie(res, data.refreshToken);
+    return data;
   }
 
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('refresh')
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken);
+  async refreshToken(
+    @Body('refreshToken') refreshToken: string | undefined,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const data = await this.authService.refreshToken(
+      refreshToken || req.cookies?.[REFRESH_COOKIE] || '',
+    );
+    this.setRefreshCookie(res, data.refreshToken);
+    return data;
   }
 
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('logout')
-  async logout(@Body('refreshToken') refreshToken: string) {
-    return this.authService.logout(refreshToken);
+  async logout(
+    @Body('refreshToken') refreshToken: string | undefined,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.clearRefreshCookie(res);
+    return this.authService.logout(refreshToken || req.cookies?.[REFRESH_COOKIE] || '');
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Post('logout-all')
-  async logoutAll(@CurrentUser('id') userId: string) {
+  async logoutAll(
+    @CurrentUser('id') userId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.clearRefreshCookie(res);
     return this.authService.logoutAll(userId);
   }
 
@@ -76,7 +104,32 @@ export class AuthController {
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
-  async login(@Body('email') email: string, @Body('password') password: string) {
-    return this.authService.loginEmail(email, password);
+  async login(
+    @Body('email') email: string,
+    @Body('password') password: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const data = await this.authService.loginEmail(email, password);
+    this.setRefreshCookie(res, data.refreshToken);
+    return data;
+  }
+
+  private setRefreshCookie(res: Response, refreshToken: string) {
+    res.cookie(REFRESH_COOKIE, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+    });
+  }
+
+  private clearRefreshCookie(res: Response) {
+    res.clearCookie(REFRESH_COOKIE, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
   }
 }

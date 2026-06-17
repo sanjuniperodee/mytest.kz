@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   Param,
   Post,
@@ -93,6 +94,7 @@ export class BillingController {
   }
 
   @Post('freedompay/callback')
+  @Header('Content-Type', 'text/xml; charset=utf-8')
   freedomPayCallback(@Body() payload: Record<string, unknown>) {
     return this.billingService.handleFreedomPayCallback(payload);
   }

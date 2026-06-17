@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import Redis from 'ioredis';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { RedisThrottlerStorage } from './common/throttling/redis-throttler-storage';
@@ -49,7 +49,10 @@ function validateProductionConfig(config: Record<string, unknown>) {
 }
 
 @Module({
-  providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
+  providers: [
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateProductionConfig }),
     ThrottlerModule.forRootAsync({

@@ -20,6 +20,10 @@ export class AdmissionService {
     return cycle;
   }
 
+  private admissionCacheVersionKey(cycleSlug: string) {
+    return `admission-cache-version:${cycleSlug}`;
+  }
+
   private async listResolvedChanceRows(input: {
     cycleSlug: string;
     quotaType: GrantQuotaType;
@@ -27,7 +31,8 @@ export class AdmissionService {
     profileSubjects?: string;
     programId?: string;
   }): Promise<ResolvedChanceRow[]> {
-    const cacheKey = `admission-chance-rows:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
+    const version = (await this.redis.get(this.admissionCacheVersionKey(input.cycleSlug))) || '0';
+    const cacheKey = `admission-chance-rows:v${version}:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as ResolvedChanceRow[];
