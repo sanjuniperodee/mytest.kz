@@ -37,7 +37,7 @@
   --admin-border: rgba(60, 60, 67, 0.12);
   --admin-border-subtle: #e5e5ea;
   --admin-separator: rgba(60, 60, 67, 0.12);
-  --admin-header-h: 52px;
+  --admin-header-h: 84px; /* фактическая высота .admin-top-header (см. modern overrides) */
   --admin-content-max: 1520px;
   --admin-radius: 12px;
   --admin-radius-sm: 10px;
@@ -97,6 +97,13 @@ body {
   display: grid;
   place-items: center;
   background: var(--admin-bg);
+}
+
+/* Заглушка при ленивой подгрузке чанка страницы (React.lazy + Suspense). */
+.admin-route-loading {
+  min-height: 40vh;
+  display: grid;
+  place-items: center;
 }
 
 /* Контент: отступы по сетке 8pt */

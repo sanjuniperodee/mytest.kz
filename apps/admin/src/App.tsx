@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   ConfigProvider,
   Layout,
-  Menu,
   theme,
   Spin,
   Avatar,
@@ -16,44 +15,38 @@ import {
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
-  UserOutlined,
-  CrownOutlined,
-  DashboardOutlined,
-  LineChartOutlined,
-  BookOutlined,
-  RocketOutlined,
-  FundProjectionScreenOutlined,
-  AppstoreOutlined,
-  CreditCardOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LogoutOutlined,
-  ReadOutlined,
-  FormOutlined,
-  GlobalOutlined,
-  NotificationOutlined,
   ExportOutlined,
-  SafetyCertificateOutlined,
-  FlagOutlined,
 } from '@ant-design/icons';
 import { api, clearTokens, revokeCurrentSession } from './api/client';
-import { getPageMeta } from './lib/pageMeta';
-import { UsersPage } from './pages/UsersPage';
-import { UserDetailPage } from './pages/UserDetailPage';
-import { QuestionsPage } from './pages/QuestionsPage';
-import { SubscriptionsPage } from './pages/SubscriptionsPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { EntTrialsAnalyticsPage } from './pages/EntTrialsAnalyticsPage';
-import { UniversityThresholdsPage } from './pages/UniversityThresholdsPage';
-import { AdmissionChancePage } from './pages/AdmissionChancePage';
-import { ExplanationsPage } from './pages/ExplanationsPage';
-import { ExamCatalogPage } from './pages/ExamCatalogPage';
-import { LandingSettingsPage } from './pages/LandingSettingsPage';
+import {
+  buildMenuItems,
+  navKeyFromPath,
+  pageMetaFromPath,
+  pathForKey,
+} from './lib/navigation';
+import { SiderNav } from './components/SiderNav';
 import { LoginPage } from './pages/LoginPage';
-import { NotificationsPage } from './pages/NotificationsPage';
-import { FinancePage } from './pages/FinancePage';
-import { QuestionAppealsPage } from './pages/QuestionAppealsPage';
+
+// Каждая страница — отдельный чанк: вместо одного бандла на ~2 МБ грузим только
+// открытый раздел, остальное подтягивается по мере навигации.
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
+const EntTrialsAnalyticsPage = lazy(() => import('./pages/EntTrialsAnalyticsPage').then((m) => ({ default: m.EntTrialsAnalyticsPage })));
+const UniversityThresholdsPage = lazy(() => import('./pages/UniversityThresholdsPage').then((m) => ({ default: m.UniversityThresholdsPage })));
+const AdmissionChancePage = lazy(() => import('./pages/AdmissionChancePage').then((m) => ({ default: m.AdmissionChancePage })));
+const ExplanationsPage = lazy(() => import('./pages/ExplanationsPage').then((m) => ({ default: m.ExplanationsPage })));
+const QuestionAppealsPage = lazy(() => import('./pages/QuestionAppealsPage').then((m) => ({ default: m.QuestionAppealsPage })));
+const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })));
+const UserDetailPage = lazy(() => import('./pages/UserDetailPage').then((m) => ({ default: m.UserDetailPage })));
+const QuestionsPage = lazy(() => import('./pages/QuestionsPage').then((m) => ({ default: m.QuestionsPage })));
+const ExamCatalogPage = lazy(() => import('./pages/ExamCatalogPage').then((m) => ({ default: m.ExamCatalogPage })));
+const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })));
+const FinancePage = lazy(() => import('./pages/FinancePage').then((m) => ({ default: m.FinancePage })));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
+const LandingSettingsPage = lazy(() => import('./pages/LandingSettingsPage').then((m) => ({ default: m.LandingSettingsPage })));
 
 const { Sider, Content, Header } = Layout;
 const { useBreakpoint } = Grid;
@@ -69,39 +62,20 @@ const queryClient = new QueryClient({
   },
 });
 
-const MENU_NAV: Record<string, string> = {
-  dashboard: '/dashboard',
-  'analytics-platform': '/analytics',
-  'analytics-ent': '/analytics/ent',
-  'analytics-thresholds': '/analytics/thresholds',
-  admission: '/admission',
-  explanations: '/explanations',
-  appeals: '/appeals',
-  users: '/users',
-  questions: '/questions',
-  exams: '/exams',
-  subscriptions: '/subscriptions',
-  finance: '/finance',
-  notifications: '/notifications',
-  'landing-settings': '/landing-settings',
-};
+interface AdminUser {
+  isAdmin: boolean;
+  firstName?: string | null;
+  lastName?: string | null;
+  telegramUsername?: string | null;
+  phone?: string | null;
+}
 
-function menuKeyFromPath(pathname: string): string {
-  if (pathname.startsWith('/analytics/ent')) return 'analytics-ent';
-  if (pathname.startsWith('/analytics/thresholds')) return 'analytics-thresholds';
-  if (pathname.startsWith('/analytics')) return 'analytics-platform';
-  if (pathname.startsWith('/dashboard')) return 'dashboard';
-  if (pathname.startsWith('/admission')) return 'admission';
-  if (pathname.startsWith('/explanations')) return 'explanations';
-  if (pathname.startsWith('/appeals')) return 'appeals';
-  if (pathname.startsWith('/users')) return 'users';
-  if (pathname.startsWith('/questions')) return 'questions';
-  if (pathname.startsWith('/exams')) return 'exams';
-  if (pathname.startsWith('/subscriptions')) return 'subscriptions';
-  if (pathname.startsWith('/finance')) return 'finance';
-  if (pathname.startsWith('/notifications')) return 'notifications';
-  if (pathname.startsWith('/landing-settings')) return 'landing-settings';
-  return 'dashboard';
+function RouteFallback() {
+  return (
+    <div className="admin-route-loading">
+      <Spin />
+    </div>
+  );
 }
 
 function AdminLayout() {
@@ -110,12 +84,13 @@ function AdminLayout() {
   const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AdminUser | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
   const isMobile = !screens.lg;
-  const selectedKey = useMemo(() => menuKeyFromPath(location.pathname), [location.pathname]);
-  const pageMeta = useMemo(() => getPageMeta(location.pathname), [location.pathname]);
+  const selectedKey = useMemo(() => navKeyFromPath(location.pathname), [location.pathname]);
+  const pageMeta = useMemo(() => pageMetaFromPath(location.pathname), [location.pathname]);
+  const menuItems = useMemo(() => buildMenuItems(), []);
   const userDisplayName = useMemo(() => {
     if (!user) return 'Администратор';
     const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
@@ -128,52 +103,10 @@ function AdminLayout() {
     return 'Команда MyTest';
   }, [user]);
 
-
-  const menuItems: MenuProps['items'] = useMemo(
-    () => [
-      {
-        type: 'group',
-        label: 'Старт',
-        children: [{ key: 'dashboard', icon: <DashboardOutlined />, label: 'Панель' }],
-      },
-      {
-        type: 'group',
-        label: 'Метрики',
-        children: [
-          { key: 'analytics-platform', icon: <FundProjectionScreenOutlined />, label: 'Воронка' },
-          { key: 'analytics-ent', icon: <LineChartOutlined />, label: 'ЕНТ' },
-          { key: 'analytics-thresholds', icon: <BookOutlined />, label: 'Пороги' },
-        ],
-      },
-      {
-        type: 'group',
-        label: 'Каталог',
-        children: [
-          { key: 'questions', icon: <FormOutlined />, label: 'Вопросы' },
-          { key: 'explanations', icon: <ReadOutlined />, label: 'Объяснения' },
-          { key: 'appeals', icon: <FlagOutlined />, label: 'Апелляции' },
-          { key: 'exams', icon: <AppstoreOutlined />, label: 'Экзамены' },
-          { key: 'landing-settings', icon: <GlobalOutlined />, label: 'Лендинг' },
-        ],
-      },
-      {
-        type: 'group',
-        label: 'Аккаунты',
-        children: [
-          { key: 'users', icon: <UserOutlined />, label: 'Пользователи' },
-          { key: 'subscriptions', icon: <CrownOutlined />, label: 'Подписки' },
-          { key: 'finance', icon: <CreditCardOutlined />, label: 'Финансы' },
-          { key: 'notifications', icon: <NotificationOutlined />, label: 'Рассылки' },
-        ],
-      },
-      {
-        type: 'group',
-        label: 'Сервис',
-        children: [{ key: 'admission', icon: <RocketOutlined />, label: 'Шанс' }],
-      },
-    ],
-    [],
-  );
+  const goTo = (key: string) => {
+    const path = pathForKey(key);
+    if (path) navigate(path);
+  };
 
   const userMenuItems: MenuProps['items'] = useMemo(
     () => [
@@ -209,7 +142,7 @@ function AdminLayout() {
           navigate('/login', { replace: true });
           return;
         }
-        setUser(data);
+        setUser(data as AdminUser);
       })
       .catch(() => {
         clearTokens();
@@ -246,64 +179,15 @@ function AdminLayout() {
         }}
         className="admin-desktop-sider admin-sider"
       >
-        <div className="admin-sider-stage">
-          <div className="admin-sider-brand">
-            <div className="admin-sider-logo">{collapsed ? 'MT' : 'M'}</div>
-            {!collapsed && (
-              <div className="admin-sider-brand-text">
-                <div className="admin-sider-brand-title">MyTest Control</div>
-                <div className="admin-sider-brand-sub">операционная панель</div>
-              </div>
-            )}
-          </div>
-          {!collapsed && (
-            <div className="admin-sider-summary">
-              <span className="admin-sider-summary-kicker">Production workspace</span>
-              <p className="admin-sider-summary-copy">
-                Команда, контент и продуктовая аналитика в одном потоке без лишнего шума.
-              </p>
-              <div className="admin-sider-summary-pills">
-                <span className="admin-sider-summary-pill">
-                  <SafetyCertificateOutlined />
-                  Admin
-                </span>
-                <a
-                  className="admin-sider-summary-link"
-                  href="https://my-test.kz"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Открыть сайт
-                  <ExportOutlined />
-                </a>
-              </div>
-            </div>
-          )}
-          <Menu
-            theme="light"
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            onClick={({ key }) => {
-              const path = MENU_NAV[key];
-              if (path) navigate(path);
-            }}
-            className="admin-sider-menu"
-            items={menuItems}
-          />
-          {!collapsed && (
-            <div className="admin-sider-footer">
-              <div className="admin-sider-user-card">
-                <Avatar className="admin-sider-user-avatar">
-                  {userDisplayName.slice(0, 1).toUpperCase()}
-                </Avatar>
-                <div className="admin-sider-user-copy">
-                  <div className="admin-sider-user-name">{userDisplayName}</div>
-                  <div className="admin-sider-user-meta">{userMetaLine}</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <SiderNav
+          variant="desktop"
+          collapsed={collapsed}
+          selectedKey={selectedKey}
+          menuItems={menuItems}
+          onSelect={goTo}
+          userDisplayName={userDisplayName}
+          userMetaLine={userMetaLine}
+        />
       </Sider>
 
       <Drawer
@@ -315,44 +199,17 @@ function AdminLayout() {
         rootClassName="admin-mobile-drawer"
         styles={{ body: { padding: 0, background: 'var(--admin-sider-bg)' } }}
       >
-        <div className="admin-sider-stage admin-sider-stage--mobile">
-          <div className="admin-sider-brand">
-            <div className="admin-sider-logo">M</div>
-            <div className="admin-sider-brand-text">
-              <div className="admin-sider-brand-title">MyTest Control</div>
-              <div className="admin-sider-brand-sub">операционная панель</div>
-            </div>
-          </div>
-          <div className="admin-sider-summary">
-            <span className="admin-sider-summary-kicker">Production workspace</span>
-            <p className="admin-sider-summary-copy">
-              Быстрые переходы, продуктовые срезы и контент-команды в одном месте.
-            </p>
-          </div>
-          <Menu
-            theme="light"
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            onClick={({ key }) => {
-              const path = MENU_NAV[key];
-              if (path) navigate(path);
-              setMobileOpen(false);
-            }}
-            className="admin-sider-menu"
-            items={menuItems}
-          />
-          <div className="admin-sider-footer">
-            <div className="admin-sider-user-card">
-              <Avatar className="admin-sider-user-avatar">
-                {userDisplayName.slice(0, 1).toUpperCase()}
-              </Avatar>
-              <div className="admin-sider-user-copy">
-                <div className="admin-sider-user-name">{userDisplayName}</div>
-                <div className="admin-sider-user-meta">{userMetaLine}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SiderNav
+          variant="mobile"
+          selectedKey={selectedKey}
+          menuItems={menuItems}
+          onSelect={(key) => {
+            goTo(key);
+            setMobileOpen(false);
+          }}
+          userDisplayName={userDisplayName}
+          userMetaLine={userMetaLine}
+        />
       </Drawer>
 
       <Layout>
@@ -402,24 +259,27 @@ function AdminLayout() {
           </div>
         </Header>
         <Content className="admin-content-wrap">
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/analytics/ent" element={<EntTrialsAnalyticsPage />} />
-            <Route path="/analytics/thresholds" element={<UniversityThresholdsPage />} />
-            <Route path="/admission" element={<AdmissionChancePage />} />
-            <Route path="/explanations" element={<ExplanationsPage />} />
-            <Route path="/appeals" element={<QuestionAppealsPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/users/:id" element={<UserDetailPage />} />
-            <Route path="/questions" element={<QuestionsPage />} />
-            <Route path="/exams" element={<ExamCatalogPage />} />
-            <Route path="/subscriptions" element={<SubscriptionsPage />} />
-            <Route path="/finance" element={<FinancePage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/landing-settings" element={<LandingSettingsPage />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/analytics/ent" element={<EntTrialsAnalyticsPage />} />
+              <Route path="/analytics/thresholds" element={<UniversityThresholdsPage />} />
+              <Route path="/admission" element={<AdmissionChancePage />} />
+              <Route path="/explanations" element={<ExplanationsPage />} />
+              <Route path="/appeals" element={<QuestionAppealsPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
+              <Route path="/questions" element={<QuestionsPage />} />
+              <Route path="/exams" element={<ExamCatalogPage />} />
+              <Route path="/subscriptions" element={<SubscriptionsPage />} />
+              <Route path="/finance" element={<FinancePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/landing-settings" element={<LandingSettingsPage />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
         </Content>
       </Layout>
     </Layout>
@@ -502,10 +362,12 @@ export function App() {
     >
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/*" element={<AdminLayout />} />
-          </Routes>
+          <Suspense fallback={<div className="admin-boot"><Spin size="large" /></div>}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/*" element={<AdminLayout />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </QueryClientProvider>
     </ConfigProvider>
