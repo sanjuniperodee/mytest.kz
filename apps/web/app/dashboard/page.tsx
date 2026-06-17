@@ -23,6 +23,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  DashboardEmpty,
+  MiniMetric,
+  ProgressLine,
+  SessionStatusBadge,
+  StatCard,
+} from "@/components/dashboard/data-display"
+import { clampPct, formatBestPoints, formatDuration } from "@/lib/dashboard/format"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale } from "@/lib/api/i18n"
 import type { AccessByExamItem, ExamType, SessionListItem, UserExamStats, UserStats } from "@/lib/api/types"
@@ -230,7 +238,7 @@ export default function DashboardHomePage() {
                             {s.rawScore ?? s.score}/{s.maxScore}
                           </span>
                         )}
-                        <StatusBadge status={s.status} />
+                        <SessionStatusBadge status={s.status} />
                       </div>
                     </Link>
                   </li>
@@ -305,7 +313,7 @@ function EntProgressChart({
         {loading ? (
           <Skeleton className="h-64 w-full rounded-lg" />
         ) : scores.length === 0 ? (
-          <EmptyDashboard
+          <DashboardEmpty
             icon={TrendingUp}
             title="График появится после ЕНТ"
             text="Завершите хотя бы один полный пробный ЕНТ, чтобы увидеть динамику баллов."
@@ -397,7 +405,7 @@ function ExamStatsPanel({
             ))}
           </div>
         ) : items.length === 0 ? (
-          <EmptyDashboard
+          <DashboardEmpty
             icon={BarChart3}
             title="Данных пока нет"
             text="После первого завершённого пробника здесь появится разбивка по экзаменам."
@@ -519,7 +527,7 @@ function TrendPanel({
             ))}
           </div>
         ) : withScores.length === 0 ? (
-          <EmptyDashboard
+          <DashboardEmpty
             icon={Gauge}
             title="Динамика появится позже"
             text="Нужно хотя бы несколько завершённых тестов с оценкой."
@@ -582,7 +590,7 @@ function AccessPanel({
         {loading ? (
           <Skeleton className="h-20 w-full" />
         ) : visible.length === 0 ? (
-          <EmptyDashboard
+          <DashboardEmpty
             icon={ShieldCheck}
             title="Лимиты не загружены"
             text="Доступ подтянется после обновления профиля."
@@ -607,49 +615,6 @@ function AccessPanel({
   )
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  loading,
-  accent = "default",
-}: {
-  icon: React.ElementType
-  label: string
-  value: string | number
-  loading: boolean
-  accent?: "default" | "emerald" | "blue" | "amber" | "orange"
-}) {
-  const accentMap: Record<string, string> = {
-    default: "bg-secondary text-foreground",
-    emerald: "bg-emerald-100 text-emerald-700",
-    blue: "bg-blue-100 text-blue-700",
-    amber: "bg-amber-100 text-amber-700",
-    orange: "bg-orange-100 text-orange-700",
-  }
-  return (
-    <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">{label}</span>
-          <div
-            className={`flex size-8 items-center justify-center rounded-md ${accentMap[accent]}`}
-          >
-            <Icon className="size-4" />
-          </div>
-        </div>
-        {loading ? (
-          <Skeleton className="h-8 w-16" />
-        ) : (
-          <span className="text-3xl font-semibold tabular-nums tracking-tight">
-            {value}
-          </span>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 function HeroLimit({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border/70 bg-background/70 px-3 py-2 backdrop-blur">
@@ -659,92 +624,6 @@ function HeroLimit({ label, value }: { label: string; value: string }) {
       <p className="mt-0.5 truncate font-semibold tabular-nums">{value}</p>
     </div>
   )
-}
-
-function MiniMetric({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string
-  value: string | number
-  icon?: React.ElementType
-}) {
-  return (
-    <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {Icon && <Icon className="size-3.5" />}
-        <span className="truncate">{label}</span>
-      </div>
-      <p className="mt-1 truncate text-sm font-semibold tabular-nums">{value}</p>
-    </div>
-  )
-}
-
-function ProgressLine({
-  label,
-  value,
-  suffix,
-}: {
-  label: string
-  value: number
-  suffix: string
-}) {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium tabular-nums">
-          {value}
-          {suffix}
-        </span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-secondary">
-        <div className="h-full bg-foreground" style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  )
-}
-
-function EmptyDashboard({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: React.ElementType
-  title: string
-  text: string
-}) {
-  return (
-    <div className="flex flex-col items-center gap-2 py-6 text-center">
-      <div className="flex size-10 items-center justify-center rounded-full bg-secondary">
-        <Icon className="size-4 text-muted-foreground" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="max-w-sm text-xs text-muted-foreground">{text}</p>
-      </div>
-    </div>
-  )
-}
-
-function clampPct(value: number | null | undefined): number {
-  if (value == null || !Number.isFinite(value)) return 0
-  return Math.max(0, Math.min(100, Math.round(value)))
-}
-
-function formatBestPoints(item: UserExamStats): string {
-  if (item.bestRawScore != null && item.bestMaxScore != null) {
-    return `${item.bestRawScore}/${item.bestMaxScore}`
-  }
-  if (item.bestScore != null) return `${Math.round(item.bestScore)}%`
-  return "—"
-}
-
-function formatDuration(seconds: number | null | undefined): string {
-  if (seconds == null || seconds <= 0) return "—"
-  const minutes = Math.round(seconds / 60)
-  return `${minutes} мин`
 }
 
 function accessReasonLabel(reason: AccessByExamItem["reasonCode"]): string {
@@ -781,21 +660,6 @@ function formatEntAccess(
   const limit = trial.freeLimit ?? trial.limit ?? 0
   if (limit <= 0) return "Нужен Premium"
   return `${remaining}/${limit}`
-}
-
-function StatusBadge({ status }: { status: SessionListItem["status"] }) {
-  const map: Record<SessionListItem["status"], { label: string; cls: string }> = {
-    in_progress: { label: "В процессе", cls: "bg-amber-100 text-amber-900 border-amber-200" },
-    completed: { label: "Завершён", cls: "bg-emerald-100 text-emerald-900 border-emerald-200" },
-    timed_out: { label: "Время вышло", cls: "bg-rose-100 text-rose-900 border-rose-200" },
-    abandoned: { label: "Отменён", cls: "bg-muted text-muted-foreground border-border" },
-  }
-  const v = map[status]
-  return (
-    <Badge variant="outline" className={v.cls}>
-      {v.label}
-    </Badge>
-  )
 }
 
 function EmptySessions({ href }: { href: string }) {

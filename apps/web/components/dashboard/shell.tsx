@@ -88,6 +88,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-svh bg-secondary/30">
+      <a
+        href="#dashboard-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-background focus:shadow-lg"
+      >
+        Перейти к содержимому
+      </a>
       {/* Mobile header */}
       <div className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
@@ -98,8 +104,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <LanguageSwitcher className="h-9" />
           <button
             onClick={() => setMobileOpen((v) => !v)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             aria-label={mobileOpen ? "Закрыть меню" : "Открыть меню"}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -121,7 +128,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
-          <nav className="flex-1 overflow-y-auto p-3">
+          <nav className="flex-1 overflow-y-auto p-3" aria-label="Основная навигация">
             <ul className="flex flex-col gap-1">
               {nav.map((item) => {
                 const Icon = item.icon
@@ -133,14 +140,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      aria-current={active ? "page" : undefined}
                       className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         active
                           ? "bg-foreground text-background"
                           : "text-foreground/80 hover:bg-secondary",
                       )}
                     >
-                      <Icon className="size-4" />
+                      <Icon className="size-4 shrink-0" aria-hidden="true" />
                       {item.label}
                     </Link>
                   </li>
@@ -155,7 +163,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
             <Link
               href="/dashboard/profile"
-              className="flex items-center gap-3 rounded-md p-2 hover:bg-secondary"
+              className="flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <Avatar className="size-9">
                 <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt={initials} />
@@ -175,9 +183,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 signOut()
                 router.replace("/")
               }}
-              className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary"
+              className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <LogOut className="size-4" />
+              <LogOut className="size-4" aria-hidden="true" />
               Выйти
             </button>
           </div>
@@ -192,7 +200,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        <main className="flex-1 min-w-0">
+        <main id="dashboard-content" className="flex-1 min-w-0">
           <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
