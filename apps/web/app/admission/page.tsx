@@ -213,17 +213,17 @@ export default function AdmissionPage() {
                 type="single"
                 value={quotaType}
                 onValueChange={(v) => v && setQuotaType(v as QuotaType)}
-                className="grid grid-cols-2 rounded-md border border-border bg-secondary p-0.5"
+                className="grid w-full grid-cols-2 gap-0.5 rounded-md border border-border bg-secondary p-0.5"
               >
                 <ToggleGroupItem
                   value="GRANT"
-                  className="data-[state=on]:bg-foreground data-[state=on]:text-background"
+                  className="h-9 w-full justify-center rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
                 >
                   Грант
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="RURAL"
-                  className="data-[state=on]:bg-foreground data-[state=on]:text-background"
+                  className="h-9 w-full justify-center rounded-sm data-[state=on]:bg-foreground data-[state=on]:text-background"
                 >
                   Сельская
                 </ToggleGroupItem>
@@ -339,18 +339,18 @@ export default function AdmissionPage() {
               type="single"
               value={tab}
               onValueChange={(v) => v && setTab(v as Tab)}
-              className="rounded-md border border-border bg-card p-0.5 self-start"
+              className="self-start rounded-md border border-border bg-card p-0.5"
             >
               <ToggleGroupItem
                 value="programs"
-                className="h-9 px-3 data-[state=on]:bg-foreground data-[state=on]:text-background"
+                className="h-9 flex-none px-3 data-[state=on]:bg-foreground data-[state=on]:text-background"
               >
                 <GraduationCap className="size-4" />
                 <span className="hidden sm:inline ml-1">Специальности</span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="universities"
-                className="h-9 px-3 data-[state=on]:bg-foreground data-[state=on]:text-background"
+                className="h-9 flex-none px-3 data-[state=on]:bg-foreground data-[state=on]:text-background"
               >
                 <Building2 className="size-4" />
                 <span className="hidden sm:inline ml-1">Вузы</span>
