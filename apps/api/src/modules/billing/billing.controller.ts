@@ -5,6 +5,7 @@ import {
   Get,
   Header,
   Headers,
+  HttpCode,
   Param,
   Post,
   Req,
@@ -12,6 +13,7 @@ import {
   type RawBodyRequest,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { KaspiSessionSetupSecretGuard } from '../../common/guards/kaspi-session-setup-secret.guard';
@@ -76,6 +78,8 @@ export class BillingController {
 
   /** Вызов из kaspi-pos-automation (webhooks.json). Требуется `rawBody: true` в main.ts. */
   @Post('kaspi/webhook')
+  @HttpCode(200)
+  @SkipThrottle()
   kaspiWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers('x-webhook-signature') signature: string | string[] | undefined,
@@ -94,6 +98,8 @@ export class BillingController {
   }
 
   @Post('freedompay/callback')
+  @HttpCode(200)
+  @SkipThrottle()
   @Header('Content-Type', 'text/xml; charset=utf-8')
   freedomPayCallback(@Body() payload: Record<string, unknown>) {
     return this.billingService.handleFreedomPayCallback(payload);
