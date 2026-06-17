@@ -62,32 +62,20 @@ type AccessDecision = {
 };
 
 const DEFAULT_FREE_SIGNUP_CUTOFF_AT = '2026-05-17T18:07:37.000Z';
+type SubscriptionEngineMode = 'LEGACY' | 'DUAL' | 'V2';
 
 @Injectable()
 export class AccessService {
   private readonly signupPlanTemplateCode: string;
   private readonly freeSignupCutoffAt: Date;
-  private readonly v2Enabled: boolean;
-  private readonly legacySyncEnabled: boolean;
-  private readonly dualWriteLegacyEnabled: boolean;
+  private readonly subscriptionEngineMode: SubscriptionEngineMode;
   private readonly timezoneCooldownDays: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.v2Enabled = this.parseBool(
-      this.config.get<string>('SUBSCRIPTION_ENGINE_V2'),
-      false,
-    );
-    this.legacySyncEnabled = this.parseBool(
-      this.config.get<string>('SUBSCRIPTION_ENGINE_V2_DUAL_READ'),
-      true,
-    );
-    this.dualWriteLegacyEnabled = this.parseBool(
-      this.config.get<string>('SUBSCRIPTION_ENGINE_V2_DUAL_WRITE'),
-      true,
-    );
+    this.subscriptionEngineMode = this.resolveSubscriptionEngineMode();
     this.signupPlanTemplateCode =
       this.config.get<string>('SIGNUP_PLAN_TEMPLATE_CODE')?.trim() ||
       'free_ent_trial';
@@ -104,6 +92,18 @@ export class AccessService {
 
   isV2Enabled() {
     return this.v2Enabled;
+  }
+
+  private get v2Enabled(): boolean {
+    return this.subscriptionEngineMode !== 'LEGACY';
+  }
+
+  private get legacySyncEnabled(): boolean {
+    return this.subscriptionEngineMode === 'DUAL';
+  }
+
+  private get dualWriteLegacyEnabled(): boolean {
+    return this.subscriptionEngineMode === 'DUAL';
   }
 
   getSignupFreeAttemptLimit(createdAt: Date | string | null | undefined): number {
@@ -123,9 +123,14 @@ export class AccessService {
     examTypeId: string,
     sessionId?: string,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await this.assertAndConsumeAttemptTx(tx, userId, examTypeId, sessionId);
-    });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.assertAndConsumeAttemptTx(tx, userId, examTypeId, sessionId);
+      });
+    } catch (error) {
+      await this.recordDeniedAttemptForError(error, userId, examTypeId);
+      throw error;
+    }
   }
 
   async assertAndConsumeAttemptTx(
@@ -152,23 +157,6 @@ export class AccessService {
 
     const decision = await this.getAccessDecisionTx(tx, userId, exam.id, now);
     if (!decision.allowed || !decision.candidate) {
-      await tx.attemptUsageLedger.create({
-        data: {
-          userId,
-          examTypeId: exam.id,
-          action:
-            decision.reasonCode === 'DAILY_LIMIT_REACHED'
-              ? 'daily_blocked'
-              : decision.reasonCode === 'TOTAL_LIMIT_EXHAUSTED'
-                ? 'total_blocked'
-                : 'denied_no_entitlement',
-          reasonCode: decision.reasonCode,
-          localDay: decision.candidate?.localDay ?? null,
-          metadata: decision.nextAllowedAt
-            ? { nextAllowedAt: decision.nextAllowedAt.toISOString() }
-            : undefined,
-        },
-      });
       throw new BadRequestException(
         decision.reasonCode ?? 'NO_ENTITLEMENT',
       );
@@ -594,6 +582,89 @@ export class AccessService {
     if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
     if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
     return fallback;
+  }
+
+  private resolveSubscriptionEngineMode(): SubscriptionEngineMode {
+    const explicitMode = this.config.get<string>('SUBSCRIPTION_ENGINE_MODE')?.trim().toUpperCase();
+    if (explicitMode) {
+      if (explicitMode === 'LEGACY' || explicitMode === 'DUAL' || explicitMode === 'V2') {
+        return explicitMode;
+      }
+      throw new Error(
+        `Invalid SUBSCRIPTION_ENGINE_MODE="${explicitMode}". Use LEGACY, DUAL, or V2.`,
+      );
+    }
+
+    const v2 = this.parseBool(this.config.get<string>('SUBSCRIPTION_ENGINE_V2'), false);
+    if (!v2) return 'LEGACY';
+
+    const dualRead = this.parseBool(
+      this.config.get<string>('SUBSCRIPTION_ENGINE_V2_DUAL_READ'),
+      true,
+    );
+    const dualWrite = this.parseBool(
+      this.config.get<string>('SUBSCRIPTION_ENGINE_V2_DUAL_WRITE'),
+      true,
+    );
+    return dualRead || dualWrite ? 'DUAL' : 'V2';
+  }
+
+  async recordDeniedAttemptForError(
+    error: unknown,
+    userId: string,
+    examTypeId: string,
+  ): Promise<void> {
+    const reasonCode = this.extractAccessReasonCode(error);
+    if (reasonCode) {
+      await this.recordDeniedAttempt(userId, examTypeId, reasonCode);
+    }
+  }
+
+  private extractAccessReasonCode(error: unknown): AccessReasonCode | null {
+    if (!(error instanceof BadRequestException)) return null;
+    const response = error.getResponse();
+    const message =
+      typeof response === 'string'
+        ? response
+        : response &&
+            typeof response === 'object' &&
+            'message' in response &&
+            typeof (response as { message?: unknown }).message === 'string'
+          ? (response as { message: string }).message
+          : error.message;
+    if (
+      message === 'DAILY_LIMIT_REACHED' ||
+      message === 'TOTAL_LIMIT_EXHAUSTED' ||
+      message === 'NO_ENTITLEMENT'
+    ) {
+      return message;
+    }
+    if (message === 'TRIAL_LIMIT_EXCEEDED') return 'TOTAL_LIMIT_EXHAUSTED';
+    return null;
+  }
+
+  private async recordDeniedAttempt(
+    userId: string,
+    examTypeId: string,
+    reasonCode: AccessReasonCode,
+  ): Promise<void> {
+    try {
+      await this.prisma.attemptUsageLedger.create({
+        data: {
+          userId,
+          examTypeId,
+          action:
+            reasonCode === 'DAILY_LIMIT_REACHED'
+              ? 'daily_blocked'
+              : reasonCode === 'TOTAL_LIMIT_EXHAUSTED'
+                ? 'total_blocked'
+                : 'denied_no_entitlement',
+          reasonCode,
+        },
+      });
+    } catch {
+      // Denial logging must not turn a correct access denial into a 500.
+    }
   }
 
   private subscriptionEntitlementTier(planType: string): EntitlementTier {

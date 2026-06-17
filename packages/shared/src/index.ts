@@ -1,6 +1,6 @@
 export * from './types/index';
 export * from './constants/index';
-export * from './validators/index';
+export * from './validators/phone';
 export * from './entGrantModel';
 export * from './entQuestionScoring';
 export * from './admissionCompare';

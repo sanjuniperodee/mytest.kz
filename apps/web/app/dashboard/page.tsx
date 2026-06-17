@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import useSWR from "swr"
 import {
   Activity,
@@ -17,16 +18,25 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react"
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale } from "@/lib/api/i18n"
 import type { AccessByExamItem, ExamType, SessionListItem, UserExamStats, UserStats } from "@/lib/api/types"
+
+const EntProgressLineChart = dynamic(
+  () =>
+    import("@/components/dashboard/ent-progress-line-chart").then(
+      (mod) => mod.EntProgressLineChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-64 w-full rounded-lg" />,
+  },
+)
 
 export default function DashboardHomePage() {
   const { user } = useAuth()
@@ -302,43 +312,7 @@ function EntProgressChart({
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <ChartContainer
-              config={{
-                score: { label: "Результат", color: "var(--foreground)" },
-              }}
-              className="h-64 w-full"
-            >
-              <LineChart data={chartData} margin={{ left: 8, right: 12, top: 12, bottom: 8 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="attempt"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => `#${value}`}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  width={34}
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel indicator="line" />}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  stroke="var(--color-score)"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ChartContainer>
+            <EntProgressLineChart data={chartData} />
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
               <MiniMetric label="Последний" value={latest != null ? `${latest}%` : "—"} />
               <MiniMetric label="Лучший балл" value={item ? formatBestPoints(item) : "—"} />

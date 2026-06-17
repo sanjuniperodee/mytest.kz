@@ -238,8 +238,10 @@ export class TestSessionService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const session = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.testSession.create({
+    let session: Awaited<ReturnType<typeof this.prisma.testSession.create>>;
+    try {
+      session = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.testSession.create({
         data: {
           userId,
           templateId,
@@ -310,8 +312,16 @@ export class TestSessionService {
         });
       }
 
-      return created;
-    });
+        return created;
+      });
+    } catch (error) {
+      await this.accessService.recordDeniedAttemptForError(
+        error,
+        userId,
+        template.examTypeId,
+      );
+      throw error;
+    }
 
     return this.normalizeSessionScore(session);
   }
@@ -738,8 +748,10 @@ export class TestSessionService {
       retakeStartedAt: new Date().toISOString(),
     };
 
-    const session = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.testSession.create({
+    let session: Awaited<ReturnType<typeof this.prisma.testSession.create>>;
+    try {
+      session = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.testSession.create({
         data: {
           userId,
           templateId: source.templateId,
@@ -802,8 +814,16 @@ export class TestSessionService {
         });
       }
 
-      return created;
-    });
+        return created;
+      });
+    } catch (error) {
+      await this.accessService.recordDeniedAttemptForError(
+        error,
+        userId,
+        source.examTypeId,
+      );
+      throw error;
+    }
 
     return this.normalizeSessionScore(session);
   }

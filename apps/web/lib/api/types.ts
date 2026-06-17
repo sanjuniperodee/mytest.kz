@@ -1,6 +1,14 @@
 // Shared API types for mytest-v2. These mirror the current Nest backend contract.
 
 import type { LocalizedText } from "./i18n"
+import type {
+  AdmissionCompareResult,
+  AdmissionCycleDto,
+  ChanceProgramDto,
+  ChanceUniversityDto,
+  EntProgramDto,
+  UniversityDto,
+} from "@bilimland/shared"
 
 export type AccessReasonCode =
   | "DAILY_LIMIT_REACHED"
@@ -408,65 +416,9 @@ export interface LeaderboardEntry {
   [key: string]: unknown
 }
 
-export interface AdmissionCycle {
-  id: string
-  slug: string
-  sortOrder: number
-}
-
-export interface University {
-  code: number
-  name: string
-  shortName: string | null
-}
-
-export interface AdmissionProgram {
-  id: string
-  code: string
-  profileVariant?: number
-  name: string
-  profileSubjects?: string
-  profileShortLabel?: string | null
-}
-
-export interface CompareResult {
-  total: number
-  passesEntThresholds: boolean
-  cutoff: number | null
-  hasCutoff: boolean
-  gapToCutoff: number | null
-}
-
-export interface ChanceProgram {
-  cycleSlug: string
-  programId: string
-  programCode: string
-  programName: string
-  profileSubjects: string
-  profileVariant?: number
-  displayedQuotaType: "GRANT" | "RURAL"
-  cutoffSource: "GRANT" | "RURAL" | "GRANT_FALLBACK"
-  displayedMinScore: number | null
-  universityCount: number
-  isPass: boolean
-  total: number
-  gapToCutoff: number | null
-}
-
-export interface ChanceUniversity {
-  cycleSlug: string
-  universityCode: number
-  universityName: string
-  universityShortName: string | null
-  programId: string
-  programCode: string
-  programName: string
-  profileSubjects: string
-  profileVariant?: number
-  displayedQuotaType: "GRANT" | "RURAL"
-  cutoffSource: "GRANT" | "RURAL" | "GRANT_FALLBACK"
-  displayedMinScore: number | null
-  isPass: boolean
-  total: number
-  gapToCutoff: number | null
-}
+export type AdmissionCycle = AdmissionCycleDto
+export type University = UniversityDto
+export type AdmissionProgram = EntProgramDto
+export type CompareResult = AdmissionCompareResult
+export type ChanceProgram = ChanceProgramDto
+export type ChanceUniversity = ChanceUniversityDto
