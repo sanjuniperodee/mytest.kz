@@ -5,12 +5,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { BookOpen, Crown, Play, Target, Sparkles } from "lucide-react"
+import { AlertTriangle, BookOpen, Crown, Play, Target, Sparkles, TrendingDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import {
   Select,
   SelectContent,
@@ -72,11 +73,19 @@ export default function MistakesPage() {
             id: row.subjectId,
             examTypeId: row.examTypeId,
             label: examTypeId === "all" ? `${subjectName} · ${examName}` : subjectName,
+            shortLabel: subjectName,
             count: row.count,
           }
         }),
     [bySubject, examTypeId, examsById, locale],
   )
+
+  // Top weak subjects for the weakness chart
+  const topWeakSubjects = useMemo(
+    () => [...subjectOptions].sort((a, b) => b.count - a.count).slice(0, 6),
+    [subjectOptions],
+  )
+  const maxSubjectCount = topWeakSubjects[0]?.count ?? 1
 
   useEffect(() => {
     void refresh({ silent: true })
@@ -161,7 +170,10 @@ export default function MistakesPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">По экзаменам</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingDown className="size-4 text-destructive" />
+              По экзаменам
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -184,7 +196,7 @@ export default function MistakesPage() {
                     <span className="truncate text-sm font-medium">
                       {exam.name}
                     </span>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums">
+                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-destructive">
                       {exam.count}
                     </span>
                   </li>
@@ -195,145 +207,206 @@ export default function MistakesPage() {
         </Card>
       </div>
 
+      {/* Weakness analysis — visible to all users as a teaser */}
+      {(isLoading || topWeakSubjects.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="size-4 text-amber-500" />
+              Слабые места по предметам
+              {!hasPremium && (
+                <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                  Только просмотр
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8" />
+                ))}
+              </div>
+            ) : topWeakSubjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ошибок пока нет.</p>
+            ) : (
+              <>
+                {topWeakSubjects.map((subject, i) => {
+                  const pct = Math.round((subject.count / maxSubjectCount) * 100)
+                  const isTop = i === 0
+                  return (
+                    <div key={subject.id} className="flex items-center gap-3">
+                      <span
+                        className={`w-5 text-center text-xs font-semibold tabular-nums ${
+                          isTop ? "text-destructive" : "text-muted-foreground"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="w-36 shrink-0 truncate text-sm font-medium">
+                        {subject.shortLabel}
+                      </span>
+                      <div className="flex flex-1 items-center gap-2">
+                        <Progress
+                          value={pct}
+                          className={`h-2 flex-1 ${isTop ? "[&>div]:bg-destructive" : "[&>div]:bg-amber-400"}`}
+                        />
+                        <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+                          {subject.count}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {!hasPremium && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Выше — твоя карта слабых мест. Оформи Premium, чтобы запустить
+                    тренировку точно по этим вопросам.
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {hasPremium ? (
         <Card>
-        <CardHeader>
-          <CardTitle>Запустить тренировку</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="examType">Экзамен</Label>
-              <Select value={examTypeId} onValueChange={setExamTypeId}>
-                <SelectTrigger id="examType">
-                  <SelectValue placeholder="Все экзамены" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все экзамены</SelectItem>
-                  {examOptions.map((exam) => (
-                    <SelectItem key={exam.id} value={exam.id}>
-                      {exam.name} ({exam.count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {examTypeId === "all" && byExam.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Будут включены ошибки из всех экзаменов
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="subject">Предмет</Label>
-              <Select
-                value={subjectId}
-                onValueChange={setSubjectId}
-                disabled={subjectOptions.length === 0}
-              >
-                <SelectTrigger id="subject">
-                  <SelectValue placeholder="Все предметы" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все предметы</SelectItem>
-                  {subjectOptions.map((subject) => (
-                    <SelectItem key={`${subject.examTypeId}:${subject.id}`} value={subject.id}>
-                      {subject.label} ({subject.count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {subjectId === "all" && subjectOptions.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Будут включены ошибки из всех предметов
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>Язык</Label>
-              <RadioGroup
-                value={language}
-                onValueChange={(v) => setLanguage(v as "ru" | "kk")}
-                className="flex gap-2"
-              >
-                <Label className="flex flex-1 items-center gap-2 rounded-md border border-border px-3 py-2 cursor-pointer">
-                  <RadioGroupItem value="ru" />
-                  Русский
-                </Label>
-                <Label className="flex flex-1 items-center gap-2 rounded-md border border-border px-3 py-2 cursor-pointer">
-                  <RadioGroupItem value="kk" />
-                  Қазақша
-                </Label>
-              </RadioGroup>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <Label>Количество вопросов</Label>
-                <span className="text-sm font-medium tabular-nums">{limit}</span>
+          <CardHeader>
+            <CardTitle>Запустить тренировку</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="examType">Экзамен</Label>
+                <Select value={examTypeId} onValueChange={setExamTypeId}>
+                  <SelectTrigger id="examType">
+                    <SelectValue placeholder="Все экзамены" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все экзамены</SelectItem>
+                    {examOptions.map((exam) => (
+                      <SelectItem key={exam.id} value={exam.id}>
+                        {exam.name} ({exam.count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {examTypeId === "all" && byExam.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Будут включены ошибки из всех экзаменов
+                  </p>
+                )}
               </div>
-              <Slider
-                value={[limit]}
-                min={5}
-                max={50}
-                step={5}
-                onValueChange={(v) => setLimit(v[0] ?? 20)}
-              />
-            </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <Label>Длительность, мин</Label>
-                <span className="text-sm font-medium tabular-nums">{duration}</span>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="subject">Предмет</Label>
+                <Select
+                  value={subjectId}
+                  onValueChange={setSubjectId}
+                  disabled={subjectOptions.length === 0}
+                >
+                  <SelectTrigger id="subject">
+                    <SelectValue placeholder="Все предметы" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все предметы</SelectItem>
+                    {subjectOptions.map((subject) => (
+                      <SelectItem key={`${subject.examTypeId}:${subject.id}`} value={subject.id}>
+                        {subject.label} ({subject.count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {subjectId === "all" && subjectOptions.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Будут включены ошибки из всех предметов
+                  </p>
+                )}
               </div>
-              <Slider
-                value={[duration]}
-                min={5}
-                max={120}
-                step={5}
-                onValueChange={(v) => setDuration(v[0] ?? 30)}
-              />
-            </div>
-          </div>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-secondary/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <Sparkles className="size-5 shrink-0 text-foreground" />
-              <div>
-                <p className="text-sm font-medium">Подберём вопросы автоматически</p>
-                <p className="text-xs text-muted-foreground">
-                  Берём ваши прошлые ошибки и формируем мини-тест на {limit} вопросов
-                </p>
+              <div className="flex flex-col gap-2">
+                <Label>Язык</Label>
+                <RadioGroup
+                  value={language}
+                  onValueChange={(v) => setLanguage(v as "ru" | "kk")}
+                  className="flex gap-2"
+                >
+                  <Label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2">
+                    <RadioGroupItem value="ru" />
+                    Русский
+                  </Label>
+                  <Label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2">
+                    <RadioGroupItem value="kk" />
+                    Қазақша
+                  </Label>
+                </RadioGroup>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <Label>Количество вопросов</Label>
+                  <span className="text-sm font-medium tabular-nums">{limit}</span>
+                </div>
+                <Slider
+                  value={[limit]}
+                  min={5}
+                  max={50}
+                  step={5}
+                  onValueChange={(v) => setLimit(v[0] ?? 20)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <Label>Длительность, мин</Label>
+                  <span className="text-sm font-medium tabular-nums">{duration}</span>
+                </div>
+                <Slider
+                  value={[duration]}
+                  min={5}
+                  max={120}
+                  step={5}
+                  onValueChange={(v) => setDuration(v[0] ?? 30)}
+                />
               </div>
             </div>
-            <Button onClick={start} disabled={starting || total === 0} className="h-11">
-              {starting ? (
-                <Spinner className="size-4" />
-              ) : (
-                <>
-                  <Play className="size-4" />
-                  Начать тренировку
-                </>
-              )}
-            </Button>
-          </div>
 
-          {total === 0 && !isLoading && (
-            <div className="flex items-center gap-3 rounded-md border border-border bg-card p-4 text-sm">
-              <BookOpen className="size-4 text-muted-foreground" />
-              <span className="text-muted-foreground">
-                Сначала пройдите хотя бы один пробник — после него ваши ошибки появятся тут.
-              </span>
+            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-secondary/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Sparkles className="size-5 shrink-0 text-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Подберём вопросы автоматически</p>
+                  <p className="text-xs text-muted-foreground">
+                    Берём ваши прошлые ошибки и формируем мини-тест на {limit} вопросов
+                  </p>
+                </div>
+              </div>
+              <Button onClick={start} disabled={starting || total === 0} className="h-11">
+                {starting ? (
+                  <Spinner className="size-4" />
+                ) : (
+                  <>
+                    <Play className="size-4" />
+                    Начать тренировку
+                  </>
+                )}
+              </Button>
             </div>
-          )}
-        </CardContent>
+
+            {total === 0 && !isLoading && (
+              <div className="flex items-center gap-3 rounded-md border border-border bg-card p-4 text-sm">
+                <BookOpen className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  Сначала пройдите хотя бы один пробник — после него ваши ошибки появятся тут.
+                </span>
+              </div>
+            )}
+          </CardContent>
         </Card>
       ) : (
-        <Card
-          key={`mistakes-premium-${total}`}
-          className="overflow-hidden border-amber-200 bg-amber-50"
-        >
+        <Card className="overflow-hidden border-amber-200 bg-amber-50">
           <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
@@ -343,11 +416,12 @@ export default function MistakesPage() {
                 </span>
               </div>
               <h2 className="text-2xl font-semibold tracking-tight">
-                Работа над ошибками открывается в Premium
+                Запусти тренировку точно по слабым местам
               </h2>
               <p className="max-w-2xl text-sm leading-6 text-amber-900">
-                Мы соберём ваши ошибки в короткие тренировки, чтобы закрывать слабые места
-                быстрее. Сейчас в очереди:{" "}
+                Выше ты видишь карту слабых предметов. Premium позволяет запустить
+                мини-тест точно по этим вопросам — чтобы закрывать пробелы, а не
+                повторять то, что уже знаешь. В очереди:{" "}
                 <span className="font-semibold tabular-nums">{total}</span> ошибок.
               </p>
             </div>

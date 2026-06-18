@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, CheckCircle2, Clock, Star } from "lucide-react"
+import { ArrowRight, CheckCircle2, Clock, Gift, Star } from "lucide-react"
 import { ExamPreview } from "./exam-preview"
 
 export function Hero() {
@@ -13,7 +13,7 @@ export function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
             </span>
-            Подготовка к ЕНТ 2026 · Premium-разбор ошибок
+            Подготовка к ЕНТ 2027 · разбор ошибок
           </div>
 
           <h1 className="mt-6 text-balance text-[clamp(2.4rem,6.5vw,4.6rem)] font-semibold leading-[1.02] tracking-tight">
@@ -34,21 +34,26 @@ export function Hero() {
               href="/login"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
             >
-              Начать пробный ЕНТ
+              Попробовать бесплатно
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
-              href="#how"
+              href="#pricing"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary sm:text-base"
             >
-              Как это работает
+              Смотреть тарифы
             </a>
           </div>
 
-          <ul className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/8 px-4 py-2 text-sm font-medium text-accent">
+            <Gift className="h-4 w-4 shrink-0" aria-hidden="true" />
+            1 бесплатный пробный ЕНТ сразу после регистрации — без карты
+          </div>
+
+          <ul className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
             <li className="inline-flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-accent" />
-              Premium-разбор после сдачи
+              Разбор ошибок после сдачи
             </li>
             <li className="inline-flex items-center gap-2">
               <Clock className="h-4 w-4 text-accent" />

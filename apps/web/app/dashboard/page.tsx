@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock3,
   Gauge,
+  Gift,
   ListChecks,
   ShieldCheck,
   Sparkles,
@@ -72,6 +73,13 @@ export default function DashboardHomePage() {
   const entAccess = user?.accessByExam?.find((item) => item.examSlug === "ent")
   const entTrial = user?.trialStatus?.ent
   const hasPaidSubscription = Boolean(user?.hasActiveSubscription)
+  const freeTrialRemaining =
+    entTrial?.freeRemaining ?? entTrial?.remaining ?? null
+  const hasUnusedFreeTrial =
+    !hasPaidSubscription &&
+    freeTrialRemaining != null &&
+    freeTrialRemaining > 0 &&
+    (stats?.completedTests ?? 0) === 0
   const quickStartHref =
     entExam && entAccess && !entAccess.hasAccess
       ? "/dashboard/billing?reason=no_access"
@@ -146,6 +154,31 @@ export default function DashboardHomePage() {
           )}
         </div>
       </div>
+
+      {/* Free trial nudge — only for new users with unused trial */}
+      {hasUnusedFreeTrial && (
+        <div className="flex flex-col gap-3 rounded-xl border-2 border-accent/30 bg-accent/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15">
+              <Gift className="size-5 text-accent" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">
+                У тебя есть бесплатный пробный ЕНТ
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                140 вопросов · реальный формат · разбор ошибок — без карты
+              </p>
+            </div>
+          </div>
+          <Button asChild size="sm" className="h-9 shrink-0">
+            <Link href={quickStartHref}>
+              <BookOpen className="size-4" />
+              Начать сейчас
+            </Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

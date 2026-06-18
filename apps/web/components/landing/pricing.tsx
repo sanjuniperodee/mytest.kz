@@ -1,21 +1,39 @@
-import { Check, Flame } from "lucide-react"
+import Link from "next/link"
+import { Check, Flame, Gift } from "lucide-react"
 
 type Plan = {
   name: string
-  oldPrice: string
+  oldPrice?: string
   price: string
   perDay?: string
   period: string
   description: string
   features: string[]
   cta: string
+  href: string
   highlighted?: boolean
+  free?: boolean
   badge?: string
   badgeTone?: "accent" | "muted"
-  discount: string
+  discount?: string
 }
 
 const plans: Plan[] = [
+  {
+    name: "Бесплатный старт",
+    price: "0",
+    period: "₸ · 1 тест навсегда",
+    description: "Один полный пробный ЕНТ бесплатно — чтобы почувствовать формат.",
+    features: [
+      "1 полный пробный ЕНТ",
+      "Балл сразу после сдачи",
+      "Базовый разбор вопросов",
+      "Без карты и оплаты",
+    ],
+    cta: "Начать бесплатно",
+    href: "/login",
+    free: true,
+  },
   {
     name: "1 пробный ЕНТ",
     oldPrice: "1 140",
@@ -29,6 +47,7 @@ const plans: Plan[] = [
       "Доступ 7 дней",
     ],
     cta: "Купить 1 тест",
+    href: "/login",
     discount: "−50%",
   },
   {
@@ -44,6 +63,7 @@ const plans: Plan[] = [
       "Доступ 30 дней",
     ],
     cta: "Взять 3 попытки",
+    href: "/login",
     discount: "−50%",
   },
   {
@@ -57,10 +77,11 @@ const plans: Plan[] = [
       "Полный трекинг прогресса",
       "Доступ на 30 дней без ограничений",
       "Аналитика по предметам и темам",
-      "Адаптивные тренировки слабых тем",
+      "Работа над ошибками",
       "Объяснения ко всем вопросам",
     ],
     cta: "Готовиться месяц",
+    href: "/login",
     highlighted: true,
     badge: "Популярный",
     badgeTone: "accent",
@@ -79,6 +100,7 @@ const plans: Plan[] = [
       "Доступ 30 дней",
     ],
     cta: "Взять 5 попыток",
+    href: "/login",
     badge: "Выгодно",
     badgeTone: "muted",
     discount: "−50%",
@@ -95,19 +117,42 @@ export function Pricing() {
             Скидка 50% до конца сезона
           </span>
           <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-            Сначала{" "}
-            <span className="font-serif italic font-normal">диагностика</span>. Потом
-            — понятный план дешевле, чем{" "}
+            Начни{" "}
+            <span className="font-serif italic font-normal">бесплатно.</span>{" "}
+            Потом — понятный план дешевле, чем{" "}
             <span className="font-serif italic font-normal">пара чашек кофе.</span>
           </h2>
           <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground">
-            Выбираешь тариф, сдаёшь пробный в реальном формате и получаешь объяснения
-            ко всем вопросам после сдачи.
+            Первый пробный ЕНТ — бесплатно и без карты. Понравится — выбирай тариф и готовься дальше.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {plans.map((plan) => (
+        {/* Free tier highlight */}
+        <div className="mt-10 rounded-2xl border-2 border-accent/30 bg-accent/5 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/15">
+                <Gift className="h-5 w-5 text-accent" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">1 бесплатный пробный ЕНТ — сразу после регистрации</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Полный тест в реальном формате · 140 вопросов · таймер · базовый разбор ошибок. Без карты и оплаты.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/login"
+              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+            >
+              <Gift className="h-4 w-4" aria-hidden="true" />
+              Получить бесплатно
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {plans.filter((p) => !p.free).map((plan) => (
             <article
               key={plan.name}
               className={[
@@ -132,29 +177,33 @@ export function Pricing() {
 
               <div className="flex items-start justify-between">
                 <h3 className="text-base font-semibold tracking-tight">{plan.name}</h3>
-                <span
-                  className={[
-                    "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
-                    plan.highlighted
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-accent/10 text-accent",
-                  ].join(" ")}
-                  aria-label={`Скидка ${plan.discount}`}
-                >
-                  {plan.discount}
-                </span>
+                {plan.discount && (
+                  <span
+                    className={[
+                      "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                      plan.highlighted
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-accent/10 text-accent",
+                    ].join(" ")}
+                    aria-label={`Скидка ${plan.discount}`}
+                  >
+                    {plan.discount}
+                  </span>
+                )}
               </div>
 
               <div className="mt-5">
-                <div
-                  className={[
-                    "text-sm line-through tabular-nums",
-                    plan.highlighted ? "text-background/45" : "text-muted-foreground/70",
-                  ].join(" ")}
-                  aria-label="Старая цена"
-                >
-                  {plan.oldPrice} ₸
-                </div>
+                {plan.oldPrice && (
+                  <div
+                    className={[
+                      "text-sm line-through tabular-nums",
+                      plan.highlighted ? "text-background/45" : "text-muted-foreground/70",
+                    ].join(" ")}
+                    aria-label="Старая цена"
+                  >
+                    {plan.oldPrice} ₸
+                  </div>
+                )}
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-4xl font-semibold tracking-tight tabular-nums sm:text-[2.75rem]">
                     {plan.price}
@@ -169,12 +218,7 @@ export function Pricing() {
                   </span>
                 </div>
                 {plan.perDay && (
-                  <div
-                    className={[
-                      "mt-1 text-xs",
-                      plan.highlighted ? "text-accent" : "text-accent",
-                    ].join(" ")}
-                  >
+                  <div className="mt-1 text-xs text-accent">
                     {plan.perDay}
                   </div>
                 )}
@@ -205,8 +249,8 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <a
-                href="#start"
+              <Link
+                href={plan.href}
                 className={[
                   "mt-7 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all",
                   plan.highlighted
@@ -215,22 +259,13 @@ export function Pricing() {
                 ].join(" ")}
               >
                 {plan.cta}
-              </a>
+              </Link>
             </article>
           ))}
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-2 text-center">
-          <p className="text-sm font-medium">
-            Не уверен? Начни с разового доступа за 570 ₸ и проверь формат на одном полном ЕНТ.
-          </p>
-          <a
-            href="#start"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent underline-offset-4 hover:underline"
-          >
-            Купить 1 пробный →
-          </a>
-          <p className="mt-4 text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Цены указаны в тенге. Оплата через Freedom Pay, картой Visa / Mastercard или через Kaspi.
           </p>
         </div>
