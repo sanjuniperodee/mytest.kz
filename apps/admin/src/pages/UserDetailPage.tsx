@@ -23,9 +23,11 @@ import {
   DeleteOutlined,
   StopOutlined,
   TrophyOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { PageHero } from '../components/PageHero';
 import { normalizeKzPhone } from '@bilimland/shared';
 
 interface UserProfile {
@@ -325,6 +327,31 @@ export function UserDetailPage() {
             </Popconfirm>
           </Space>
         </div>
+
+        <PageHero
+          eyebrow="Аккаунты · Пользователь"
+          eyebrowIcon={<UserOutlined />}
+          title={
+            [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+            (user.telegramUsername ? `@${user.telegramUsername}` : null) ||
+            (user.phone ? `+${normalizeKzPhone(user.phone)}` : null) ||
+            'Пользователь'
+          }
+          lede={
+            user.telegramUsername
+              ? `@${user.telegramUsername}`
+              : user.phone
+                ? `+${normalizeKzPhone(user.phone)}`
+                : 'Карточка пользователя: доступы, подписки, активность и платежи.'
+          }
+          aside={
+            user.hasActiveSubscription ? (
+              <Tag color="gold" style={{ fontSize: 13, padding: '4px 10px' }}>
+                Premium
+              </Tag>
+            ) : undefined
+          }
+        />
 
         <Descriptions size="small" bordered column={2} className="pg-user-detail__info">
           <Descriptions.Item label="Telegram ID">

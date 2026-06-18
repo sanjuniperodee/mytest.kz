@@ -8,7 +8,6 @@ import {
   Spin,
   Avatar,
   Button,
-  Typography,
   Drawer,
   Dropdown,
   Grid,
@@ -222,13 +221,13 @@ function AdminLayout() {
               className="admin-header-hamburger"
               aria-label="Меню"
             />
-            <div className="admin-header-titles">
-              <div className="admin-header-kicker">{pageMeta.section}</div>
-              <Typography.Title level={4} className="admin-header-title">
-                {pageMeta.title}
-              </Typography.Title>
-              <p className="admin-header-subtitle">{pageMeta.description}</p>
-            </div>
+            <nav className="admin-header-crumbs" aria-label="Раздел">
+              <span className="admin-header-crumb-section">{pageMeta.section}</span>
+              <span className="admin-header-crumb-sep" aria-hidden>
+                /
+              </span>
+              <span className="admin-header-crumb-page">{pageMeta.title}</span>
+            </nav>
           </div>
           <div className="admin-header-actions">
             <a

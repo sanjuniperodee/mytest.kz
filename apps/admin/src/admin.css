@@ -37,7 +37,7 @@
   --admin-border: rgba(60, 60, 67, 0.12);
   --admin-border-subtle: #e5e5ea;
   --admin-separator: rgba(60, 60, 67, 0.12);
-  --admin-header-h: 84px; /* фактическая высота .admin-top-header (см. modern overrides) */
+  --admin-header-h: 56px; /* тонкая «хлебная» шапка; заголовок страницы живёт в hero */
   --admin-content-max: 1520px;
   --admin-radius: 12px;
   --admin-radius-sm: 10px;
@@ -1237,20 +1237,51 @@ body {
   position: sticky;
   top: 0;
   z-index: 25;
-  height: auto !important;
-  min-height: 84px;
-  padding: 18px 24px !important;
+  height: var(--admin-header-h) !important;
+  min-height: var(--admin-header-h);
+  padding: 0 20px 0 12px !important;
   background: rgba(255, 252, 247, 0.82) !important;
   border-bottom: 1px solid rgba(81, 56, 25, 0.08) !important;
-  box-shadow: 0 10px 40px rgba(85, 67, 39, 0.06);
+  box-shadow: 0 8px 28px rgba(85, 67, 39, 0.05);
 }
 
 .admin-header-main {
   min-width: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  align-items: center;
+  gap: 10px;
   flex: 1;
+}
+
+/* «Хлебная» панель: раздел / страница (заголовок страницы — в hero) */
+.admin-header-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.admin-header-crumb-section {
+  color: var(--admin-muted);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.admin-header-crumb-sep {
+  color: var(--admin-text-tertiary);
+  font-weight: 500;
+}
+
+.admin-header-crumb-page {
+  color: var(--admin-text);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-header-titles {
@@ -1402,20 +1433,21 @@ body {
 
 @media (max-width: 768px) {
   .admin-top-header {
-    min-height: 74px;
-    padding: 14px 14px 16px !important;
-    align-items: flex-start !important;
+    padding: 0 10px !important;
   }
 
   .admin-header-main {
-    gap: 10px;
+    gap: 8px;
   }
 
-  .admin-header-title {
-    font-size: 22px !important;
+  .admin-header-crumb-section {
+    display: none;
   }
 
-  .admin-header-subtitle,
+  .admin-header-crumb-sep {
+    display: none;
+  }
+
   .admin-header-link,
   .admin-header-badge,
   .admin-sider-summary {
@@ -1427,8 +1459,8 @@ body {
   }
 
   .admin-header-user-btn {
-    height: 42px;
-    border-radius: 14px !important;
+    height: 38px;
+    border-radius: 12px !important;
   }
 }
 

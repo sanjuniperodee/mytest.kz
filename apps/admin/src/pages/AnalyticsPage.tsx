@@ -8,6 +8,7 @@ import {
   QuestionCircleOutlined,
   UserOutlined,
   CrownOutlined,
+  FundProjectionScreenOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -22,6 +23,7 @@ import {
 } from '../api/platformAnalytics';
 import { PlatformFunnelBarChart } from '../components/PlatformFunnelBarChart';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { PageHero } from '../components/PageHero';
 import { HigTableCard } from '../components/HigBlocks';
 
 const df = 'YYYY-MM-DD';
@@ -218,10 +220,17 @@ export function AnalyticsPage() {
   return (
     <AdminPageShell>
       <div className="pg-a">
-        <p className="pg-a__intro">
-          Сводка по каталогу, затем <strong>период</strong> для воронки и таблиц. Вкладки «Сводка» и «Воронка» смотрят
-          на выбранные даты; «Посетители» / «Тесты» — тоже.
-        </p>
+        <PageHero
+          eyebrow="Метрики"
+          eyebrowIcon={<FundProjectionScreenOutlined />}
+          title="Аналитика платформы"
+          lede={
+            <>
+              Сводка по каталогу, затем <strong>период</strong> для воронки и таблиц. Вкладки «Сводка» и «Воронка»
+              смотрят на выбранные даты; «Посетители» / «Тесты» — тоже.
+            </>
+          }
+        />
 
         <div className="pg-a__section">
           <h3 className="pg-a__section-title">Состояние каталога</h3>

@@ -23,6 +23,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { PageHero } from '../components/PageHero';
 import { HigTableCard } from '../components/HigBlocks';
 import { getLocalizedText } from '../lib/questionContent';
 
@@ -306,28 +307,20 @@ export function QuestionAppealsPage() {
   return (
     <AdminPageShell wide>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-            <div>
-              <Typography.Text type="secondary">
-                <FlagOutlined /> Контроль качества вопросов
-              </Typography.Text>
-              <Typography.Title level={3} style={{ marginTop: 8, marginBottom: 8 }}>
-                Апелляции
-              </Typography.Title>
-              <Typography.Paragraph type="secondary" style={{ marginBottom: 0, maxWidth: 760 }}>
-                Очередь пользовательских апелляций по вопросам из завершённых тестов. Здесь видно контекст вопроса,
-                комментарий ученика и можно оставить финальное решение, которое вернётся в пользовательский review.
-              </Typography.Paragraph>
-            </div>
+        <PageHero
+          eyebrow="Каталог"
+          eyebrowIcon={<FlagOutlined />}
+          title="Апелляции"
+          lede="Очередь пользовательских апелляций по вопросам из завершённых тестов. Здесь видно контекст вопроса, комментарий ученика и можно оставить финальное решение, которое вернётся в пользовательский review."
+          aside={
             <Space direction="vertical" align="end" size={6}>
               <Tag color={isFetching ? 'processing' : 'default'} icon={isFetching ? <SyncOutlined spin /> : undefined}>
                 {isFetching ? 'Обновление данных' : 'Production feed'}
               </Tag>
               <Typography.Text type="secondary">{new Date().toLocaleString('ru-RU')}</Typography.Text>
             </Space>
-          </div>
-        </Card>
+          }
+        />
 
         <Row gutter={[16, 16]}>
           <Col xs={24} md={12} xl={6}>

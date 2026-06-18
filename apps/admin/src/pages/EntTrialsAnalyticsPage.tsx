@@ -5,6 +5,7 @@ import { DownloadOutlined, LineChartOutlined, TranslationOutlined } from '@ant-d
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
+import { PageHero } from '../components/PageHero';
 import { HigTableCard } from '../components/HigBlocks';
 import { getLocalizedText } from '../lib/questionContent';
 
@@ -152,26 +153,31 @@ export function EntTrialsAnalyticsPage() {
   return (
     <AdminPageShell wide>
       <div className="pg-ent">
-        <div className="pg-ent__head">
-          <div>
-            <p className="pg-ent__intro">
-              Здесь теперь только полезный срез: <strong>профильные пары</strong>, распределение по языкам и понятные
+        <PageHero
+          eyebrow="Метрики"
+          eyebrowIcon={<LineChartOutlined />}
+          title="Пробные ЕНТ"
+          lede={
+            <>
+              Здесь только полезный срез: <strong>профильные пары</strong>, распределение по языкам и понятные
               показатели по выбранному фильтру.
-            </p>
-          </div>
-          <div className="pg-ent__actions">
-            <Select
-              value={language}
-              onChange={setLanguage}
-              options={languageOptions}
-              prefix={<TranslationOutlined />}
-              style={{ width: 180 }}
-            />
-            <Button icon={<DownloadOutlined />} onClick={downloadCsv}>
-              Экспорт
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+          aside={
+            <div className="pg-ent__actions">
+              <Select
+                value={language}
+                onChange={setLanguage}
+                options={languageOptions}
+                prefix={<TranslationOutlined />}
+                style={{ width: 180 }}
+              />
+              <Button icon={<DownloadOutlined />} onClick={downloadCsv}>
+                Экспорт
+              </Button>
+            </div>
+          }
+        />
 
         {!data?.entFound ? (
           <div className="pg-ent__empty">

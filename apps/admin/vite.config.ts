@@ -25,13 +25,17 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
+      // ADMIN_DEV_API lets you preview against a remote API (e.g. prod) without
+      // CORS: the browser only ever talks to localhost, Vite proxies server-side.
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.ADMIN_DEV_API || 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
       '/uploads': {
-        target: 'http://localhost:3000',
+        target: process.env.ADMIN_DEV_API || 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
     },
   },
