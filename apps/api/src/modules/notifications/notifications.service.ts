@@ -846,7 +846,7 @@ export class NotificationsService {
               some: {
                 isActive: true,
                 expiresAt: { gt: now },
-                planType: { not: 'trial' },
+                planType: { not: 'starter' },
               },
             },
           },

@@ -8,7 +8,7 @@ import { existsSync, unlinkSync } from 'fs';
 import { join, normalize, sep } from 'path';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
-import { BILLING_PLANS } from '../billing/billing.config';
+import { BILLING_PLANS, PLAN_BY_ID } from '../billing/billing.config';
 import { ENT_CONFIG } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
 
@@ -222,7 +222,7 @@ export class UsersService {
     });
     const sortedSubscriptions = [...subscriptions].sort((a, b) => {
       const rank = (planType: string) =>
-        planType === 'free' ? 0 : planType === 'trial' ? 1 : 2;
+        planType === 'free' ? 0 : planType === 'starter' ? 1 : 2;
       const aPaid = rank(a.planType);
       const bPaid = rank(b.planType);
       if (aPaid !== bPaid) return bPaid - aPaid;
@@ -427,25 +427,19 @@ export class UsersService {
   }
 
   private fallbackTariffName(code: string) {
-    if (code === 'trial') return '1 пробный ЕНТ';
-    if (code === 'week') return '3 пробных ЕНТ';
-    if (code === 'month') return 'Месяц без лимита';
-    if (code === 'annual') return '5 пробных ЕНТ';
+    const plan = PLAN_BY_ID.get(code);
+    if (plan) return plan.name;
     if (code === 'paid') return 'Premium';
     if (code === 'admin') return 'Админ-доступ';
     return code;
   }
 
   private subscriptionTotalAttemptsLimit(planType: string): number | null {
-    if (planType === 'trial') return 1;
-    if (planType === 'week') return 3;
-    if (planType === 'annual') return 5;
-    return null;
+    return PLAN_BY_ID.get(planType)?.attemptsLimit ?? null;
   }
 
   private subscriptionDailyAttemptsLimit(planType: string): number | null {
-    if (planType === 'trial') return 1;
-    return null;
+    return PLAN_BY_ID.get(planType)?.dailyLimit ?? null;
   }
 
   async updateProfile(

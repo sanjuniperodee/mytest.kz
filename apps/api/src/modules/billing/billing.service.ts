@@ -1351,10 +1351,10 @@ export class BillingService {
       }
     }
     const defaults: Record<string, string> = {
-      'com.sanjuniperodee.mobile.premium.trial': 'trial',
-      'com.sanjuniperodee.mobile.premium.week': 'week',
-      'com.sanjuniperodee.mobile.premium.month': 'month',
-      'com.sanjuniperodee.mobile.premium.annual': 'annual',
+      'com.sanjuniperodee.mobile.premium.trial': 'starter',
+      'com.sanjuniperodee.mobile.premium.week': 'basic',
+      'com.sanjuniperodee.mobile.premium.month': 'premium',
+      'com.sanjuniperodee.mobile.premium.annual': 'pro',
     };
     return defaults[productId] || '';
   }

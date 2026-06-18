@@ -8,7 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../database/prisma.service';
-import { ENT_TRIAL_LIMIT } from '../billing/billing.config';
+import { ENT_TRIAL_LIMIT, PLAN_BY_ID } from '../billing/billing.config';
 
 export type AccessReasonCode =
   | 'DAILY_LIMIT_REACHED'
@@ -672,15 +672,11 @@ export class AccessService {
   }
 
   private subscriptionTotalAttemptsLimit(planType: string): number | null {
-    if (planType === 'trial') return 1;
-    if (planType === 'week') return 3;
-    if (planType === 'annual') return 5;
-    return null;
+    return PLAN_BY_ID.get(planType)?.attemptsLimit ?? null;
   }
 
   private subscriptionDailyAttemptsLimit(planType: string): number | null {
-    if (planType === 'trial') return 1;
-    return null;
+    return PLAN_BY_ID.get(planType)?.dailyLimit ?? null;
   }
 
   private async expireEndedEntitlements(
@@ -731,7 +727,7 @@ export class AccessService {
     });
 
     for (const sub of activeSubscriptions) {
-      const isTrial = sub.planType === 'trial';
+      const isTrial = sub.planType === 'starter';
       const sourceType = isTrial
         ? EntitlementSourceType.legacy_trial_subscription
         : EntitlementSourceType.legacy_paid_subscription;

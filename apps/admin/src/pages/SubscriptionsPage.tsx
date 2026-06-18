@@ -68,21 +68,33 @@ function apiErr(e: unknown, fallback: string): string {
 
 const LEGACY_PLAN_TYPES = [
   {
-    value: 'trial',
-    label: 'trial — 1 пробный ЕНТ',
-    hint: '1 полная попытка ЕНТ за период, с Premium-разбором.',
+    value: 'starter',
+    label: 'Стартер — 1 попытка · 7 дней · 570 ₸',
+    hint: '1 полная попытка ЕНТ с Premium-разбором. Суточный лимит: 1.',
   },
-  { value: 'week', label: 'week — 3 пробных ЕНТ', hint: '3 полных попытки ЕНТ за период, с Premium-разбором.' },
-  { value: 'month', label: 'month — месяц без лимита', hint: 'Безлимитные попытки ЕНТ на 30 дней.' },
-  { value: 'annual', label: 'annual — 5 пробных ЕНТ', hint: '5 полных попыток ЕНТ за период, с Premium-разбором.' },
+  {
+    value: 'basic',
+    label: 'Базовый — 3 попытки · 30 дней · 1 490 ₸',
+    hint: '3 полных попытки ЕНТ с Premium-разбором.',
+  },
+  {
+    value: 'pro',
+    label: 'Про — 5 попыток · 30 дней · 1 990 ₸',
+    hint: '5 полных попыток ЕНТ с Premium-разбором.',
+  },
+  {
+    value: 'premium',
+    label: 'Премиум — безлимит · 30 дней · 3 900 ₸',
+    hint: 'Безлимитные попытки ЕНТ на 30 дней.',
+  },
 ];
 
 /** Длительность по умолчанию для дат в legacy-модалке (календарные дни с «сейчас»). */
 const LEGACY_PLAN_DAYS: Record<string, number> = {
-  trial: 7,
-  week: 30,
-  month: 30,
-  annual: 30,
+  starter: 7,
+  basic: 30,
+  pro: 30,
+  premium: 30,
 };
 
 type PlanTemplateExamRule = {
