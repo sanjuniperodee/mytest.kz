@@ -21,8 +21,8 @@ type Plan = {
 const plans: Plan[] = [
   {
     name: "Стартер",
-    oldPrice: "1 140",
-    price: "570",
+    oldPrice: "1 380",
+    price: "690",
     period: "₸ / 7 дней · 1 попытка",
     description: "Один полный пробный ЕНТ с Premium-разбором.",
     features: [
