@@ -9,24 +9,28 @@ describe('MistakesService', () => {
         isCorrect: false,
         examTypeId: 'exam-ent',
         subjectId: 'math',
+        topicId: 'topic-math-1',
       },
       {
         questionId: 'q-2',
         isCorrect: false,
         examTypeId: 'exam-ent',
         subjectId: 'physics',
+        topicId: 'topic-physics-1',
       },
       {
         questionId: 'q-3',
         isCorrect: true,
         examTypeId: 'exam-ent',
         subjectId: 'math',
+        topicId: 'topic-math-1',
       },
       {
         questionId: 'q-4',
         isCorrect: false,
         examTypeId: 'exam-nuet',
         subjectId: 'math',
+        topicId: 'topic-math-2',
       },
     ];
 

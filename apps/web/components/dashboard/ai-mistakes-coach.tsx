@@ -8,12 +8,15 @@ import {
   BarChart3,
   BrainCircuit,
   CalendarRange,
+  CheckCircle2,
   ChevronDown,
   ClipboardCheck,
   Lightbulb,
   LineChart as LineChartIcon,
   ListChecks,
   NotepadText,
+  PartyPopper,
+  RefreshCw,
   Sparkles,
   SquareFunction,
   Target,
@@ -302,17 +305,28 @@ export function AiMistakesCoach({
           <Skeleton className="h-4 w-40" />
         )}
 
-        {hasAnalysis && (
-          <AnalysisView
-            analysis={analysis!}
-            language={language}
-            lessonStates={lessons}
-            explanations={explanations}
-            onExplain={toggleExplain}
-            onOpenLesson={openLesson}
-            onTrainSubject={onTrainSubject}
-          />
-        )}
+        {hasAnalysis && analysis!.totalOpen === 0 && analysis!.weakZones.length === 0 ? (
+          <ClearedState resolvedCount={analysis!.resolvedCount} />
+        ) : hasAnalysis ? (
+          <>
+            {analysis!.stale && (
+              <StaleBanner
+                resolvedCount={analysis!.resolvedCount}
+                loading={loading}
+                onRefresh={() => runAnalysis(true)}
+              />
+            )}
+            <AnalysisView
+              analysis={analysis!}
+              language={language}
+              lessonStates={lessons}
+              explanations={explanations}
+              onExplain={toggleExplain}
+              onOpenLesson={openLesson}
+              onTrainSubject={onTrainSubject}
+            />
+          </>
+        ) : null}
       </CardContent>
     </Card>
       <TopicLessonDialog
@@ -328,6 +342,65 @@ export function AiMistakesCoach({
       />
     </>
   )
+}
+
+function StaleBanner({
+  resolvedCount,
+  loading,
+  onRefresh,
+}: {
+  resolvedCount: number
+  loading: boolean
+  onRefresh: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-2 text-sm text-amber-900">
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-amber-600" />
+        <p className="leading-relaxed">
+          {resolvedCount > 0
+            ? `Ты закрыл ${resolvedCount} ${pluralMistakes(resolvedCount)} с момента анализа. Разбор обновлён, а для свежей картины пересобери его.`
+            : "Список ошибок изменился с момента анализа. Пересобери разбор, чтобы он был актуальным."}
+        </p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onRefresh}
+        disabled={loading}
+        className="shrink-0 border-amber-300 bg-white text-amber-800 hover:bg-amber-100"
+      >
+        {loading ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />}
+        Пересобрать
+      </Button>
+    </div>
+  )
+}
+
+function ClearedState({ resolvedCount }: { resolvedCount: number }) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-emerald-600 text-white">
+        <PartyPopper className="size-6" />
+      </span>
+      <div>
+        <p className="text-lg font-semibold text-emerald-950">Все ошибки закрыты!</p>
+        <p className="mt-1 text-sm text-emerald-900">
+          {resolvedCount > 0
+            ? `Ты проработал ${resolvedCount} ${pluralMistakes(resolvedCount)} из прошлого разбора. Отличная работа — слабых зон не осталось.`
+            : "Открытых ошибок нет. Пройди новый пробник, чтобы продолжить тренировку."}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function pluralMistakes(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return "ошибку"
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "ошибки"
+  return "ошибок"
 }
 
 function AnalysisView({

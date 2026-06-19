@@ -76,6 +76,10 @@ export interface WeakZoneAnalysis {
   generatedAt: string;
   model: string;
   cached: boolean;
+  /** True when the user's open-mistake set changed since this analysis was generated. */
+  stale: boolean;
+  /** How many of the analysis' example mistakes are now resolved (no longer open). */
+  resolvedCount: number;
   totalOpen: number;
   overview: string;
   weakZones: WeakZone[];
@@ -197,7 +201,13 @@ export class AiCoachService {
     return this.deepseek.isEnabled();
   }
 
-  /** Return the most recent stored analysis without calling the model (instant load). */
+  /**
+   * Return the most recent stored analysis without calling the model (instant load),
+   * RECONCILED against the user's current open mistakes: resolved examples and
+   * fully-closed weak zones are dropped, and `stale`/`resolvedCount`/`totalOpen`
+   * reflect the live state. This is what stops weak zones from lingering forever
+   * after the user has actually closed those mistakes.
+   */
   async getStoredAnalysis(
     userId: string,
     examTypeId?: string,
@@ -207,10 +217,73 @@ export class AiCoachService {
       orderBy: { createdAt: 'desc' },
     });
     if (!row) return null;
-    return this.hydrateAnalysisExamples(
-      { ...(row.result as unknown as WeakZoneAnalysis), cached: true },
-      row.language === 'kk' ? 'kk' : 'ru',
+
+    const language: AiLanguage = row.language === 'kk' ? 'kk' : 'ru';
+    const stored = { ...(row.result as unknown as WeakZoneAnalysis), cached: true };
+
+    // Live open-mistake set (scoped to the same exam) is the source of truth.
+    const latest = await this.mistakes.getLatestOutcomes(userId);
+    let open = latest.filter((r) => r.isCorrect === false);
+    if (examTypeId) open = open.filter((r) => r.examTypeId === examTypeId);
+    const openQuestionIds = new Set(open.map((r) => r.questionId));
+    const openSubjectIds = new Set(open.map((r) => r.subjectId));
+    const openTopicIds = new Set(open.map((r) => r.topicId));
+
+    const currentScopeHash = this.computeScopeHash(
+      [...openQuestionIds],
+      examTypeId,
+      language,
     );
+    const stale = currentScopeHash !== row.scopeHash;
+
+    let resolvedCount = 0;
+    const weakZones = (stored.weakZones ?? [])
+      .map((zone) => {
+        const examples = zone.examples.filter((ex) => {
+          const stillOpen = openQuestionIds.has(ex.questionId);
+          if (!stillOpen) resolvedCount++;
+          return stillOpen;
+        });
+        return { ...zone, examples };
+      })
+      // Keep a zone only while it is still a weak zone: it has a still-open example,
+      // or its topic/subject still has open mistakes elsewhere.
+      .filter((zone) => {
+        if (zone.examples.length > 0) return true;
+        if (zone.topicId && openTopicIds.has(zone.topicId)) return true;
+        if (zone.subjectId && openSubjectIds.has(zone.subjectId)) return true;
+        return false;
+      });
+
+    const reconciled: WeakZoneAnalysis = {
+      ...stored,
+      cached: true,
+      stale,
+      resolvedCount,
+      totalOpen: open.length,
+      weakZones,
+    };
+
+    return this.hydrateAnalysisExamples(reconciled, language);
+  }
+
+  private computeScopeHash(
+    openQuestionIds: string[],
+    examTypeId: string | undefined,
+    language: AiLanguage,
+  ): string {
+    return createHash('sha256')
+      .update(
+        [
+          PROMPT_VERSION,
+          this.deepseek.getModel(),
+          language,
+          examTypeId ?? 'all',
+          [...openQuestionIds].sort().join(','),
+        ].join('|'),
+      )
+      .digest('hex')
+      .slice(0, 64);
   }
 
   async analyzeWeakZones(
@@ -226,21 +299,11 @@ export class AiCoachService {
     if (open.length === 0) throw new BadRequestException('NO_OPEN_MISTAKES');
 
     // Stable scope hash over the FULL open-mistake set → cache invalidates when it changes.
-    const scopeHash = createHash('sha256')
-      .update(
-        [
-          PROMPT_VERSION,
-          this.deepseek.getModel(),
-          language,
-          opts.examTypeId ?? 'all',
-          open
-            .map((r) => r.questionId)
-            .sort()
-            .join(','),
-        ].join('|'),
-      )
-      .digest('hex')
-      .slice(0, 64);
+    const scopeHash = this.computeScopeHash(
+      open.map((r) => r.questionId),
+      opts.examTypeId,
+      language,
+    );
 
     if (!opts.force) {
       const existing = await this.prisma.aiCoachAnalysis.findUnique({
@@ -707,6 +770,8 @@ export class AiCoachService {
       generatedAt: new Date().toISOString(),
       model: this.deepseek.getModel(),
       cached: false,
+      stale: false,
+      resolvedCount: 0,
       totalOpen,
       overview: asText(raw.overview),
       weakZones,

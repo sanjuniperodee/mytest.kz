@@ -404,6 +404,10 @@ export interface AiWeakZoneAnalysis {
   generatedAt: string
   model: string
   cached: boolean
+  /** Open-mistake set changed since this analysis was generated → offer a refresh. */
+  stale: boolean
+  /** How many example mistakes from this analysis are now resolved. */
+  resolvedCount: number
   totalOpen: number
   overview: string
   weakZones: AiWeakZone[]
