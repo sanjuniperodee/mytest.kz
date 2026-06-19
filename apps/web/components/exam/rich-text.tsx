@@ -72,6 +72,14 @@ export function renderRichTextHtml(
     },
   )
 
+  result = result.replace(/```([a-z0-9_-]+)?\n([\s\S]*?)```/gi, (_match, languageRaw, codeRaw) => {
+    const language = typeof languageRaw === "string" ? languageRaw.trim().toLowerCase() : ""
+    const label = language ? ` data-language="${escapeHtml(language)}"` : ""
+    return htmlChunks.add(
+      `<pre class="rich-code-block"${label}><code>${escapeHtml(String(codeRaw).replace(/\n$/, ""))}</code></pre>`,
+    )
+  })
+
   result = result.replace(/\$\$([\s\S]+?)\$\$/g, (_match, latex: string) => {
     try {
       return htmlChunks.add(
