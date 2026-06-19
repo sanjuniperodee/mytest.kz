@@ -46,9 +46,9 @@ export class PremiumGuard implements CanActivate {
       const paidEntitlement = await this.prisma.userExamEntitlement.findFirst({
         where: {
           userId: user.id,
-          ...(targetExamTypeId
-            ? { examTypeId: targetExamTypeId }
-            : { examTypeId: '00000000-0000-0000-0000-000000000000' }),
+          // When no specific exam requested (e.g. mistakes/practice "all exams"):
+          // accept any active paid entitlement rather than the magic global UUID.
+          ...(targetExamTypeId ? { examTypeId: targetExamTypeId } : {}),
           tier: { in: [EntitlementTier.paid, EntitlementTier.admin] },
           status: EntitlementStatus.active,
           windowStartsAt: { lte: now },
