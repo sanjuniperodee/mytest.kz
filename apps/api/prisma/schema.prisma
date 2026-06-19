@@ -194,6 +194,7 @@ model AiCoachAnalysis {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @map("user_id") @db.Uuid
   examTypeId String?  @map("exam_type_id") @db.Uuid
+  subjectId  String?  @map("subject_id") @db.Uuid
   scopeHash  String   @map("scope_hash") @db.VarChar(64)
   language   String   @db.VarChar(2)
   model      String   @db.VarChar(40)
@@ -205,6 +206,7 @@ model AiCoachAnalysis {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, scopeHash])
+  @@index([userId, examTypeId, subjectId, createdAt], map: "ai_coach_analyses_user_scope_created_idx")
   @@index([userId, createdAt])
   @@map("ai_coach_analyses")
 }

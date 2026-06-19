@@ -8,6 +8,10 @@ export class AnalyzeMistakesDto {
   @IsUUID()
   examTypeId?: string;
 
+  @IsOptional()
+  @IsUUID()
+  subjectId?: string;
+
   /** Force a fresh DeepSeek call even if a cached analysis exists for this mistake set. */
   @IsOptional()
   @IsBoolean()

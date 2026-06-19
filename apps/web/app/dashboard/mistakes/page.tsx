@@ -103,7 +103,7 @@ export default function MistakesPage() {
     setLanguage(locale === "kk" ? "kk" : "ru")
   }, [locale])
 
-  const launch = async (scope: { examTypeId?: string; subjectId?: string }) => {
+  const launch = async (scope: { examTypeId?: string; subjectId?: string; topicId?: string }) => {
     setStarting(true)
     try {
       const session = await api<TestSession>("/tests/mistakes/practice", {
@@ -112,6 +112,7 @@ export default function MistakesPage() {
           language,
           examTypeId: scope.examTypeId,
           subjectId: scope.subjectId,
+          topicId: scope.topicId,
           limit,
           durationMins: duration,
         },
@@ -124,6 +125,8 @@ export default function MistakesPage() {
           message = "Выберите конкретный экзамен"
         } else if (err.message === "NO_OPEN_MISTAKES_FOR_SUBJECT") {
           message = "По этому предмету нет открытых ошибок"
+        } else if (err.message === "NO_OPEN_MISTAKES_FOR_TOPIC") {
+          message = "По этой теме нет открытых ошибок"
         } else if (err.message === "NO_OPEN_MISTAKES") {
           message = "Открытых ошибок пока нет"
         } else if (err.status === 402 || err.status === 403) {
@@ -153,6 +156,15 @@ export default function MistakesPage() {
       setSubjectId(sid)
     }
     void launch({ examTypeId: sub?.examTypeId, subjectId: sid })
+  }
+
+  const onTrainTopic = (topicId: string, sid?: string | null) => {
+    const sub = sid ? summary?.openBySubject.find((s) => s.subjectId === sid) : undefined
+    if (sub) {
+      setExamTypeId(sub.examTypeId)
+      setSubjectId(sub.subjectId)
+    }
+    void launch({ examTypeId: sub?.examTypeId, subjectId: sid ?? undefined, topicId })
   }
 
   return (
@@ -256,7 +268,11 @@ export default function MistakesPage() {
                   const pct = Math.round((subject.count / maxSubjectCount) * 100)
                   const isTop = i === 0
                   return (
-                    <div key={subject.id} className="flex items-center gap-3">
+                    <Link
+                      key={`${subject.examTypeId}:${subject.id}`}
+                      href={`/dashboard/mistakes/subjects/${subject.id}?examTypeId=${subject.examTypeId}`}
+                      className="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-secondary/60"
+                    >
                       <span
                         className={`w-5 text-center text-xs font-semibold tabular-nums ${
                           isTop ? "text-destructive" : "text-muted-foreground"
@@ -276,7 +292,7 @@ export default function MistakesPage() {
                           {subject.count}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   )
                 })}
                 {!hasPremium && (
@@ -297,6 +313,7 @@ export default function MistakesPage() {
           examTypeId={examTypeId}
           totalOpen={total}
           onTrainSubject={onTrainSubject}
+          onTrainTopic={onTrainTopic}
         />
       )}
 

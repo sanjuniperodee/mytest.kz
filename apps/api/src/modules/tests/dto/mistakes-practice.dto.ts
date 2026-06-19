@@ -14,6 +14,10 @@ export class MistakesPracticeDto {
   subjectId?: string;
 
   @IsOptional()
+  @IsUUID()
+  topicId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

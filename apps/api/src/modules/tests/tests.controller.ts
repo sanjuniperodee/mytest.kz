@@ -30,6 +30,15 @@ export class TestsController {
     return this.mistakesService.getSummary(userId);
   }
 
+  @Get('mistakes/subjects/:subjectId')
+  async mistakesSubjectDetail(
+    @CurrentUser('id') userId: string,
+    @Param('subjectId') subjectId: string,
+    @Query('examTypeId') examTypeId?: string,
+  ) {
+    return this.mistakesService.getSubjectDetail(userId, subjectId, examTypeId);
+  }
+
   @Post('mistakes/practice')
   @UseGuards(PremiumGuard)
   async mistakesPractice(
@@ -39,6 +48,7 @@ export class TestsController {
     return this.testSessionService.startRemediationSession(userId, dto.language, {
       examTypeId: dto.examTypeId,
       subjectId: dto.subjectId,
+      topicId: dto.topicId,
       limit: dto.limit,
       durationMins: dto.durationMins,
     });

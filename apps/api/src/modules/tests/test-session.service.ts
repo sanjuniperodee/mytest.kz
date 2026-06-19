@@ -834,6 +834,7 @@ export class TestSessionService {
     options?: {
       examTypeId?: string;
       subjectId?: string;
+      topicId?: string;
       limit?: number;
       durationMins?: number;
     },
@@ -850,11 +851,16 @@ export class TestSessionService {
     const scopedOpenRows = openRows.filter((r) => {
       if (options?.examTypeId && r.examTypeId !== options.examTypeId) return false;
       if (options?.subjectId && r.subjectId !== options.subjectId) return false;
+      if (options?.topicId && r.topicId !== options.topicId) return false;
       return true;
     });
     if (scopedOpenRows.length === 0) {
       throw new BadRequestException(
-        options?.subjectId ? 'NO_OPEN_MISTAKES_FOR_SUBJECT' : 'NO_OPEN_MISTAKES',
+        options?.topicId
+          ? 'NO_OPEN_MISTAKES_FOR_TOPIC'
+          : options?.subjectId
+            ? 'NO_OPEN_MISTAKES_FOR_SUBJECT'
+            : 'NO_OPEN_MISTAKES',
       );
     }
 
@@ -871,6 +877,7 @@ export class TestSessionService {
       latest,
       resolvedExamTypeId,
       options?.subjectId,
+      options?.topicId,
     );
     this.shuffleInPlace(questionIdsAll);
     const questionIds = questionIdsAll.slice(0, capped);

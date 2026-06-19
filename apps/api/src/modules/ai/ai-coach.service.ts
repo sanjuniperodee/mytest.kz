@@ -214,10 +214,14 @@ export class AiCoachService {
    */
   async getStoredAnalysis(
     userId: string,
-    examTypeId?: string,
+    opts: { examTypeId?: string; subjectId?: string } = {},
   ): Promise<WeakZoneAnalysis | null> {
     const row = await this.prisma.aiCoachAnalysis.findFirst({
-      where: { userId, examTypeId: examTypeId ?? null },
+      where: {
+        userId,
+        examTypeId: opts.examTypeId ?? null,
+        subjectId: opts.subjectId ?? null,
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!row) return null;
@@ -228,14 +232,16 @@ export class AiCoachService {
     // Live open-mistake set (scoped to the same exam) is the source of truth.
     const latest = await this.mistakes.getLatestOutcomes(userId);
     let open = latest.filter((r) => r.isCorrect === false);
-    if (examTypeId) open = open.filter((r) => r.examTypeId === examTypeId);
+    if (opts.examTypeId) open = open.filter((r) => r.examTypeId === opts.examTypeId);
+    if (opts.subjectId) open = open.filter((r) => r.subjectId === opts.subjectId);
     const openQuestionIds = new Set(open.map((r) => r.questionId));
     const openSubjectIds = new Set(open.map((r) => r.subjectId));
     const openTopicIds = new Set(open.map((r) => r.topicId));
 
     const currentScopeHash = this.computeScopeHash(
       [...openQuestionIds],
-      examTypeId,
+      opts.examTypeId,
+      opts.subjectId,
       language,
     );
     const stale = currentScopeHash !== row.scopeHash;
@@ -301,6 +307,7 @@ export class AiCoachService {
   private computeScopeHash(
     openQuestionIds: string[],
     examTypeId: string | undefined,
+    subjectId: string | undefined,
     language: AiLanguage,
   ): string {
     return createHash('sha256')
@@ -310,6 +317,7 @@ export class AiCoachService {
           this.deepseek.getModel(),
           language,
           examTypeId ?? 'all',
+          subjectId ?? 'all-subjects',
           [...openQuestionIds].sort().join(','),
         ].join('|'),
       )
@@ -319,7 +327,7 @@ export class AiCoachService {
 
   async analyzeWeakZones(
     userId: string,
-    opts: { language: string; examTypeId?: string; force?: boolean },
+    opts: { language: string; examTypeId?: string; subjectId?: string; force?: boolean },
   ): Promise<WeakZoneAnalysis> {
     if (!this.isEnabled()) throw new BadRequestException('AI_DISABLED');
     const language: AiLanguage = opts.language === 'kk' ? 'kk' : 'ru';
@@ -327,12 +335,14 @@ export class AiCoachService {
     const latest = await this.mistakes.getLatestOutcomes(userId);
     let open = latest.filter((r) => r.isCorrect === false);
     if (opts.examTypeId) open = open.filter((r) => r.examTypeId === opts.examTypeId);
+    if (opts.subjectId) open = open.filter((r) => r.subjectId === opts.subjectId);
     if (open.length === 0) throw new BadRequestException('NO_OPEN_MISTAKES');
 
     // Stable scope hash over the FULL open-mistake set → cache invalidates when it changes.
     const scopeHash = this.computeScopeHash(
       open.map((r) => r.questionId),
       opts.examTypeId,
+      opts.subjectId,
       language,
     );
 
@@ -486,6 +496,7 @@ export class AiCoachService {
         create: {
           userId,
           examTypeId: opts.examTypeId ?? null,
+          subjectId: opts.subjectId ?? null,
           scopeHash,
           language,
           model: this.deepseek.getModel(),

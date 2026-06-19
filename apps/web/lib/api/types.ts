@@ -371,6 +371,27 @@ export interface MistakesSummary {
   scoreImpact: EntScoreImpact
 }
 
+export interface MistakesSubjectDetail {
+  examTypeId: string
+  examSlug: string
+  examName: LocalizedText
+  subjectId: string
+  subjectSlug: string
+  subjectName: LocalizedText
+  isMandatory: boolean
+  openTotal: number
+  activeOpenTotal: number
+  topicCount: number
+  topics: {
+    topicId: string
+    topicName: LocalizedText
+    sortOrder: number
+    openCount: number
+    activeOpenCount: number
+    lastWrongAt: string | null
+  }[]
+}
+
 export type EntScoreImpact =
   | { available: false }
   | {

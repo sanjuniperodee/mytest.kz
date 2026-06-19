@@ -64,8 +64,12 @@ import type {
 interface AiMistakesCoachProps {
   language: "ru" | "kk"
   examTypeId: string // "all" or a concrete id
+  subjectId?: string
   totalOpen: number
   onTrainSubject: (subjectId: string) => void
+  onTrainTopic?: (topicId: string, subjectId?: string | null) => void
+  title?: string
+  description?: string
 }
 
 const severityStyles: Record<AiSeverity, { label: string; chip: string; bar: string }> = {
@@ -90,8 +94,12 @@ type LessonState = {
 export function AiMistakesCoach({
   language,
   examTypeId,
+  subjectId,
   totalOpen,
   onTrainSubject,
+  onTrainTopic,
+  title = "AI-разбор слабых мест",
+  description = "AI разберёт твои реальные ошибки, найдёт корневые пробелы и составит персональный план подготовки — конкретно по тому, что стоит подтянуть.",
 }: AiMistakesCoachProps) {
   // Is AI configured at all? Cheap status check; hides the whole block if disabled.
   const { data: status } = useSWR<{ enabled: boolean }>("/ai/status")
@@ -113,7 +121,10 @@ export function AiMistakesCoach({
     let cancelled = false
     setLoadingStored(true)
     api<AiStoredAnalysisResponse>("/ai/mistakes/analysis", {
-      query: { examTypeId: examTypeId === "all" ? undefined : examTypeId },
+      query: {
+        examTypeId: examTypeId === "all" ? undefined : examTypeId,
+        subjectId,
+      },
     })
       .then((res) => {
         if (!cancelled) setAnalysis(res.analysis)
@@ -127,7 +138,7 @@ export function AiMistakesCoach({
     return () => {
       cancelled = true
     }
-  }, [enabled, examTypeId])
+  }, [enabled, examTypeId, subjectId])
 
   const runAnalysis = useCallback(
     async (force: boolean) => {
@@ -139,6 +150,7 @@ export function AiMistakesCoach({
           body: {
             language,
             examTypeId: examTypeId === "all" ? undefined : examTypeId,
+            subjectId,
             force,
           },
         })
@@ -165,7 +177,7 @@ export function AiMistakesCoach({
         setLoading(false)
       }
     },
-    [language, examTypeId],
+    [language, examTypeId, subjectId],
   )
 
   const toggleExplain = useCallback(
@@ -267,7 +279,7 @@ export function AiMistakesCoach({
           <span className="flex size-7 items-center justify-center rounded-lg bg-violet-600 text-white">
             <BrainCircuit className="size-4" />
           </span>
-          AI-разбор слабых мест
+          {title}
           <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
             DeepSeek
           </span>
@@ -277,8 +289,7 @@ export function AiMistakesCoach({
         {/* Intro / action row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            AI разберёт твои реальные ошибки, найдёт корневые пробелы и составит
-            персональный план подготовки — конкретно по тому, что стоит подтянуть.
+            {description}
           </p>
           <Button
             onClick={() => runAnalysis(hasAnalysis)}
@@ -335,6 +346,7 @@ export function AiMistakesCoach({
               onExplain={toggleExplain}
               onOpenLesson={openLesson}
               onTrainSubject={onTrainSubject}
+              onTrainTopic={onTrainTopic}
             />
           </>
         ) : null}
@@ -430,6 +442,7 @@ function AnalysisView({
   onExplain,
   onOpenLesson,
   onTrainSubject,
+  onTrainTopic,
 }: {
   analysis: AiWeakZoneAnalysis
   language: "ru" | "kk"
@@ -438,6 +451,7 @@ function AnalysisView({
   onExplain: (questionId: string) => void
   onOpenLesson: (topicId: string) => void
   onTrainSubject: (subjectId: string) => void
+  onTrainTopic?: (topicId: string, subjectId?: string | null) => void
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -593,6 +607,16 @@ function AnalysisView({
                             <NotepadText className="size-4" />
                           )}
                           Урок по теме
+                        </Button>
+                      )}
+                      {zone.topicId && onTrainTopic && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onTrainTopic(zone.topicId!, zone.subjectId)}
+                        >
+                          <ClipboardCheck className="size-4" />
+                          Тренировать тему
                         </Button>
                       )}
                       {zone.subjectId && (

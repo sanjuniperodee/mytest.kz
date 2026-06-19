@@ -26,8 +26,12 @@ export class AiController {
   async storedAnalysis(
     @CurrentUser('id') userId: string,
     @Query('examTypeId') examTypeId?: string,
+    @Query('subjectId') subjectId?: string,
   ) {
-    const analysis = await this.aiCoach.getStoredAnalysis(userId, examTypeId || undefined);
+    const analysis = await this.aiCoach.getStoredAnalysis(userId, {
+      examTypeId: examTypeId || undefined,
+      subjectId: subjectId || undefined,
+    });
     return { enabled: this.aiCoach.isEnabled(), analysis };
   }
 
@@ -42,6 +46,7 @@ export class AiController {
     return this.aiCoach.analyzeWeakZones(userId, {
       language: dto.language,
       examTypeId: dto.examTypeId,
+      subjectId: dto.subjectId,
       force: dto.force,
     });
   }

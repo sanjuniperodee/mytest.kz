@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 export type MistakeLatestRow = {
@@ -44,6 +45,15 @@ export type EntScoreImpact =
       baselineTier: string;
       potentialTier: string;
     };
+
+type SubjectTopicMistakeRow = {
+  topicId: string;
+  topicName: unknown;
+  sortOrder: number;
+  openCount: number | bigint;
+  activeOpenCount: number | bigint;
+  lastWrongAt: Date | null;
+};
 
 /** Grant-readiness band by total ЕНТ score (out of 140). */
 function entTierLabel(total: number): string {
@@ -203,6 +213,82 @@ export class MistakesService {
     };
   }
 
+  async getSubjectDetail(userId: string, subjectId: string, examTypeId?: string) {
+    const subject = await this.prisma.subject.findFirst({
+      where: {
+        id: subjectId,
+        ...(examTypeId ? { examTypeId } : {}),
+      },
+      include: {
+        examType: { select: { id: true, slug: true, name: true } },
+      },
+    });
+    if (!subject) throw new NotFoundException('SUBJECT_NOT_FOUND');
+
+    const examFilter = examTypeId
+      ? Prisma.sql`AND latest."examTypeId" = ${examTypeId}::uuid`
+      : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<SubjectTopicMistakeRow[]>`
+      WITH latest AS (
+        SELECT DISTINCT ON (ta.question_id)
+          ta.question_id AS "questionId",
+          ta.is_correct AS "isCorrect",
+          ts.exam_type_id AS "examTypeId",
+          q.subject_id AS "subjectId",
+          q.topic_id AS "topicId",
+          q.is_active AS "isActive",
+          ts.finished_at AS "lastWrongAt"
+        FROM test_answers ta
+        INNER JOIN test_sessions ts ON ts.id = ta.session_id
+        INNER JOIN questions q ON q.id = ta.question_id
+        WHERE ts.user_id = ${userId}::uuid
+          AND ts.status IN ('completed', 'timed_out')
+          AND ta.is_correct IS NOT NULL
+        ORDER BY ta.question_id, ts.finished_at DESC NULLS LAST, ts.id DESC
+      )
+      SELECT
+        t.id AS "topicId",
+        t.name AS "topicName",
+        t.sort_order AS "sortOrder",
+        COUNT(*)::int AS "openCount",
+        SUM(CASE WHEN latest."isActive" THEN 1 ELSE 0 END)::int AS "activeOpenCount",
+        MAX(latest."lastWrongAt") AS "lastWrongAt"
+      FROM latest
+      INNER JOIN topics t ON t.id = latest."topicId"
+      WHERE latest."isCorrect" = false
+        AND latest."subjectId" = ${subjectId}::uuid
+        ${examFilter}
+      GROUP BY t.id, t.name, t.sort_order
+      ORDER BY "openCount" DESC, t.sort_order ASC, t.id ASC
+    `;
+
+    const topics = rows.map((row) => ({
+      topicId: row.topicId,
+      topicName: row.topicName,
+      sortOrder: row.sortOrder,
+      openCount: Number(row.openCount) || 0,
+      activeOpenCount: Number(row.activeOpenCount) || 0,
+      lastWrongAt: row.lastWrongAt ? row.lastWrongAt.toISOString() : null,
+    }));
+    const openTotal = topics.reduce((sum, topic) => sum + topic.openCount, 0);
+    const activeOpenTotal = topics.reduce((sum, topic) => sum + topic.activeOpenCount, 0);
+
+    return {
+      examTypeId: subject.examTypeId,
+      examSlug: subject.examType.slug,
+      examName: subject.examType.name,
+      subjectId: subject.id,
+      subjectSlug: subject.slug,
+      subjectName: subject.name,
+      isMandatory: subject.isMandatory,
+      openTotal,
+      activeOpenTotal,
+      topicCount: topics.length,
+      topics,
+    };
+  }
+
   /**
    * Deterministic ЕНТ score projection: "you scored X on your last full ЕНТ;
    * closing your open mistakes would take you to ~Y". Each open mistake counts as
@@ -287,6 +373,7 @@ export class MistakesService {
     latest: MistakeLatestRow[],
     examTypeId?: string,
     subjectId?: string,
+    topicId?: string,
   ): string[] {
     const open = latest.filter((r) => r.isCorrect === false);
     const filtered = examTypeId
@@ -295,6 +382,9 @@ export class MistakesService {
     const subjectFiltered = subjectId
       ? filtered.filter((r) => r.subjectId === subjectId)
       : filtered;
-    return subjectFiltered.map((r) => r.questionId);
+    const topicFiltered = topicId
+      ? subjectFiltered.filter((r) => r.topicId === topicId)
+      : subjectFiltered;
+    return topicFiltered.map((r) => r.questionId);
   }
 }
