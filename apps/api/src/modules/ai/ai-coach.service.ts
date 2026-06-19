@@ -55,7 +55,14 @@ export interface WeakZone {
   severity: Severity;
   rootCause: string;
   recommendations: string[];
-  examples: { questionId: string; topicId: string | null; topic: string; question: string }[];
+  examples: {
+    questionId: string;
+    topicId: string | null;
+    topic: string;
+    passage: string;
+    question: string;
+    imageUrls: string[];
+  }[];
 }
 
 export interface StudyPlanStep {
@@ -200,7 +207,10 @@ export class AiCoachService {
       orderBy: { createdAt: 'desc' },
     });
     if (!row) return null;
-    return { ...(row.result as unknown as WeakZoneAnalysis), cached: true };
+    return this.hydrateAnalysisExamples(
+      { ...(row.result as unknown as WeakZoneAnalysis), cached: true },
+      row.language === 'kk' ? 'kk' : 'ru',
+    );
   }
 
   async analyzeWeakZones(
@@ -237,7 +247,10 @@ export class AiCoachService {
         where: { userId_scopeHash: { userId, scopeHash } },
       });
       if (existing) {
-        return { ...(existing.result as unknown as WeakZoneAnalysis), cached: true };
+        return this.hydrateAnalysisExamples(
+          { ...(existing.result as unknown as WeakZoneAnalysis), cached: true },
+          language,
+        );
       }
     }
 
@@ -285,7 +298,9 @@ export class AiCoachService {
         subject: string;
         topicId: string | null;
         topic: string;
+        passage: string;
         question: string;
+        imageUrls: string[];
       }
     >();
     const subjectMeta = new Map<string, { name: string; isMandatory: boolean; slug: string }>();
@@ -317,7 +332,9 @@ export class AiCoachService {
         subject: subjectName,
         topicId: q.topic?.id ?? q.topicId ?? null,
         topic: topicName,
+        passage: extractPassage(q.content, language),
         question: questionText,
+        imageUrls: normalizeImageUrls(q.imageUrls),
       });
       promptMistakes.push({
         ref,
@@ -360,7 +377,10 @@ export class AiCoachService {
       maxTokens: 2600,
     });
 
-    const analysis = this.sanitizeAnalysis(raw, refToQuestion, subjectMeta, open.length);
+    const analysis = await this.hydrateAnalysisExamples(
+      this.sanitizeAnalysis(raw, refToQuestion, subjectMeta, open.length),
+      language,
+    );
 
     await this.prisma.aiCoachAnalysis
       .upsert({
@@ -614,7 +634,9 @@ export class AiCoachService {
         subject: string;
         topicId: string | null;
         topic: string;
+        passage: string;
         question: string;
+        imageUrls: string[];
       }
     >,
     subjectMeta: Map<string, { name: string; isMandatory: boolean; slug: string }>,
@@ -636,7 +658,9 @@ export class AiCoachService {
           questionId: q.questionId,
           topicId: q.topicId,
           topic: q.topic,
+          passage: q.passage,
           question: q.question,
+          imageUrls: q.imageUrls,
         }))
         // de-dupe by questionId
         .filter((q, i, arr) => arr.findIndex((x) => x.questionId === q.questionId) === i)
@@ -774,6 +798,68 @@ export class AiCoachService {
       miniTest,
     };
   }
+
+  private async hydrateAnalysisExamples(
+    analysis: WeakZoneAnalysis,
+    language: AiLanguage,
+  ): Promise<WeakZoneAnalysis> {
+    const ids = [
+      ...new Set(
+        analysis.weakZones.flatMap((zone) =>
+          zone.examples.map((example) => example.questionId).filter(Boolean),
+        ),
+      ),
+    ];
+    if (ids.length === 0) return analysis;
+
+    const questions = await this.prisma.question.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        content: true,
+        imageUrls: true,
+        topicId: true,
+        topic: { select: { name: true } },
+      },
+    });
+    const byId = new Map(
+      questions.map((q) => [
+        q.id,
+        {
+          topicId: q.topicId,
+          topic: localizeFlat(q.topic?.name, language, ''),
+          passage: extractPassage(q.content, language),
+          question: extractQuestionText(q.content, language),
+          imageUrls: normalizeImageUrls(q.imageUrls),
+        },
+      ]),
+    );
+
+    return {
+      ...analysis,
+      weakZones: analysis.weakZones.map((zone) => ({
+        ...zone,
+        examples: zone.examples.map((example) => {
+          const hydrated = byId.get(example.questionId);
+          if (!hydrated) {
+            return {
+              ...example,
+              passage: example.passage ?? '',
+              imageUrls: normalizeImageUrls(example.imageUrls),
+            };
+          }
+          return {
+            ...example,
+            topicId: example.topicId ?? hydrated.topicId,
+            topic: hydrated.topic || example.topic,
+            passage: hydrated.passage,
+            question: hydrated.question || example.question,
+            imageUrls: hydrated.imageUrls,
+          };
+        }),
+      })),
+    };
+  }
 }
 
 function asText(value: unknown): string {
@@ -827,4 +913,10 @@ function sanitizePractice(value: unknown, limit: number): LessonPracticeTask[] {
     }))
     .filter((task) => task.prompt && (task.answer || task.explanation))
     .slice(0, limit);
+}
+
+function normalizeImageUrls(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+    : [];
 }

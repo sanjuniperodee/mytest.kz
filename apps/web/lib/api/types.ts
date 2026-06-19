@@ -383,7 +383,14 @@ export interface AiWeakZone {
   severity: AiSeverity
   rootCause: string
   recommendations: string[]
-  examples: { questionId: string; topicId: string | null; topic: string; question: string }[]
+  examples: {
+    questionId: string
+    topicId: string | null
+    topic: string
+    passage: string
+    question: string
+    imageUrls: string[]
+  }[]
 }
 
 export interface AiStudyPlanStep {

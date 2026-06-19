@@ -40,7 +40,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { RichText } from "@/components/exam/rich-text"
+import {
+  RichText,
+  getDetachedImageUrls,
+  imageReferenceText,
+} from "@/components/exam/rich-text"
+import { QuestionMedia } from "@/components/exam/question-media"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { cn } from "@/lib/utils"
@@ -300,6 +305,7 @@ export function AiMistakesCoach({
         {hasAnalysis && (
           <AnalysisView
             analysis={analysis!}
+            language={language}
             lessonStates={lessons}
             explanations={explanations}
             onExplain={toggleExplain}
@@ -326,6 +332,7 @@ export function AiMistakesCoach({
 
 function AnalysisView({
   analysis,
+  language,
   lessonStates,
   explanations,
   onExplain,
@@ -333,6 +340,7 @@ function AnalysisView({
   onTrainSubject,
 }: {
   analysis: AiWeakZoneAnalysis
+  language: "ru" | "kk"
   lessonStates: Record<string, LessonState>
   explanations: Record<string, ExplainState>
   onExplain: (questionId: string) => void
@@ -399,31 +407,59 @@ function AnalysisView({
                       </p>
                       {zone.examples.map((ex) => {
                         const state = explanations[ex.questionId]
+                        const detachedImageUrls = getDetachedImageUrls(ex.imageUrls, [
+                          ex.passage ?? "",
+                          ex.question ?? "",
+                          imageReferenceText(ex.question),
+                        ])
                         return (
                           <div key={ex.questionId} className="rounded-lg border border-border/70 bg-background">
                             <button
                               type="button"
                               onClick={() => onExplain(ex.questionId)}
-                              className="flex w-full items-start gap-2 p-3 text-left text-sm transition-colors hover:bg-secondary/50"
+                              className="flex w-full items-center gap-2 p-3 text-left text-sm transition-colors hover:bg-secondary/50"
                             >
                               <ChevronDown
                                 className={cn(
-                                  "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
+                                  "size-4 shrink-0 text-muted-foreground transition-transform",
                                   state?.open && "rotate-180",
                                 )}
                               />
-                              <span className="min-w-0 flex-1">
+                              <span className="min-w-0 flex-1 font-medium">
+                                Открыть разбор
                                 {ex.topic && (
-                                  <span className="mr-1.5 rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                  <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground">
                                     {ex.topic}
                                   </span>
                                 )}
-                                <span className="text-foreground">{ex.question || "Открыть разбор"}</span>
                               </span>
                               <span className="shrink-0 text-xs font-medium text-violet-600">
                                 Почему?
                               </span>
                             </button>
+                            <div className="flex flex-col gap-2 border-t border-border/50 p-3 text-sm">
+                              {ex.passage && (
+                                <RichText
+                                  as="div"
+                                  value={ex.passage}
+                                  locale={language}
+                                  imageUrls={ex.imageUrls}
+                                  className="rounded-md border border-border bg-secondary/40 p-3 leading-relaxed text-muted-foreground"
+                                />
+                              )}
+                              {ex.question && (
+                                <RichText
+                                  as="div"
+                                  value={ex.question}
+                                  locale={language}
+                                  imageUrls={ex.imageUrls}
+                                  className="leading-relaxed text-foreground"
+                                />
+                              )}
+                              {detachedImageUrls.map((url, index) => (
+                                <QuestionMedia key={`${ex.questionId}-${index}`} src={url} />
+                              ))}
+                            </div>
                             {state?.open && (
                               <div className="border-t border-border/70 p-3 text-sm">
                                 {state.loading && (
