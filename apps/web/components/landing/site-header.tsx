@@ -8,9 +8,8 @@ import { useAuth } from "@/lib/api/auth-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 
 const nav = [
-  { label: "Возможности", href: "#features" },
+  { label: "Пробный ЕНТ", href: "/probnyy-ent", external: true },
   { label: "Предметы", href: "#subjects" },
-  { label: "Как это работает", href: "#how" },
   { label: "Тарифы", href: "#pricing" },
   { label: "Шансы поступления", href: "/admission", external: true },
 ]

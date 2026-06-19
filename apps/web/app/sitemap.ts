@@ -53,6 +53,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/uat`, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
     // Russian query cluster: "подготовка к ент", "как подготовиться к ент"
     { url: `${baseUrl}/podgotovka-k-ent`, lastModified: now, changeFrequency: "weekly", priority: 0.95 },
+    // Russian query cluster: "проходной балл ент", "пороговый балл ент", "сколько нужно для гранта"
+    { url: `${baseUrl}/prohodnoj-ball-ent`, lastModified: now, changeFrequency: "weekly", priority: 0.95 },
   ]
 
   return [...staticRoutes, ...seoLandingRoutes, ...yearRoutes, ...subjectRoutes]

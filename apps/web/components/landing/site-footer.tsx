@@ -13,12 +13,13 @@ const groups = [
     ],
   },
   {
-    title: "Ресурсы",
+    title: "Подготовка",
     links: [
-      { label: "Блог", href: "#" },
-      { label: "Гайд по ЕНТ 2026", href: "#" },
-      { label: "Пороговые баллы вузов", href: "#" },
-      { label: "FAQ", href: "#faq" },
+      { label: "Пробный ЕНТ бесплатно", href: "/probnyy-ent" },
+      { label: "Тегін ҰБТ (қазақша)", href: "/uat" },
+      { label: "Подготовка к ЕНТ", href: "/podgotovka-k-ent" },
+      { label: "Проходной балл ЕНТ 2027", href: "/prohodnoj-ball-ent" },
+      { label: "Шансы на грант", href: "/admission" },
     ],
   },
   {

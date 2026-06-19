@@ -191,6 +191,30 @@ export default async function EntSubjectPage({
           </ul>
         </section>
 
+        {/* Related links — internal SEO */}
+        <section className="border-y border-border/60">
+          <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+            <p className="mb-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Смотрите также
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/probnyy-ent" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
+                <Gift className="h-3.5 w-3.5 text-accent" />
+                Полный пробный ЕНТ бесплатно
+              </Link>
+              <Link href="/podgotovka-k-ent" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
+                Подготовка к ЕНТ 2027
+              </Link>
+              <Link href="/prohodnoj-ball-ent" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
+                Проходной балл ЕНТ
+              </Link>
+              <Link href="/admission" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
+                Шансы на грант →
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* CTA */}
         <section className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6">

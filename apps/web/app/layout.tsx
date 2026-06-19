@@ -42,10 +42,17 @@ const websiteSchema = {
 
 const organizationSchema = {
   "@context": "https://schema.org",
-  "@type": "Organization",
+  "@type": "EducationalOrganization",
   name: "mytest",
+  alternateName: "my-test.kz",
   url: siteUrl,
   logo: `${siteUrl}/icon.svg`,
+  description: "Онлайн-платформа для подготовки к ЕНТ (ҰБТ) в Казахстане. Пробные тесты в реальном формате, разбор ошибок, калькулятор шансов на грант.",
+  foundingLocation: {
+    "@type": "Place",
+    addressLocality: "Алматы",
+    addressCountry: "KZ",
+  },
   sameAs: [
     "https://www.instagram.com/mytestkz",
     "https://www.tiktok.com/@mytestkz",
@@ -54,6 +61,16 @@ const organizationSchema = {
     "@type": "ContactPoint",
     contactType: "customer support",
     availableLanguage: ["Kazakh", "Russian"],
+  },
+  hasOfferCatalog: {
+    "@type": "OfferCatalog",
+    name: "Тарифы подготовки к ЕНТ",
+    itemListElement: [
+      { "@type": "Offer", name: "Бесплатный пробный ЕНТ", price: "0", priceCurrency: "KZT" },
+      { "@type": "Offer", name: "Стартер", price: "690", priceCurrency: "KZT" },
+      { "@type": "Offer", name: "Базовый", price: "1490", priceCurrency: "KZT" },
+      { "@type": "Offer", name: "Премиум", price: "3900", priceCurrency: "KZT" },
+    ],
   },
 }
 
