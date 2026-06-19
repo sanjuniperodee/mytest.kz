@@ -10,6 +10,7 @@ import Redis from 'ioredis';
 import { PrismaService } from '../../database/prisma.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
 import { MistakesService } from '../tests/mistakes.service';
+import { AiQuotaService } from './ai-quota.service';
 import { DeepseekClient } from './infrastructure/deepseek.client';
 import {
   extractPassage,
@@ -196,6 +197,7 @@ export class AiCoachService {
     private readonly prisma: PrismaService,
     private readonly mistakes: MistakesService,
     private readonly deepseek: DeepseekClient,
+    private readonly quota: AiQuotaService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -457,6 +459,7 @@ export class AiCoachService {
         };
       });
 
+    await this.quota.reserve(userId, 'analyze');
     const raw = await this.deepseek.chatJson<RawAnalysis>({
       system: weakZoneSystemPrompt(language),
       user: weakZoneUserPrompt({
@@ -542,6 +545,7 @@ export class AiCoachService {
       chosen: selected.has(o.id),
     }));
 
+    await this.quota.reserve(userId, 'explain');
     const raw = await this.deepseek.chatJson<RawExplanation>({
       system: explainSystemPrompt(language),
       user: explainUserPrompt({
@@ -655,6 +659,7 @@ export class AiCoachService {
       .digest('hex')
       .slice(0, 64);
 
+    await this.quota.reserve(userId, 'lesson');
     const raw = await this.deepseek.chatJson<RawTopicLesson>({
       system: topicLessonSystemPrompt(language),
       user: topicLessonUserPrompt({

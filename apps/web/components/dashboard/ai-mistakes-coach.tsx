@@ -150,6 +150,10 @@ export function AiMistakesCoach({
             message = "Нет открытых ошибок для анализа"
           } else if (err.message === "AI_DISABLED") {
             message = "AI-анализ временно недоступен"
+          } else if (err.message === "AI_DAILY_LIMIT") {
+            message = "Дневной лимит AI на сегодня исчерпан — продолжишь завтра."
+          } else if (err.message === "AI_BUSY") {
+            message = "AI временно перегружен. Попробуйте чуть позже."
           } else if (err.status === 429) {
             message = "Слишком часто. Подождите минуту и попробуйте снова."
           } else if (err.status === 503) {
@@ -189,9 +193,11 @@ export function AiMistakesCoach({
         }))
       } catch (err) {
         const message =
-          err instanceof ApiError && err.status === 429
-            ? "Слишком часто, подождите минуту"
-            : "Не удалось получить объяснение"
+          err instanceof ApiError && err.message === "AI_DAILY_LIMIT"
+            ? "Дневной лимит AI исчерпан — продолжишь завтра"
+            : err instanceof ApiError && err.status === 429
+              ? "Слишком часто, подождите минуту"
+              : "Не удалось получить объяснение"
         setExplanations((prev) => ({
           ...prev,
           [questionId]: { loading: false, data: null, error: message, open: true },
@@ -226,6 +232,10 @@ export function AiMistakesCoach({
         if (err instanceof ApiError) {
           if (err.message === "NO_OPEN_MISTAKES_FOR_TOPIC") {
             message = "Эта тема уже не числится среди открытых ошибок"
+          } else if (err.message === "AI_DAILY_LIMIT") {
+            message = "Дневной лимит AI на сегодня исчерпан — продолжишь завтра."
+          } else if (err.message === "AI_BUSY") {
+            message = "AI временно перегружен. Попробуйте чуть позже."
           } else if (err.status === 429) {
             message = "Слишком часто. Подождите минуту и попробуйте снова."
           } else if (err.status === 503) {
