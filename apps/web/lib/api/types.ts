@@ -370,6 +370,98 @@ export interface MistakesSummary {
   }[]
 }
 
+// ─── AI mistakes coach (DeepSeek) ────────────────────────────────────────────
+
+export type AiSeverity = "high" | "medium" | "low"
+
+export interface AiWeakZone {
+  subjectId: string | null
+  subjectName: string
+  topicId: string | null
+  topicName: string
+  title: string
+  severity: AiSeverity
+  rootCause: string
+  recommendations: string[]
+  examples: { questionId: string; topicId: string | null; topic: string; question: string }[]
+}
+
+export interface AiStudyPlanStep {
+  order: number
+  focus: string
+  why: string
+  days: number
+}
+
+export interface AiWeakZoneAnalysis {
+  generatedAt: string
+  model: string
+  cached: boolean
+  totalOpen: number
+  overview: string
+  weakZones: AiWeakZone[]
+  studyPlan: AiStudyPlanStep[]
+  motivation: string
+}
+
+export interface AiStoredAnalysisResponse {
+  enabled: boolean
+  analysis: AiWeakZoneAnalysis | null
+}
+
+export interface AiMistakeExplanation {
+  questionId: string
+  diagnosis: string
+  correctApproach: string
+  keyConcept: string
+  tip: string
+}
+
+export interface AiTopicLesson {
+  generatedAt: string
+  model: string
+  cached: boolean
+  lessonVersion: string
+  examTypeId: string
+  subjectId: string
+  topicId: string
+  subjectName: string
+  topicName: string
+  title: string
+  studentGoal: string
+  whyItMatters: string
+  sections: { title: string; content: string }[]
+  formulas: { latex: string; note: string }[]
+  visualizations: {
+    type: "line" | "bar" | "table"
+    title: string
+    xLabel: string
+    yLabel: string
+    data: { label: string; value: number; secondValue: number | null }[]
+  }[]
+  workedExamples: {
+    title: string
+    question: string
+    steps: string[]
+    answer: string
+    trap: string
+  }[]
+  practice: {
+    prompt: string
+    options: string[]
+    answer: string
+    explanation: string
+  }[]
+  commonTraps: string[]
+  checklist: string[]
+  miniTest: {
+    prompt: string
+    options: string[]
+    answer: string
+    explanation: string
+  }[]
+}
+
 export interface LeaderboardEntry {
   rank?: number | null
   position?: number | null

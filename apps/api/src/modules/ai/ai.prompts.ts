@@ -1,0 +1,256 @@
+/**
+ * Prompt builders for the AI mistakes coach.
+ * The model is instructed to reply STRICTLY in the requested language and to emit
+ * a single JSON object matching the documented schema. The server validates and
+ * sanitizes the output (e.g. drops unknown ids) before returning it to the client.
+ */
+
+export type AiLanguage = 'ru' | 'kk';
+
+export interface PromptMistake {
+  /** Stable index the model echoes back (0-based). */
+  ref: number;
+  questionId: string;
+  subjectId: string;
+  subject: string;
+  topic: string;
+  difficulty: number;
+  question: string;
+  studentAnswer: string;
+  correctAnswer: string;
+  timeSpentSecs: number | null;
+}
+
+export interface PromptSubject {
+  subjectId: string;
+  subject: string;
+  openCount: number;
+  /** ENT scoring weight hint (max points the subject contributes). */
+  maxScore: number;
+}
+
+export interface PromptLessonQuestion {
+  ref: number;
+  difficulty: number;
+  question: string;
+  correctAnswer: string;
+  explanation: string;
+}
+
+const LANG_NAME: Record<AiLanguage, string> = {
+  ru: 'русском',
+  kk: 'казахском (қазақ тілінде)',
+};
+
+// ─── Weak-zone analysis ──────────────────────────────────────────────────────
+
+export function weakZoneSystemPrompt(language: AiLanguage): string {
+  return [
+    'Ты — опытный персональный репетитор по подготовке к ЕНТ (Единое национальное тестирование, Казахстан).',
+    'Твоя задача — проанализировать реальные ошибки ученика и дать конкретный, действенный разбор слабых зон, а не общие фразы.',
+    'Опирайся ТОЛЬКО на предоставленные данные об ошибках. Не выдумывай вопросы, которых нет.',
+    'Группируй ошибки в слабые зоны по конкретным темам/концептам (например, не «алгебра», а «квадратные уравнения: дискриминант»).',
+    'Для каждой зоны определи КОРНЕВУЮ причину (что именно ученик не понимает, какую типичную ошибку допускает), а не просто «нужно повторить».',
+    'Учитывай вес предметов в ЕНТ: профильные предметы дают до 50 баллов каждый, история Казахстана — 20, грамотность — по 10. Слабость в более «дорогом» предмете приоритетнее.',
+    `Отвечай СТРОГО на ${LANG_NAME[language]} языке. Верни ТОЛЬКО валидный JSON-объект, без markdown и пояснений вне JSON.`,
+  ].join('\n');
+}
+
+export function weakZoneUserPrompt(input: {
+  language: AiLanguage;
+  subjects: PromptSubject[];
+  mistakes: PromptMistake[];
+  totalOpen: number;
+}): string {
+  const schema = `Схема ответа (JSON):
+{
+  "overview": "string — 2-3 предложения: общая картина по ошибкам ученика",
+  "weakZones": [
+    {
+      "subjectId": "string — ОДИН из subjectId предоставленного списка subjects",
+      "title": "string — короткое название слабой зоны (тема/концепт)",
+      "severity": "high | medium | low",
+      "rootCause": "string — корневая причина: что именно ученик не понимает или путает",
+      "recommendations": ["string", "string"],  // 2-4 конкретных действия
+      "mistakeRefs": [число, ...]  // ref из списка mistakes, относящиеся к этой зоне
+    }
+  ],
+  "studyPlan": [
+    { "order": 1, "focus": "string — на чём сфокусироваться", "why": "string — почему это в приоритете", "days": число }
+  ],
+  "motivation": "string — 1-2 предложения поддержки и мотивации"
+}`;
+
+  const data = {
+    totalOpenMistakes: input.totalOpen,
+    subjects: input.subjects,
+    // Strip questionId from the prompt — the model echoes the small `ref` instead
+    // of long UUIDs (less error-prone, fewer tokens); the server maps ref→questionId.
+    mistakes: input.mistakes.map((m) => ({
+      ref: m.ref,
+      subjectId: m.subjectId,
+      subject: m.subject,
+      topic: m.topic,
+      difficulty: m.difficulty,
+      question: m.question,
+      studentAnswer: m.studentAnswer,
+      correctAnswer: m.correctAnswer,
+      timeSpentSecs: m.timeSpentSecs,
+    })),
+  };
+
+  return [
+    'Данные об открытых ошибках ученика (последний ответ на эти вопросы был неверным):',
+    '```json',
+    JSON.stringify(data, null, 2),
+    '```',
+    '',
+    'Сформируй 2-5 наиболее важных слабых зон (не дроби слишком мелко), план подготовки из 3-5 шагов в порядке приоритета и короткую мотивацию.',
+    'В mistakeRefs указывай только ref из предоставленного списка mistakes.',
+    '',
+    schema,
+  ].join('\n');
+}
+
+// ─── Per-mistake explanation ─────────────────────────────────────────────────
+
+export function explainSystemPrompt(language: AiLanguage): string {
+  return [
+    'Ты — терпеливый репетитор по подготовке к ЕНТ (Казахстан).',
+    'Ученик ошибся в конкретном вопросе. Объясни ИМЕННО его ошибку: почему выбранный им вариант неверен (какое заблуждение за этим стоит), и как прийти к правильному ответу.',
+    'Будь конкретным и кратким, говори простым языком, как живой наставник. Не лей воду.',
+    `Отвечай СТРОГО на ${LANG_NAME[language]} языке. Верни ТОЛЬКО валидный JSON-объект.`,
+  ].join('\n');
+}
+
+export function explainUserPrompt(input: {
+  subject: string;
+  topic: string;
+  question: string;
+  passage: string;
+  options: { text: string; isCorrect: boolean; chosen: boolean }[];
+}): string {
+  const schema = `Схема ответа (JSON):
+{
+  "diagnosis": "string — почему именно выбранный учеником вариант неверен, какое заблуждение за этим стоит",
+  "correctApproach": "string — пошагово, как правильно рассуждать к верному ответу",
+  "keyConcept": "string — ключевое правило/формула/факт, который здесь проверяется",
+  "tip": "string — как не допустить такую ошибку в следующий раз"
+}`;
+
+  const data = {
+    subject: input.subject,
+    topic: input.topic,
+    ...(input.passage ? { passage: input.passage } : {}),
+    question: input.question,
+    options: input.options.map((o, i) => ({
+      label: String.fromCharCode(65 + i),
+      text: o.text,
+      isCorrect: o.isCorrect,
+      chosenByStudent: o.chosen,
+    })),
+  };
+
+  return [
+    'Данные вопроса и ответа ученика:',
+    '```json',
+    JSON.stringify(data, null, 2),
+    '```',
+    '',
+    schema,
+  ].join('\n');
+}
+
+// ─── Topic reinforcement lesson ─────────────────────────────────────────────
+
+export function topicLessonSystemPrompt(language: AiLanguage): string {
+  return [
+    'Ты — методист и сильный репетитор по ЕНТ (Казахстан).',
+    'Твоя задача — создать полноценный мини-урок для закрепления одной конкретной темы после ошибок ученика.',
+    'Урок должен быть практически полезным: объяснить концепт, показать формулы в LaTeX, разобрать типичные ловушки, дать примеры и короткую проверку.',
+    'Не используй персональные ответы ученика и не утверждай, что ученик выбрал конкретный вариант. Урок будет кэшироваться по теме и переиспользоваться.',
+    'Графики возвращай как структурированные данные, а не как картинки или ASCII-art. Если тема не математическая, вместо графика дай таблицу/сравнение.',
+    'Опирайся на тему, предмет и примеры вопросов из банка. Не выдумывай факты, противоречащие данным.',
+    `Отвечай СТРОГО на ${LANG_NAME[language]} языке. Верни ТОЛЬКО валидный JSON-объект, без markdown вне строк.`,
+  ].join('\n');
+}
+
+export function topicLessonUserPrompt(input: {
+  language: AiLanguage;
+  exam: string;
+  subject: string;
+  topic: string;
+  questions: PromptLessonQuestion[];
+}): string {
+  const schema = `Схема ответа (JSON):
+{
+  "title": "string — короткий заголовок урока",
+  "studentGoal": "string — что ученик сможет делать после урока",
+  "whyItMatters": "string — почему тема важна для ЕНТ",
+  "sections": [
+    {
+      "title": "string",
+      "content": "string — объяснение простым языком, можно использовать LaTeX вида $...$ или $$...$$"
+    }
+  ],
+  "formulas": [
+    { "latex": "string — только LaTeX без $", "note": "string — когда применять" }
+  ],
+  "visualizations": [
+    {
+      "type": "line | bar | table",
+      "title": "string",
+      "xLabel": "string",
+      "yLabel": "string",
+      "data": [
+        { "label": "string", "value": число, "secondValue": число | null }
+      ]
+    }
+  ],
+  "workedExamples": [
+    {
+      "title": "string",
+      "question": "string",
+      "steps": ["string", "string"],
+      "answer": "string",
+      "trap": "string — типичная ошибка"
+    }
+  ],
+  "practice": [
+    {
+      "prompt": "string",
+      "options": ["string", "string"],
+      "answer": "string",
+      "explanation": "string"
+    }
+  ],
+  "commonTraps": ["string", "string"],
+  "checklist": ["string", "string"],
+  "miniTest": [
+    { "prompt": "string", "answer": "string", "explanation": "string" }
+  ]
+}`;
+
+  const data = {
+    exam: input.exam,
+    subject: input.subject,
+    topic: input.topic,
+    sampleQuestions: input.questions,
+  };
+
+  return [
+    'Создай мини-урок для закрепления темы:',
+    '```json',
+    JSON.stringify(data, null, 2),
+    '```',
+    '',
+    'Требования к качеству:',
+    '- 3-5 секций теории, без воды.',
+    '- 2-5 формул, если тема допускает формулы; иначе 1-3 ключевых правила.',
+    '- 1-2 визуализации: line/bar/table. Данные должны быть небольшими и осмысленными.',
+    '- 2 разобранных примера и 3-5 заданий для закрепления.',
+    '- Используй LaTeX в строках content/answer/explanation там, где это улучшает понимание.',
+    '',
+    schema,
+  ].join('\n');
+}

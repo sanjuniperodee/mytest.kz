@@ -6,6 +6,7 @@ export type MistakeLatestRow = {
   isCorrect: boolean;
   examTypeId: string;
   subjectId: string;
+  topicId: string;
 };
 
 export type MistakeRecoveryRow = {
@@ -21,6 +22,13 @@ export type MistakeRecoveryRow = {
   subjectName: unknown;
 };
 
+/** The student's latest graded answer to a question (for AI explanation/analysis). */
+export type LatestAnswerRow = {
+  questionId: string;
+  selectedIds: string[];
+  timeSpentSecs: number | null;
+};
+
 @Injectable()
 export class MistakesService {
   constructor(private prisma: PrismaService) {}
@@ -32,7 +40,8 @@ export class MistakesService {
         ta.question_id AS "questionId",
         ta.is_correct AS "isCorrect",
         ts.exam_type_id AS "examTypeId",
-        q.subject_id AS "subjectId"
+        q.subject_id AS "subjectId",
+        q.topic_id AS "topicId"
       FROM test_answers ta
       INNER JOIN test_sessions ts ON ts.id = ta.session_id
       INNER JOIN questions q ON q.id = ta.question_id
@@ -164,6 +173,30 @@ export class MistakesService {
       openBySubject,
       recentRecoveries,
     };
+  }
+
+  /**
+   * The student's latest graded answer (selected option ids + time spent) for the
+   * given questions. Used by the AI coach to explain *why* the student went wrong.
+   */
+  async getLatestAnswersForQuestions(
+    userId: string,
+    questionIds: string[],
+  ): Promise<LatestAnswerRow[]> {
+    if (questionIds.length === 0) return [];
+    return this.prisma.$queryRaw<LatestAnswerRow[]>`
+      SELECT DISTINCT ON (ta.question_id)
+        ta.question_id AS "questionId",
+        ta.selected_ids AS "selectedIds",
+        ta.time_spent_secs AS "timeSpentSecs"
+      FROM test_answers ta
+      INNER JOIN test_sessions ts ON ts.id = ta.session_id
+      WHERE ts.user_id = ${userId}::uuid
+        AND ta.question_id = ANY(${questionIds}::uuid[])
+        AND ts.status IN ('completed', 'timed_out')
+        AND ta.is_correct IS NOT NULL
+      ORDER BY ta.question_id, ts.finished_at DESC NULLS LAST, ts.id DESC
+    `;
   }
 
   getOpenMistakeQuestionIds(

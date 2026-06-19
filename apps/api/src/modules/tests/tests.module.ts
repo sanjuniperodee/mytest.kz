@@ -19,6 +19,6 @@ import { PremiumGuard } from '../../common/guards/premium.guard';
     ChannelMemberGuard,
     PremiumGuard,
   ],
-  exports: [TestSessionService],
+  exports: [TestSessionService, MistakesService],
 })
 export class TestsModule {}

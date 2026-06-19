@@ -25,6 +25,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { QuestionAppealsModule } from './modules/question-appeals/question-appeals.module';
+import { AiModule } from './modules/ai/ai.module';
 
 function validateProductionConfig(config: Record<string, unknown>) {
   if (config.NODE_ENV !== 'production') return config;
@@ -83,6 +84,7 @@ function validateProductionConfig(config: Record<string, unknown>) {
     LeaderboardModule,
     NotificationsModule,
     QuestionAppealsModule,
+    AiModule,
   ],
 })
 export class AppModule {}

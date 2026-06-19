@@ -27,6 +27,7 @@ model ExamType {
   usageLedger     AttemptUsageLedger[]
   dailyUsage      UserExamDailyUsage[]
   questionAppeals QuestionAppeal[]
+  aiTopicLessons  AiTopicLesson[]
 
   @@map("exam_types")
 }
@@ -44,6 +45,7 @@ model Subject {
   questions            Question[]
   questionAppeals      QuestionAppeal[]
   testTemplateSections TestTemplateSection[]
+  aiTopicLessons       AiTopicLesson[]
 
   @@unique([examTypeId, slug])
   @@index([examTypeId, sortOrder])
@@ -56,8 +58,9 @@ model Topic {
   name      Json // {"kk": "...", "ru": "...", "en": "..."}
   sortOrder Int    @default(0) @map("sort_order")
 
-  subject   Subject    @relation(fields: [subjectId], references: [id])
-  questions Question[]
+  subject        Subject         @relation(fields: [subjectId], references: [id])
+  questions      Question[]
+  aiTopicLessons AiTopicLesson[]
 
   @@index([subjectId, sortOrder])
   @@map("topics")
@@ -178,9 +181,61 @@ model User {
   questionAppeals        QuestionAppeal[]           @relation("QuestionAppealsByUser")
   reviewedAppeals        QuestionAppeal[]           @relation("QuestionAppealsReviewedBy")
   notificationDeliveries NotificationDelivery[]
-  adminAudits            AdminAudit[]           @relation("AdminAudits")
+  adminAudits            AdminAudit[]               @relation("AdminAudits")
+  aiCoachAnalyses        AiCoachAnalysis[]
 
   @@map("users")
+}
+
+/// Cached AI weak-zone analysis of a user's open mistakes (DeepSeek output).
+/// Keyed by scopeHash (hash of the open-mistake set + scope + language + prompt
+/// version) so a fresh DeepSeek call only happens when the mistake set changes.
+model AiCoachAnalysis {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  examTypeId String?  @map("exam_type_id") @db.Uuid
+  scopeHash  String   @map("scope_hash") @db.VarChar(64)
+  language   String   @db.VarChar(2)
+  model      String   @db.VarChar(40)
+  /// Sanitized analysis payload returned to the client (overview, weakZones, studyPlan, motivation).
+  result     Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scopeHash])
+  @@index([userId, createdAt])
+  @@map("ai_coach_analyses")
+}
+
+/// Shared, cached AI lesson for a concrete topic. It intentionally contains no
+/// user-specific answer data so one generated lesson can be reused for all
+/// students who need reinforcement on the same topic.
+model AiTopicLesson {
+  id            String   @id @default(uuid()) @db.Uuid
+  examTypeId    String   @map("exam_type_id") @db.Uuid
+  subjectId     String   @map("subject_id") @db.Uuid
+  topicId       String   @map("topic_id") @db.Uuid
+  language      String   @db.VarChar(2)
+  lessonVersion String   @map("lesson_version") @db.VarChar(16)
+  model         String   @db.VarChar(40)
+  title         String   @db.VarChar(180)
+  sourceHash    String   @map("source_hash") @db.VarChar(64)
+  /// Sanitized structured lesson: sections, formulas, chart data, examples,
+  /// practice tasks, common traps, and checklist.
+  result        Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  examType ExamType @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  subject  Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, language, lessonVersion])
+  @@index([examTypeId, language])
+  @@index([subjectId, language])
+  @@map("ai_topic_lessons")
 }
 
 model AuthSession {
@@ -209,7 +264,7 @@ model Subscription {
   planType       String   @map("plan_type") @db.VarChar(20)
   examTypeId     String?  @map("exam_type_id") @db.Uuid
   grantedBy      String?  @map("granted_by") @db.Uuid
-  paymentOrderId String? @map("payment_order_id") @db.Uuid
+  paymentOrderId String?  @map("payment_order_id") @db.Uuid
   startsAt       DateTime @map("starts_at") @db.Timestamptz
   expiresAt      DateTime @map("expires_at") @db.Timestamptz
   isActive       Boolean  @default(true) @map("is_active")
@@ -586,7 +641,7 @@ model PaymentOrder {
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-  user    User            @relation(fields: [userId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
   subscriptions Subscription[]
   refunds       PaymentRefund[]
 
@@ -778,4 +833,3 @@ model AdminAudit {
   @@index([targetType, targetId])
   @@map("admin_audits")
 }
-

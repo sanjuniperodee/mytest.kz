@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { AiMistakesCoach } from "@/components/dashboard/ai-mistakes-coach"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
@@ -101,15 +102,15 @@ export default function MistakesPage() {
     setLanguage(locale === "kk" ? "kk" : "ru")
   }, [locale])
 
-  const start = async () => {
+  const launch = async (scope: { examTypeId?: string; subjectId?: string }) => {
     setStarting(true)
     try {
       const session = await api<TestSession>("/tests/mistakes/practice", {
         method: "POST",
         body: {
           language,
-          examTypeId: examTypeId === "all" ? undefined : examTypeId,
-          subjectId: subjectId === "all" ? undefined : subjectId,
+          examTypeId: scope.examTypeId,
+          subjectId: scope.subjectId,
           limit,
           durationMins: duration,
         },
@@ -135,6 +136,22 @@ export default function MistakesPage() {
       toast.error(message)
       setStarting(false)
     }
+  }
+
+  const start = () =>
+    launch({
+      examTypeId: examTypeId === "all" ? undefined : examTypeId,
+      subjectId: subjectId === "all" ? undefined : subjectId,
+    })
+
+  // Launch practice scoped to one subject (used by the AI coach "train this topic").
+  const onTrainSubject = (sid: string) => {
+    const sub = summary?.openBySubject.find((s) => s.subjectId === sid)
+    if (sub) {
+      setExamTypeId(sub.examTypeId)
+      setSubjectId(sid)
+    }
+    void launch({ examTypeId: sub?.examTypeId, subjectId: sid })
   }
 
   return (
@@ -268,6 +285,15 @@ export default function MistakesPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {hasPremium && (
+        <AiMistakesCoach
+          language={language}
+          examTypeId={examTypeId}
+          totalOpen={total}
+          onTrainSubject={onTrainSubject}
+        />
       )}
 
       {hasPremium ? (
