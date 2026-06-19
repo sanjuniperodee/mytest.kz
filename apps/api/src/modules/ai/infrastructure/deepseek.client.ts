@@ -115,8 +115,19 @@ export class DeepseekClient {
     if (!content) {
       throw new ServiceUnavailableException('AI_EMPTY_RESPONSE');
     }
+    const finishReason = data.choices?.[0]?.finish_reason;
+    if (finishReason === 'length') {
+      // Output hit max_tokens → likely truncated/invalid JSON downstream. Surface it.
+      this.logger.warn(
+        `DeepSeek response truncated (finish_reason=length, max_tokens=${
+          options.maxTokens ?? 2400
+        }). Consider raising maxTokens.`,
+      );
+    }
     if (data.usage?.total_tokens) {
-      this.logger.log(`DeepSeek ok — ${data.usage.total_tokens} tokens (${this.model})`);
+      this.logger.log(
+        `DeepSeek ok — ${data.usage.total_tokens} tokens (${this.model}, finish=${finishReason ?? 'n/a'})`,
+      );
     }
     return content;
   }
@@ -134,21 +145,48 @@ export class DeepseekClient {
       .replace(/^\s*```(?:json)?/i, '')
       .replace(/```\s*$/i, '')
       .trim();
-    try {
-      return JSON.parse(cleaned) as T;
-    } catch {
-      // Last resort: extract the first {...} block.
-      const start = cleaned.indexOf('{');
-      const end = cleaned.lastIndexOf('}');
-      if (start !== -1 && end > start) {
-        try {
-          return JSON.parse(cleaned.slice(start, end + 1)) as T;
-        } catch {
-          /* fall through */
-        }
-      }
-      this.logger.error(`Failed to parse DeepSeek JSON: ${cleaned.slice(0, 300)}`);
-      throw new ServiceUnavailableException('AI_BAD_RESPONSE');
+
+    // Candidate strings to try, in order: as-is, then the first {...} block.
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    const block = start !== -1 && end > start ? cleaned.slice(start, end + 1) : null;
+    const candidates = [cleaned, ...(block && block !== cleaned ? [block] : [])];
+
+    for (const candidate of candidates) {
+      // 1) Try as-is (valid JSON is never mutated).
+      const direct = tryParse<T>(candidate);
+      if (direct.ok) return direct.value;
+      // 2) Repair common LLM breakage (unescaped LaTeX backslashes, trailing commas) and retry.
+      const repaired = tryParse<T>(repairJsonString(candidate));
+      if (repaired.ok) return repaired.value;
     }
+
+    this.logger.error(`Failed to parse DeepSeek JSON: ${cleaned.slice(0, 400)}`);
+    throw new ServiceUnavailableException('AI_BAD_RESPONSE');
   }
+}
+
+function tryParse<T>(text: string): { ok: true; value: T } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(text) as T };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
+ * Repairs the two breakages LLMs most often produce in JSON-mode output for
+ * math-heavy lessons:
+ *   1. Unescaped LaTeX backslashes — e.g. "\sqrt", "\frac", "\(" — which are
+ *      invalid JSON string escapes. We escape every backslash that does not
+ *      begin a structural escape (\" \\ \/) or a \uXXXX sequence, so "\frac"
+ *      becomes "\\frac" and survives JSON.parse with the LaTeX intact.
+ *   2. Trailing commas before } or ].
+ * Only ever applied AFTER a clean parse has already failed, so valid JSON is
+ * never mutated.
+ */
+function repairJsonString(text: string): string {
+  return text
+    .replace(/\\(?!["\\/u])/g, '\\\\')
+    .replace(/,\s*([}\]])/g, '$1');
 }

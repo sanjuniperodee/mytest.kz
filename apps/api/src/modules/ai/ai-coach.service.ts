@@ -665,8 +665,8 @@ export class AiCoachService {
         questions: promptQuestions,
       }),
       temperature: 0.35,
-      maxTokens: 4200,
-      timeoutMs: 90_000,
+      maxTokens: 6000,
+      timeoutMs: 120_000,
     });
 
     const lesson = this.sanitizeTopicLesson(raw, {
