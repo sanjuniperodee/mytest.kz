@@ -5,9 +5,9 @@ import { ArrowRight, CheckCircle2, Gift, TrendingUp, AlertCircle, Calculator } f
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
 export const metadata: Metadata = {
-  title: "Проходной балл ЕНТ 2027 — пороговые баллы для гранта | mytest",
+  title: "Проходной балл ЕНТ 2027 — пороговые баллы для гранта",
   description:
-    "Проходной балл ЕНТ 2027 для гранта по специальностям и университетам Казахстана. Минимальный порог — 50 баллов. Узнай свои шансы на грант онлайн. Калькулятор поступления на mytest.kz.",
+    "Проходной балл ЕНТ 2027 для гранта по специальностям Казахстана. Минимальный порог — 50 баллов. Таблица по специальностям, калькулятор шансов на грант.",
   keywords: [
     "проходной балл ент",
     "проходной балл ент 2027",
@@ -29,6 +29,15 @@ export const metadata: Metadata = {
     description: "Пороговые баллы ЕНТ по специальностям и вузам. Калькулятор шансов на грант.",
     url: `${siteUrl}/prohodnoj-ball-ent`,
   },
+}
+
+const breadcrumbLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: siteUrl },
+    { "@type": "ListItem", position: 2, name: "Проходной балл ЕНТ", item: `${siteUrl}/prohodnoj-ball-ent` },
+  ],
 }
 
 const jsonLd = {
@@ -100,6 +109,7 @@ const thresholds = [
 export default function ProhodnoiBallEntPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
 

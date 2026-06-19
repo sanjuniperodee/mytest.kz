@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2, Gift } from "lucide-react"
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
 export const metadata: Metadata = {
-  title: "Пробный ЕНТ 2027 — онлайн бесплатно | mytest",
+  title: "Пробный ЕНТ 2027 — онлайн бесплатно",
   description:
     "Подготовься к ЕНТ 2027 с бесплатным пробным тестом. Реальный формат 140 вопросов, таймер, разбор ошибок после сдачи. Начни прямо сейчас на mytest.kz.",
   keywords: [
@@ -23,6 +23,15 @@ export const metadata: Metadata = {
     description: "1 бесплатный пробный ЕНТ 2027 без карты. Реальный формат, разбор ошибок.",
     url: `${siteUrl}/ent-2027`,
   },
+}
+
+const breadcrumbLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: siteUrl },
+    { "@type": "ListItem", position: 2, name: "ЕНТ 2027", item: `${siteUrl}/ent-2027` },
+  ],
 }
 
 const jsonLd = {
@@ -67,6 +76,7 @@ const jsonLd = {
 export default function Ent2027Page() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

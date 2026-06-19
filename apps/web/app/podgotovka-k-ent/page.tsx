@@ -5,9 +5,9 @@ import { ArrowRight, CheckCircle2, Gift, BookOpen, Calendar, TrendingUp, AlertCi
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
 export const metadata: Metadata = {
-  title: "Подготовка к ЕНТ онлайн 2027 — как подготовиться к ЕНТ | mytest.kz",
+  title: "Подготовка к ЕНТ онлайн 2027 — как подготовиться к ЕНТ",
   description:
-    "Эффективная подготовка к ЕНТ 2027 онлайн. Пробные ЕНТ, разбор ошибок, статистика по предметам. Узнай проходные баллы, структуру ЕНТ и как набрать 100+ баллов. Первый пробник — бесплатно.",
+    "Подготовка к ЕНТ 2027 онлайн: пробные тесты в реальном формате, разбор ошибок, статистика по предметам. Узнай как набрать 100+ баллов. Первый пробник бесплатно.",
   keywords: [
     "подготовка к ент",
     "подготовка к ент онлайн",
@@ -28,6 +28,15 @@ export const metadata: Metadata = {
     description: "Пробные ЕНТ, разбор ошибок, проходные баллы. Первый пробник бесплатно.",
     url: `${siteUrl}/podgotovka-k-ent`,
   },
+}
+
+const breadcrumbLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: siteUrl },
+    { "@type": "ListItem", position: 2, name: "Подготовка к ЕНТ", item: `${siteUrl}/podgotovka-k-ent` },
+  ],
 }
 
 const jsonLd = {
@@ -107,6 +116,7 @@ const timeline = [
 export default function PodgotovkaKEntPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
 

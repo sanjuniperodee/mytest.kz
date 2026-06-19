@@ -82,6 +82,16 @@ export default async function EntSubjectPage({
     "Следи за таймером — на ЕНТ скорость не менее важна, чем знания",
   ]
 
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Главная", item: process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz" },
+      { "@type": "ListItem", position: 2, name: "Пробный ЕНТ", item: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"}/probnyy-ent` },
+      { "@type": "ListItem", position: 3, name: info.ru, item: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"}/ent/${subject}` },
+    ],
+  }
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Course",
@@ -101,6 +111,7 @@ export default async function EntSubjectPage({
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

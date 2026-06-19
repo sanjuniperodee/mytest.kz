@@ -5,9 +5,9 @@ import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } f
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
 export const metadata: Metadata = {
-  title: "Пробный ЕНТ онлайн бесплатно 2027 — сдать пробник ЕНТ | mytest",
+  title: "Пробный ЕНТ онлайн бесплатно 2027 — сдать пробник ЕНТ",
   description:
-    "Сдай пробный ЕНТ онлайн бесплатно прямо сейчас. 140 вопросов, 240 минут, реальный формат ЕНТ 2027. Первый пробник — без карты. Разбор ошибок, статистика, подготовка к ЕНТ на mytest.kz.",
+    "Сдай пробный ЕНТ онлайн бесплатно. 140 вопросов, 240 минут, реальный формат ЕНТ 2027. Первый пробник без карты — разбор ошибок и объяснения после сдачи.",
   keywords: [
     "пробный ент",
     "пробный ент онлайн",
@@ -28,6 +28,15 @@ export const metadata: Metadata = {
     description: "Первый пробный ЕНТ бесплатно. 140 вопросов, реальный формат, разбор ошибок.",
     url: `${siteUrl}/probnyy-ent`,
   },
+}
+
+const breadcrumbLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: siteUrl },
+    { "@type": "ListItem", position: 2, name: "Пробный ЕНТ", item: `${siteUrl}/probnyy-ent` },
+  ],
 }
 
 const jsonLd = {
@@ -100,6 +109,7 @@ const subjects = [
 export default function ProbnyEntPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
 

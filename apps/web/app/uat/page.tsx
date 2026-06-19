@@ -5,9 +5,9 @@ import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } f
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
 export const metadata: Metadata = {
-  title: "Тегін ҰБТ онлайн 2027 — ҰБТ-ға дайындық | mytest.kz",
+  title: "Тегін ҰБТ онлайн 2027 — ҰБТ-ға дайындық",
   description:
-    "Тегін ҰБТ сынақ тапсыру. 140 сұрақ, 240 минут, нақты ҰБТ 2027 форматы. Тіркелген соң бірінші сынақ тегін. Қателерді талдау, статистика, ҰБТ-ға дайындық mytest.kz-де.",
+    "Тегін ҰБТ сынақ тапсыру. 140 сұрақ, 240 минут, нақты ҰБТ 2027 форматы. Тіркелген соң бірінші сынақ тегін. Қателерді талдау, статистика mytest.kz-де.",
   keywords: [
     "тегін ҰБТ",
     "ҰБТ дайындық",
@@ -39,6 +39,15 @@ export const metadata: Metadata = {
     url: `${siteUrl}/uat`,
     locale: "kk_KZ",
   },
+}
+
+const breadcrumbLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Главная", item: siteUrl },
+    { "@type": "ListItem", position: 2, name: "Тегін ҰБТ", item: `${siteUrl}/uat` },
+  ],
 }
 
 const jsonLd = {
@@ -111,6 +120,7 @@ const subjectsKk = [
 export default function UatPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
 
