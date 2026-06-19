@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
@@ -349,12 +348,14 @@ export default function MistakesPage() {
                   <Label>Количество вопросов</Label>
                   <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">{limit}</span>
                 </div>
-                <Slider
-                  value={[limit]}
+                <input
+                  type="range"
                   min={5}
                   max={50}
                   step={5}
-                  onValueChange={(v) => setLimit(v[0] ?? 20)}
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-foreground"
                 />
                 <div className="flex gap-1.5">
                   {[10, 20, 30, 50].map((n) => (
@@ -379,12 +380,14 @@ export default function MistakesPage() {
                   <Label>Длительность, мин</Label>
                   <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">{duration}</span>
                 </div>
-                <Slider
-                  value={[duration]}
+                <input
+                  type="range"
                   min={5}
                   max={120}
                   step={5}
-                  onValueChange={(v) => setDuration(v[0] ?? 30)}
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-foreground"
                 />
                 <div className="flex gap-1.5">
                   {[15, 30, 60, 90].map((n) => (
