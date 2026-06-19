@@ -45,5 +45,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.85,
   }))
 
-  return [...staticRoutes, ...yearRoutes, ...subjectRoutes]
+  // High-priority SEO landing pages targeting specific query clusters
+  const seoLandingRoutes: MetadataRoute.Sitemap = [
+    // Russian query cluster: "пробный ент", "пробник ент", "ент тест онлайн"
+    { url: `${baseUrl}/probnyy-ent`, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
+    // Kazakh query cluster: "ҰБТ дайындық", "тегін ҰБТ", "ҰБТ онлайн"
+    { url: `${baseUrl}/uat`, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
+    // Russian query cluster: "подготовка к ент", "как подготовиться к ент"
+    { url: `${baseUrl}/podgotovka-k-ent`, lastModified: now, changeFrequency: "weekly", priority: 0.95 },
+  ]
+
+  return [...staticRoutes, ...seoLandingRoutes, ...yearRoutes, ...subjectRoutes]
 }
