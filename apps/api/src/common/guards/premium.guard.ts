@@ -64,9 +64,11 @@ export class PremiumGuard implements CanActivate {
           startsAt: { lte: now },
           expiresAt: { gt: now },
           planType: { not: 'free' },
+          // When a specific exam is requested: match that exam or global subscriptions.
+          // When no exam is specified (e.g. mistakes/practice "all exams"): accept any subscription.
           ...(targetExamTypeId
             ? { OR: [{ examTypeId: null }, { examTypeId: targetExamTypeId }] }
-            : { examTypeId: null }),
+            : {}),
         },
         select: { id: true },
       });
@@ -100,7 +102,7 @@ export class PremiumGuard implements CanActivate {
         planType: { not: 'free' },
         ...(targetExamTypeId
           ? { OR: [{ examTypeId: null }, { examTypeId: targetExamTypeId }] }
-          : { examTypeId: null }),
+          : {}),
       },
     });
 

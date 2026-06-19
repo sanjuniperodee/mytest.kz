@@ -347,7 +347,7 @@ export default function MistakesPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <Label>Количество вопросов</Label>
-                  <span className="text-sm font-medium tabular-nums">{limit}</span>
+                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">{limit}</span>
                 </div>
                 <Slider
                   value={[limit]}
@@ -356,12 +356,28 @@ export default function MistakesPage() {
                   step={5}
                   onValueChange={(v) => setLimit(v[0] ?? 20)}
                 />
+                <div className="flex gap-1.5">
+                  {[10, 20, 30, 50].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setLimit(n)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                        limit === n
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <Label>Длительность, мин</Label>
-                  <span className="text-sm font-medium tabular-nums">{duration}</span>
+                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">{duration}</span>
                 </div>
                 <Slider
                   value={[duration]}
@@ -370,6 +386,22 @@ export default function MistakesPage() {
                   step={5}
                   onValueChange={(v) => setDuration(v[0] ?? 30)}
                 />
+                <div className="flex gap-1.5">
+                  {[15, 30, 60, 90].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setDuration(n)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                        duration === n
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {n} мин
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
