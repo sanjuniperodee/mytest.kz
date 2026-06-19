@@ -5,7 +5,17 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { AlertTriangle, BookOpen, Crown, Play, Target, Sparkles, TrendingDown } from "lucide-react"
+import {
+  AlertTriangle,
+  ArrowRight,
+  BookOpen,
+  BrainCircuit,
+  Crown,
+  Play,
+  Sparkles,
+  Target,
+  TrendingDown,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,7 +30,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { AiMistakesCoach } from "@/components/dashboard/ai-mistakes-coach"
 import { ScoreProjection } from "@/components/dashboard/score-projection"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
@@ -147,25 +156,6 @@ export default function MistakesPage() {
       examTypeId: examTypeId === "all" ? undefined : examTypeId,
       subjectId: subjectId === "all" ? undefined : subjectId,
     })
-
-  // Launch practice scoped to one subject (used by the AI coach "train this topic").
-  const onTrainSubject = (sid: string) => {
-    const sub = summary?.openBySubject.find((s) => s.subjectId === sid)
-    if (sub) {
-      setExamTypeId(sub.examTypeId)
-      setSubjectId(sid)
-    }
-    void launch({ examTypeId: sub?.examTypeId, subjectId: sid })
-  }
-
-  const onTrainTopic = (topicId: string, sid?: string | null) => {
-    const sub = sid ? summary?.openBySubject.find((s) => s.subjectId === sid) : undefined
-    if (sub) {
-      setExamTypeId(sub.examTypeId)
-      setSubjectId(sub.subjectId)
-    }
-    void launch({ examTypeId: sub?.examTypeId, subjectId: sid ?? undefined, topicId })
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -297,8 +287,8 @@ export default function MistakesPage() {
                 })}
                 {!hasPremium && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Выше — твоя карта слабых мест. Оформи Premium, чтобы запустить
-                    тренировку точно по этим вопросам.
+                    Выше — твоя карта слабых мест. Оформи Premium, чтобы открыть
+                    AI-разбор, уроки и тренировки внутри каждого предмета.
                   </p>
                 )}
               </>
@@ -307,14 +297,54 @@ export default function MistakesPage() {
         </Card>
       )}
 
-      {hasPremium && (
-        <AiMistakesCoach
-          language={language}
-          examTypeId={examTypeId}
-          totalOpen={total}
-          onTrainSubject={onTrainSubject}
-          onTrainTopic={onTrainTopic}
-        />
+      {(isLoading || topWeakSubjects.length > 0) && (
+        <Card className="border-violet-200 bg-violet-50/60">
+          <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-violet-600 text-white">
+                <BrainCircuit className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-semibold text-violet-950">AI-разбор по предметам</h2>
+                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                    компактно
+                  </span>
+                </div>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-violet-900/80">
+                  Большой разбор, уроки с LaTeX, графиками и мини-тестами теперь открываются
+                  внутри конкретного предмета, чтобы общая страница не превращалась в длинную ленту.
+                </p>
+                {topWeakSubjects.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {topWeakSubjects.slice(0, 3).map((subject) => (
+                      <Link
+                        key={`${subject.examTypeId}:${subject.id}:ai-chip`}
+                        href={`/dashboard/mistakes/subjects/${subject.id}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-medium text-violet-900 transition-colors hover:bg-violet-100"
+                      >
+                        <span className="max-w-40 truncate">{subject.shortLabel}</span>
+                        <span className="tabular-nums text-violet-600">{subject.count}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {topWeakSubjects[0] ? (
+              <Button asChild className="h-10 bg-violet-600 hover:bg-violet-700">
+                <Link href={`/dashboard/mistakes/subjects/${topWeakSubjects[0].id}`}>
+                  Открыть {topWeakSubjects[0].shortLabel}
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button disabled className="h-10 bg-violet-600 hover:bg-violet-700">
+                Нет ошибок
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {hasPremium ? (
