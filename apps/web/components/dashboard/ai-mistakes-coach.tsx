@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
 import {
@@ -89,6 +89,23 @@ type LessonState = {
   loading: boolean
   data: AiTopicLesson | null
   error: string | null
+}
+
+type LessonTabId =
+  | "overview"
+  | "theory"
+  | "formulas"
+  | "visuals"
+  | "examples"
+  | "practice"
+  | "traps"
+  | "test"
+
+type LessonTabItem = {
+  id: LessonTabId
+  label: string
+  icon: React.ReactNode
+  count?: number
 }
 
 export function AiMistakesCoach({
@@ -717,191 +734,333 @@ function TopicLessonDialog({
   onRegenerate: () => void
 }) {
   const lesson = state?.data ?? null
+  const [activeTab, setActiveTab] = useState<LessonTabId>("overview")
+
+  const tabs = useMemo<LessonTabItem[]>(() => {
+    if (!lesson) return []
+    return [
+      {
+        id: "overview",
+        label: "Старт",
+        icon: <Target className="size-4" />,
+      },
+      lesson.sections.length > 0 && {
+        id: "theory",
+        label: "Теория",
+        icon: <BrainCircuit className="size-4" />,
+        count: lesson.sections.length,
+      },
+      lesson.formulas.length > 0 && {
+        id: "formulas",
+        label: "Формулы",
+        icon: <SquareFunction className="size-4" />,
+        count: lesson.formulas.length,
+      },
+      lesson.visualizations.length > 0 && {
+        id: "visuals",
+        label: "Графики",
+        icon: <BarChart3 className="size-4" />,
+        count: lesson.visualizations.length,
+      },
+      lesson.workedExamples.length > 0 && {
+        id: "examples",
+        label: "Примеры",
+        icon: <Lightbulb className="size-4" />,
+        count: lesson.workedExamples.length,
+      },
+      lesson.practice.length > 0 && {
+        id: "practice",
+        label: "Практика",
+        icon: <ClipboardCheck className="size-4" />,
+        count: lesson.practice.length,
+      },
+      (lesson.commonTraps.length > 0 || lesson.checklist.length > 0) && {
+        id: "traps",
+        label: "Ловушки",
+        icon: <ListChecks className="size-4" />,
+        count: lesson.commonTraps.length + lesson.checklist.length,
+      },
+      lesson.miniTest.length > 0 && {
+        id: "test",
+        label: "Мини-тест",
+        icon: <Target className="size-4" />,
+        count: lesson.miniTest.length,
+      },
+    ].filter(Boolean) as LessonTabItem[]
+  }, [lesson])
+
+  useEffect(() => {
+    if (open) setActiveTab("overview")
+  }, [open, lesson?.generatedAt, lesson?.topicId])
+
+  const currentTab = tabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : tabs[0]?.id ?? "overview"
+
+  const activityCount = lesson
+    ? lesson.practice.length + lesson.miniTest.length + lesson.workedExamples.length
+    : 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="!flex max-h-[92dvh] gap-0 overflow-hidden p-0 sm:!w-[calc(100vw-1rem)] sm:!max-w-[calc(100vw-1rem)] md:!w-[min(96vw,1280px)] md:!max-w-[min(96vw,1280px)]">
+        <DialogHeader className="border-b border-border px-4 py-4 pr-12 sm:px-5 sm:pr-14">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <NotepadText className="size-5 text-emerald-600" />
             {lesson?.title ?? "Урок по теме"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {lesson ? `${lesson.subjectName} · ${lesson.topicName}` : "AI готовит материал для закрепления"}
+            {lesson && (
+              <>
+                <span className="hidden sm:inline">·</span>
+                <span>{tabs.length} разделов</span>
+                {activityCount > 0 && (
+                  <>
+                    <span className="hidden sm:inline">·</span>
+                    <span>{activityCount} активностей</span>
+                  </>
+                )}
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         {state?.loading && !lesson && (
-          <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-muted-foreground">
+          <div className="flex min-h-80 items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
             <Spinner className="size-5" />
             Формируем урок с формулами, примерами и практикой…
           </div>
         )}
 
         {state?.error && !state.loading && !lesson && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="m-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
             {state.error}
           </div>
         )}
 
         {lesson && (
-          <div className="flex flex-col gap-5">
-            <div className="grid gap-3 md:grid-cols-2">
-              {lesson.studentGoal && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">
-                    Цель
-                  </p>
-                  <RichText
-                    value={lesson.studentGoal}
-                    locale={language}
-                    as="div"
-                    className="text-sm leading-relaxed text-emerald-950"
+          <div className="grid min-h-0 flex-1 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <aside className="border-b border-border bg-secondary/30 p-3 lg:border-r lg:border-b-0">
+              <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+                {tabs.map((tab, index) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    aria-pressed={currentTab === tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex min-w-40 shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors lg:min-w-0",
+                      currentTab === tab.id
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm"
+                        : "border-transparent bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-md",
+                        currentTab === tab.id ? "bg-emerald-600 text-white" : "bg-secondary text-muted-foreground",
+                      )}
+                    >
+                      {tab.icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{tab.label}</span>
+                      <span className="block text-[11px] text-muted-foreground">
+                        {tab.count ? `${tab.count} элем.` : `Шаг ${index + 1}`}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 hidden rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground lg:block">
+                <p className="font-medium text-foreground">Прогресс урока</p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-emerald-600 transition-all"
+                    style={{ width: `${Math.max(12, ((tabs.findIndex((tab) => tab.id === currentTab) + 1) / Math.max(tabs.length, 1)) * 100)}%` }}
                   />
                 </div>
-              )}
-              {lesson.whyItMatters && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                  <p className="mb-1 text-xs font-semibold uppercase text-amber-700">
-                    Зачем это на ЕНТ
-                  </p>
-                  <RichText
-                    value={lesson.whyItMatters}
-                    locale={language}
-                    as="div"
-                    className="text-sm leading-relaxed text-amber-950"
-                  />
-                </div>
-              )}
-            </div>
+                <p className="mt-2">
+                  Раздел {Math.max(1, tabs.findIndex((tab) => tab.id === currentTab) + 1)} из {tabs.length}
+                </p>
+              </div>
+            </aside>
 
-            {lesson.sections.length > 0 && (
-              <LessonSectionBlock icon={<BrainCircuit className="size-4" />} title="Теория">
-                <div className="flex flex-col gap-3">
-                  {lesson.sections.map((section, index) => (
-                    <div key={`${section.title}-${index}`} className="rounded-lg border border-border p-4">
-                      {section.title && <h4 className="mb-2 font-semibold">{section.title}</h4>}
-                      <RichText
-                        value={section.content}
-                        locale={language}
-                        as="div"
-                        className="text-sm leading-relaxed"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </LessonSectionBlock>
-            )}
+            <div className="min-h-0 overflow-y-auto p-4 sm:p-5 lg:max-h-[calc(92dvh-104px)]">
+              <div className="flex flex-col gap-5">
+                {state?.loading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                    <Spinner className="size-4" />
+                    Обновляем урок…
+                  </div>
+                )}
 
-            {lesson.formulas.length > 0 && (
-              <LessonSectionBlock icon={<SquareFunction className="size-4" />} title="Формулы и правила">
-                <div className="grid gap-3 md:grid-cols-2">
-                  {lesson.formulas.map((formula, index) => (
-                    <div key={`${formula.latex}-${index}`} className="rounded-lg border border-border bg-secondary/40 p-4">
-                      {formula.latex && (
-                        <RichText
-                          value={`$$${formula.latex}$$`}
-                          locale={language}
-                          as="div"
-                          className="text-sm"
-                        />
+                {state?.error && !state.loading && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                    {state.error}
+                  </div>
+                )}
+
+                {currentTab === "overview" && (
+                  <div className="flex flex-col gap-5">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {lesson.studentGoal && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                          <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">
+                            Цель
+                          </p>
+                          <RichText
+                            value={lesson.studentGoal}
+                            locale={language}
+                            as="div"
+                            className="text-sm leading-relaxed text-emerald-950"
+                          />
+                        </div>
                       )}
-                      {formula.note && (
-                        <RichText
-                          value={formula.note}
-                          locale={language}
-                          as="div"
-                          className="mt-2 text-sm leading-relaxed text-muted-foreground"
-                        />
+                      {lesson.whyItMatters && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                          <p className="mb-1 text-xs font-semibold uppercase text-amber-700">
+                            Зачем это на ЕНТ
+                          </p>
+                          <RichText
+                            value={lesson.whyItMatters}
+                            locale={language}
+                            as="div"
+                            className="text-sm leading-relaxed text-amber-950"
+                          />
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              </LessonSectionBlock>
-            )}
 
-            {lesson.visualizations.length > 0 && (
-              <LessonSectionBlock icon={<BarChart3 className="size-4" />} title="Визуализации">
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {lesson.visualizations.map((visual, index) => (
-                    <LessonVisualizationView key={`${visual.title}-${index}`} visual={visual} />
-                  ))}
-                </div>
-              </LessonSectionBlock>
-            )}
-
-            {lesson.workedExamples.length > 0 && (
-              <LessonSectionBlock icon={<Lightbulb className="size-4" />} title="Разбор примеров">
-                <div className="flex flex-col gap-3">
-                  {lesson.workedExamples.map((example, index) => (
-                    <div key={`${example.title}-${index}`} className="rounded-lg border border-border p-4">
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                          {index + 1}
-                        </span>
-                        <h4 className="font-semibold">{example.title || "Пример"}</h4>
-                      </div>
-                      <RichText value={example.question} locale={language} as="div" className="text-sm leading-relaxed" />
-                      {example.steps.length > 0 && (
-                        <ol className="mt-3 flex flex-col gap-1.5">
-                          {example.steps.map((step, stepIndex) => (
-                            <li key={stepIndex} className="flex gap-2 text-sm">
-                              <span className="text-muted-foreground">{stepIndex + 1}.</span>
-                              <RichText value={step} locale={language} as="div" className="min-w-0 flex-1 leading-relaxed" />
-                            </li>
+                    {tabs.length > 1 && (
+                      <LessonSectionBlock icon={<ListChecks className="size-4" />} title="Маршрут урока">
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                          {tabs.slice(1).map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setActiveTab(tab.id)}
+                              className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-left text-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50"
+                            >
+                              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-emerald-700">
+                                {tab.icon}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block font-medium">{tab.label}</span>
+                                {tab.count && (
+                                  <span className="block text-[11px] text-muted-foreground">
+                                    {tab.count} элементов
+                                  </span>
+                                )}
+                              </span>
+                            </button>
                           ))}
-                        </ol>
-                      )}
-                      {example.answer && (
-                        <div className="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
-                          <RichText value={example.answer} locale={language} as="div" />
                         </div>
-                      )}
-                      {example.trap && (
-                        <div className="mt-2 flex gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-950">
-                          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
-                          <RichText value={example.trap} locale={language} as="div" className="leading-relaxed" />
+                      </LessonSectionBlock>
+                    )}
+                  </div>
+                )}
+
+                {currentTab === "theory" && lesson.sections.length > 0 && (
+                  <LessonSectionBlock icon={<BrainCircuit className="size-4" />} title="Теория">
+                    <div className="flex flex-col gap-3">
+                      {lesson.sections.map((section, index) => (
+                        <div key={`${section.title}-${index}`} className="rounded-lg border border-border p-4">
+                          {section.title && <h4 className="mb-2 font-semibold">{section.title}</h4>}
+                          <RichText
+                            value={section.content}
+                            locale={language}
+                            as="div"
+                            className="text-sm leading-relaxed"
+                          />
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  </LessonSectionBlock>
+                )}
+
+                {currentTab === "formulas" && lesson.formulas.length > 0 && (
+                  <LessonSectionBlock icon={<SquareFunction className="size-4" />} title="Формулы и правила">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {lesson.formulas.map((formula, index) => (
+                        <div key={`${formula.latex}-${index}`} className="rounded-lg border border-border bg-secondary/40 p-4">
+                          {formula.latex && (
+                            <RichText
+                              value={`$$${formula.latex}$$`}
+                              locale={language}
+                              as="div"
+                              className="text-sm"
+                            />
+                          )}
+                          {formula.note && (
+                            <RichText
+                              value={formula.note}
+                              locale={language}
+                              as="div"
+                              className="mt-2 text-sm leading-relaxed text-muted-foreground"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </LessonSectionBlock>
+                )}
+
+                {currentTab === "visuals" && lesson.visualizations.length > 0 && (
+                  <LessonSectionBlock icon={<BarChart3 className="size-4" />} title="Визуализации">
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {lesson.visualizations.map((visual, index) => (
+                        <LessonVisualizationView key={`${visual.title}-${index}`} visual={visual} />
+                      ))}
+                    </div>
+                  </LessonSectionBlock>
+                )}
+
+                {currentTab === "examples" && lesson.workedExamples.length > 0 && (
+                  <LessonSectionBlock icon={<Lightbulb className="size-4" />} title="Разбор примеров">
+                    <WorkedExamplesList examples={lesson.workedExamples} language={language} />
+                  </LessonSectionBlock>
+                )}
+
+                {currentTab === "practice" && lesson.practice.length > 0 && (
+                  <LessonSectionBlock icon={<ClipboardCheck className="size-4" />} title="Закрепление">
+                    <PracticeList tasks={lesson.practice} language={language} mode="practice" />
+                  </LessonSectionBlock>
+                )}
+
+                {currentTab === "traps" && (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {lesson.commonTraps.length > 0 && (
+                      <LessonSectionBlock icon={<AlertTriangle className="size-4" />} title="Типичные ловушки">
+                        <SimpleList items={lesson.commonTraps} language={language} tone="amber" />
+                      </LessonSectionBlock>
+                    )}
+                    {lesson.checklist.length > 0 && (
+                      <LessonSectionBlock icon={<ListChecks className="size-4" />} title="Чеклист готовности">
+                        <ChecklistList items={lesson.checklist} language={language} />
+                      </LessonSectionBlock>
+                    )}
+                  </div>
+                )}
+
+                {currentTab === "test" && lesson.miniTest.length > 0 && (
+                  <LessonSectionBlock icon={<Target className="size-4" />} title="Мини-тест">
+                    <PracticeList tasks={lesson.miniTest} language={language} mode="test" />
+                  </LessonSectionBlock>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                  <p className="text-[11px] text-muted-foreground">
+                    {lesson.cached ? "Сохранённый урок из базы" : "Сгенерировано сейчас"} · {lesson.model}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={onRegenerate} disabled={state?.loading}>
+                    {state?.loading ? <Spinner className="size-4" /> : <Wand2 className="size-4" />}
+                    Обновить урок
+                  </Button>
                 </div>
-              </LessonSectionBlock>
-            )}
-
-            {lesson.practice.length > 0 && (
-              <LessonSectionBlock icon={<ClipboardCheck className="size-4" />} title="Закрепление">
-                <PracticeList tasks={lesson.practice} language={language} />
-              </LessonSectionBlock>
-            )}
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {lesson.commonTraps.length > 0 && (
-                <LessonSectionBlock icon={<AlertTriangle className="size-4" />} title="Типичные ловушки">
-                  <SimpleList items={lesson.commonTraps} language={language} tone="amber" />
-                </LessonSectionBlock>
-              )}
-              {lesson.checklist.length > 0 && (
-                <LessonSectionBlock icon={<ListChecks className="size-4" />} title="Чеклист готовности">
-                  <SimpleList items={lesson.checklist} language={language} tone="emerald" />
-                </LessonSectionBlock>
-              )}
-            </div>
-
-            {lesson.miniTest.length > 0 && (
-              <LessonSectionBlock icon={<Target className="size-4" />} title="Мини-тест">
-                <PracticeList tasks={lesson.miniTest} language={language} />
-              </LessonSectionBlock>
-            )}
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-              <p className="text-[11px] text-muted-foreground">
-                {lesson.cached ? "Сохранённый урок из базы" : "Сгенерировано сейчас"} · {lesson.model}
-              </p>
-              <Button variant="outline" size="sm" onClick={onRegenerate} disabled={state?.loading}>
-                {state?.loading ? <Spinner className="size-4" /> : <Wand2 className="size-4" />}
-                Обновить урок
-              </Button>
+              </div>
             </div>
           </div>
         )}
@@ -1002,15 +1161,140 @@ function LessonVisualizationView({
   )
 }
 
+function WorkedExamplesList({
+  examples,
+  language,
+}: {
+  examples: AiTopicLesson["workedExamples"]
+  language: "ru" | "kk"
+}) {
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [examples])
+
+  const activeExample = examples[activeIndex] ?? examples[0]
+  if (!activeExample) return null
+
+  return (
+    <div className="grid gap-3 xl:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="flex gap-2 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible xl:pb-0">
+        {examples.map((example, index) => (
+          <button
+            key={`${example.title}-${index}`}
+            type="button"
+            aria-pressed={activeIndex === index}
+            onClick={() => setActiveIndex(index)}
+            className={cn(
+              "flex min-w-44 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors xl:min-w-0",
+              activeIndex === index
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                : "border-border bg-card text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                activeIndex === index ? "bg-emerald-600 text-white" : "bg-secondary text-muted-foreground",
+              )}
+            >
+              {index + 1}
+            </span>
+            <span className="min-w-0 truncate">{example.title || `Пример ${index + 1}`}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-border p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+            {activeIndex + 1}
+          </span>
+          <h4 className="font-semibold">{activeExample.title || "Пример"}</h4>
+        </div>
+        <RichText value={activeExample.question} locale={language} as="div" className="text-sm leading-relaxed" />
+        {activeExample.steps.length > 0 && (
+          <ol className="mt-3 flex flex-col gap-1.5">
+            {activeExample.steps.map((step, stepIndex) => (
+              <li key={stepIndex} className="flex gap-2 text-sm">
+                <span className="text-muted-foreground">{stepIndex + 1}.</span>
+                <RichText value={step} locale={language} as="div" className="min-w-0 flex-1 leading-relaxed" />
+              </li>
+            ))}
+          </ol>
+        )}
+        {activeExample.answer && (
+          <div className="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
+            <RichText value={activeExample.answer} locale={language} as="div" />
+          </div>
+        )}
+        {activeExample.trap && (
+          <div className="mt-2 flex gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-950">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+            <RichText value={activeExample.trap} locale={language} as="div" className="leading-relaxed" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function PracticeList({
   tasks,
   language,
+  mode,
 }: {
   tasks: AiTopicLesson["practice"]
   language: "ru" | "kk"
+  mode: "practice" | "test"
 }) {
+  const [revealed, setRevealed] = useState<Record<number, boolean>>({})
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({})
+
+  useEffect(() => {
+    setRevealed({})
+    setSelectedOptions({})
+  }, [tasks])
+
+  const revealedCount = tasks.reduce((total, _task, index) => total + (revealed[index] ? 1 : 0), 0)
+  const hasAnySolution = tasks.some((task) => task.answer || task.explanation)
+  const allRevealed = hasAnySolution && revealedCount === tasks.length
+
   return (
     <div className="flex flex-col gap-3">
+      {hasAnySolution && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+          <div>
+            <p className="font-medium">
+              {mode === "test" ? "Проверка мини-теста" : "Практика по теме"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Открыто решений: {revealedCount} из {tasks.length}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (allRevealed) {
+                setRevealed({})
+                return
+              }
+              setRevealed(
+                tasks.reduce<Record<number, boolean>>((acc, _task, index) => {
+                  acc[index] = true
+                  return acc
+                }, {}),
+              )
+            }}
+          >
+            {allRevealed ? "Скрыть решения" : "Показать все"}
+          </Button>
+        </div>
+      )}
+
       {tasks.map((task, index) => (
         <div key={`${task.prompt}-${index}`} className="rounded-lg border border-border p-4">
           <div className="mb-2 flex items-center gap-2">
@@ -1021,29 +1305,128 @@ function PracticeList({
           </div>
           {task.options.length > 0 && (
             <div className="mb-3 grid gap-2 sm:grid-cols-2">
-              {task.options.map((option, optionIndex) => (
-                <div key={`${option}-${optionIndex}`} className="rounded-md border border-border bg-secondary/40 px-3 py-2 text-sm">
-                  <RichText value={option} locale={language} as="div" />
+              {task.options.map((option, optionIndex) => {
+                const selected = selectedOptions[index] === optionIndex
+                return (
+                  <button
+                    key={`${option}-${optionIndex}`}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setSelectedOptions((prev) => ({ ...prev, [index]: optionIndex }))}
+                    className={cn(
+                      "flex items-start gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                      selected
+                        ? "border-violet-300 bg-violet-50 text-violet-950"
+                        : "border-border bg-secondary/40 hover:border-violet-200 hover:bg-violet-50/60",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                        selected ? "bg-violet-600 text-white" : "bg-background text-muted-foreground",
+                      )}
+                    >
+                      {String.fromCharCode(65 + optionIndex)}
+                    </span>
+                    <RichText value={option} locale={language} className="min-w-0 flex-1 leading-relaxed" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {(task.answer || task.explanation) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {selectedOptions[index] != null && !revealed[index] && (
+                <span className="rounded-full bg-secondary px-2 py-1 text-xs text-muted-foreground">
+                  Выбран вариант {String.fromCharCode(65 + selectedOptions[index])}
+                </span>
+              )}
+              <Button
+                type="button"
+                variant={revealed[index] ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setRevealed((prev) => ({ ...prev, [index]: !prev[index] }))}
+              >
+                <ChevronDown className={cn("size-4 transition-transform", revealed[index] && "rotate-180")} />
+                {revealed[index] ? "Скрыть решение" : "Показать решение"}
+              </Button>
+            </div>
+          )}
+          {revealed[index] && (
+            <div className="mt-3 grid gap-2">
+              {task.answer && (
+                <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
+                  <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Ответ</p>
+                  <RichText value={task.answer} locale={language} as="div" />
                 </div>
-              ))}
+              )}
+              {task.explanation && (
+                <RichText
+                  value={task.explanation}
+                  locale={language}
+                  as="div"
+                  className="rounded-md border border-border bg-card p-3 text-sm leading-relaxed text-muted-foreground"
+                />
+              )}
             </div>
-          )}
-          {task.answer && (
-            <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
-              <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Ответ</p>
-              <RichText value={task.answer} locale={language} as="div" />
-            </div>
-          )}
-          {task.explanation && (
-            <RichText
-              value={task.explanation}
-              locale={language}
-              as="div"
-              className="mt-2 text-sm leading-relaxed text-muted-foreground"
-            />
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function ChecklistList({
+  items,
+  language,
+}: {
+  items: string[]
+  language: "ru" | "kk"
+}) {
+  const [checked, setChecked] = useState<Record<number, boolean>>({})
+
+  useEffect(() => {
+    setChecked({})
+  }, [items])
+
+  const checkedCount = items.reduce((total, _item, index) => total + (checked[index] ? 1 : 0), 0)
+
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <div className="mb-3 flex items-center justify-between gap-3 text-sm">
+        <p className="font-medium">Готовность</p>
+        <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+          {checkedCount}/{items.length}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {items.map((item, index) => (
+          <li key={`${item}-${index}`} className="flex gap-2 text-sm">
+            <button
+              type="button"
+              aria-pressed={Boolean(checked[index])}
+              onClick={() => setChecked((prev) => ({ ...prev, [index]: !prev[index] }))}
+              className={cn(
+                "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                checked[index]
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-emerald-300 bg-background text-transparent hover:bg-emerald-50",
+              )}
+            >
+              <CheckCircle2 className="size-3.5" />
+            </button>
+            <RichText
+              value={item}
+              locale={language}
+              as="div"
+              className={cn(
+                "min-w-0 flex-1 leading-relaxed",
+                checked[index] && "text-muted-foreground line-through decoration-emerald-500/70",
+              )}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
