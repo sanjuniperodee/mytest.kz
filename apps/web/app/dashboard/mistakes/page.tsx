@@ -343,10 +343,10 @@ export default function MistakesPage() {
                 </RadioGroup>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <Label>Количество вопросов</Label>
-                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">{limit}</span>
+                  <span className="text-sm font-semibold tabular-nums">{limit}</span>
                 </div>
                 <input
                   type="range"
@@ -354,31 +354,16 @@ export default function MistakesPage() {
                   max={50}
                   step={5}
                   value={limit}
+                  onInput={(e) => setLimit(Number((e.target as HTMLInputElement).value))}
                   onChange={(e) => setLimit(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-foreground"
+                  className="w-full cursor-pointer accent-black"
                 />
-                <div className="flex gap-1.5">
-                  {[10, 20, 30, 50].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setLimit(n)}
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                        limit === n
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <Label>Длительность, мин</Label>
-                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">{duration}</span>
+                  <span className="text-sm font-semibold tabular-nums">{duration}</span>
                 </div>
                 <input
                   type="range"
@@ -386,25 +371,10 @@ export default function MistakesPage() {
                   max={120}
                   step={5}
                   value={duration}
+                  onInput={(e) => setDuration(Number((e.target as HTMLInputElement).value))}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-foreground"
+                  className="w-full cursor-pointer accent-black"
                 />
-                <div className="flex gap-1.5">
-                  {[15, 30, 60, 90].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setDuration(n)}
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                        duration === n
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {n} мин
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 
