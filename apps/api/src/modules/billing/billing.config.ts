@@ -63,4 +63,4 @@ export const BILLING_PLANS: BillingPlan[] = [
 
 export const PLAN_BY_ID = new Map(BILLING_PLANS.map((p) => [p.id, p]));
 
-export const ENT_TRIAL_LIMIT = 2;
+export const ENT_TRIAL_LIMIT = 1;
