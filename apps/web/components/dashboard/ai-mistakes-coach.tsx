@@ -20,6 +20,7 @@ import {
   Sparkles,
   SquareFunction,
   Target,
+  TrendingUp,
   Wand2,
 } from "lucide-react"
 import {
@@ -403,6 +404,14 @@ function pluralMistakes(n: number): string {
   return "ошибок"
 }
 
+function pluralPoints(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return "балл"
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "балла"
+  return "баллов"
+}
+
 function AnalysisView({
   analysis,
   language,
@@ -449,9 +458,17 @@ function AnalysisView({
                         <p className="text-xs text-muted-foreground">{zone.subjectName}</p>
                       )}
                     </div>
-                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", sev.chip)}>
-                      {sev.label}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", sev.chip)}>
+                        {sev.label}
+                      </span>
+                      {zone.pointsAtStake > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          <TrendingUp className="size-3" />
+                          ≈ +{zone.pointsAtStake} {pluralPoints(zone.pointsAtStake)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {zone.rootCause && (

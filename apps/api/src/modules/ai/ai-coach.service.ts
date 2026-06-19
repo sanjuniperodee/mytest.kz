@@ -53,6 +53,8 @@ export interface WeakZone {
   topicName: string;
   title: string;
   severity: Severity;
+  /** ≈ recoverable ЕНТ points if this zone is closed (count of open mistakes in it). */
+  pointsAtStake: number;
   rootCause: string;
   recommendations: string[];
   examples: {
@@ -264,7 +266,34 @@ export class AiCoachService {
       weakZones,
     };
 
-    return this.hydrateAnalysisExamples(reconciled, language);
+    return this.attachPointsAtStake(
+      await this.hydrateAnalysisExamples(reconciled, language),
+      open,
+    );
+  }
+
+  /** Attach ≈recoverable points per weak zone from the live open-mistake set. */
+  private attachPointsAtStake(
+    analysis: WeakZoneAnalysis,
+    open: { subjectId: string; topicId: string }[],
+  ): WeakZoneAnalysis {
+    const byTopic = new Map<string, number>();
+    const bySubject = new Map<string, number>();
+    for (const r of open) {
+      byTopic.set(r.topicId, (byTopic.get(r.topicId) ?? 0) + 1);
+      bySubject.set(r.subjectId, (bySubject.get(r.subjectId) ?? 0) + 1);
+    }
+    return {
+      ...analysis,
+      weakZones: analysis.weakZones.map((zone) => {
+        const topicCount = zone.topicId ? byTopic.get(zone.topicId) ?? 0 : 0;
+        const subjectCount = zone.subjectId ? bySubject.get(zone.subjectId) ?? 0 : 0;
+        return {
+          ...zone,
+          pointsAtStake: topicCount || subjectCount || zone.examples.length,
+        };
+      }),
+    };
   }
 
   private computeScopeHash(
@@ -440,9 +469,12 @@ export class AiCoachService {
       maxTokens: 2600,
     });
 
-    const analysis = await this.hydrateAnalysisExamples(
-      this.sanitizeAnalysis(raw, refToQuestion, subjectMeta, open.length),
-      language,
+    const analysis = this.attachPointsAtStake(
+      await this.hydrateAnalysisExamples(
+        this.sanitizeAnalysis(raw, refToQuestion, subjectMeta, open.length),
+        language,
+      ),
+      open,
     );
 
     await this.prisma.aiCoachAnalysis
@@ -749,6 +781,7 @@ export class AiCoachService {
         topicName: primaryTopic?.[1].name ?? '',
         title: title || 'Слабая зона',
         severity: normalizeSeverity(z.severity),
+        pointsAtStake: 0,
         rootCause: asText(z.rootCause),
         recommendations,
         examples,

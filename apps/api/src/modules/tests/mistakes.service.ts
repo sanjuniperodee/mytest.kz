@@ -29,6 +29,31 @@ export type LatestAnswerRow = {
   timeSpentSecs: number | null;
 };
 
+/** Deterministic ЕНТ score projection shown on the mistakes page. */
+export type EntScoreImpact =
+  | { available: false }
+  | {
+      available: true;
+      lastScore: number;
+      maxScore: number;
+      lastTakenAt: string | null;
+      openCount: number;
+      recoverable: number;
+      potentialScore: number;
+      resolvedCount: number;
+      baselineTier: string;
+      potentialTier: string;
+    };
+
+/** Grant-readiness band by total ЕНТ score (out of 140). */
+function entTierLabel(total: number): string {
+  if (total < 50) return 'ниже порога';
+  if (total < 65) return 'база';
+  if (total < 75) return 'грант реален';
+  if (total < 100) return 'сильный результат';
+  return 'топовый результат';
+}
+
 @Injectable()
 export class MistakesService {
   constructor(private prisma: PrismaService) {}
@@ -167,11 +192,70 @@ export class MistakesService {
       recoveredAt: r.finishedAt.toISOString(),
     }));
 
+    const scoreImpact = await this.computeEntScoreImpact(userId, open, rawRecoveries);
+
     return {
       openTotal: open.length,
       openByExam,
       openBySubject,
       recentRecoveries,
+      scoreImpact,
+    };
+  }
+
+  /**
+   * Deterministic ЕНТ score projection: "you scored X on your last full ЕНТ;
+   * closing your open mistakes would take you to ~Y". Each open mistake counts as
+   * ≈1 recoverable point (conservative — profile questions are worth up to 2),
+   * capped at the points actually lost on that exam. Recomputed on every summary
+   * load, so it updates as the student closes mistakes / takes new exams.
+   */
+  private async computeEntScoreImpact(
+    userId: string,
+    open: MistakeLatestRow[],
+    recoveries: MistakeRecoveryRow[],
+  ): Promise<EntScoreImpact> {
+    const entExam = await this.prisma.examType.findFirst({
+      where: { slug: 'ent' },
+      select: { id: true },
+    });
+    if (!entExam) return { available: false };
+
+    // Most recent FULL ЕНТ attempt (maxScore ~140 excludes remediation/single-subject practice).
+    const lastEnt = await this.prisma.testSession.findFirst({
+      where: {
+        userId,
+        examTypeId: entExam.id,
+        status: { in: ['completed', 'timed_out'] },
+        rawScore: { not: null },
+        maxScore: { gte: 100 },
+      },
+      orderBy: { finishedAt: 'desc' },
+      select: { rawScore: true, maxScore: true, finishedAt: true },
+    });
+    if (!lastEnt || lastEnt.rawScore == null || lastEnt.maxScore == null) {
+      return { available: false };
+    }
+
+    const lastScore = lastEnt.rawScore;
+    const maxScore = lastEnt.maxScore;
+    const openCount = open.filter((r) => r.examTypeId === entExam.id).length;
+    const lostPoints = Math.max(0, maxScore - lastScore);
+    const recoverable = Math.min(openCount, lostPoints);
+    const potentialScore = Math.min(maxScore, lastScore + recoverable);
+    const resolvedCount = recoveries.filter((r) => r.examTypeId === entExam.id).length;
+
+    return {
+      available: true,
+      lastScore,
+      maxScore,
+      lastTakenAt: lastEnt.finishedAt ? lastEnt.finishedAt.toISOString() : null,
+      openCount,
+      recoverable,
+      potentialScore,
+      resolvedCount,
+      baselineTier: entTierLabel(lastScore),
+      potentialTier: entTierLabel(potentialScore),
     };
   }
 

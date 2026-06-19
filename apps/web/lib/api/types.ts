@@ -368,7 +368,23 @@ export interface MistakesSummary {
     sessionId: string
     recoveredAt: string
   }[]
+  scoreImpact: EntScoreImpact
 }
+
+export type EntScoreImpact =
+  | { available: false }
+  | {
+      available: true
+      lastScore: number
+      maxScore: number
+      lastTakenAt: string | null
+      openCount: number
+      recoverable: number
+      potentialScore: number
+      resolvedCount: number
+      baselineTier: string
+      potentialTier: string
+    }
 
 // ─── AI mistakes coach (DeepSeek) ────────────────────────────────────────────
 
@@ -381,6 +397,7 @@ export interface AiWeakZone {
   topicName: string
   title: string
   severity: AiSeverity
+  pointsAtStake: number
   rootCause: string
   recommendations: string[]
   examples: {

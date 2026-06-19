@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { AiMistakesCoach } from "@/components/dashboard/ai-mistakes-coach"
+import { ScoreProjection } from "@/components/dashboard/score-projection"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
@@ -162,6 +163,9 @@ export default function MistakesPage() {
           Прорабатывайте вопросы, в которых ранее ошиблись, чтобы закрыть пробелы быстрее
         </p>
       </div>
+
+      {/* Deterministic score projection — visible to everyone, updates live */}
+      {!isLoading && <ScoreProjection impact={summary?.scoreImpact} />}
 
       {/* Summary stats */}
       <div className="grid gap-4 lg:grid-cols-3">
