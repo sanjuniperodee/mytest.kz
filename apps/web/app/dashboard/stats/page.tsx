@@ -8,6 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/api/auth-context"
 import { BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ExamAnalytics } from "@/components/dashboard/exam-analytics"
+import type { Locale } from "@/lib/api/i18n"
+import type { UserStats } from "@/lib/api/types"
 
 type EntHistorySession = {
   sessionId: string
@@ -66,12 +69,14 @@ function CustomTooltip(props: {
 
 export default function StatsPage() {
   const { user } = useAuth()
+  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const [page, setPage] = useState(1)
   const limit = 50
 
   const { data, isLoading } = useSWR<EntHistoryResponse>(
     `/users/me/ent-history?page=${page}&limit=${limit}`,
   )
+  const { data: stats, isLoading: statsLoading } = useSWR<UserStats>("/users/me/stats")
 
   if (isLoading) {
     return (
@@ -211,6 +216,16 @@ export default function StatsPage() {
           </Card>
         </>
       )}
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold tracking-tight">Детальная статистика</h2>
+        <ExamAnalytics
+          stats={stats}
+          loading={statsLoading}
+          locale={locale}
+          accessByExam={user?.accessByExam ?? []}
+        />
+      </section>
     </div>
   )
 }

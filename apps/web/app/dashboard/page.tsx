@@ -1,51 +1,43 @@
 "use client"
 
 import Link from "next/link"
-import dynamic from "next/dynamic"
 import useSWR from "swr"
 import {
-  Activity,
   ArrowRight,
   BarChart3,
   BookOpen,
   CheckCircle2,
-  Clock3,
-  Gauge,
+  Flame,
   Gift,
+  History,
   ListChecks,
-  ShieldCheck,
   Sparkles,
   Target,
   TrendingUp,
   Trophy,
 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import { AdmissionGoalCard } from "@/components/dashboard/admission-goal-card"
+import { ScoreProjection } from "@/components/dashboard/score-projection"
 import {
-  DashboardEmpty,
-  MiniMetric,
-  ProgressLine,
   SessionStatusBadge,
   StatCard,
 } from "@/components/dashboard/data-display"
-import { clampPct, formatBestPoints, formatDuration } from "@/lib/dashboard/format"
+import { formatBestPoints } from "@/lib/dashboard/format"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale } from "@/lib/api/i18n"
-import type { AccessByExamItem, ExamType, SessionListItem, UserExamStats, UserStats } from "@/lib/api/types"
+import type {
+  AccessByExamItem,
+  ExamType,
+  MistakesSummary,
+  SessionListItem,
+  UserExamStats,
+  UserStats,
+} from "@/lib/api/types"
 
-const EntProgressLineChart = dynamic(
-  () =>
-    import("@/components/dashboard/ent-progress-line-chart").then(
-      (mod) => mod.EntProgressLineChart,
-    ),
-  {
-    ssr: false,
-    loading: () => <Skeleton className="h-64 w-full rounded-lg" />,
-  },
-)
+type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
 
 export default function DashboardHomePage() {
   const { user } = useAuth()
@@ -56,18 +48,13 @@ export default function DashboardHomePage() {
     user?.username ||
     ""
   const { data: stats, isLoading: statsLoading } = useSWR<UserStats>("/users/me/stats")
-  const { data: sessions, isLoading: sessLoading } = useSWR<{ items: SessionListItem[] }>(
-    "/tests/sessions?page=1&limit=5",
+  const { data: summary } = useSWR<MistakesSummary>("/tests/mistakes/summary")
+  const { data: sessions, isLoading: sessLoading } = useSWR<SessionsResponse>(
+    "/tests/sessions?page=1&limit=4",
   )
   const { data: examTypes } = useSWR<ExamType[]>("/exams/types")
 
-  const items = (sessions as { items?: SessionListItem[] } | SessionListItem[] | undefined)
-  const sessionList: SessionListItem[] = Array.isArray(items)
-    ? items
-    : items && Array.isArray(items.items)
-      ? items.items
-      : []
-
+  const sessionList = normalizeSessions(sessions)
   const inProgress = sessionList.find((s) => s.status === "in_progress")
   const entExam = (examTypes || []).find((exam) => exam.slug === "ent")
   const entAccess = user?.accessByExam?.find((item) => item.examSlug === "ent")
@@ -97,9 +84,14 @@ export default function DashboardHomePage() {
       if (!best || best.bestScore == null || item.bestScore > best.bestScore) return item
       return best
     }, null) ?? null
-  const entStats = stats?.byExamType?.find((item) => item.examSlug === "ent")
+  const scoreImpact = summary?.scoreImpact
   const averageResult = stats ? `${Math.round(stats.averageScore)}%` : "—"
-  const bestResult = bestExam ? formatBestPoints(bestExam) : stats?.bestScore ?? "—"
+  const bestResult = bestExam
+    ? formatBestPoints(bestExam)
+    : stats?.bestScore != null
+      ? `${Math.round(stats.bestScore)}%`
+      : "—"
+  const weeklyStreak = stats?.weeklyStreak ?? 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,10 +100,18 @@ export default function DashboardHomePage() {
         <div className="grain pointer-events-none absolute inset-0 opacity-60" />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-2">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-              <Sparkles className="size-3" />
-              Готов к ЕНТ
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+                <Sparkles className="size-3" />
+                Готов к ЕНТ
+              </span>
+              {weeklyStreak > 0 && (
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-800">
+                  <Flame className="size-3" />
+                  {weeklyStreak} нед. подряд
+                </span>
+              )}
+            </div>
             <h1 className="font-serif text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
               Привет{userName ? `, ${userName.split(" ")[0]}` : ""}.
             </h1>
@@ -180,6 +180,21 @@ export default function DashboardHomePage() {
         </div>
       )}
 
+      <NextActionCard
+        inProgress={inProgress}
+        openTotal={summary?.openTotal ?? 0}
+        scoreImpact={scoreImpact}
+        quickStartHref={quickStartHref}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ScoreProjection impact={scoreImpact} />
+        <AdmissionGoalCard
+          currentScore={scoreImpact?.available ? scoreImpact.lastScore : null}
+          potentialScore={scoreImpact?.available ? scoreImpact.potentialScore : null}
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           icon={CheckCircle2}
@@ -203,32 +218,23 @@ export default function DashboardHomePage() {
           accent="amber"
         />
         <StatCard
-          icon={Clock3}
-          label="В процессе"
-          value={stats?.inProgressSessionsCount ?? 0}
+          icon={Flame}
+          label="Серия"
+          value={`${weeklyStreak} нед.`}
           loading={statsLoading}
           accent="orange"
         />
       </div>
-
-      <EntProgressChart item={entStats} loading={statsLoading} />
-
-      <StatsDashboards
-        stats={stats}
-        loading={statsLoading}
-        locale={locale}
-        accessByExam={user?.accessByExam ?? []}
-      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-4">
             <CardTitle>Последние пробники</CardTitle>
             <Link
-              href={quickStartHref}
-              className="text-sm font-medium text-foreground hover:underline inline-flex items-center gap-1"
+              href="/dashboard/history"
+              className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
             >
-              Сдать пробный <ArrowRight className="size-3.5" />
+              Вся история <ArrowRight className="size-3.5" />
             </Link>
           </CardHeader>
           <CardContent>
@@ -250,8 +256,8 @@ export default function DashboardHomePage() {
                       }
                       className="flex items-center justify-between gap-4 py-3 hover:bg-secondary/40 -mx-2 px-2 rounded-md transition-colors"
                     >
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <p className="font-medium truncate">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <p className="truncate font-medium">
                           {localize(s.examType?.name, locale) || "Пробный тест"}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -283,31 +289,37 @@ export default function DashboardHomePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Старт за минуту</CardTitle>
+            <CardTitle>Быстрые действия</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <Button asChild className="h-11">
+            <Button asChild className="h-11 justify-start">
               <Link href={quickStartHref}>
                 <BookOpen className="size-4" />
                 Сдать пробный
               </Link>
             </Button>
-            <Button asChild variant="outline" className="h-11">
+            <Button asChild variant="outline" className="h-11 justify-start">
               <Link href="/dashboard/mistakes">
                 <Target className="size-4" />
                 Работа над ошибками
               </Link>
             </Button>
-            <Button asChild variant="ghost" className="h-11">
+            <Button asChild variant="ghost" className="h-11 justify-start">
               <Link href="/dashboard/leaderboard">
                 <Trophy className="size-4" />
-                Лидерборд ЕНТ
+                Лидерборд
               </Link>
             </Button>
-            <Button asChild variant="ghost" className="h-11">
+            <Button asChild variant="ghost" className="h-11 justify-start">
               <Link href="/dashboard/stats">
-                <TrendingUp className="size-4" />
-                Мой прогресс
+                <BarChart3 className="size-4" />
+                Вся статистика
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="h-11 justify-start">
+              <Link href="/dashboard/history">
+                <History className="size-4" />
+                История
               </Link>
             </Button>
           </CardContent>
@@ -317,332 +329,65 @@ export default function DashboardHomePage() {
   )
 }
 
-function EntProgressChart({
-  item,
-  loading,
+function NextActionCard({
+  inProgress,
+  openTotal,
+  scoreImpact,
+  quickStartHref,
 }: {
-  item?: UserExamStats
-  loading: boolean
+  inProgress?: SessionListItem
+  openTotal: number
+  scoreImpact?: MistakesSummary["scoreImpact"]
+  quickStartHref: string
 }) {
-  const scores = item?.recentScores ?? []
-  const chartData = scores.map((score, index) => ({
-    attempt: index + 1,
-    score: clampPct(score),
-  }))
-  const latest = scores.length > 0 ? clampPct(scores[scores.length - 1]) : null
-  const first = scores.length > 0 ? clampPct(scores[0]) : null
-  const delta = latest != null && first != null ? latest - first : null
+  const action = inProgress
+    ? {
+        title: "Продолжи пробник",
+        text: "Незавершённая попытка ждёт тебя в том же месте.",
+        href: `/exam/${inProgress.id}`,
+        label: "Продолжить",
+        icon: ListChecks,
+      }
+    : openTotal > 0
+      ? {
+          title: "Проработай ошибки",
+          text: `${openTotal} открытых ошибок${
+            scoreImpact?.available ? ` · потенциал +${scoreImpact.recoverable} б.` : ""
+          }`,
+          href: "/dashboard/mistakes",
+          label: "Работа над ошибками",
+          icon: Target,
+        }
+      : {
+          title: "Сдай пробный ЕНТ",
+          text: "Полная попытка обновит прогноз, цель поступления и историю результатов.",
+          href: quickStartHref,
+          label: "Сдать пробный",
+          icon: BookOpen,
+        }
+  const Icon = action.icon
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <TrendingUp className="size-4" />
-          Прогресс ЕНТ
-        </CardTitle>
-        <Badge variant="secondary">последние {scores.length}</Badge>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-64 w-full rounded-lg" />
-        ) : scores.length === 0 ? (
-          <DashboardEmpty
-            icon={TrendingUp}
-            title="График появится после ЕНТ"
-            text="Завершите хотя бы один полный пробный ЕНТ, чтобы увидеть динамику баллов."
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <EntProgressLineChart data={chartData} />
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-              <MiniMetric label="Последний" value={latest != null ? `${latest}%` : "—"} />
-              <MiniMetric label="Лучший балл" value={item ? formatBestPoints(item) : "—"} />
-              <MiniMetric
-                label="Динамика"
-                value={delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta}%`}
-              />
-            </div>
+    <Card className="overflow-hidden rounded-xl border-violet-300 bg-violet-600 text-white">
+      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+            <Icon className="size-5" />
+          </span>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-white/75">
+              Что дальше
+            </p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight">{action.title}</h2>
+            <p className="mt-1 max-w-2xl text-sm text-white/80">{action.text}</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function StatsDashboards({
-  stats,
-  loading,
-  locale,
-  accessByExam,
-}: {
-  stats?: UserStats
-  loading: boolean
-  locale: Locale
-  accessByExam: AccessByExamItem[]
-}) {
-  const byExam = [...(stats?.byExamType ?? [])].sort(
-    (a, b) =>
-      (b.testsCount + (b.inProgressCount ?? 0)) -
-      (a.testsCount + (a.inProgressCount ?? 0)),
-  )
-  const totalStarted = (stats?.completedTests ?? 0) + (stats?.inProgressSessionsCount ?? 0)
-  const completionPct = totalStarted
-    ? Math.round(((stats?.completedTests ?? 0) / totalStarted) * 100)
-    : 0
-
-  return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
-      <ExamStatsPanel items={byExam} loading={loading} locale={locale} />
-      <div className="grid gap-6">
-        <ActivityPanel
-          stats={stats}
-          loading={loading}
-          totalStarted={totalStarted}
-          completionPct={completionPct}
-        />
-        <TrendPanel items={byExam} loading={loading} locale={locale} />
-        <AccessPanel items={accessByExam} loading={false} />
-      </div>
-    </div>
-  )
-}
-
-function ExamStatsPanel({
-  items,
-  loading,
-  locale,
-}: {
-  items: UserExamStats[]
-  loading: boolean
-  locale: Locale
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <BarChart3 className="size-4" />
-          Статистика по экзаменам
-        </CardTitle>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/dashboard/exams">
-            Каталог
-            <ArrowRight className="size-3.5" />
+        </div>
+        <Button asChild variant="secondary" className="h-10 shrink-0">
+          <Link href={action.href}>
+            {action.label}
+            <ArrowRight className="size-4" />
           </Link>
         </Button>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <DashboardEmpty
-            icon={BarChart3}
-            title="Данных пока нет"
-            text="После первого завершённого пробника здесь появится разбивка по экзаменам."
-          />
-        ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {items.map((item) => {
-              const name = localize(item.examType?.name, locale, item.examSlug || "Экзамен")
-              const avg = clampPct(item.averageScore)
-              const correct = clampPct(item.averageCorrectPercent)
-              const attempts = item.testsCount + (item.inProgressCount ?? 0)
-              return (
-                <li key={item.examTypeId} className="py-4 first:pt-0 last:pb-0">
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-medium">{name}</p>
-                        {item.examSlug && (
-                          <Badge variant="secondary" className="font-mono uppercase">
-                            {item.examSlug}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        <MiniMetric label="Попыток" value={attempts} />
-                        <MiniMetric label="Завершено" value={item.completedCount ?? item.testsCount} />
-                        <MiniMetric label="Лучшие баллы" value={formatBestPoints(item)} />
-                        <MiniMetric label="Среднее время" value={formatDuration(item.averageDurationSecs)} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col justify-center gap-3">
-                      <ProgressLine label="Средний результат" value={avg} suffix="%" />
-                      <ProgressLine label="Точность" value={correct} suffix="%" />
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function ActivityPanel({
-  stats,
-  loading,
-  totalStarted,
-  completionPct,
-}: {
-  stats?: UserStats
-  loading: boolean
-  totalStarted: number
-  completionPct: number
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Activity className="size-4" />
-          Активность
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-8 w-28" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-muted-foreground">Завершение пробников</span>
-                <span className="text-2xl font-semibold tabular-nums">{completionPct}%</span>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
-                <div className="h-full bg-foreground" style={{ width: `${completionPct}%` }} />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <MiniMetric label="Начато" value={totalStarted} icon={ListChecks} />
-              <MiniMetric label="Закончено" value={stats?.completedTests ?? 0} icon={CheckCircle2} />
-              <MiniMetric label="В процессе" value={stats?.inProgressSessionsCount ?? 0} icon={Clock3} />
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function TrendPanel({
-  items,
-  loading,
-  locale,
-}: {
-  items: UserExamStats[]
-  loading: boolean
-  locale: Locale
-}) {
-  const withScores = items.filter((item) => (item.recentScores?.length ?? 0) > 0).slice(0, 3)
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Gauge className="size-4" />
-          Динамика результатов
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : withScores.length === 0 ? (
-          <DashboardEmpty
-            icon={Gauge}
-            title="Динамика появится позже"
-            text="Нужно хотя бы несколько завершённых тестов с оценкой."
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {withScores.map((item) => (
-              <div key={item.examTypeId} className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-medium">
-                    {localize(item.examType?.name, locale, item.examSlug || "Экзамен")}
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    {item.recentScores?.at(-1) ?? 0}%
-                  </span>
-                </div>
-                <div
-                  className="flex h-16 items-end gap-1 rounded-md border border-border bg-secondary/40 px-2 py-2"
-                  aria-label="Последние результаты"
-                >
-                  {(item.recentScores ?? []).map((score, idx) => {
-                    const height = Math.max(8, clampPct(score))
-                    return (
-                      <span
-                        key={`${item.examTypeId}-${idx}`}
-                        className="flex-1 rounded-sm bg-foreground/80"
-                        style={{ height: `${height}%` }}
-                        title={`${score}%`}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function AccessPanel({
-  items,
-  loading,
-}: {
-  items: AccessByExamItem[]
-  loading: boolean
-}) {
-  const visible = items.slice(0, 4)
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ShieldCheck className="size-4" />
-          Доступ
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-20 w-full" />
-        ) : visible.length === 0 ? (
-          <DashboardEmpty
-            icon={ShieldCheck}
-            title="Лимиты не загружены"
-            text="Доступ подтянется после обновления профиля."
-          />
-        ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {visible.map((item) => (
-              <li key={item.examTypeId} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium uppercase">{item.examSlug || "exam"}</p>
-                  <p className="text-xs text-muted-foreground">{formatAccessLine(item)}</p>
-                </div>
-                <Badge variant={item.hasAccess ? "default" : "outline"}>
-                  {item.hasAccess ? "Доступ есть" : accessReasonLabel(item.reasonCode)}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
       </CardContent>
     </Card>
   )
@@ -657,19 +402,6 @@ function HeroLimit({ label, value }: { label: string; value: string }) {
       <p className="mt-0.5 truncate font-semibold tabular-nums">{value}</p>
     </div>
   )
-}
-
-function accessReasonLabel(reason: AccessByExamItem["reasonCode"]): string {
-  if (reason === "DAILY_LIMIT_REACHED") return "Лимит дня"
-  if (reason === "TOTAL_LIMIT_EXHAUSTED") return "Лимит исчерпан"
-  if (reason === "NO_ENTITLEMENT") return "Нет доступа"
-  return "Нет доступа"
-}
-
-function formatAccessLine(item: AccessByExamItem): string {
-  if (item.daily.isUnlimited) return "Без дневного лимита"
-  if (item.daily.limit == null) return "Дневной лимит не задан"
-  return `Сегодня: ${item.daily.remaining ?? 0}/${item.daily.limit}`
 }
 
 function formatDailyRemaining(item: AccessByExamItem | undefined): string {
@@ -712,4 +444,10 @@ function EmptySessions({ href }: { href: string }) {
       </Button>
     </div>
   )
+}
+
+function normalizeSessions(data?: SessionsResponse): SessionListItem[] {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  return Array.isArray(data.items) ? data.items : []
 }
