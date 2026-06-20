@@ -290,12 +290,21 @@ function lessonErrorMessage(err: unknown) {
 }
 
 function practiceErrorMessage(err: unknown) {
-  if (!(err instanceof ApiError)) return "Не удалось запустить тренировку"
-  if (err.message === "NO_OPEN_MISTAKES_FOR_THEME") {
-    return "По этой теме нет открытых ошибок"
+  // Not an ApiError → the request never got an HTTP response (connection dropped/blocked).
+  if (!(err instanceof ApiError)) {
+    return "Не удалось связаться с сервером. Проверьте интернет и попробуйте ещё раз."
   }
-  if (err.status === 429) {
-    return "Слишком часто, подождите минуту"
+  switch (err.message) {
+    case "NO_OPEN_MISTAKES_FOR_THEME":
+      return "По этой теме больше нет открытых ошибок — выбери другую."
+    case "NO_OPEN_MISTAKES_FOR_SUBJECT":
+      return "По этому предмету нет открытых ошибок."
+    case "NO_OPEN_MISTAKES":
+      return "Открытых ошибок пока нет."
+    case "EXAM_TYPE_REQUIRED":
+      return "Выберите конкретный экзамен."
   }
-  return err.message || "Не удалось запустить тренировку"
+  if (err.status === 429) return "Слишком часто — подождите минуту и попробуйте снова."
+  if (err.status >= 500) return "Сервис временно недоступен. Попробуйте ещё раз."
+  return "Не удалось запустить тренировку. Попробуйте ещё раз."
 }

@@ -250,18 +250,26 @@ function ThemeRow({
 }
 
 function errorToastMessage(err: unknown, fallback: string) {
-  if (!(err instanceof ApiError)) return fallback
-  if (err.message === "AI_DAILY_LIMIT") {
-    return "Дневной лимит AI исчерпан — продолжишь завтра"
+  // Not an ApiError → connection-level failure (dropped/blocked), not a server reply.
+  if (!(err instanceof ApiError)) {
+    return "Не удалось связаться с сервером. Проверьте интернет и попробуйте ещё раз."
   }
-  if (err.message === "AI_BUSY" || err.status === 503) {
-    return "AI перегружен, попробуйте позже"
+  switch (err.message) {
+    case "AI_DAILY_LIMIT":
+      return "Дневной лимит AI исчерпан — продолжишь завтра"
+    case "AI_BUSY":
+      return "AI перегружен, попробуйте позже"
+    case "NO_OPEN_MISTAKES_FOR_THEME":
+      return "По этой теме больше нет открытых ошибок — выбери другую."
+    case "NO_OPEN_MISTAKES_FOR_SUBJECT":
+      return "По этому предмету нет открытых ошибок."
+    case "NO_OPEN_MISTAKES":
+      return "Открытых ошибок пока нет."
+    case "EXAM_TYPE_REQUIRED":
+      return "Выберите конкретный экзамен."
   }
-  if (err.status === 429) {
-    return "Слишком часто, подождите минуту"
-  }
-  if (err.message === "NO_OPEN_MISTAKES_FOR_THEME") {
-    return "По этой теме нет открытых ошибок"
-  }
-  return err.message || fallback
+  if (err.status === 503) return "AI перегружен, попробуйте позже"
+  if (err.status === 429) return "Слишком часто — подождите минуту и попробуйте снова."
+  if (err.status >= 500) return "Сервис временно недоступен. Попробуйте ещё раз."
+  return fallback
 }
