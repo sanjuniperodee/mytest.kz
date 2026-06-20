@@ -188,6 +188,7 @@ model User {
   notificationDeliveries NotificationDelivery[]
   adminAudits            AdminAudit[]               @relation("AdminAudits")
   aiCoachAnalyses        AiCoachAnalysis[]
+  admissionGoal          UserAdmissionGoal?
 
   @@map("users")
 }
@@ -690,6 +691,24 @@ model GrantCutoff {
   @@index([cycleId, programId])
   @@index([cycleId, quotaType], map: "grant_cutoffs_cycle_quota_idx")
   @@map("grant_cutoffs")
+}
+
+/// A student's chosen admission target (university + specialty). Refs are stored
+/// loosely (no FK) so re-importing admission data never cascade-deletes goals;
+/// names + required score are resolved live from the current cutoffs.
+model UserAdmissionGoal {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @unique @map("user_id") @db.Uuid
+  cycleSlug      String         @map("cycle_slug") @db.VarChar(32)
+  universityCode Int            @map("university_code")
+  programId      String         @map("program_id") @db.Uuid
+  quotaType      GrantQuotaType @default(GRANT) @map("quota_type")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_admission_goals")
 }
 
 enum PaymentOrderStatus {

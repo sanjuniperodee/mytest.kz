@@ -590,3 +590,38 @@ export type AdmissionProgram = EntProgramDto
 export type CompareResult = AdmissionCompareResult
 export type ChanceProgram = ChanceProgramDto
 export type ChanceUniversity = ChanceUniversityDto
+
+// ─── Admission goal (target university/specialty for the dashboard) ─────────────
+
+export interface AdmissionCutoffRow {
+  cycleSlug: string
+  universityCode: number
+  universityName: string
+  universityShortName: string | null
+  programId: string
+  programCode: string
+  programName: string
+  profileVariant: number
+  profileSubjects: string
+  quotaType: "GRANT" | "RURAL"
+  minScore: number | null
+}
+
+export interface AdmissionGoal {
+  cycleSlug: string
+  quotaType: "GRANT" | "RURAL"
+  universityCode: number
+  universityName: string
+  universityShortName: string | null
+  programId: string
+  programCode: string
+  programName: string
+  profileSubjects: string | null
+  /** Required grant cutoff score (null if not published). */
+  requiredScore: number | null
+  maxScore: number
+}
+
+export interface AdmissionGoalResponse {
+  goal: AdmissionGoal | null
+}
