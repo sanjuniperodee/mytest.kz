@@ -355,9 +355,12 @@ export default function ReviewPage({
                                 <span className="text-sm font-medium tabular-nums text-muted-foreground">
                                   №{idx + 1}
                                 </span>
-                                <span className="line-clamp-1 flex-1 text-sm font-normal">
-                                  {q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
-                                </span>
+                                <RichText
+                                  as="span"
+                                  value={q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
+                                  locale={locale}
+                                  className="line-clamp-1 flex-1 text-sm font-normal"
+                                />
                               </div>
                               <div className="flex shrink-0 items-center gap-2">
                                 <Badge
