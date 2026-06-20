@@ -40,7 +40,12 @@ export default function ExamHistoryPage() {
   }`
   const { data, isLoading } = useSWR<SessionsResponse>(sessionsKey)
   const sessions = normalizeSessions(data)
-  const totalPages = Array.isArray(data) ? undefined : data?.totalPages
+  // API returns { total, page, limit } (no totalPages) — derive it so the last
+  // exact-20-item page doesn't enable "Далее" into an empty page.
+  const totalPages = Array.isArray(data)
+    ? undefined
+    : (data?.totalPages ??
+        (data?.total != null ? Math.max(1, Math.ceil(data.total / 20)) : undefined))
   const canGoPrev = page > 1
   const canGoNext = totalPages != null ? page < totalPages : sessions.length === 20
 

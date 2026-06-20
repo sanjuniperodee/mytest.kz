@@ -307,8 +307,10 @@ export class MistakesService {
     });
     if (!entExam) return { available: false };
 
-    // Most recent FULL ЕНТ attempt (maxScore ~140 excludes remediation/single-subject practice).
-    const lastEnt = await this.prisma.testSession.findFirst({
+    // BEST full ЕНТ attempt — this is the student's demonstrated level ("сколько сейчас макс").
+    // Using best (not last) keeps "Сейчас" stable/motivating and guarantees
+    // potential >= current (no paradox). maxScore >= 100 excludes remediation/single-subject.
+    const bestEnt = await this.prisma.testSession.findFirst({
       where: {
         userId,
         examTypeId: entExam.id,
@@ -316,15 +318,15 @@ export class MistakesService {
         rawScore: { not: null },
         maxScore: { gte: 100 },
       },
-      orderBy: { finishedAt: 'desc' },
+      orderBy: [{ rawScore: 'desc' }, { finishedAt: 'desc' }],
       select: { rawScore: true, maxScore: true, finishedAt: true },
     });
-    if (!lastEnt || lastEnt.rawScore == null || lastEnt.maxScore == null) {
+    if (!bestEnt || bestEnt.rawScore == null || bestEnt.maxScore == null) {
       return { available: false };
     }
 
-    const lastScore = lastEnt.rawScore;
-    const maxScore = lastEnt.maxScore;
+    const lastScore = bestEnt.rawScore;
+    const maxScore = bestEnt.maxScore;
     const openCount = open.filter((r) => r.examTypeId === entExam.id).length;
     const lostPoints = Math.max(0, maxScore - lastScore);
     const recoverable = Math.min(openCount, lostPoints);
@@ -335,7 +337,7 @@ export class MistakesService {
       available: true,
       lastScore,
       maxScore,
-      lastTakenAt: lastEnt.finishedAt ? lastEnt.finishedAt.toISOString() : null,
+      lastTakenAt: bestEnt.finishedAt ? bestEnt.finishedAt.toISOString() : null,
       openCount,
       recoverable,
       potentialScore,

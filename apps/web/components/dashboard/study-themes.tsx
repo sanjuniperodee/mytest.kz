@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -79,15 +79,24 @@ export function StudyThemes({
     hasPremium && subjectId && examTypeId
       ? `/ai/mistakes/subjects/${encodeURIComponent(subjectId)}/study-map?examTypeId=${encodeURIComponent(examTypeId)}`
       : null
+  // Auto-refresh while AI is still classifying — but cap the polls so a stalled
+  // classification (e.g. quota) can never poll forever.
+  const pollCountRef = useRef(0)
   const { data, isLoading, error } = useSWR<StudyMap>(studyMapKey, {
-    refreshInterval: (latestData) => (latestData?.pending ? 5000 : 0),
+    refreshInterval: (latestData) =>
+      latestData?.pending && pollCountRef.current < 6 ? 5000 : 0,
+    onSuccess: (latestData) => {
+      if (latestData?.pending) pollCountRef.current += 1
+    },
   })
 
   const maxOpenCount = useMemo(
     () => Math.max(1, ...(data?.themes ?? []).map((theme) => theme.openCount)),
     [data?.themes],
   )
-  const selectedLesson = selectedTheme ? lessons[selectedTheme.themeId] : null
+  // Cache lessons per theme AND language (a lesson is language-specific).
+  const lessonKey = (themeId: string) => `${themeId}:${language}`
+  const selectedLesson = selectedTheme ? lessons[lessonKey(selectedTheme.themeId)] : null
 
   if (!hasPremium) {
     return (
@@ -115,12 +124,13 @@ export function StudyThemes({
 
   const openLesson = async (theme: StudyMapTheme, force = false) => {
     setSelectedTheme(theme)
-    const current = lessons[theme.themeId]
+    const key = lessonKey(theme.themeId)
+    const current = lessons[key]
     if (current?.data && !force) return
 
     setLessons((prev) => ({
       ...prev,
-      [theme.themeId]: { loading: true, data: prev[theme.themeId]?.data ?? null },
+      [key]: { loading: true, data: prev[key]?.data ?? null },
     }))
 
     try {
@@ -130,7 +140,7 @@ export function StudyThemes({
       })
       setLessons((prev) => ({
         ...prev,
-        [theme.themeId]: { loading: false, data: lesson },
+        [key]: { loading: false, data: lesson },
       }))
     } catch (err) {
       if (err instanceof ApiError && (err.status === 402 || err.status === 403)) {
@@ -139,7 +149,7 @@ export function StudyThemes({
       }
       setLessons((prev) => ({
         ...prev,
-        [theme.themeId]: { loading: false, data: prev[theme.themeId]?.data ?? null },
+        [key]: { loading: false, data: prev[key]?.data ?? null },
       }))
       toast.error(errorToastMessage(err, "Не удалось подготовить урок. Попробуйте ещё раз."))
     }
@@ -222,7 +232,7 @@ export function StudyThemes({
                     theme={theme}
                     progressValue={Math.round((theme.openCount / maxOpenCount) * 100)}
                     loadingPractice={startingKey === theme.themeId}
-                    loadingLesson={lessons[theme.themeId]?.loading ?? false}
+                    loadingLesson={lessons[lessonKey(theme.themeId)]?.loading ?? false}
                     onOpenLesson={() => void openLesson(theme)}
                     onPractice={() => void startPractice(theme.themeId)}
                   />

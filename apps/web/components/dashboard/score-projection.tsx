@@ -128,7 +128,7 @@ export function ScoreProjection({ impact }: { impact: EntScoreImpact | undefined
             {resolvedCount > 0 && (
               <span className="inline-flex items-center gap-1 text-emerald-700">
                 <Sparkles className="size-3.5" />
-                уже закрыто: {resolvedCount}
+                недавно исправлено: {resolvedCount}
               </span>
             )}
             <span>

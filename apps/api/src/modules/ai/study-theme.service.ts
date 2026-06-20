@@ -155,8 +155,8 @@ export class StudyThemeService {
     subjectId: string,
     themes: ThemeRow[],
     openQuestionIds: string[],
-  ): Promise<boolean> {
-    if (themes.length === 0 || openQuestionIds.length === 0) return true;
+  ): Promise<'complete' | 'more' | 'stopped'> {
+    if (themes.length === 0 || openQuestionIds.length === 0) return 'complete';
 
     const already = await this.prisma.questionThemeClassification.findMany({
       where: { questionId: { in: openQuestionIds } },
@@ -164,7 +164,7 @@ export class StudyThemeService {
     });
     const done = new Set(already.map((r) => r.questionId));
     const todo = openQuestionIds.filter((id) => !done.has(id));
-    if (todo.length === 0) return true;
+    if (todo.length === 0) return 'complete';
 
     const keyToThemeId = new Map(themes.map((t) => [t.key, t.id]));
     const themeList = themes.map((t) => ({
@@ -178,7 +178,7 @@ export class StudyThemeService {
     let processed = 0;
     for (let i = 0; i < todo.length; i += CLASSIFY_BATCH) {
       if (processed >= MAX_CLASSIFY_BATCHES_PER_CALL) {
-        return false; // more remains for a later load
+        return 'more'; // genuine progress; the rest classifies on a later load
       }
       const batchIds = todo.slice(i, i + CLASSIFY_BATCH);
       const questions = await this.prisma.question.findMany({
@@ -227,13 +227,14 @@ export class StudyThemeService {
           skipDuplicates: true,
         });
       } catch (err) {
-        // Quota/upstream error → stop, mark pending so the rest classifies next time.
+        // Quota/upstream error → stop. NOT "more" — so the client stops polling
+        // (the unclassified rest shows under "Прочие" and classifies on a later visit).
         this.logger.warn(`Classification stopped: ${err instanceof Error ? err.message : err}`);
-        return false;
+        return 'stopped';
       }
       processed++;
     }
-    return true;
+    return 'complete';
   }
 
   // ─── study map ───────────────────────────────────────────────────────────────
@@ -254,8 +255,10 @@ export class StudyThemeService {
     const themes = this.isEnabled() ? await this.ensureTaxonomy(userId, subjectId) : [];
     let pending = false;
     if (themes.length > 0 && openIds.length > 0) {
-      const complete = await this.classifyOpenMistakes(userId, subjectId, themes, openIds);
-      pending = !complete;
+      const status = await this.classifyOpenMistakes(userId, subjectId, themes, openIds);
+      // Only "more" means auto-classification will continue → worth polling.
+      // "stopped" (quota/error) must NOT keep the client polling forever.
+      pending = status === 'more';
     }
 
     const [classifications, activeRows] = await Promise.all([
