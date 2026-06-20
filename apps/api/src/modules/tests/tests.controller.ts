@@ -49,6 +49,7 @@ export class TestsController {
       examTypeId: dto.examTypeId,
       subjectId: dto.subjectId,
       topicId: dto.topicId,
+      themeId: dto.themeId,
       limit: dto.limit,
       durationMins: dto.durationMins,
     });

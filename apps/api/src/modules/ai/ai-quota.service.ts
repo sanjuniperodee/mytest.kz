@@ -3,13 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../database/redis.module';
 
-export type AiCallKind = 'analyze' | 'lesson' | 'explain';
+export type AiCallKind = 'analyze' | 'lesson' | 'explain' | 'classify' | 'taxonomy';
 
 // Relative DeepSeek cost in "credits" per real generation (cache misses / forces only).
 const KIND_COST: Record<AiCallKind, number> = {
   analyze: 3,
   lesson: 5,
   explain: 1,
+  classify: 1, // one batch of question→theme classification
+  taxonomy: 2, // one-time theme list for a subject
 };
 
 const DAY_TTL_SECS = 60 * 60 * 40; // ~40h — covers the day bucket + clock skew.

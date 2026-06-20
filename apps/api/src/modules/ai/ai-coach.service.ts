@@ -725,6 +725,47 @@ export class AiCoachService {
     return lesson;
   }
 
+  /**
+   * Generate a structured lesson from an arbitrary set of source questions and a
+   * theme/topic label — used by the study-theme flow (themes are not DB topics).
+   * Reserves 'lesson' quota and reuses the same sanitizer as topic lessons.
+   */
+  async generateLesson(
+    userId: string,
+    input: {
+      examTypeId: string;
+      subjectId: string;
+      themeId: string;
+      examName: string;
+      subjectName: string;
+      themeName: string;
+      questions: PromptLessonQuestion[];
+      language: AiLanguage;
+    },
+  ): Promise<TopicLesson> {
+    await this.quota.reserve(userId, 'lesson');
+    const raw = await this.deepseek.chatJson<RawTopicLesson>({
+      system: topicLessonSystemPrompt(input.language),
+      user: topicLessonUserPrompt({
+        language: input.language,
+        exam: input.examName,
+        subject: input.subjectName,
+        topic: input.themeName,
+        questions: input.questions,
+      }),
+      temperature: 0.35,
+      maxTokens: 6000,
+      timeoutMs: 120_000,
+    });
+    return this.sanitizeTopicLesson(raw, {
+      examTypeId: input.examTypeId,
+      subjectId: input.subjectId,
+      topicId: input.themeId,
+      subjectName: input.subjectName,
+      topicName: input.themeName,
+    });
+  }
+
   // ─── helpers ───────────────────────────────────────────────────────────────
 
   /** Rough ENT scoring weight hint for the prompt. */

@@ -254,3 +254,87 @@ export function topicLessonUserPrompt(input: {
     schema,
   ].join('\n');
 }
+
+// ─── Study-theme taxonomy (curriculum themes, independent of DB topics) ─────────
+
+export function themeTaxonomySystemPrompt(language: AiLanguage): string {
+  return [
+    'Ты — методист ЕНТ (Казахстан), отлично знающий официальную программу предмета.',
+    'Составь канонический список учебных тем предмета — так, как они разбиты в программе ЕНТ.',
+    'Темы должны покрывать предмет целиком, быть взаимоисключающими и осмысленными (не слишком крупными и не слишком мелкими): обычно 8–16 тем.',
+    'Ориентируйся на свои знания программы ЕНТ; примеры вопросов из банка — лишь подсказка о реальном наполнении, не ограничивайся ими.',
+    `Поле "key" — стабильный латиницей slug (a-z, 0-9, дефис). "name" — на ${LANG_NAME[language]} языке.`,
+    'Верни ТОЛЬКО валидный JSON-объект.',
+  ].join('\n');
+}
+
+export function themeTaxonomyUserPrompt(input: {
+  exam: string;
+  subject: string;
+  sampleQuestions: string[];
+}): string {
+  const schema = `Схема ответа (JSON):
+{
+  "themes": [
+    { "key": "string — латиницей slug", "name": "string — название темы" }
+  ]
+}`;
+  const data = {
+    exam: input.exam,
+    subject: input.subject,
+    sampleQuestions: input.sampleQuestions,
+  };
+  return [
+    'Составь список учебных тем для предмета:',
+    '```json',
+    JSON.stringify(data, null, 2),
+    '```',
+    '',
+    'Дай 8–16 тем, покрывающих программу предмета на ЕНТ.',
+    '',
+    schema,
+  ].join('\n');
+}
+
+// ─── Question → theme classification ────────────────────────────────────────────
+
+export interface PromptClassifyQuestion {
+  ref: number;
+  question: string;
+}
+
+export function classifySystemPrompt(): string {
+  return [
+    'Ты — методист ЕНТ. Отнеси каждый вопрос ровно к ОДНОЙ теме из предложенного списка по его содержанию.',
+    'Если вопрос явно не попадает ни в одну тему — верни key="other".',
+    'Опирайся на суть вопроса, а не на отдельные слова. Верни ТОЛЬКО валидный JSON-объект.',
+  ].join('\n');
+}
+
+export function classifyUserPrompt(input: {
+  subject: string;
+  themes: { key: string; name: string }[];
+  questions: PromptClassifyQuestion[];
+}): string {
+  const schema = `Схема ответа (JSON):
+{
+  "assignments": [
+    { "ref": число, "key": "string — key темы из списка или \\"other\\"" }
+  ]
+}`;
+  const data = {
+    subject: input.subject,
+    themes: input.themes,
+    questions: input.questions,
+  };
+  return [
+    'Классифицируй вопросы по темам:',
+    '```json',
+    JSON.stringify(data, null, 2),
+    '```',
+    '',
+    'Верни assignment для КАЖДОГО ref из questions.',
+    '',
+    schema,
+  ].join('\n');
+}

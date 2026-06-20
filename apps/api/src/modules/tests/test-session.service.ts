@@ -835,6 +835,7 @@ export class TestSessionService {
       examTypeId?: string;
       subjectId?: string;
       topicId?: string;
+      themeId?: string;
       limit?: number;
       durationMins?: number;
     },
@@ -848,19 +849,33 @@ export class TestSessionService {
       throw new BadRequestException('NO_OPEN_MISTAKES');
     }
 
+    // Theme scoping resolves to a question-id set via the global classification map
+    // (themes are AI-derived, not DB topics). Queried directly to avoid a module cycle.
+    let themeQuestionIds: Set<string> | null = null;
+    if (options?.themeId) {
+      const rows = await this.prisma.questionThemeClassification.findMany({
+        where: { themeId: options.themeId },
+        select: { questionId: true },
+      });
+      themeQuestionIds = new Set(rows.map((r) => r.questionId));
+    }
+
     const scopedOpenRows = openRows.filter((r) => {
       if (options?.examTypeId && r.examTypeId !== options.examTypeId) return false;
       if (options?.subjectId && r.subjectId !== options.subjectId) return false;
       if (options?.topicId && r.topicId !== options.topicId) return false;
+      if (themeQuestionIds && !themeQuestionIds.has(r.questionId)) return false;
       return true;
     });
     if (scopedOpenRows.length === 0) {
       throw new BadRequestException(
-        options?.topicId
-          ? 'NO_OPEN_MISTAKES_FOR_TOPIC'
-          : options?.subjectId
-            ? 'NO_OPEN_MISTAKES_FOR_SUBJECT'
-            : 'NO_OPEN_MISTAKES',
+        options?.themeId
+          ? 'NO_OPEN_MISTAKES_FOR_THEME'
+          : options?.topicId
+            ? 'NO_OPEN_MISTAKES_FOR_TOPIC'
+            : options?.subjectId
+              ? 'NO_OPEN_MISTAKES_FOR_SUBJECT'
+              : 'NO_OPEN_MISTAKES',
       );
     }
 
@@ -873,12 +888,15 @@ export class TestSessionService {
       resolvedExamTypeId = [...types][0];
     }
 
-    const questionIdsAll = this.mistakes.getOpenMistakeQuestionIds(
+    let questionIdsAll = this.mistakes.getOpenMistakeQuestionIds(
       latest,
       resolvedExamTypeId,
       options?.subjectId,
       options?.topicId,
     );
+    if (themeQuestionIds) {
+      questionIdsAll = questionIdsAll.filter((id) => themeQuestionIds!.has(id));
+    }
     this.shuffleInPlace(questionIdsAll);
     const questionIds = questionIdsAll.slice(0, capped);
 

@@ -392,6 +392,33 @@ export interface MistakesSubjectDetail {
   }[]
 }
 
+// ─── AI study themes (curriculum-based, independent of DB topics) ───────────────
+
+export interface StudyMapTheme {
+  themeId: string
+  key: string
+  name: string
+  openCount: number
+  activeOpenCount: number
+}
+
+export interface StudyMap {
+  examTypeId: string
+  examName: LocalizedText
+  subjectId: string
+  subjectName: LocalizedText
+  themes: StudyMapTheme[]
+  /** Open mistakes not (yet) assigned to a theme. */
+  otherOpenCount: number
+  otherActiveOpenCount: number
+  openTotal: number
+  activeOpenTotal: number
+  classifiedCount: number
+  unclassifiedCount: number
+  /** True while AI is still classifying the rest of the mistakes (re-fetch later). */
+  pending: boolean
+}
+
 export type EntScoreImpact =
   | { available: false }
   | {

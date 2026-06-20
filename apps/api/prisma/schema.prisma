@@ -28,6 +28,7 @@ model ExamType {
   dailyUsage      UserExamDailyUsage[]
   questionAppeals QuestionAppeal[]
   aiTopicLessons  AiTopicLesson[]
+  studyThemes     SubjectStudyTheme[]
 
   @@map("exam_types")
 }
@@ -46,6 +47,9 @@ model Subject {
   questionAppeals      QuestionAppeal[]
   testTemplateSections TestTemplateSection[]
   aiTopicLessons       AiTopicLesson[]
+  studyThemes          SubjectStudyTheme[]
+  themeClassifications QuestionThemeClassification[]
+  themeLessons         SubjectThemeLesson[]
 
   @@unique([examTypeId, slug])
   @@index([examTypeId, sortOrder])
@@ -86,9 +90,10 @@ model Question {
   topic         Topic            @relation(fields: [topicId], references: [id])
   subject       Subject          @relation(fields: [subjectId], references: [id])
   examType      ExamType         @relation(fields: [examTypeId], references: [id])
-  answerOptions AnswerOption[]
-  testAnswers   TestAnswer[]
-  appeals       QuestionAppeal[]
+  answerOptions       AnswerOption[]
+  testAnswers         TestAnswer[]
+  appeals             QuestionAppeal[]
+  themeClassification QuestionThemeClassification?
 
   @@index([subjectId, isActive, createdAt], map: "questions_subject_active_created_idx")
   @@index([examTypeId, isActive, createdAt], map: "questions_exam_active_created_idx")
@@ -238,6 +243,74 @@ model AiTopicLesson {
   @@index([examTypeId, language])
   @@index([subjectId, language])
   @@map("ai_topic_lessons")
+}
+
+/// Curriculum-aligned study theme for a subject. AI-seeded (not derived from the
+/// unreliable Topic table), editable in admin. The unit students study & drill.
+model SubjectStudyTheme {
+  id          String   @id @default(uuid()) @db.Uuid
+  examTypeId  String   @map("exam_type_id") @db.Uuid
+  subjectId   String   @map("subject_id") @db.Uuid
+  /// Stable slug within a subject, e.g. "quadratic-equations".
+  key         String   @db.VarChar(80)
+  name        Json // { kk, ru, en }
+  description Json?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  examType        ExamType                      @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  subject         Subject                       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  classifications QuestionThemeClassification[]
+  lessons         SubjectThemeLesson[]
+
+  @@unique([subjectId, key])
+  @@index([subjectId, isActive, sortOrder])
+  @@map("subject_study_themes")
+}
+
+/// Global question→theme map (one row per question, shared across all users).
+/// Built lazily by AI classification and cached forever (question content is stable).
+model QuestionThemeClassification {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @unique @map("question_id") @db.Uuid
+  subjectId  String   @map("subject_id") @db.Uuid
+  /// null = AI could not place it / "other".
+  themeId    String?  @map("theme_id") @db.Uuid
+  model      String   @db.VarChar(40)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  question Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  subject  Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  theme    SubjectStudyTheme? @relation(fields: [themeId], references: [id], onDelete: SetNull)
+
+  @@index([subjectId, themeId])
+  @@index([themeId])
+  @@map("question_theme_classifications")
+}
+
+/// Cached AI lesson for a study theme (reuses the TopicLesson result shape).
+model SubjectThemeLesson {
+  id            String   @id @default(uuid()) @db.Uuid
+  themeId       String   @map("theme_id") @db.Uuid
+  subjectId     String   @map("subject_id") @db.Uuid
+  language      String   @db.VarChar(2)
+  lessonVersion String   @map("lesson_version") @db.VarChar(16)
+  model         String   @db.VarChar(40)
+  title         String   @db.VarChar(180)
+  sourceHash    String   @map("source_hash") @db.VarChar(64)
+  result        Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  theme   SubjectStudyTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  subject Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([themeId, language, lessonVersion])
+  @@index([subjectId, language])
+  @@map("subject_theme_lessons")
 }
 
 model AuthSession {

@@ -6,12 +6,20 @@ import { PremiumGuard } from '../../common/guards/premium.guard';
 import { AiController } from './ai.controller';
 import { AiCoachService } from './ai-coach.service';
 import { AiQuotaService } from './ai-quota.service';
+import { StudyThemeService } from './study-theme.service';
 import { DeepseekClient } from './infrastructure/deepseek.client';
 
 @Module({
   imports: [TestsModule, TelegramModule],
   controllers: [AiController],
-  providers: [AiCoachService, AiQuotaService, DeepseekClient, ChannelMemberGuard, PremiumGuard],
-  exports: [AiCoachService],
+  providers: [
+    AiCoachService,
+    AiQuotaService,
+    StudyThemeService,
+    DeepseekClient,
+    ChannelMemberGuard,
+    PremiumGuard,
+  ],
+  exports: [AiCoachService, StudyThemeService],
 })
 export class AiModule {}

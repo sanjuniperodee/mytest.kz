@@ -1,18 +1,23 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
 import { PremiumGuard } from '../../common/guards/premium.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AiCoachService } from './ai-coach.service';
+import { StudyThemeService } from './study-theme.service';
 import { AnalyzeMistakesDto } from './dto/analyze-mistakes.dto';
 import { ExplainMistakeDto } from './dto/explain-mistake.dto';
 import { TopicLessonDto } from './dto/topic-lesson.dto';
+import { ThemeLessonDto } from './dto/theme-lesson.dto';
 
 @Controller('ai')
 @UseGuards(AuthGuard('jwt'), ChannelMemberGuard)
 export class AiController {
-  constructor(private readonly aiCoach: AiCoachService) {}
+  constructor(
+    private readonly aiCoach: AiCoachService,
+    private readonly studyTheme: StudyThemeService,
+  ) {}
 
   /** Whether AI coaching is configured (lets the UI hide AI features gracefully). */
   @Get('status')
@@ -78,5 +83,31 @@ export class AiController {
       language: dto.language,
       force: dto.force,
     });
+  }
+
+  /**
+   * AI-derived study themes for a subject (curriculum-based, not DB topics) with the
+   * user's open-mistake counts per theme. Lazily seeds taxonomy + classifies mistakes.
+   */
+  @Get('mistakes/subjects/:subjectId/study-map')
+  @UseGuards(PremiumGuard)
+  @Throttle({ default: { limit: 12, ttl: 60_000 } })
+  async studyMap(
+    @CurrentUser('id') userId: string,
+    @Param('subjectId') subjectId: string,
+    @Query('examTypeId') examTypeId?: string,
+  ) {
+    return this.studyTheme.getStudyMap(userId, subjectId, examTypeId || undefined);
+  }
+
+  /** Full cached reinforcement lesson for a study theme (built from the theme's questions). */
+  @Post('mistakes/theme-lesson')
+  @UseGuards(PremiumGuard)
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  async themeLesson(
+    @CurrentUser('id') userId: string,
+    @Body() dto: ThemeLessonDto,
+  ) {
+    return this.studyTheme.getThemeLesson(userId, dto.themeId, dto.language, dto.force ?? false);
   }
 }

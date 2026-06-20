@@ -18,6 +18,10 @@ export class MistakesPracticeDto {
   topicId?: string;
 
   @IsOptional()
+  @IsUUID()
+  themeId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
