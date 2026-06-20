@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
@@ -10,23 +10,19 @@ import {
   ArrowLeft,
   BookOpen,
   BrainCircuit,
-  CheckCircle2,
-  Clock3,
   Crown,
-  Layers3,
   Play,
   Target,
-  TrendingUp,
   Zap,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { AiMistakesCoach } from "@/components/dashboard/ai-mistakes-coach"
+import { StudyThemes } from "@/components/dashboard/study-themes"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
@@ -59,11 +55,6 @@ export default function SubjectMistakesPage() {
 
   const subjectName = localize(detail?.subjectName, locale, "Предмет")
   const examName = localize(detail?.examName, locale, "Экзамен")
-  const topics = detail?.topics ?? []
-  const maxTopicCount = Math.max(1, ...topics.map((topic) => topic.openCount))
-  const priorityTopics = useMemo(() => topics.slice(0, 3), [topics])
-  const strongestSignal = priorityTopics[0]
-
   const launch = async (scope: { topicId?: string } = {}) => {
     if (!detail) return
     if (!hasPremium) {
@@ -179,7 +170,7 @@ export default function SubjectMistakesPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
           loading={isLoading}
           icon={<Target className="size-4" />}
@@ -194,88 +185,26 @@ export default function SubjectMistakesPage() {
           value={detail?.activeOpenTotal ?? 0}
           hint="Активные вопросы в текущем банке"
         />
-        <MetricCard
-          loading={isLoading}
-          icon={<Layers3 className="size-4" />}
-          label="Слабых тем"
-          value={detail?.topicCount ?? 0}
-          hint="Группировка ошибок по темам"
-        />
-        <MetricCard
-          loading={isLoading}
-          icon={<TrendingUp className="size-4" />}
-          label="Главный приоритет"
-          value={strongestSignal?.openCount ?? 0}
-          hint={strongestSignal ? localize(strongestSignal.topicName, locale, "Тема") : "Пока нет"}
-        />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Layers3 className="size-4" />
-            Темы внутри предмета
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-16" />
-              ))}
-            </div>
-          ) : topics.length === 0 ? (
-            <div className="flex items-center gap-3 rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-              <CheckCircle2 className="size-4 text-emerald-600" />
-              Открытых ошибок по этому предмету нет.
-            </div>
-          ) : (
-            topics.map((topic, index) => {
-              const topicName = localize(topic.topicName, locale, "Тема")
-              const pct = Math.round((topic.openCount / maxTopicCount) * 100)
-              const key = topic.topicId
-              return (
-                <div
-                  key={topic.topicId}
-                  className="grid gap-3 rounded-md border border-border bg-card p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                        #{index + 1}
-                      </span>
-                      <p className="min-w-0 truncate font-medium">{topicName}</p>
-                      {topic.lastWrongAt && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
-                          <Clock3 className="size-3" />
-                          {formatDate(topic.lastWrongAt, locale)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <Progress value={pct} className="h-2 flex-1 [&>div]:bg-violet-600" />
-                      <span className="w-20 text-right text-xs tabular-nums text-muted-foreground">
-                        {topic.openCount} ош.
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void launch({ topicId: topic.topicId })}
-                      disabled={topic.activeOpenCount === 0 || startingKey != null}
-                    >
-                      {startingKey === key ? <Spinner className="size-4" /> : <Play className="size-4" />}
-                      Тренировать тему
-                    </Button>
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
+      {detail ? (
+        <StudyThemes
+          subjectId={detail.subjectId}
+          examTypeId={detail.examTypeId}
+          language={language}
+          hasPremium={hasPremium}
+          limit={limit}
+          duration={duration}
+        />
+      ) : (
+        <Card>
+          <CardContent className="space-y-3 p-6">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -407,11 +336,4 @@ function RangeControl({
       />
     </div>
   )
-}
-
-function formatDate(value: string, locale: Locale) {
-  return new Intl.DateTimeFormat(locale === "kk" ? "kk-KZ" : "ru-RU", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(value))
 }
