@@ -165,6 +165,25 @@ export class TestSessionService {
       resolvedEntScope,
     );
 
+    // Бесплатная попытка → детерминированный тест: один и тот же набор/порядок вопросов
+    // для данной конфигурации (предмет/режим/язык) у ЛЮБОГО аккаунта. Это убирает абуз,
+    // когда юзер создаёт новые аккаунты ради нового бесплатного теста. Платные попытки
+    // остаются рандомизированными (+ свежие вопросы вперёд). seed детерминируется по
+    // предмету внутри генератора (`seed|subjectId`), поэтому пара/обязательные блоки
+    // фиксированы и независимы от того, в каком режиме их запросили.
+    const attemptTier = await this.accessService.peekNextAttemptTier?.(
+      userId,
+      template.examTypeId,
+    );
+    const freeSeed =
+      attemptTier === 'free' ? `free|${templateId}|${language ?? ''}` : undefined;
+    const generatorOpts =
+      examSlug === 'ent' && resolvedEntScope
+        ? { entScope: resolvedEntScope, ...(freeSeed ? { seed: freeSeed } : {}) }
+        : freeSeed
+          ? { seed: freeSeed }
+          : undefined;
+
     // Generate questions with sections
     const sections = await this.generator.generateFromTemplate(
       templateId,
@@ -172,9 +191,7 @@ export class TestSessionService {
       profileQuestionCount,
       userId,
       language,
-      examSlug === 'ent' && resolvedEntScope
-        ? { entScope: resolvedEntScope }
-        : undefined,
+      generatorOpts,
     );
 
     await this.assertGeneratedQuestionsMatchSections(template.examTypeId, sections);

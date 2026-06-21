@@ -241,6 +241,113 @@ export class AccessService {
     });
   }
 
+  /**
+   * Read-only peek at the tier of the entitlement the NEXT attempt would consume,
+   * without consuming it. Mirrors the same candidate-selection logic used by
+   * assertAndConsume (V2) / consumeLegacyAttempt (LEGACY).
+   *
+   * Used so a FREE attempt can be generated deterministically (same test for every
+   * account) while paid attempts stay randomized. Never throws — on any error or
+   * ambiguity it returns null, so a failed peek simply falls back to a random test.
+   */
+  async peekNextAttemptTier(
+    userId: string,
+    examTypeId: string,
+  ): Promise<'free' | 'paid' | null> {
+    try {
+      if (!this.v2Enabled) {
+        return await this.peekLegacyAttemptTier(userId, examTypeId);
+      }
+      return await this.prisma.$transaction(async (tx) => {
+        const now = new Date();
+        const exam = await tx.examType.findUnique({
+          where: { id: examTypeId },
+          select: { id: true, slug: true },
+        });
+        if (!exam) return null;
+
+        // Idempotent grants/syncs so brand-new accounts correctly resolve to their
+        // free signup entitlement (the exact abuse vector we're hardening).
+        await this.ensureSignupEntitlementsTx(tx, userId, now);
+        await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
+        await this.expireEndedEntitlements(tx, userId, exam.id, now);
+
+        const decision = await this.getAccessDecisionTx(tx, userId, exam.id, now);
+        if (!decision.allowed || !decision.candidate) return null;
+        return decision.candidate.entitlement.tier === EntitlementTier.free
+          ? 'free'
+          : 'paid';
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  private async peekLegacyAttemptTier(
+    userId: string,
+    examTypeId: string,
+  ): Promise<'free' | 'paid' | null> {
+    const exam = await this.prisma.examType.findUnique({
+      where: { id: examTypeId },
+      select: { slug: true },
+    });
+    if (!exam) return null;
+    // Non-ENT exams are unlimited in legacy mode → treat as paid (randomized).
+    if (exam.slug !== 'ent') return 'paid';
+
+    const now = new Date();
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { entTrialUsed: true, createdAt: true },
+    });
+    if (!user) return null;
+
+    const activeSubscriptions = await this.prisma.subscription.findMany({
+      where: {
+        userId,
+        isActive: true,
+        startsAt: { lte: now },
+        expiresAt: { gt: now },
+      },
+      select: { planType: true, startsAt: true, expiresAt: true },
+    });
+
+    // Unlimited paid subscription wins first (same precedence as consume).
+    if (
+      activeSubscriptions.some(
+        (s) =>
+          this.subscriptionTotalAttemptsLimit(s.planType) == null &&
+          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
+      )
+    ) {
+      return 'paid';
+    }
+
+    // Limited subscription with attempts remaining.
+    for (const sub of activeSubscriptions.filter(
+      (s) => this.subscriptionTotalAttemptsLimit(s.planType) != null,
+    )) {
+      const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
+      const used = await this.prisma.testSession.count({
+        where: {
+          userId,
+          examTypeId,
+          startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
+        },
+      });
+      if (used < limit) {
+        return this.subscriptionEntitlementTier(sub.planType) === EntitlementTier.paid
+          ? 'paid'
+          : 'free';
+      }
+    }
+
+    // Falls back to the signup free trial.
+    const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
+    if (user.entTrialUsed < legacyFreeLimit) return 'free';
+    return null;
+  }
+
   async getUserAccessByExam(userId: string): Promise<AccessExamStatus[]> {
     const now = new Date();
     if (!this.v2Enabled) {
