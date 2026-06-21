@@ -33,7 +33,7 @@ import {
 
 // Bump when prompt/schema changes so cached analyses regenerate.
 const PROMPT_VERSION = 'v1';
-const LESSON_VERSION = 'v1';
+const LESSON_VERSION = 'v2';
 const MAX_SUBJECTS = 6;
 const MAX_QUESTIONS_PER_SUBJECT = 6;
 const MAX_TOTAL_QUESTIONS = 30;
@@ -681,7 +681,7 @@ export class AiCoachService {
         questions: promptQuestions,
       }),
       temperature: 0.35,
-      maxTokens: 6000,
+      maxTokens: 8000,
       timeoutMs: 120_000,
     });
 
@@ -754,7 +754,7 @@ export class AiCoachService {
         questions: input.questions,
       }),
       temperature: 0.35,
-      maxTokens: 6000,
+      maxTokens: 8000,
       timeoutMs: 120_000,
     });
     return this.sanitizeTopicLesson(raw, {
@@ -886,7 +886,7 @@ export class AiCoachService {
         content: asText(s.content),
       }))
       .filter((s) => s.title || s.content)
-      .slice(0, 6);
+      .slice(0, 8);
 
     const formulas = asRecordList(raw.formulas)
       .map((f) => ({
@@ -894,7 +894,7 @@ export class AiCoachService {
         note: asText(f.note),
       }))
       .filter((f) => f.latex || f.note)
-      .slice(0, 6);
+      .slice(0, 8);
 
     const visualizations = asRecordList(raw.visualizations)
       .map((v) => ({
@@ -919,14 +919,14 @@ export class AiCoachService {
       .map((ex) => ({
         title: asText(ex.title).slice(0, 140),
         question: asText(ex.question),
-        steps: asTextList(ex.steps, 8),
+        steps: asTextList(ex.steps, 12),
         answer: asText(ex.answer),
         trap: asText(ex.trap),
       }))
       .filter((ex) => ex.question || ex.steps.length > 0)
-      .slice(0, 4);
+      .slice(0, 6);
 
-    const practice = sanitizePractice(raw.practice, 6);
+    const practice = sanitizePractice(raw.practice, 8);
     const miniTest = sanitizePractice(raw.miniTest, 5);
     const title = asText(raw.title) || `Урок: ${meta.topicName || 'тема'}`;
 
@@ -948,8 +948,8 @@ export class AiCoachService {
       visualizations,
       workedExamples,
       practice,
-      commonTraps: asTextList(raw.commonTraps, 8),
-      checklist: asTextList(raw.checklist, 8),
+      commonTraps: asTextList(raw.commonTraps, 10),
+      checklist: asTextList(raw.checklist, 10),
       miniTest,
     };
   }

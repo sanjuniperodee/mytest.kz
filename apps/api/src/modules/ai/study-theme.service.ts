@@ -17,7 +17,7 @@ import {
 } from './ai.prompts';
 
 const TAXONOMY_LANG: AiLanguage = 'ru'; // canonical theme names; shared across users
-const LESSON_VERSION = 'v1';
+const LESSON_VERSION = 'v2';
 const TAXONOMY_SAMPLE = 30;
 const CLASSIFY_BATCH = 40;
 const MAX_CLASSIFY_BATCHES_PER_CALL = 6; // bound cost per study-map load
