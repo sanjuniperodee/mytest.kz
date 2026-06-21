@@ -17,6 +17,14 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { RichText } from "@/components/exam/rich-text"
@@ -42,6 +50,7 @@ export default function ThemeLessonPage() {
   const [status, setStatus] = useState<LessonStatus>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [training, setTraining] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
   const [noteMessage, setNoteMessage] = useState("")
   const [noteSubmitting, setNoteSubmitting] = useState(false)
 
@@ -126,6 +135,7 @@ export default function ThemeLessonPage() {
         body: { message },
       })
       setNoteMessage("")
+      setNoteOpen(false)
       toast.success("Замечание отправлено админу")
     } catch (err) {
       toast.error(lessonNoteErrorMessage(err))
@@ -136,7 +146,7 @@ export default function ThemeLessonPage() {
 
   if (authLoading) {
     return (
-      <div className="mx-auto flex min-h-80 w-full max-w-5xl items-center justify-center gap-3 text-sm text-muted-foreground">
+      <div className="mx-auto flex min-h-80 w-full max-w-7xl items-center justify-center gap-3 text-sm text-muted-foreground">
         <Spinner className="size-5 text-violet-600" />
         Загружаем доступ...
       </div>
@@ -145,7 +155,7 @@ export default function ThemeLessonPage() {
 
   if (!hasPremium) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
           <Link href="/dashboard/mistakes">
             <ArrowLeft className="size-4" />
@@ -177,7 +187,7 @@ export default function ThemeLessonPage() {
 
   if (status === "loading" && !lesson) {
     return (
-      <div className="mx-auto flex min-h-80 w-full max-w-5xl items-center justify-center gap-3 rounded-xl border border-violet-100 bg-violet-50 text-sm text-violet-950">
+      <div className="mx-auto flex min-h-80 w-full max-w-7xl items-center justify-center gap-3 rounded-xl border border-violet-100 bg-violet-50 text-sm text-violet-950">
         <Spinner className="size-6 text-violet-600" />
         AI готовит полный урок...
       </div>
@@ -186,7 +196,7 @@ export default function ThemeLessonPage() {
 
   if (!lesson) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
           <Link href="/dashboard/mistakes">
             <ArrowLeft className="size-4" />
@@ -209,7 +219,7 @@ export default function ThemeLessonPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
       <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
         <Link href={`/dashboard/mistakes/subjects/${lesson.subjectId}`}>
           <ArrowLeft className="size-4" />
@@ -219,19 +229,32 @@ export default function ThemeLessonPage() {
 
       <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-card to-violet-50/70">
         <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <BookOpen className="size-4 text-emerald-600" />
-              <RichText value={lesson.subjectName} locale={language} as="span" />
-              <span>·</span>
-              <RichText value={lesson.topicName} locale={language} as="span" />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <BookOpen className="size-4 text-emerald-600" />
+                <RichText value={lesson.subjectName} locale={language} as="span" />
+                <span>·</span>
+                <RichText value={lesson.topicName} locale={language} as="span" />
+              </div>
+              <RichText
+                value={lesson.title}
+                locale={language}
+                as="div"
+                className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl"
+              />
             </div>
-            <RichText
-              value={lesson.title}
-              locale={language}
-              as="div"
-              className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl"
-            />
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:w-[340px]">
+              <Button type="button" size="lg" onClick={() => void startPractice()} disabled={training}>
+                {training ? <Spinner className="size-4" /> : <Play className="size-4" />}
+                Тренировать
+              </Button>
+              <Button type="button" size="lg" variant="outline" onClick={() => setNoteOpen(true)}>
+                <MessageSquare className="size-4" />
+                Замечание
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -253,66 +276,62 @@ export default function ThemeLessonPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
-        <main className="min-w-0">
-          <FullLessonReader lesson={lesson} language={language} />
-          <p className="mt-6 text-sm text-muted-foreground">
-            {lesson.cached ? "Сохранённый урок" : "Сгенерировано сейчас"} · {lesson.model}
-          </p>
-        </main>
+      {presentSections.length > 0 && (
+        <nav className="flex flex-wrap gap-2 rounded-xl border border-border bg-card p-3">
+          {presentSections.map((section) => (
+            <a
+              key={section.id}
+              href={`#sec-${section.id}`}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              {section.label}
+            </a>
+          ))}
+        </nav>
+      )}
 
-        <aside className="lg:sticky lg:top-20">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <Sparkles className="size-4 text-violet-600" />
-              Разделы урока
-            </div>
-            {presentSections.length > 0 && (
-              <nav className="mb-4 grid gap-1">
-                {presentSections.map((section) => (
-                  <a
-                    key={section.id}
-                    href={`#sec-${section.id}`}
-                    className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  >
-                    {section.label}
-                  </a>
-                ))}
-              </nav>
-            )}
-            <div className="grid gap-2">
-              <Button type="button" onClick={() => void startPractice()} disabled={training}>
-                {training ? <Spinner className="size-4" /> : <Play className="size-4" />}
-                Тренировать тему
-              </Button>
-            </div>
+      <main className="min-w-0">
+        <FullLessonReader lesson={lesson} language={language} />
+        <p className="mt-6 text-sm text-muted-foreground">
+          {lesson.cached ? "Сохранённый урок" : "Сгенерировано сейчас"} · {lesson.model}
+        </p>
+      </main>
 
-            <div className="mt-4 border-t border-border pt-4">
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                <MessageSquare className="size-4 text-amber-600" />
-                Замечание к уроку
-              </div>
-              <Textarea
-                value={noteMessage}
-                onChange={(event) => setNoteMessage(event.target.value)}
-                placeholder="Например: в этой формуле ошибка или тема названа неточно"
-                className="min-h-24 resize-none text-sm"
-                maxLength={2000}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-2 w-full"
-                onClick={() => void submitLessonNote()}
-                disabled={noteSubmitting || noteMessage.trim().length < 12}
-              >
-                {noteSubmitting ? <Spinner className="size-4" /> : <Send className="size-4" />}
-                Отправить админу
-              </Button>
-            </div>
-          </div>
-        </aside>
-      </div>
+      <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Замечание к уроку</DialogTitle>
+            <DialogDescription>
+              Сообщение попадёт админу, а сам урок ученики обновлять не могут.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={noteMessage}
+            onChange={(event) => setNoteMessage(event.target.value)}
+            placeholder="Например: в этой формуле ошибка или тема названа неточно"
+            className="min-h-32 resize-none text-sm"
+            maxLength={2000}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setNoteOpen(false)}
+              disabled={noteSubmitting}
+            >
+              Закрыть
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void submitLessonNote()}
+              disabled={noteSubmitting || noteMessage.trim().length < 12}
+            >
+              {noteSubmitting ? <Spinner className="size-4" /> : <Send className="size-4" />}
+              Отправить админу
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

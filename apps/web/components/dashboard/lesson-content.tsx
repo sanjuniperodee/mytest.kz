@@ -94,71 +94,75 @@ export function FullLessonReader({
   const canGoNext = pageIndex < pages.length - 1
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
-      <aside className="lg:sticky lg:top-20">
-        <div className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold">
+    <div className="flex flex-col gap-5">
+      <section className="rounded-xl border border-border bg-card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold">
             <BookOpen className="size-4 text-emerald-600" />
             Страницы урока
           </div>
-          <div className="grid gap-1">
-            {pages.map((item, index) => (
-              <button
-                key={`${item.slug}-${index}`}
-                type="button"
-                onClick={() => setActiveIndex(index)}
-                className={cn(
-                  "grid grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors",
-                  index === pageIndex
-                    ? "bg-emerald-50 text-emerald-950"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex size-7 items-center justify-center rounded-md text-xs font-semibold tabular-nums",
-                    index === pageIndex ? "bg-emerald-600 text-white" : "bg-secondary text-muted-foreground",
-                  )}
-                >
-                  {index + 1}
-                </span>
-                <span className="min-w-0 truncate">{item.title || `Страница ${index + 1}`}</span>
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-semibold uppercase text-emerald-700">
+              {pageIndex + 1}/{pages.length}
+            </p>
+            <div className="h-2 w-36 overflow-hidden rounded-full bg-secondary">
+              <div
+                className="h-full rounded-full bg-emerald-600 transition-all"
+                style={{ width: `${Math.round(((pageIndex + 1) / pages.length) * 100)}%` }}
+              />
+            </div>
           </div>
         </div>
-      </aside>
 
-      <article className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-emerald-700">
-              Страница {pageIndex + 1} из {pages.length}
-            </p>
-            <RichText value={page.title} locale={language} as="div" className="mt-1 text-xl font-semibold leading-tight" />
-          </div>
-          <div className="h-2 w-28 overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-emerald-600 transition-all"
-              style={{ width: `${Math.round(((pageIndex + 1) / pages.length) * 100)}%` }}
-            />
-          </div>
+        <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">
+          {pages.map((item, index) => (
+            <button
+              key={`${item.slug}-${index}`}
+              type="button"
+              onClick={() => setActiveIndex(index)}
+              className={cn(
+                "grid min-w-[12rem] max-w-[18rem] flex-1 grid-cols-[2rem_minmax(0,1fr)] items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                index === pageIndex
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                  : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-md text-xs font-semibold tabular-nums",
+                  index === pageIndex ? "bg-emerald-600 text-white" : "bg-background text-muted-foreground",
+                )}
+              >
+                {index + 1}
+              </span>
+              <span className="min-w-0 truncate">{item.title || `Страница ${index + 1}`}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <article className="min-w-0 rounded-xl border border-border bg-card p-5 sm:p-6 lg:p-8">
+        <div className="mb-5 border-b border-border pb-5">
+          <p className="text-xs font-semibold uppercase text-emerald-700">
+            Страница {pageIndex + 1} из {pages.length}
+          </p>
+          <RichText value={page.title} locale={language} as="div" className="mt-2 text-2xl font-semibold leading-tight" />
         </div>
 
         {page.goal && (
-          <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+          <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
             <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Цель страницы</p>
             <RichText value={page.goal} locale={language} as="div" className="text-sm leading-6 text-emerald-950" />
           </div>
         )}
 
-        <RichText value={page.content} locale={language} as="div" className="text-sm leading-7 text-muted-foreground" />
+        <RichText value={page.content} locale={language} as="div" className="text-base leading-8 text-foreground/85" />
 
         {page.examples.length > 0 && (
-          <div className="mt-5 grid gap-3">
-            <h3 className="text-base font-semibold">Примеры на этой странице</h3>
+          <div className="mt-7 grid gap-3">
+            <h3 className="text-lg font-semibold">Примеры на этой странице</h3>
             {page.examples.map((example, index) => (
-              <div key={`${example.title}-${index}`} className="rounded-xl border border-border p-4">
+              <div key={`${example.title}-${index}`} className="rounded-xl border border-border p-4 sm:p-5">
                 <RichText value={example.title || `Пример ${index + 1}`} locale={language} as="div" className="font-semibold" />
                 <RichText value={example.question} locale={language} as="div" className="mt-2 text-sm leading-6" />
                 {example.steps.length > 0 && (
@@ -191,15 +195,15 @@ export function FullLessonReader({
         )}
 
         {page.practice.length > 0 && (
-          <div className="mt-5 grid gap-3">
-            <h3 className="text-base font-semibold">Закрепление</h3>
+          <div className="mt-7 grid gap-3">
+            <h3 className="text-lg font-semibold">Закрепление</h3>
             <TaskList tasks={page.practice} language={language} />
           </div>
         )}
 
         {page.checklist.length > 0 && (
-          <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-            <h3 className="mb-3 text-base font-semibold text-emerald-950">Проверь себя</h3>
+          <div className="mt-7 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <h3 className="mb-3 text-lg font-semibold text-emerald-950">Проверь себя</h3>
             <BulletList items={page.checklist} language={language} tone="emerald" />
           </div>
         )}
