@@ -386,27 +386,28 @@ export class TestSessionService {
 
     if (!session) throw new NotFoundException('Session not found');
 
-    // Calculate real time remaining (template-based or remediation metadata)
+    // Calculate real time remaining (template-based or remediation metadata).
+    // While paused, the clock is frozen and the session must NOT auto-finish.
+    const paused = this.isSessionPaused(session.metadata);
     if (session.status === 'in_progress') {
       const durationMins = await this.getDurationMinsForSession(session);
       if (durationMins != null) {
-        const elapsed = Math.floor(
-          (Date.now() - session.startedAt.getTime()) / 1000,
-        );
+        const elapsed = this.getElapsedSecs(session, Date.now());
         const remaining = durationMins * 60 - elapsed;
 
-        if (remaining <= 0) {
+        if (remaining <= 0 && !paused) {
           await this.finishTest(sessionId, userId, true);
           session.status = 'timed_out';
           session.timeRemaining = 0;
         } else {
-          session.timeRemaining = remaining;
+          session.timeRemaining = Math.max(0, remaining);
         }
       }
     }
 
     return {
       ...this.normalizeSessionScore(session),
+      isPaused: paused && session.status === 'in_progress',
       appeals,
     };
   }
@@ -466,10 +467,11 @@ export class TestSessionService {
         let serverTimeRemaining: number | null = null;
 
         if (durationMins != null) {
-          const elapsed = Math.floor(
-            (Date.now() - session.startedAt.getTime()) / 1000,
-          );
-          if (elapsed > durationMins * 60) {
+          // Pause-aware: a paused session never times out, and its remaining
+          // time stays frozen (a late debounced answer can still be saved).
+          const paused = this.isSessionPaused(session.metadata);
+          const elapsed = this.getElapsedSecs(session, Date.now());
+          if (elapsed > durationMins * 60 && !paused) {
             shouldFinishTimedOut = true;
             throw new BadRequestException('Time expired');
           }
@@ -545,9 +547,8 @@ export class TestSessionService {
 
       const scoreResult = await this.scorer.calculateScore(sessionId, tx);
 
-      const elapsed = Math.floor(
-        (Date.now() - session.startedAt.getTime()) / 1000,
-      );
+      // Working time excludes any paused intervals.
+      const elapsed = this.getElapsedSecs(session, Date.now());
 
       const scored = await tx.testSession.update({
         where: { id: sessionId },
@@ -586,6 +587,105 @@ export class TestSessionService {
     });
 
     return this.normalizeSessionScore(updated);
+  }
+
+  /**
+   * Ставит активную сессию на паузу: фиксирует момент паузы в metadata и замораживает
+   * оставшееся время. Идемпотентно. Если времени уже не осталось — завершает по таймауту.
+   */
+  async pauseSession(sessionId: string, userId: string) {
+    const session = await this.prisma.testSession.findFirst({
+      where: { id: sessionId, userId },
+      include: { examType: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+    if (session.status !== 'in_progress') {
+      throw new BadRequestException('SESSION_NOT_IN_PROGRESS');
+    }
+
+    const meta = this.asPlainMetadata(session.metadata);
+    if (this.isSessionPaused(meta)) {
+      // Уже на паузе — возвращаем текущее состояние без изменений.
+      return { ...this.normalizeSessionScore(session), isPaused: true };
+    }
+
+    const nowMs = Date.now();
+    const durationMins = await this.getDurationMinsForSession(session);
+    let remaining = session.timeRemaining ?? null;
+    if (durationMins != null) {
+      const elapsed = this.getElapsedSecs(session, nowMs);
+      remaining = durationMins * 60 - elapsed;
+      if (remaining <= 0) {
+        await this.finishTest(sessionId, userId, true);
+        throw new BadRequestException('TIME_EXPIRED');
+      }
+    }
+
+    const nextMeta = { ...meta, pausedAt: new Date(nowMs).toISOString() };
+    const claim = await this.prisma.testSession.updateMany({
+      where: { id: sessionId, userId, status: 'in_progress' },
+      data: {
+        metadata: nextMeta as Prisma.InputJsonValue,
+        ...(remaining != null ? { timeRemaining: Math.max(0, remaining) } : {}),
+      },
+    });
+    if (claim.count === 0) throw new BadRequestException('SESSION_NOT_IN_PROGRESS');
+
+    const fresh = await this.prisma.testSession.findFirst({
+      where: { id: sessionId, userId },
+      include: { examType: true },
+    });
+    return { ...this.normalizeSessionScore(fresh ?? session), isPaused: true };
+  }
+
+  /**
+   * Снимает сессию с паузы: накапливает длительность паузы в metadata.pausedMs и
+   * пересчитывает оставшееся время. Идемпотентно (если сессия не на паузе — no-op).
+   */
+  async resumeSession(sessionId: string, userId: string) {
+    const session = await this.prisma.testSession.findFirst({
+      where: { id: sessionId, userId },
+      include: { examType: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+    if (session.status !== 'in_progress') {
+      throw new BadRequestException('SESSION_NOT_IN_PROGRESS');
+    }
+
+    const meta = this.asPlainMetadata(session.metadata);
+    const { pausedAtMs, pausedMs } = this.getPauseState(meta);
+    if (pausedAtMs == null) {
+      return { ...this.normalizeSessionScore(session), isPaused: false };
+    }
+
+    const nowMs = Date.now();
+    const accumulatedPausedMs = pausedMs + Math.max(0, nowMs - pausedAtMs);
+    const nextMeta: Record<string, unknown> = { ...meta, pausedMs: accumulatedPausedMs };
+    delete nextMeta.pausedAt;
+
+    let remaining = session.timeRemaining ?? null;
+    const durationMins = await this.getDurationMinsForSession(session);
+    if (durationMins != null) {
+      const effectiveSecs = Math.floor(
+        Math.max(0, nowMs - session.startedAt.getTime() - accumulatedPausedMs) / 1000,
+      );
+      remaining = Math.max(0, durationMins * 60 - effectiveSecs);
+    }
+
+    const claim = await this.prisma.testSession.updateMany({
+      where: { id: sessionId, userId, status: 'in_progress' },
+      data: {
+        metadata: nextMeta as Prisma.InputJsonValue,
+        ...(remaining != null ? { timeRemaining: remaining } : {}),
+      },
+    });
+    if (claim.count === 0) throw new BadRequestException('SESSION_NOT_IN_PROGRESS');
+
+    const fresh = await this.prisma.testSession.findFirst({
+      where: { id: sessionId, userId },
+      include: { examType: true },
+    });
+    return { ...this.normalizeSessionScore(fresh ?? session), isPaused: false };
   }
 
   async getReview(sessionId: string, userId: string) {
@@ -1045,6 +1145,51 @@ export class TestSessionService {
       return {};
     }
     return { ...(metadata as Record<string, unknown>) };
+  }
+
+  /**
+   * Состояние паузы из metadata:
+   * - `pausedAtMs` — момент текущей (незавершённой) паузы, либо null если сессия идёт;
+   * - `pausedMs`   — суммарно «замороженное» время предыдущих пауз.
+   */
+  private getPauseState(metadata: unknown): {
+    pausedAtMs: number | null;
+    pausedMs: number;
+  } {
+    const meta = (metadata || {}) as { pausedAt?: unknown; pausedMs?: unknown };
+    const parsedAt =
+      typeof meta.pausedAt === 'string' && meta.pausedAt.trim().length > 0
+        ? Date.parse(meta.pausedAt)
+        : NaN;
+    const pausedMs =
+      typeof meta.pausedMs === 'number' &&
+      Number.isFinite(meta.pausedMs) &&
+      meta.pausedMs > 0
+        ? meta.pausedMs
+        : 0;
+    return {
+      pausedAtMs: Number.isFinite(parsedAt) ? parsedAt : null,
+      pausedMs,
+    };
+  }
+
+  private isSessionPaused(metadata: unknown): boolean {
+    return this.getPauseState(metadata).pausedAtMs != null;
+  }
+
+  /**
+   * Прошедшее время сессии за вычетом пауз (в секундах). Пока сессия на паузе,
+   * результат «заморожен»: рост (now − startedAt) компенсируется ростом текущей паузы.
+   */
+  private getElapsedSecs(
+    session: { startedAt: Date; metadata: unknown },
+    nowMs: number,
+  ): number {
+    const { pausedAtMs, pausedMs } = this.getPauseState(session.metadata);
+    const ongoingPauseMs = pausedAtMs != null ? Math.max(0, nowMs - pausedAtMs) : 0;
+    const rawMs = nowMs - session.startedAt.getTime();
+    const effectiveMs = Math.max(0, rawMs - pausedMs - ongoingPauseMs);
+    return Math.floor(effectiveMs / 1000);
   }
 
   /** Лимит слота 31–40 по позиции (2 или 3), без учёта фактического числа верных у вопроса. */

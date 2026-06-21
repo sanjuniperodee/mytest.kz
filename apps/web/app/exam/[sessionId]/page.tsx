@@ -14,6 +14,8 @@ import {
   ListChecks,
   Calculator,
   ExternalLink,
+  Pause,
+  Play,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -28,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { ExamTimer } from "@/components/exam/timer"
+import { ExamTimer, formatHMS } from "@/components/exam/timer"
 import { Calculator as ExamCalculator } from "@/components/exam/calculator"
 import { QuestionMedia } from "@/components/exam/question-media"
 import {
@@ -135,6 +137,9 @@ export default function ExamSessionPage({
   const [showNav, setShowNav] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const [pausedRemaining, setPausedRemaining] = useState<number | null>(null)
+  const [pauseBusy, setPauseBusy] = useState(false)
   const initRef = useRef(false)
   const timeoutFinishRef = useRef(false)
   /** Wall-clock end for countdown (survives background throttling / Telegram WebView). */
@@ -194,6 +199,7 @@ export default function ExamSessionPage({
   useEffect(() => {
     if (!session || session.id !== sessionId) return
     if (session.status !== "in_progress") return
+    if (session.isPaused) return // clock frozen while paused
     if (session.timeRemaining == null || session.timeRemaining === undefined) return
     const tr = Math.max(0, Math.floor(Number(session.timeRemaining)))
     if (!Number.isFinite(tr)) return
@@ -221,7 +227,7 @@ export default function ExamSessionPage({
       if (document.visibilityState !== "visible") return
       void revalidateSession().then((data) => {
         const s = data as TestSession | undefined
-        if (s?.status === "in_progress" && s.timeRemaining != null) {
+        if (s?.status === "in_progress" && !s.isPaused && s.timeRemaining != null) {
           armCountdown(Number(s.timeRemaining))
         }
       })
@@ -322,6 +328,62 @@ export default function ExamSessionPage({
     timeoutFinishRef.current = true
     void finish("timeout")
   }, [session?.status, finish])
+
+  const pauseExam = useCallback(async () => {
+    if (pauseBusy || session?.status !== "in_progress") return
+    setPauseBusy(true)
+    try {
+      const res = await api<TestSession>(`/tests/sessions/${sessionId}/pause`, {
+        method: "POST",
+      })
+      setPaused(true)
+      if (res.timeRemaining != null) {
+        setPausedRemaining(Math.max(0, Math.floor(Number(res.timeRemaining))))
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.message === "TIME_EXPIRED") {
+        toast.message("Время вышло, тест завершён")
+        router.replace(`/exam/${sessionId}/review`)
+        return
+      }
+      toast.error(err instanceof ApiError ? err.message : "Не удалось поставить на паузу")
+    } finally {
+      setPauseBusy(false)
+    }
+  }, [pauseBusy, session?.status, sessionId, router])
+
+  const resumeExam = useCallback(async () => {
+    if (pauseBusy) return
+    setPauseBusy(true)
+    try {
+      const res = await api<TestSession>(`/tests/sessions/${sessionId}/resume`, {
+        method: "POST",
+      })
+      setPaused(false)
+      if (res.timeRemaining != null) armCountdown(Number(res.timeRemaining))
+    } catch (err) {
+      if (err instanceof ApiError && err.message === "SESSION_NOT_IN_PROGRESS") {
+        router.replace(`/exam/${sessionId}/review`)
+        return
+      }
+      toast.error(err instanceof ApiError ? err.message : "Не удалось продолжить тест")
+    } finally {
+      setPauseBusy(false)
+    }
+  }, [pauseBusy, sessionId, armCountdown, router])
+
+  // Server is the source of truth for pause state (so a reload mid-pause keeps the overlay).
+  useEffect(() => {
+    if (!session || session.id !== sessionId) return
+    if (session.status !== "in_progress") {
+      setPaused(false)
+      return
+    }
+    setPaused(Boolean(session.isPaused))
+    if (session.isPaused && session.timeRemaining != null) {
+      setPausedRemaining(Math.max(0, Math.floor(Number(session.timeRemaining))))
+    }
+  }, [session, sessionId])
 
   const onSelect = (q: FlatSessionQuestion, optionId: string) => {
     const current = answers[q.id] || []
@@ -452,7 +514,23 @@ export default function ExamSessionPage({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <ExamTimer timerEndMs={timerEndMsRef.current} timerEpoch={timerEpoch} onZero={handleZero} />
+            <ExamTimer
+              timerEndMs={timerEndMsRef.current}
+              timerEpoch={timerEpoch}
+              onZero={handleZero}
+              paused={paused}
+              pausedSeconds={pausedRemaining}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void pauseExam()}
+              disabled={pauseBusy || paused}
+              aria-label="Пауза"
+              title="Поставить на паузу"
+            >
+              {pauseBusy && !paused ? <Spinner className="size-4" /> : <Pause className="size-4" />}
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -688,6 +766,36 @@ export default function ExamSessionPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {paused && session.status === "in_progress" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-6 backdrop-blur-md">
+          <Card className="w-full max-w-md">
+            <CardContent className="flex flex-col items-center gap-5 py-10 text-center">
+              <div className="flex size-14 items-center justify-center rounded-full bg-secondary">
+                <Pause className="size-7 text-foreground" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight">Тест на паузе</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Время остановлено, а вопросы скрыты. Продолжите, когда будете готовы — отсчёт пойдёт дальше с того же места.
+                </p>
+              </div>
+              {pausedRemaining != null && (
+                <div
+                  data-no-translate
+                  className="rounded-md border border-border bg-secondary px-4 py-2 text-lg font-semibold tabular-nums"
+                >
+                  {formatHMS(pausedRemaining)}
+                </div>
+              )}
+              <Button className="w-full" onClick={() => void resumeExam()} disabled={pauseBusy}>
+                {pauseBusy ? <Spinner className="size-4" /> : <Play className="size-4" />}
+                Продолжить тест
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <ExamCalculator open={showCalculator} onClose={() => setShowCalculator(false)} />
     </div>

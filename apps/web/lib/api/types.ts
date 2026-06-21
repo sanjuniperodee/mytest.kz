@@ -210,6 +210,10 @@ export interface SessionMetadata {
   sections?: SessionMetadataSection[]
   profileSubjectIds?: string[]
   questionOrder?: string[]
+  /** ISO timestamp of the current (open) pause, absent while running. */
+  pausedAt?: string | null
+  /** Accumulated paused milliseconds across prior pause/resume cycles. */
+  pausedMs?: number
 }
 
 export interface SessionSectionScore {
@@ -268,6 +272,8 @@ export interface TestSession {
   rawScore?: number | null
   maxScore?: number | null
   metadata?: SessionMetadata | null
+  /** True while the session is paused (timer frozen). Set by the API. */
+  isPaused?: boolean
   answers?: TestAnswer[]
   examType?: ExamType
   sectionScores?: SessionSectionScore[]

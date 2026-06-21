@@ -124,6 +124,22 @@ export class TestsController {
     return this.testSessionService.finishTest(sessionId, userId);
   }
 
+  @Post('sessions/:id/pause')
+  async pauseSession(
+    @CurrentUser('id') userId: string,
+    @Param('id') sessionId: string,
+  ) {
+    return this.testSessionService.pauseSession(sessionId, userId);
+  }
+
+  @Post('sessions/:id/resume')
+  async resumeSession(
+    @CurrentUser('id') userId: string,
+    @Param('id') sessionId: string,
+  ) {
+    return this.testSessionService.resumeSession(sessionId, userId);
+  }
+
   @Post('sessions/:id/retake')
   @UseGuards(PremiumGuard)
   async retakeEntSession(

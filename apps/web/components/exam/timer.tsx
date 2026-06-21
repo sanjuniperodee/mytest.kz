@@ -21,15 +21,22 @@ export function ExamTimer({
   timerEpoch = 0,
   onZero,
   className,
+  paused = false,
+  pausedSeconds = null,
 }: {
   timerEndMs: number | null
   timerEpoch?: number
   onZero?: () => void
   className?: string
+  /** When true the countdown is frozen — no ticking, no auto-finish. */
+  paused?: boolean
+  /** Seconds to display while frozen. */
+  pausedSeconds?: number | null
 }) {
   const [remaining, setRemaining] = useState<number | null>(null)
 
   useEffect(() => {
+    if (paused) return // frozen: keep last value, no interval, no onZero
     if (timerEndMs == null) {
       setRemaining(null)
       return
@@ -62,27 +69,32 @@ export function ExamTimer({
       document.removeEventListener("visibilitychange", onVis)
       window.removeEventListener("pageshow", onPageShow)
     }
-  }, [timerEndMs, timerEpoch, onZero])
+  }, [timerEndMs, timerEpoch, onZero, paused])
 
-  if (remaining == null) return null
-  const secs = Number(remaining)
+  const displaySecs = paused
+    ? pausedSeconds ?? remaining
+    : remaining
+  if (displaySecs == null) return null
+  const secs = Number(displaySecs)
   if (!Number.isFinite(secs)) return null
-  const isCritical = secs <= 60
-  const isWarning = secs <= 300 && !isCritical
+  const isCritical = !paused && secs <= 60
+  const isWarning = !paused && secs <= 300 && !isCritical
   return (
     <div
       data-no-translate
       className={cn(
         "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold tabular-nums transition-colors",
-        isCritical
-          ? "border-rose-300 bg-rose-50 text-rose-900"
-          : isWarning
-            ? "border-amber-300 bg-amber-50 text-amber-900"
-            : "border-border bg-secondary text-foreground",
+        paused
+          ? "border-border bg-secondary text-muted-foreground"
+          : isCritical
+            ? "border-rose-300 bg-rose-50 text-rose-900"
+            : isWarning
+              ? "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-border bg-secondary text-foreground",
         className,
       )}
     >
-      <Clock className="size-3.5" />
+      <Clock className={cn("size-3.5", paused && "opacity-60")} />
       <span>{formatHMS(secs)}</span>
     </div>
   )
