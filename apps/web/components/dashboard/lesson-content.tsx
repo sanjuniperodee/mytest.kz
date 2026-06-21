@@ -1,11 +1,13 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import {
   AlertTriangle,
   BarChart3,
   BookOpen,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   LineChart as LineChartIcon,
   ListChecks,
@@ -67,6 +69,164 @@ type LessonTask = {
   options?: string[]
   answer: string
   explanation: string
+}
+
+export function FullLessonReader({
+  lesson,
+  language,
+}: {
+  lesson: AiTopicLesson
+  language: "ru" | "kk"
+}) {
+  const pages = useMemo(
+    () => (lesson.pages ?? []).filter((page) => page.content || page.examples.length || page.practice.length),
+    [lesson.pages],
+  )
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  if (pages.length === 0) {
+    return <LessonContent lesson={lesson} language={language} />
+  }
+
+  const pageIndex = Math.min(activeIndex, pages.length - 1)
+  const page = pages[pageIndex]
+  const canGoBack = pageIndex > 0
+  const canGoNext = pageIndex < pages.length - 1
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
+      <aside className="lg:sticky lg:top-20">
+        <div className="rounded-xl border border-border bg-card p-3">
+          <div className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold">
+            <BookOpen className="size-4 text-emerald-600" />
+            Страницы урока
+          </div>
+          <div className="grid gap-1">
+            {pages.map((item, index) => (
+              <button
+                key={`${item.slug}-${index}`}
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                className={cn(
+                  "grid grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors",
+                  index === pageIndex
+                    ? "bg-emerald-50 text-emerald-950"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-7 items-center justify-center rounded-md text-xs font-semibold tabular-nums",
+                    index === pageIndex ? "bg-emerald-600 text-white" : "bg-secondary text-muted-foreground",
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="min-w-0 truncate">{item.title || `Страница ${index + 1}`}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      <article className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-emerald-700">
+              Страница {pageIndex + 1} из {pages.length}
+            </p>
+            <RichText value={page.title} locale={language} as="div" className="mt-1 text-xl font-semibold leading-tight" />
+          </div>
+          <div className="h-2 w-28 overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-emerald-600 transition-all"
+              style={{ width: `${Math.round(((pageIndex + 1) / pages.length) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {page.goal && (
+          <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+            <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Цель страницы</p>
+            <RichText value={page.goal} locale={language} as="div" className="text-sm leading-6 text-emerald-950" />
+          </div>
+        )}
+
+        <RichText value={page.content} locale={language} as="div" className="text-sm leading-7 text-muted-foreground" />
+
+        {page.examples.length > 0 && (
+          <div className="mt-5 grid gap-3">
+            <h3 className="text-base font-semibold">Примеры на этой странице</h3>
+            {page.examples.map((example, index) => (
+              <div key={`${example.title}-${index}`} className="rounded-xl border border-border p-4">
+                <RichText value={example.title || `Пример ${index + 1}`} locale={language} as="div" className="font-semibold" />
+                <RichText value={example.question} locale={language} as="div" className="mt-2 text-sm leading-6" />
+                {example.steps.length > 0 && (
+                  <ol className="mt-3 grid gap-2">
+                    {example.steps.map((step, stepIndex) => (
+                      <li key={stepIndex} className="flex gap-2 text-sm">
+                        <span className="text-muted-foreground">{stepIndex + 1}.</span>
+                        <RichText value={step} locale={language} as="div" className="min-w-0 flex-1 leading-6" />
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {example.answer && (
+                  <RichText
+                    value={example.answer}
+                    locale={language}
+                    as="div"
+                    className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm leading-6 text-emerald-950"
+                  />
+                )}
+                {example.trap && (
+                  <div className="mt-3 flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                    <RichText value={example.trap} locale={language} as="div" className="leading-6" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {page.practice.length > 0 && (
+          <div className="mt-5 grid gap-3">
+            <h3 className="text-base font-semibold">Закрепление</h3>
+            <TaskList tasks={page.practice} language={language} />
+          </div>
+        )}
+
+        {page.checklist.length > 0 && (
+          <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <h3 className="mb-3 text-base font-semibold text-emerald-950">Проверь себя</h3>
+            <BulletList items={page.checklist} language={language} tone="emerald" />
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => setActiveIndex((current) => Math.max(0, current - 1))}
+            disabled={!canGoBack}
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-45"
+          >
+            <ChevronLeft className="size-4" />
+            Назад
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveIndex((current) => Math.min(pages.length - 1, current + 1))}
+            disabled={!canGoNext}
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-45"
+          >
+            Дальше
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+      </article>
+    </div>
+  )
 }
 
 export function LessonContent({

@@ -114,6 +114,16 @@ export const NAV_ITEMS: NavItem[] = [
       'Проверка спорных вопросов, ответы команде и полный контекст пользовательских обращений.',
   },
   {
+    key: 'ai-lesson-notes',
+    path: '/ai-lesson-notes',
+    group: 'Каталог',
+    menuLabel: 'AI-уроки',
+    icon: <ReadOutlined />,
+    title: 'AI-уроки',
+    description:
+      'Очередь замечаний к сохранённым AI-урокам и контроль исправления учебного материала.',
+  },
+  {
     key: 'exams',
     path: '/exams',
     group: 'Каталог',

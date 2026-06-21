@@ -6,6 +6,9 @@ export interface DeepseekChatOptions {
   user: string;
   /** Force the model to emit a single JSON object. */
   jsonMode?: boolean;
+  /** DeepSeek V4 thinking mode switch. Defaults to the service config. */
+  thinking?: 'enabled' | 'disabled';
+  reasoningEffort?: 'high' | 'max';
   temperature?: number;
   maxTokens?: number;
   /** Per-request timeout override (ms). */
@@ -36,6 +39,7 @@ export class DeepseekClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly model: string;
+  private readonly defaultThinking: 'enabled' | 'disabled';
   private readonly defaultTimeoutMs: number;
 
   constructor(private readonly config: ConfigService) {
@@ -43,7 +47,11 @@ export class DeepseekClient {
     this.baseUrl = (
       this.config.get<string>('DEEPSEEK_BASE_URL')?.trim() || 'https://api.deepseek.com'
     ).replace(/\/+$/, '');
-    this.model = this.config.get<string>('DEEPSEEK_MODEL')?.trim() || 'deepseek-chat';
+    this.model = this.config.get<string>('DEEPSEEK_MODEL')?.trim() || 'deepseek-v4-flash';
+    this.defaultThinking =
+      this.config.get<string>('DEEPSEEK_THINKING')?.trim() === 'enabled'
+        ? 'enabled'
+        : 'disabled';
     this.defaultTimeoutMs = Number(this.config.get<string>('DEEPSEEK_TIMEOUT_MS')) || 60_000;
   }
 
@@ -69,6 +77,7 @@ export class DeepseekClient {
       () => controller.abort(),
       options.timeoutMs ?? this.defaultTimeoutMs,
     );
+    const thinking = options.thinking ?? this.defaultThinking;
 
     let response: Response;
     try {
@@ -84,7 +93,11 @@ export class DeepseekClient {
             { role: 'system', content: options.system },
             { role: 'user', content: options.user },
           ],
-          temperature: options.temperature ?? 0.4,
+          thinking: { type: thinking },
+          ...(thinking === 'enabled' && options.reasoningEffort
+            ? { reasoning_effort: options.reasoningEffort }
+            : {}),
+          ...(thinking === 'disabled' ? { temperature: options.temperature ?? 0.4 } : {}),
           max_tokens: options.maxTokens ?? 2400,
           ...(options.jsonMode ? { response_format: { type: 'json_object' } } : {}),
         }),

@@ -7,7 +7,7 @@ export class TopicLessonDto {
   @IsString()
   language!: string;
 
-  /** Force a fresh DeepSeek call and update the shared topic lesson cache. */
+  /** Ignored for students; lesson refreshes are controlled server/admin-side. */
   @IsOptional()
   @IsBoolean()
   force?: boolean;

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
@@ -10,6 +19,7 @@ import { AnalyzeMistakesDto } from './dto/analyze-mistakes.dto';
 import { ExplainMistakeDto } from './dto/explain-mistake.dto';
 import { TopicLessonDto } from './dto/topic-lesson.dto';
 import { ThemeLessonDto } from './dto/theme-lesson.dto';
+import { CreateLessonNoteDto } from './dto/lesson-note.dto';
 
 @Controller('ai')
 @UseGuards(AuthGuard('jwt'), ChannelMemberGuard)
@@ -81,7 +91,7 @@ export class AiController {
     return this.aiCoach.getTopicLesson(userId, {
       topicId: dto.topicId,
       language: dto.language,
-      force: dto.force,
+      force: false,
     });
   }
 
@@ -108,6 +118,18 @@ export class AiController {
     @CurrentUser('id') userId: string,
     @Body() dto: ThemeLessonDto,
   ) {
-    return this.studyTheme.getThemeLesson(userId, dto.themeId, dto.language, dto.force ?? false);
+    return this.studyTheme.getThemeLesson(userId, dto.themeId, dto.language, false);
+  }
+
+  /** Student correction note for a saved lesson; admins review and fix content later. */
+  @Post('mistakes/theme-lesson/:lessonId/note')
+  @UseGuards(PremiumGuard)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  async themeLessonNote(
+    @CurrentUser('id') userId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Body() dto: CreateLessonNoteDto,
+  ) {
+    return this.studyTheme.submitThemeLessonNote(userId, lessonId, dto);
   }
 }

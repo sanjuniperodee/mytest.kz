@@ -7,6 +7,7 @@ export class ThemeLessonDto {
   @IsString()
   language!: string;
 
+  /** Ignored for students; lesson refreshes are controlled server/admin-side. */
   @IsOptional()
   @IsBoolean()
   force?: boolean;

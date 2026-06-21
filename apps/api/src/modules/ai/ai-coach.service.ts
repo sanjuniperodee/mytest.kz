@@ -33,11 +33,13 @@ import {
 
 // Bump when prompt/schema changes so cached analyses regenerate.
 const PROMPT_VERSION = 'v1';
-const LESSON_VERSION = 'v2';
+const LESSON_VERSION = 'v3';
 const MAX_SUBJECTS = 6;
 const MAX_QUESTIONS_PER_SUBJECT = 6;
 const MAX_TOTAL_QUESTIONS = 30;
-const MAX_LESSON_SAMPLE_QUESTIONS = 8;
+const MAX_LESSON_SAMPLE_QUESTIONS = 12;
+const FULL_LESSON_MAX_TOKENS = 24_000;
+const FULL_LESSON_TIMEOUT_MS = 240_000;
 const QUESTION_CHAR_CAP = 320;
 const OPTION_CHAR_CAP = 160;
 const PASSAGE_CHAR_CAP = 600;
@@ -131,7 +133,19 @@ export interface LessonPracticeTask {
   explanation: string;
 }
 
+export interface LessonPage {
+  slug: string;
+  title: string;
+  goal: string;
+  content: string;
+  examples: LessonWorkedExample[];
+  practice: LessonPracticeTask[];
+  checklist: string[];
+}
+
 export interface TopicLesson {
+  lessonId?: string;
+  lessonKind?: 'topic' | 'theme';
   generatedAt: string;
   model: string;
   cached: boolean;
@@ -144,6 +158,7 @@ export interface TopicLesson {
   title: string;
   studentGoal: string;
   whyItMatters: string;
+  pages: LessonPage[];
   sections: LessonSection[];
   formulas: LessonFormula[];
   visualizations: LessonVisualization[];
@@ -179,6 +194,7 @@ interface RawTopicLesson {
   title?: unknown;
   studentGoal?: unknown;
   whyItMatters?: unknown;
+  pages?: unknown;
   sections?: unknown;
   formulas?: unknown;
   visualizations?: unknown;
@@ -623,7 +639,12 @@ export class AiCoachService {
         },
       });
       if (existing) {
-        return { ...(existing.result as unknown as TopicLesson), cached: true };
+        return {
+          ...(existing.result as unknown as TopicLesson),
+          lessonId: existing.id,
+          lessonKind: 'topic',
+          cached: true,
+        };
       }
     }
 
@@ -680,9 +701,10 @@ export class AiCoachService {
         topic: topicName,
         questions: promptQuestions,
       }),
-      temperature: 0.35,
-      maxTokens: 8000,
-      timeoutMs: 120_000,
+      thinking: 'enabled',
+      reasoningEffort: 'high',
+      maxTokens: FULL_LESSON_MAX_TOKENS,
+      timeoutMs: FULL_LESSON_TIMEOUT_MS,
     });
 
     const lesson = this.sanitizeTopicLesson(raw, {
@@ -693,7 +715,7 @@ export class AiCoachService {
       topicName,
     });
 
-    await this.prisma.aiTopicLesson
+    const savedLesson = await this.prisma.aiTopicLesson
       .upsert({
         where: {
           topicId_language_lessonVersion: {
@@ -720,9 +742,14 @@ export class AiCoachService {
           result: lesson as unknown as object,
         },
       })
-      .catch((err) => this.logger.warn(`Failed to persist topic lesson: ${err?.message ?? err}`));
+      .catch((err) => {
+        this.logger.warn(`Failed to persist topic lesson: ${err?.message ?? err}`);
+        return null;
+      });
 
-    return lesson;
+    return savedLesson
+      ? { ...lesson, lessonId: savedLesson.id, lessonKind: 'topic' }
+      : lesson;
   }
 
   /**
@@ -753,9 +780,10 @@ export class AiCoachService {
         topic: input.themeName,
         questions: input.questions,
       }),
-      temperature: 0.35,
-      maxTokens: 8000,
-      timeoutMs: 120_000,
+      thinking: 'enabled',
+      reasoningEffort: 'high',
+      maxTokens: FULL_LESSON_MAX_TOKENS,
+      timeoutMs: FULL_LESSON_TIMEOUT_MS,
     });
     return this.sanitizeTopicLesson(raw, {
       examTypeId: input.examTypeId,
@@ -880,6 +908,29 @@ export class AiCoachService {
       topicName: string;
     },
   ): TopicLesson {
+    const pages = asRecordList(raw.pages)
+      .map((p, index) => {
+        const title = asText(p.title).slice(0, 160);
+        const slug = lessonSlug(asText(p.slug) || title || `page-${index + 1}`);
+        return {
+          slug: slug || `page-${index + 1}`,
+          title: title || `Страница ${index + 1}`,
+          goal: asText(p.goal),
+          content: asText(p.content),
+          examples: sanitizeWorkedExamples(p.examples, 3),
+          practice: sanitizePractice(p.practice, 4),
+          checklist: asTextList(p.checklist, 8),
+        };
+      })
+      .filter(
+        (p) =>
+          p.content ||
+          p.examples.length > 0 ||
+          p.practice.length > 0 ||
+          p.checklist.length > 0,
+      )
+      .slice(0, 12);
+
     const sections = asRecordList(raw.sections)
       .map((s) => ({
         title: asText(s.title).slice(0, 140),
@@ -915,19 +966,10 @@ export class AiCoachService {
       .filter((v) => v.title && v.data.length > 0)
       .slice(0, 3);
 
-    const workedExamples = asRecordList(raw.workedExamples)
-      .map((ex) => ({
-        title: asText(ex.title).slice(0, 140),
-        question: asText(ex.question),
-        steps: asTextList(ex.steps, 12),
-        answer: asText(ex.answer),
-        trap: asText(ex.trap),
-      }))
-      .filter((ex) => ex.question || ex.steps.length > 0)
-      .slice(0, 6);
+    const workedExamples = sanitizeWorkedExamples(raw.workedExamples, 6);
 
-    const practice = sanitizePractice(raw.practice, 8);
-    const miniTest = sanitizePractice(raw.miniTest, 5);
+    const practice = sanitizePractice(raw.practice, 12);
+    const miniTest = sanitizePractice(raw.miniTest, 7);
     const title = asText(raw.title) || `Урок: ${meta.topicName || 'тема'}`;
 
     return {
@@ -943,6 +985,7 @@ export class AiCoachService {
       title,
       studentGoal: asText(raw.studentGoal),
       whyItMatters: asText(raw.whyItMatters),
+      pages,
       sections,
       formulas,
       visualizations,
@@ -1058,6 +1101,19 @@ function toNullableFiniteNumber(value: unknown): number | null {
   return toFiniteNumber(value);
 }
 
+function sanitizeWorkedExamples(value: unknown, limit: number): LessonWorkedExample[] {
+  return asRecordList(value)
+    .map((ex) => ({
+      title: asText(ex.title).slice(0, 140),
+      question: asText(ex.question),
+      steps: asTextList(ex.steps, 12),
+      answer: asText(ex.answer),
+      trap: asText(ex.trap),
+    }))
+    .filter((ex) => ex.question || ex.steps.length > 0)
+    .slice(0, limit);
+}
+
 function sanitizePractice(value: unknown, limit: number): LessonPracticeTask[] {
   return asRecordList(value)
     .map((task) => ({
@@ -1068,6 +1124,15 @@ function sanitizePractice(value: unknown, limit: number): LessonPracticeTask[] {
     }))
     .filter((task) => task.prompt && (task.answer || task.explanation))
     .slice(0, limit);
+}
+
+function lessonSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
 }
 
 function normalizeImageUrls(value: unknown): string[] {

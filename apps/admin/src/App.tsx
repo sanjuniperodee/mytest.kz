@@ -38,6 +38,7 @@ const UniversityThresholdsPage = lazy(() => import('./pages/UniversityThresholds
 const AdmissionChancePage = lazy(() => import('./pages/AdmissionChancePage').then((m) => ({ default: m.AdmissionChancePage })));
 const ExplanationsPage = lazy(() => import('./pages/ExplanationsPage').then((m) => ({ default: m.ExplanationsPage })));
 const QuestionAppealsPage = lazy(() => import('./pages/QuestionAppealsPage').then((m) => ({ default: m.QuestionAppealsPage })));
+const AiLessonNotesPage = lazy(() => import('./pages/AiLessonNotesPage').then((m) => ({ default: m.AiLessonNotesPage })));
 const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })));
 const UserDetailPage = lazy(() => import('./pages/UserDetailPage').then((m) => ({ default: m.UserDetailPage })));
 const QuestionsPage = lazy(() => import('./pages/QuestionsPage').then((m) => ({ default: m.QuestionsPage })));
@@ -268,6 +269,7 @@ function AdminLayout() {
               <Route path="/admission" element={<AdmissionChancePage />} />
               <Route path="/explanations" element={<ExplanationsPage />} />
               <Route path="/appeals" element={<QuestionAppealsPage />} />
+              <Route path="/ai-lesson-notes" element={<AiLessonNotesPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/questions" element={<QuestionsPage />} />

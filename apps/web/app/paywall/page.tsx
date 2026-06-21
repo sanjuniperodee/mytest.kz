@@ -13,11 +13,9 @@ function isSuccess(state?: string) {
 export default async function PaywallPage({
   searchParams,
 }: {
-  searchParams?: Promise<SearchParamsShape> | SearchParamsShape
+  searchParams?: Promise<SearchParamsShape>
 }) {
-  const params = searchParams && typeof (searchParams as Promise<SearchParamsShape>).then === "function"
-    ? await (searchParams as Promise<SearchParamsShape>)
-    : ((searchParams as SearchParamsShape | undefined) ?? {})
+  const params = (await searchParams) ?? {}
 
   const success = isSuccess(params.payment)
 

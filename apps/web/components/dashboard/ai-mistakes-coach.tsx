@@ -237,20 +237,20 @@ export function AiMistakesCoach({
   )
 
   const openLesson = useCallback(
-    async (topicId: string, force = false) => {
+    async (topicId: string) => {
       const current = lessons[topicId]
       setSelectedLessonTopicId(topicId)
-      if (current?.data && !force) return
+      if (current?.data) return
 
       setLessons((prev) => ({
         ...prev,
         [topicId]: { loading: true, data: prev[topicId]?.data ?? null, error: null },
       }))
-      void recordFunnelEvent("ai_topic_lesson_open", { force: String(force) })
+      void recordFunnelEvent("ai_topic_lesson_open")
       try {
         const data = await api<AiTopicLesson>("/ai/mistakes/topic-lesson", {
           method: "POST",
-          body: { topicId, language, force },
+          body: { topicId, language },
         })
         setLessons((prev) => ({
           ...prev,
@@ -375,9 +375,6 @@ export function AiMistakesCoach({
         open={selectedLessonTopicId != null}
         onOpenChange={(open) => {
           if (!open) setSelectedLessonTopicId(null)
-        }}
-        onRegenerate={() => {
-          if (selectedLessonTopicId) void openLesson(selectedLessonTopicId, true)
         }}
       />
     </>
@@ -725,13 +722,11 @@ function TopicLessonDialog({
   state,
   open,
   onOpenChange,
-  onRegenerate,
 }: {
   language: "ru" | "kk"
   state: LessonState | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onRegenerate: () => void
 }) {
   const lesson = state?.data ?? null
   const [activeTab, setActiveTab] = useState<LessonTabId>("overview")
@@ -890,13 +885,6 @@ function TopicLessonDialog({
 
             <div className="min-h-0 overflow-y-auto p-4 sm:p-5 lg:max-h-[calc(92dvh-104px)]">
               <div className="flex flex-col gap-5">
-                {state?.loading && (
-                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
-                    <Spinner className="size-4" />
-                    Обновляем урок…
-                  </div>
-                )}
-
                 {state?.error && !state.loading && (
                   <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
                     {state.error}
@@ -1055,10 +1043,6 @@ function TopicLessonDialog({
                   <p className="text-[11px] text-muted-foreground">
                     {lesson.cached ? "Сохранённый урок из базы" : "Сгенерировано сейчас"} · {lesson.model}
                   </p>
-                  <Button variant="outline" size="sm" onClick={onRegenerate} disabled={state?.loading}>
-                    {state?.loading ? <Spinner className="size-4" /> : <Wand2 className="size-4" />}
-                    Обновить урок
-                  </Button>
                 </div>
               </div>
             </div>

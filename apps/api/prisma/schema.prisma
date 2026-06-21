@@ -185,6 +185,8 @@ model User {
   visitEvents            VisitEvent[]
   questionAppeals        QuestionAppeal[]           @relation("QuestionAppealsByUser")
   reviewedAppeals        QuestionAppeal[]           @relation("QuestionAppealsReviewedBy")
+  aiLessonNotes          AiLessonNote[]             @relation("AiLessonNotesByUser")
+  reviewedAiLessonNotes  AiLessonNote[]             @relation("AiLessonNotesReviewedBy")
   notificationDeliveries NotificationDelivery[]
   adminAudits            AdminAudit[]               @relation("AdminAudits")
   aiCoachAnalyses        AiCoachAnalysis[]
@@ -239,6 +241,7 @@ model AiTopicLesson {
   examType ExamType @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
   subject  Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  notes    AiLessonNote[]
 
   @@unique([topicId, language, lessonVersion])
   @@index([examTypeId, language])
@@ -308,10 +311,63 @@ model SubjectThemeLesson {
 
   theme   SubjectStudyTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
   subject Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  notes   AiLessonNote[]
 
   @@unique([themeId, language, lessonVersion])
   @@index([subjectId, language])
   @@map("subject_theme_lessons")
+}
+
+enum AiLessonNoteReason {
+  wrong_topic
+  incorrect_explanation
+  unclear_explanation
+  typo
+  outdated_content
+  other
+}
+
+enum AiLessonNoteStatus {
+  pending
+  under_review
+  resolved
+  rejected
+}
+
+/// Student-submitted correction notes for saved AI lessons. Students can flag
+/// issues, but only admins regenerate/edit/close the lesson quality loop.
+model AiLessonNote {
+  id            String             @id @default(uuid()) @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  themeLessonId String?            @map("theme_lesson_id") @db.Uuid
+  topicLessonId String?            @map("topic_lesson_id") @db.Uuid
+  examTypeId    String?            @map("exam_type_id") @db.Uuid
+  subjectId     String?            @map("subject_id") @db.Uuid
+  themeId       String?            @map("theme_id") @db.Uuid
+  topicId       String?            @map("topic_id") @db.Uuid
+  language      String             @db.VarChar(2)
+  lessonVersion String             @map("lesson_version") @db.VarChar(16)
+  reason        AiLessonNoteReason @default(other)
+  message       String             @db.Text
+  status        AiLessonNoteStatus @default(pending)
+  adminNote     String?            @map("admin_note") @db.Text
+  reviewedBy    String?            @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?          @map("reviewed_at") @db.Timestamptz
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  user        User                @relation("AiLessonNotesByUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer    User?               @relation("AiLessonNotesReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  themeLesson SubjectThemeLesson? @relation(fields: [themeLessonId], references: [id], onDelete: Cascade)
+  topicLesson AiTopicLesson?      @relation(fields: [topicLessonId], references: [id], onDelete: Cascade)
+
+  @@index([themeLessonId, status, createdAt])
+  @@index([topicLessonId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([subjectId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([reviewedBy, reviewedAt])
+  @@map("ai_lesson_notes")
 }
 
 model AuthSession {

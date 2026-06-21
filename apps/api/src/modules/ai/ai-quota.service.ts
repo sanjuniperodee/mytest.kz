@@ -8,7 +8,7 @@ export type AiCallKind = 'analyze' | 'lesson' | 'explain' | 'classify' | 'taxono
 // Relative DeepSeek cost in "credits" per real generation (cache misses / forces only).
 const KIND_COST: Record<AiCallKind, number> = {
   analyze: 3,
-  lesson: 5,
+  lesson: 12,
   explain: 1,
   classify: 1, // one batch of question→theme classification
   taxonomy: 2, // one-time theme list for a subject

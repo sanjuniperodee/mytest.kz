@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
+import { AiLessonNoteReason, AiLessonNoteStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MistakesService } from '../tests/mistakes.service';
 import { AiCoachService, TopicLesson } from './ai-coach.service';
@@ -17,11 +18,11 @@ import {
 } from './ai.prompts';
 
 const TAXONOMY_LANG: AiLanguage = 'ru'; // canonical theme names; shared across users
-const LESSON_VERSION = 'v2';
+const LESSON_VERSION = 'v3';
 const TAXONOMY_SAMPLE = 30;
 const CLASSIFY_BATCH = 40;
 const MAX_CLASSIFY_BATCHES_PER_CALL = 6; // bound cost per study-map load
-const LESSON_SAMPLE = 8;
+const LESSON_SAMPLE = 12;
 const QUESTION_CHAR_CAP = 320;
 const OPTION_CHAR_CAP = 160;
 const EXPLANATION_CHAR_CAP = 500;
@@ -55,6 +56,42 @@ export interface StudyMap {
   unclassifiedCount: number;
   pending: boolean; // true while classification is still incomplete (quota/scale)
 }
+
+type LessonNoteWithRelations = Prisma.AiLessonNoteGetPayload<{
+  include: {
+    user: {
+      select: {
+        id: true;
+        firstName: true;
+        lastName: true;
+        telegramUsername: true;
+        email: true;
+        phone: true;
+      };
+    };
+    reviewer: {
+      select: {
+        id: true;
+        firstName: true;
+        lastName: true;
+        telegramUsername: true;
+        email: true;
+      };
+    };
+    themeLesson: {
+      include: {
+        theme: { select: { id: true; key: true; name: true } };
+        subject: { select: { id: true; slug: true; name: true } };
+      };
+    };
+    topicLesson: {
+      include: {
+        topic: { select: { id: true; name: true } };
+        subject: { select: { id: true; slug: true; name: true } };
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class StudyThemeService {
@@ -359,7 +396,14 @@ export class StudyThemeService {
       const cached = await this.prisma.subjectThemeLesson.findUnique({
         where: { themeId_language_lessonVersion: { themeId, language: lang, lessonVersion: LESSON_VERSION } },
       });
-      if (cached) return { ...(cached.result as unknown as TopicLesson), cached: true };
+      if (cached) {
+        return {
+          ...(cached.result as unknown as TopicLesson),
+          lessonId: cached.id,
+          lessonKind: 'theme',
+          cached: true,
+        };
+      }
     }
 
     // Source questions: any active question in this theme (not just the user's).
@@ -401,7 +445,7 @@ export class StudyThemeService {
       .digest('hex')
       .slice(0, 64);
 
-    await this.prisma.subjectThemeLesson
+    const savedLesson = await this.prisma.subjectThemeLesson
       .upsert({
         where: { themeId_language_lessonVersion: { themeId, language: lang, lessonVersion: LESSON_VERSION } },
         create: {
@@ -421,9 +465,181 @@ export class StudyThemeService {
           result: lesson as unknown as object,
         },
       })
-      .catch((err) => this.logger.warn(`Failed to persist theme lesson: ${err?.message ?? err}`));
+      .catch((err) => {
+        this.logger.warn(`Failed to persist theme lesson: ${err?.message ?? err}`);
+        return null;
+      });
 
-    return lesson;
+    return savedLesson
+      ? { ...lesson, lessonId: savedLesson.id, lessonKind: 'theme' }
+      : lesson;
+  }
+
+  async submitThemeLessonNote(
+    userId: string,
+    lessonId: string,
+    data: { reason?: AiLessonNoteReason; message: string },
+  ) {
+    const message = trimToNull(data.message);
+    if (!message || message.length < 12) {
+      throw new BadRequestException('LESSON_NOTE_TOO_SHORT');
+    }
+
+    const lesson = await this.prisma.subjectThemeLesson.findUnique({
+      where: { id: lessonId },
+      include: {
+        theme: { select: { id: true } },
+      },
+    });
+    if (!lesson) throw new NotFoundException('LESSON_NOT_FOUND');
+
+    const openQuestionIds = await this.getOpenQuestionIdsForTheme(userId, lesson.themeId);
+    if (openQuestionIds.length === 0) {
+      throw new BadRequestException('NO_OPEN_MISTAKES_FOR_THEME');
+    }
+
+    const note = await this.prisma.aiLessonNote.create({
+      data: {
+        userId,
+        themeLessonId: lesson.id,
+        examTypeId: null,
+        subjectId: lesson.subjectId,
+        themeId: lesson.themeId,
+        language: lesson.language,
+        lessonVersion: lesson.lessonVersion,
+        reason: data.reason ?? AiLessonNoteReason.other,
+        message,
+      },
+      include: this.lessonNoteInclude(),
+    });
+
+    return this.formatLessonNote(note);
+  }
+
+  async listAdminLessonNotes(filters: {
+    page?: number;
+    limit?: number;
+    status?: AiLessonNoteStatus;
+    reason?: AiLessonNoteReason;
+    subjectId?: string;
+    search?: string;
+  }) {
+    const page = Math.max(1, filters.page ?? 1);
+    const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
+    const search = trimToNull(filters.search);
+    const looksLikeUuid =
+      !!search &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        search,
+      );
+
+    const where: Prisma.AiLessonNoteWhereInput = {};
+    if (filters.status) where.status = filters.status;
+    if (filters.reason) where.reason = filters.reason;
+    if (filters.subjectId) where.subjectId = filters.subjectId;
+    if (search) {
+      where.OR = [
+        { message: { contains: search, mode: 'insensitive' } },
+        { adminNote: { contains: search, mode: 'insensitive' } },
+        ...(looksLikeUuid
+          ? [
+              { userId: search },
+              { themeLessonId: search },
+              { topicLessonId: search },
+              { themeId: search },
+              { topicId: search },
+            ]
+          : []),
+        {
+          user: {
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+              { telegramUsername: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+              { phone: { contains: search, mode: 'insensitive' } },
+            ],
+          },
+        },
+      ];
+    }
+
+    const [items, total, pendingCount, reviewCount, resolvedCount, rejectedCount] =
+      await Promise.all([
+        this.prisma.aiLessonNote.findMany({
+          where,
+          include: this.lessonNoteInclude(),
+          orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.aiLessonNote.count({ where }),
+        this.prisma.aiLessonNote.count({
+          where: { ...where, status: AiLessonNoteStatus.pending },
+        }),
+        this.prisma.aiLessonNote.count({
+          where: { ...where, status: AiLessonNoteStatus.under_review },
+        }),
+        this.prisma.aiLessonNote.count({
+          where: { ...where, status: AiLessonNoteStatus.resolved },
+        }),
+        this.prisma.aiLessonNote.count({
+          where: { ...where, status: AiLessonNoteStatus.rejected },
+        }),
+      ]);
+
+    return {
+      items: items.map((note) => this.formatLessonNote(note)),
+      total,
+      page,
+      limit,
+      stats: {
+        open: pendingCount + reviewCount,
+        pending: pendingCount,
+        underReview: reviewCount,
+        resolved: resolvedCount,
+        rejected: rejectedCount,
+      },
+    };
+  }
+
+  async updateAdminLessonNote(
+    id: string,
+    adminId: string,
+    data: { status?: AiLessonNoteStatus; adminNote?: string },
+  ) {
+    const existing = await this.prisma.aiLessonNote.findUnique({
+      where: { id },
+      include: this.lessonNoteInclude(),
+    });
+    if (!existing) throw new NotFoundException('LESSON_NOTE_NOT_FOUND');
+
+    const nextStatus = data.status ?? existing.status;
+    const adminNote =
+      data.adminNote === undefined ? existing.adminNote : trimToNull(data.adminNote);
+    if (
+      (nextStatus === AiLessonNoteStatus.resolved ||
+        nextStatus === AiLessonNoteStatus.rejected) &&
+      !adminNote
+    ) {
+      throw new BadRequestException('LESSON_NOTE_ADMIN_NOTE_REQUIRED');
+    }
+
+    const finalState =
+      nextStatus === AiLessonNoteStatus.resolved ||
+      nextStatus === AiLessonNoteStatus.rejected;
+    const updated = await this.prisma.aiLessonNote.update({
+      where: { id },
+      data: {
+        status: nextStatus,
+        adminNote,
+        reviewedBy: finalState ? adminId : null,
+        reviewedAt: finalState ? new Date() : null,
+      },
+      include: this.lessonNoteInclude(),
+    });
+
+    return this.formatLessonNote(updated);
   }
 
   /** Open-mistake question ids for a theme (for theme-scoped practice). */
@@ -444,6 +660,92 @@ export class StudyThemeService {
     });
     return rows.map((r) => r.questionId);
   }
+
+  private formatLessonNote(note: LessonNoteWithRelations) {
+    const themeLesson = note.themeLesson;
+    const topicLesson = note.topicLesson;
+    return {
+      id: note.id,
+      userId: note.userId,
+      themeLessonId: note.themeLessonId,
+      topicLessonId: note.topicLessonId,
+      subjectId: note.subjectId,
+      themeId: note.themeId,
+      topicId: note.topicId,
+      language: note.language,
+      lessonVersion: note.lessonVersion,
+      reason: note.reason,
+      message: note.message,
+      status: note.status,
+      adminNote: note.adminNote,
+      reviewedAt: note.reviewedAt,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+      user: note.user,
+      reviewer: note.reviewer,
+      lesson: themeLesson
+        ? {
+            kind: 'theme',
+            id: themeLesson.id,
+            title: themeLesson.title,
+            model: themeLesson.model,
+            theme: themeLesson.theme,
+            subject: themeLesson.subject,
+          }
+        : topicLesson
+          ? {
+              kind: 'topic',
+              id: topicLesson.id,
+              title: topicLesson.title,
+              model: topicLesson.model,
+              topic: topicLesson.topic,
+              subject: topicLesson.subject,
+            }
+          : null,
+    };
+  }
+
+  private lessonNoteInclude() {
+    return {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          telegramUsername: true,
+          email: true,
+          phone: true,
+        },
+      },
+      reviewer: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          telegramUsername: true,
+          email: true,
+        },
+      },
+      themeLesson: {
+        include: {
+          theme: { select: { id: true, key: true, name: true } },
+          subject: { select: { id: true, slug: true, name: true } },
+        },
+      },
+      topicLesson: {
+        include: {
+          topic: { select: { id: true, name: true } },
+          subject: { select: { id: true, slug: true, name: true } },
+        },
+      },
+    };
+  }
+}
+
+function trimToNull(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function slugify(value: string): string {

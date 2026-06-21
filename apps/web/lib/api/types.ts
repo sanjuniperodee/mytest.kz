@@ -494,6 +494,8 @@ export interface AiMistakeExplanation {
 }
 
 export interface AiTopicLesson {
+  lessonId?: string
+  lessonKind?: "topic" | "theme"
   generatedAt: string
   model: string
   cached: boolean
@@ -506,6 +508,26 @@ export interface AiTopicLesson {
   title: string
   studentGoal: string
   whyItMatters: string
+  pages?: {
+    slug: string
+    title: string
+    goal: string
+    content: string
+    examples: {
+      title: string
+      question: string
+      steps: string[]
+      answer: string
+      trap: string
+    }[]
+    practice: {
+      prompt: string
+      options: string[]
+      answer: string
+      explanation: string
+    }[]
+    checklist: string[]
+  }[]
   sections: { title: string; content: string }[]
   formulas: { latex: string; note: string }[]
   visualizations: {

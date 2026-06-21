@@ -9,24 +9,26 @@ import {
   BookOpen,
   Crown,
   Lightbulb,
+  MessageSquare,
   Play,
-  RefreshCw,
+  Send,
   Sparkles,
   Target,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
 import { RichText } from "@/components/exam/rich-text"
 import {
-  LessonContent,
+  FullLessonReader,
   getPresentLessonSections,
 } from "@/components/dashboard/lesson-content"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import type { AiTopicLesson } from "@/lib/api/types"
 
-type LessonStatus = "idle" | "loading" | "refreshing"
+type LessonStatus = "idle" | "loading"
 
 export default function ThemeLessonPage() {
   const router = useRouter()
@@ -40,21 +42,23 @@ export default function ThemeLessonPage() {
   const [status, setStatus] = useState<LessonStatus>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [training, setTraining] = useState(false)
+  const [noteMessage, setNoteMessage] = useState("")
+  const [noteSubmitting, setNoteSubmitting] = useState(false)
 
   const presentSections = useMemo(
-    () => (lesson ? getPresentLessonSections(lesson) : []),
+    () => (lesson && !lesson.pages?.length ? getPresentLessonSections(lesson) : []),
     [lesson],
   )
 
   const loadLesson = useCallback(
-    async (force = false) => {
+    async () => {
       if (!themeId || !hasPremium) return
-      setStatus(force ? "refreshing" : "loading")
+      setStatus("loading")
       setErrorMessage(null)
       try {
         const nextLesson = await api<AiTopicLesson>("/ai/mistakes/theme-lesson", {
           method: "POST",
-          body: { themeId, language, force },
+          body: { themeId, language },
         })
         setLesson(nextLesson)
       } catch (err) {
@@ -75,7 +79,7 @@ export default function ThemeLessonPage() {
 
   useEffect(() => {
     if (authLoading || !hasPremium) return
-    void loadLesson(false)
+    void loadLesson()
   }, [authLoading, hasPremium, loadLesson])
 
   const startPractice = async () => {
@@ -101,6 +105,32 @@ export default function ThemeLessonPage() {
         return
       }
       toast.error(practiceErrorMessage(err))
+    }
+  }
+
+  const submitLessonNote = async () => {
+    const message = noteMessage.trim()
+    if (!lesson?.lessonId) {
+      toast.error("Урок ещё не сохранён. Попробуйте открыть его заново.")
+      return
+    }
+    if (message.length < 12) {
+      toast.error("Опишите замечание чуть подробнее")
+      return
+    }
+
+    setNoteSubmitting(true)
+    try {
+      await api(`/ai/mistakes/theme-lesson/${lesson.lessonId}/note`, {
+        method: "POST",
+        body: { message },
+      })
+      setNoteMessage("")
+      toast.success("Замечание отправлено админу")
+    } catch (err) {
+      toast.error(lessonNoteErrorMessage(err))
+    } finally {
+      setNoteSubmitting(false)
     }
   }
 
@@ -149,7 +179,7 @@ export default function ThemeLessonPage() {
     return (
       <div className="mx-auto flex min-h-80 w-full max-w-5xl items-center justify-center gap-3 rounded-xl border border-violet-100 bg-violet-50 text-sm text-violet-950">
         <Spinner className="size-6 text-violet-600" />
-        AI готовит расширенный урок...
+        AI готовит полный урок...
       </div>
     )
   }
@@ -168,8 +198,8 @@ export default function ThemeLessonPage() {
             <p className="text-sm text-muted-foreground">
               {errorMessage ?? "Не удалось открыть урок по теме."}
             </p>
-            <Button type="button" className="w-fit" onClick={() => void loadLesson(false)}>
-              <RefreshCw className="size-4" />
+            <Button type="button" className="w-fit" onClick={() => void loadLesson()}>
+              <Sparkles className="size-4" />
               Повторить
             </Button>
           </CardContent>
@@ -225,7 +255,7 @@ export default function ThemeLessonPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
         <main className="min-w-0">
-          <LessonContent lesson={lesson} language={language} />
+          <FullLessonReader lesson={lesson} language={language} />
           <p className="mt-6 text-sm text-muted-foreground">
             {lesson.cached ? "Сохранённый урок" : "Сгенерировано сейчас"} · {lesson.model}
           </p>
@@ -255,14 +285,29 @@ export default function ThemeLessonPage() {
                 {training ? <Spinner className="size-4" /> : <Play className="size-4" />}
                 Тренировать тему
               </Button>
+            </div>
+
+            <div className="mt-4 border-t border-border pt-4">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <MessageSquare className="size-4 text-amber-600" />
+                Замечание к уроку
+              </div>
+              <Textarea
+                value={noteMessage}
+                onChange={(event) => setNoteMessage(event.target.value)}
+                placeholder="Например: в этой формуле ошибка или тема названа неточно"
+                className="min-h-24 resize-none text-sm"
+                maxLength={2000}
+              />
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void loadLesson(true)}
-                disabled={status === "refreshing"}
+                className="mt-2 w-full"
+                onClick={() => void submitLessonNote()}
+                disabled={noteSubmitting || noteMessage.trim().length < 12}
               >
-                {status === "refreshing" ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />}
-                Обновить урок
+                {noteSubmitting ? <Spinner className="size-4" /> : <Send className="size-4" />}
+                Отправить админу
               </Button>
             </div>
           </div>
@@ -270,6 +315,14 @@ export default function ThemeLessonPage() {
       </div>
     </div>
   )
+}
+
+function lessonNoteErrorMessage(err: unknown) {
+  if (!(err instanceof ApiError)) return "Не удалось отправить замечание. Попробуйте ещё раз."
+  if (err.message === "LESSON_NOTE_TOO_SHORT") return "Опишите замечание чуть подробнее"
+  if (err.message === "NO_OPEN_MISTAKES_FOR_THEME") return "По этой теме нет открытых ошибок"
+  if (err.status === 429) return "Слишком часто — подождите минуту"
+  return err.message || "Не удалось отправить замечание. Попробуйте ещё раз."
 }
 
 function lessonErrorMessage(err: unknown) {
