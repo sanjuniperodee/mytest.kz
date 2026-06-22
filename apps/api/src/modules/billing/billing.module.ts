@@ -3,12 +3,18 @@ import { KaspiSessionSetupSecretGuard } from '../../common/guards/kaspi-session-
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { KaspiPosService } from './kaspi-pos.service';
+import { KaspiReconcileService } from './kaspi-reconcile.service';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [AnalyticsModule],
   controllers: [BillingController],
-  providers: [BillingService, KaspiPosService, KaspiSessionSetupSecretGuard],
+  providers: [
+    BillingService,
+    KaspiPosService,
+    KaspiReconcileService,
+    KaspiSessionSetupSecretGuard,
+  ],
   exports: [BillingService, KaspiPosService],
 })
 export class BillingModule {}
