@@ -1047,18 +1047,22 @@ export class BillingService {
     lookbackMs?: number;
     lookbackHours?: number;
     limit?: number;
+    /** Какие статусы сверять. Горячий проход берёт только 'pending' (активные плательщики). */
+    statuses?: Array<'pending' | 'failed'>;
   }): Promise<{ checked: number; recovered: number; recoveredOrderIds: string[] }> {
     const windowMs =
       opts?.lookbackMs != null
         ? Math.min(Math.max(opts.lookbackMs, 60_000), 720 * 60 * 60 * 1000)
         : Math.min(Math.max(opts?.lookbackHours ?? 72, 1), 720) * 60 * 60 * 1000;
     const take = Math.min(Math.max(opts?.limit ?? 500, 1), 2000);
+    const statuses: Array<'pending' | 'failed'> =
+      opts?.statuses && opts.statuses.length > 0 ? opts.statuses : ['pending', 'failed'];
     const since = new Date(Date.now() - windowMs);
 
     const candidates = await this.prisma.paymentOrder.findMany({
       where: {
         provider: 'kaspi',
-        status: { in: ['pending', 'failed'] },
+        status: { in: statuses },
         createdAt: { gte: since },
       },
       orderBy: { createdAt: 'desc' },

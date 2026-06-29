@@ -2,9 +2,9 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { BillingService } from './billing.service';
 
-// Горячий проход: часто, но только по «свежим» заказам (активное окно оплаты) —
-// чтобы оплата выдавала пакет за секунды даже если юзер ушёл с экрана.
-const DEFAULT_FAST_INTERVAL_MS = 5 * 1000;
+// Горячий проход: каждые ~2с, но только по «свежим» pending-заказам (юзер платит прямо
+// сейчас) — чтобы пакет выдавался почти мгновенно БЕЗ участия фронта и без вебхука.
+const DEFAULT_FAST_INTERVAL_MS = 2 * 1000;
 const DEFAULT_FAST_WINDOW_MIN = 20;
 // Холодный проход: редко, по всему хвосту (поздние подтверждения, рестарты, до 72ч).
 const DEFAULT_SLOW_INTERVAL_MS = 3 * 60 * 1000;
@@ -58,7 +58,7 @@ export class KaspiReconcileService implements OnModuleInit, OnModuleDestroy {
     this.fastIntervalMs = this.readInt(
       'KASPI_RECONCILE_FAST_INTERVAL_MS',
       DEFAULT_FAST_INTERVAL_MS,
-      2_000,
+      1_000,
       60_000,
     );
     this.fastWindowMs =
@@ -109,7 +109,10 @@ export class KaspiReconcileService implements OnModuleInit, OnModuleDestroy {
     if (this.runningFast) return;
     this.runningFast = true;
     try {
-      const res = await this.billing.recoverStaleKaspiPayments({ lookbackMs: this.fastWindowMs });
+      const res = await this.billing.recoverStaleKaspiPayments({
+        lookbackMs: this.fastWindowMs,
+        statuses: ['pending'],
+      });
       if (res.recovered > 0) {
         this.logger.warn(
           `Kaspi reconcile hot (${reason}): granted ${res.recovered} payment(s): ${res.recoveredOrderIds.join(', ')}`,

@@ -138,6 +138,20 @@ describe('Kaspi late-payment recovery', () => {
     expect(subscriptionCreate).toHaveBeenCalledTimes(1);
   });
 
+  it('hot pass (statuses=[pending]) ignores failed orders entirely', async () => {
+    const { service, store, subscriptionCreate } = makeService({
+      orders: [makeOrder({ status: 'failed' })], // locally-expired failed
+      kaspiStatus: KASPI_PROCESSED,
+    });
+
+    const res = await service.recoverStaleKaspiPayments({ lookbackMs: 20 * 60_000, statuses: ['pending'] });
+
+    expect(res.checked).toBe(0);
+    expect(res.recovered).toBe(0);
+    expect(store.orders[0].status).toBe('failed');
+    expect(subscriptionCreate).not.toHaveBeenCalled();
+  });
+
   it('skips orders without a local-expiry marker (genuine failures are untouched)', async () => {
     const { service, store, subscriptionCreate } = makeService({
       orders: [makeOrder({ providerPayload: { paymentType: 'qr', status: 'failed' } })],
