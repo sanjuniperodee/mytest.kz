@@ -235,6 +235,17 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async onModuleInit() {
+    // Жёсткий выключатель для one-off скриптов (sync_subscription.ts и т.п.), которые
+    // поднимают весь AppModule: без него такой скрипт становится ВТОРЫМ потребителем
+    // getUpdates с тем же токеном → постоянный Telegram 409 conflict у основного API.
+    if (
+      ['1', 'true', 'yes', 'on'].includes(
+        String(process.env.TELEGRAM_BOT_DISABLED ?? '').trim().toLowerCase(),
+      )
+    ) {
+      this.logger.log('Telegram bot disabled via TELEGRAM_BOT_DISABLED — skipping launch.');
+      return;
+    }
     if (!this.botToken) {
       this.logger.warn('TELEGRAM_BOT_TOKEN пуст — бот не запускается.');
       return;

@@ -147,6 +147,20 @@ export class KaspiReconcileService implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.runningSlow = false;
     }
+
+    // Probe the Kaspi POS session — it's the single dependency behind webhook AND
+    // reconcile. When it dies, payments silently stop confirming. Emit ONE distinct
+    // line so monitoring can alert (Grafana rule matches "KASPI_SESSION_INACTIVE").
+    try {
+      const status = await this.billing.kaspiSetupStatus();
+      if (status.configured && !status.sessionActive) {
+        this.logger.error(
+          'KASPI_SESSION_INACTIVE: Kaspi POS session is not authenticated — payments cannot be confirmed until re-auth via OTP.',
+        );
+      }
+    } catch {
+      // A session-probe failure must not break the reconcile loop.
+    }
   }
 
   private parseBool(raw: string): boolean {
