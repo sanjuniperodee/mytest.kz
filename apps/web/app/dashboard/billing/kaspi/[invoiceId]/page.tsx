@@ -186,7 +186,7 @@ export default function KaspiPaymentPage() {
     {
       refreshInterval: (current) =>
         isVisibleDocument() && paymentStatusKind(current?.status, current?.expiresAt) === "pending"
-          ? 5000
+          ? 2500
           : 0,
       keepPreviousData: true,
     },

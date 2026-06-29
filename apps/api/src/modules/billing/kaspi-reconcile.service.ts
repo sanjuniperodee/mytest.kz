@@ -2,27 +2,39 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { BillingService } from './billing.service';
 
-const DEFAULT_INTERVAL_MS = 3 * 60 * 1000; // каждые 3 минуты
+// Горячий проход: часто, но только по «свежим» заказам (активное окно оплаты) —
+// чтобы оплата выдавала пакет за секунды даже если юзер ушёл с экрана.
+const DEFAULT_FAST_INTERVAL_MS = 5 * 1000;
+const DEFAULT_FAST_WINDOW_MIN = 20;
+// Холодный проход: редко, по всему хвосту (поздние подтверждения, рестарты, до 72ч).
+const DEFAULT_SLOW_INTERVAL_MS = 3 * 60 * 1000;
 const DEFAULT_LOOKBACK_HOURS = 72;
-const STARTUP_DELAY_MS = 15 * 1000;
+const STARTUP_DELAY_MS = 10 * 1000;
 
 /**
- * Фоновый добор Kaspi-платежей, подтверждённых уже ПОСЛЕ того как мы локально
- * пометили заказ failed по истечении окна оплаты. Реконсилит такие заказы с Kaspi
- * и, если платёж реально прошёл, проводит оплату + выдаёт доступ.
+ * Фоновый добор Kaspi-платежей в два уровня:
+ *  - hot:  каждые ~5с сверяет только заказы, созданные за последние ~20 мин (юзер сейчас платит)
+ *          → оплата проводится и пакет выдаётся в течение секунд, даже без вебхука/экрана;
+ *  - cold: каждые ~3 мин проходит по всему хвосту (72ч) — поздние подтверждения, рестарты kaspi-pos.
  *
- * Без новых зависимостей — таймерный планировщик в стиле DbSnapshotService.
- * Управление: KASPI_RECONCILE_ENABLED (по умолчанию вкл. в production),
+ * Без новых зависимостей (таймеры в стиле DbSnapshotService). Промоушн идёт через
+ * finalizeKaspiPaymentPaid (только при авторитетном статусе Kaspi), поэтому реальные
+ * отмены не «воскресают». Управление: KASPI_RECONCILE_ENABLED (по умолч. вкл. в production),
+ * KASPI_RECONCILE_FAST_INTERVAL_MS, KASPI_RECONCILE_FAST_WINDOW_MIN,
  * KASPI_RECONCILE_INTERVAL_MS, KASPI_RECONCILE_LOOKBACK_HOURS.
  */
 @Injectable()
 export class KaspiReconcileService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KaspiReconcileService.name);
-  private timer: NodeJS.Timeout | null = null;
+  private fastTimer: NodeJS.Timeout | null = null;
+  private slowTimer: NodeJS.Timeout | null = null;
   private startupTimer: NodeJS.Timeout | null = null;
-  private running = false;
+  private runningFast = false;
+  private runningSlow = false;
   private enabled = false;
-  private intervalMs = DEFAULT_INTERVAL_MS;
+  private fastIntervalMs = DEFAULT_FAST_INTERVAL_MS;
+  private fastWindowMs = DEFAULT_FAST_WINDOW_MIN * 60 * 1000;
+  private slowIntervalMs = DEFAULT_SLOW_INTERVAL_MS;
   private lookbackHours = DEFAULT_LOOKBACK_HOURS;
 
   constructor(
@@ -43,9 +55,19 @@ export class KaspiReconcileService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.intervalMs = this.readInt(
+    this.fastIntervalMs = this.readInt(
+      'KASPI_RECONCILE_FAST_INTERVAL_MS',
+      DEFAULT_FAST_INTERVAL_MS,
+      2_000,
+      60_000,
+    );
+    this.fastWindowMs =
+      this.readInt('KASPI_RECONCILE_FAST_WINDOW_MIN', DEFAULT_FAST_WINDOW_MIN, 1, 240) *
+      60 *
+      1000;
+    this.slowIntervalMs = this.readInt(
       'KASPI_RECONCILE_INTERVAL_MS',
-      DEFAULT_INTERVAL_MS,
+      DEFAULT_SLOW_INTERVAL_MS,
       30_000,
       60 * 60_000,
     );
@@ -56,50 +78,71 @@ export class KaspiReconcileService implements OnModuleInit, OnModuleDestroy {
       720,
     );
 
-    this.timer = setInterval(() => void this.runOnce('interval'), this.intervalMs);
-    this.timer.unref?.();
+    this.fastTimer = setInterval(() => void this.runFast('interval'), this.fastIntervalMs);
+    this.fastTimer.unref?.();
+    this.slowTimer = setInterval(() => void this.runSlow('interval'), this.slowIntervalMs);
+    this.slowTimer.unref?.();
 
-    // Первый прогон вскоре после старта (даём приложению инициализироваться).
-    this.startupTimer = setTimeout(() => void this.runOnce('startup'), STARTUP_DELAY_MS);
+    // Первый прогон вскоре после старта.
+    this.startupTimer = setTimeout(() => {
+      void this.runFast('startup');
+      void this.runSlow('startup');
+    }, STARTUP_DELAY_MS);
     this.startupTimer.unref?.();
 
     this.logger.log(
-      `Kaspi reconcile scheduler started (every ${Math.round(this.intervalMs / 1000)}s, lookback ${this.lookbackHours}h)`,
+      `Kaspi reconcile scheduler started (hot every ${Math.round(this.fastIntervalMs / 1000)}s / ${Math.round(
+        this.fastWindowMs / 60000,
+      )}min window, cold every ${Math.round(this.slowIntervalMs / 1000)}s / ${this.lookbackHours}h)`,
     );
   }
 
   onModuleDestroy() {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    for (const t of [this.fastTimer, this.slowTimer, this.startupTimer]) {
+      if (t) clearTimeout(t as NodeJS.Timeout);
     }
-    if (this.startupTimer) {
-      clearTimeout(this.startupTimer);
-      this.startupTimer = null;
+    this.fastTimer = this.slowTimer = this.startupTimer = null;
+  }
+
+  /** Частый проход по свежим заказам (активное окно оплаты) — near-instant выдача. */
+  private async runFast(reason: string) {
+    if (this.runningFast) return;
+    this.runningFast = true;
+    try {
+      const res = await this.billing.recoverStaleKaspiPayments({ lookbackMs: this.fastWindowMs });
+      if (res.recovered > 0) {
+        this.logger.warn(
+          `Kaspi reconcile hot (${reason}): granted ${res.recovered} payment(s): ${res.recoveredOrderIds.join(', ')}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Kaspi reconcile hot (${reason}) failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      this.runningFast = false;
     }
   }
 
-  private async runOnce(reason: string) {
-    if (this.running) return;
-    this.running = true;
+  /** Редкий проход по всему хвосту (72ч) — поздние подтверждения, рестарты. */
+  private async runSlow(reason: string) {
+    if (this.runningSlow) return;
+    this.runningSlow = true;
     try {
       const res = await this.billing.recoverStaleKaspiPayments({
         lookbackHours: this.lookbackHours,
       });
       if (res.recovered > 0) {
         this.logger.warn(
-          `Kaspi reconcile (${reason}): recovered ${res.recovered}/${res.checked} late-confirmed payment(s): ${res.recoveredOrderIds.join(', ')}`,
-        );
-      } else if (res.checked > 0) {
-        this.logger.log(
-          `Kaspi reconcile (${reason}): checked ${res.checked}, none newly paid`,
+          `Kaspi reconcile cold (${reason}): recovered ${res.recovered}/${res.checked} late payment(s): ${res.recoveredOrderIds.join(', ')}`,
         );
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Kaspi reconcile (${reason}) failed: ${message}`);
+      this.logger.error(
+        `Kaspi reconcile cold (${reason}) failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
-      this.running = false;
+      this.runningSlow = false;
     }
   }
 

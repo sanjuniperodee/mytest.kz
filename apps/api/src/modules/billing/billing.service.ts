@@ -1043,12 +1043,17 @@ export class BillingService {
    * (реальные отмены пользователя не «воскрешают» — у них статус Kaspi не paid).
    */
   async recoverStaleKaspiPayments(opts?: {
+    /** Окно по createdAt в миллисекундах (приоритетнее lookbackHours) — для частого «горячего» прохода. */
+    lookbackMs?: number;
     lookbackHours?: number;
     limit?: number;
   }): Promise<{ checked: number; recovered: number; recoveredOrderIds: string[] }> {
-    const lookbackHours = Math.min(Math.max(opts?.lookbackHours ?? 72, 1), 720);
+    const windowMs =
+      opts?.lookbackMs != null
+        ? Math.min(Math.max(opts.lookbackMs, 60_000), 720 * 60 * 60 * 1000)
+        : Math.min(Math.max(opts?.lookbackHours ?? 72, 1), 720) * 60 * 60 * 1000;
     const take = Math.min(Math.max(opts?.limit ?? 500, 1), 2000);
-    const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
+    const since = new Date(Date.now() - windowMs);
 
     const candidates = await this.prisma.paymentOrder.findMany({
       where: {
