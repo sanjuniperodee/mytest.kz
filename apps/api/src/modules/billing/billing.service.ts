@@ -1035,11 +1035,12 @@ export class BillingService {
   }
 
   /**
-   * Перепроверяет в Kaspi недавно «локально истёкшие» заказы (мы пометили failed по таймауту,
-   * но платёж мог подтвердиться позже) и проводит оплату, если Kaspi сообщает об успехе.
-   * Безопасно: повышение до paid идёт через finalizeKaspiPaymentPaid и только при авторитетном
-   * статусе Kaspi + совпадении суммы. Заказы, реально отменённые пользователем, не трогаются
-   * (у них нет locallyExpiredAt, а статус Kaspi не paid).
+   * Фоновый добор «зависших» Kaspi-заказов:
+   *  - `pending` — пользователь оплатил, но перестал поллить статус (заказ так и висит);
+   *  - `failed` с locallyExpiredAt — платёж подтвердился уже после локального истечения окна.
+   * Сверяет с Kaspi и проводит оплату, если платёж реально прошёл. Безопасно: повышение до
+   * paid идёт через finalizeKaspiPaymentPaid и только при авторитетном статусе Kaspi
+   * (реальные отмены пользователя не «воскрешают» — у них статус Kaspi не paid).
    */
   async recoverStaleKaspiPayments(opts?: {
     lookbackHours?: number;
@@ -1052,28 +1053,37 @@ export class BillingService {
     const candidates = await this.prisma.paymentOrder.findMany({
       where: {
         provider: 'kaspi',
-        status: 'failed',
-        updatedAt: { gte: since },
+        status: { in: ['pending', 'failed'] },
+        createdAt: { gte: since },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take,
-      select: { providerOrderId: true, providerPayload: true },
+      select: { id: true, providerOrderId: true, status: true, providerPayload: true },
     });
 
     const recoveredOrderIds: string[] = [];
     let checked = 0;
     for (const candidate of candidates) {
-      // Только наши жертвы гонки (локальное истечение), не настоящие отказы Kaspi.
-      const payload = asRecord(candidate.providerPayload);
-      if (!payload?.locallyExpiredAt) continue;
       if (isInvalidKaspiOperationId(candidate.providerOrderId)) continue;
+      // Из failed берём только наши жертвы гонки (локальное истечение), не реальные отказы Kaspi.
+      if (
+        candidate.status === 'failed' &&
+        !asRecord(candidate.providerPayload)?.locallyExpiredAt
+      ) {
+        continue;
+      }
       checked++;
       try {
         const reconciled = await this.reconcileKaspiOrder(candidate.providerOrderId, {
-          allowResolved: true,
+          allowResolved: candidate.status === 'failed',
         });
         if (reconciled?.status === 'paid') {
           recoveredOrderIds.push(candidate.providerOrderId);
+          continue;
+        }
+        // Зависший pending после окна+грейса — закрываем (expire сам делает финальную сверку).
+        if (reconciled && reconciled.status === 'pending') {
+          await this.expireStaleKaspiOrder(reconciled);
         }
       } catch {
         // Изолируем сбой одного заказа — остальные продолжаем проверять.
@@ -1214,9 +1224,13 @@ export class BillingService {
     }
 
     const expectedAmount = Number(order.amount);
+    // Отклоняем только при ЯВНОМ расхождении суммы. Статус QR/инвойса Kaspi часто
+    // не содержит суммы вовсе; транзакция привязана к нашему серверному order id с
+    // фиксированной суммой, поэтому авторитетный «оплачено» без суммы — доверенный
+    // (иначе платёж проходит, а пакет не выдаётся — частый баг с Kaspi Gold QR).
     if (
-      amount == null ||
-      !Number.isFinite(expectedAmount) ||
+      amount != null &&
+      Number.isFinite(expectedAmount) &&
       Math.abs(amount - expectedAmount) >= 0.01
     ) {
       return { ok: false, reason: 'AMOUNT_MISMATCH' };

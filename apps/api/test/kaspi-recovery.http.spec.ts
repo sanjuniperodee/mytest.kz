@@ -60,7 +60,9 @@ function makeService(opts: {
         store.orders.filter(
           (o) =>
             o.provider === where.provider &&
-            o.status === where.status,
+            (Array.isArray(where.status?.in)
+              ? where.status.in.includes(o.status)
+              : o.status === where.status),
         ),
       ),
       findUnique: jest.fn(async ({ where }: any) =>
@@ -115,6 +117,25 @@ describe('Kaspi late-payment recovery', () => {
     expect(subscriptionCreate).toHaveBeenCalledTimes(1);
     expect(subscriptionCreate.mock.calls[0][0].data.planType).toBe('starter');
     expect(accessService.syncSubscriptionEntitlements).toHaveBeenCalledWith('sub-1');
+  });
+
+  it('recovers a stuck PENDING order Kaspi processed, even when the status omits the amount', async () => {
+    const { service, store, subscriptionCreate } = makeService({
+      orders: [
+        makeOrder({
+          status: 'pending',
+          providerPayload: { paymentType: 'qr', status: 'QrTokenCreated' },
+        }),
+      ],
+      // Authoritative success but NO Amount field (typical Kaspi Gold QR status).
+      kaspiStatus: { Code: 0, Data: { Status: 'Processed', StatusDesc: 'Платеж успешно совершен' } },
+    });
+
+    const res = await service.recoverStaleKaspiPayments({ lookbackHours: 72 });
+
+    expect(res.recovered).toBe(1);
+    expect(store.orders[0].status).toBe('paid');
+    expect(subscriptionCreate).toHaveBeenCalledTimes(1);
   });
 
   it('skips orders without a local-expiry marker (genuine failures are untouched)', async () => {
