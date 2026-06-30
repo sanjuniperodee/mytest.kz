@@ -105,10 +105,22 @@ function programKey(p: ProgramRow): string {
   return `${p.code}:${p.profileVariant}`;
 }
 
-function matchProgram(programs: ProgramRow[], matrixCol0: string): ProgramRow | null {
+/**
+ * Сопоставляет строку-заголовок матрицы (например "B037 - Филология(Казахский/Русский...)")
+ * с программами из programs.csv.
+ *
+ * Возвращает ВСЕ профильные варианты этого кода: в матрице каждый код встречается ровно
+ * одним (объединённым) блоком с единым набором проходных баллов, поэтому этот балл относится
+ * ко всем профильным вариантам кода (напр. B037 Каз и B037 Рус — обе филологии получают
+ * один и тот же проходной балл). Раньше fuzzy-выбор брал только один вариант, и у второго
+ * (например «Филология. Русский язык») проходные баллы пропадали полностью.
+ *
+ * Если кода нет в programs.csv — создаём fallback-программу из подписи матрицы.
+ */
+function matchPrograms(programs: ProgramRow[], matrixCol0: string): ProgramRow[] {
   const t = matrixCol0.replace(/\s+/g, ' ').trim();
   const m = t.match(MATRIX_PROGRAM_LABEL_RE);
-  if (!m) return null;
+  if (!m) return [];
   const code = normalizeProgramCode(m[1]);
   const tail = m[2].trim();
   const prospects = programs.filter((p) => p.code === code);
@@ -117,32 +129,15 @@ function matchProgram(programs: ProgramRow[], matrixCol0: string): ProgramRow | 
     const name = tail.replace(/\s*\([^)]*\)\s*$/, '').trim() || tail;
     const fallback: ProgramRow = {
       code,
-      profileVariant: programs.filter((p) => p.code === code).length,
+      profileVariant: 0,
       name,
       profileSubjects,
       profileShortLabel: null,
     };
     programs.push(fallback);
-    return fallback;
+    return [fallback];
   }
-  if (prospects.length === 1) return prospects[0];
-
-  const lowerTail = tail.toLowerCase();
-  const scored = prospects.map((p) => {
-    let score = 0;
-    const ps = p.profileSubjects.toLowerCase();
-    const pn = p.name.toLowerCase();
-    if (lowerTail.includes('казах') && (ps.includes('казах') || pn.includes('казах'))) score += 10;
-    if (lowerTail.includes('русск') && ps.includes('русск')) score += 10;
-    if (lowerTail.includes('творческ') && ps.toLowerCase().includes('творческ')) score += 5;
-    const words = lowerTail.split(/[^a-zа-яёәіңғүұқөһ]+/i).filter((w) => w.length > 4);
-    for (const w of words) {
-      if (pn.includes(w) || ps.includes(w)) score += 1;
-    }
-    return { p, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0].score > 0 ? scored[0].p : prospects[0];
+  return prospects;
 }
 
 function parseCellScore(cell: string | undefined): number | null {
@@ -182,7 +177,23 @@ function parseMatrix(
     .filter((n) => Number.isFinite(n) && n > 0);
 
   let currentLabel: string | null = null;
-  let currentProgram: ProgramRow | null = null;
+  let currentPrograms: ProgramRow[] = [];
+
+  const emitCutoffs = (row: string[], quotaType: 'GRANT' | 'RURAL') => {
+    if (!currentPrograms.length || !currentLabel) return;
+    uniCodes.forEach((uniCode, idx) => {
+      const minScore = parseCellScore(row[idx + 1]);
+      for (const prog of currentPrograms) {
+        cutoffs.push({
+          cycleSlug,
+          universityCode: uniCode,
+          programKey: programKey(prog),
+          quotaType,
+          minScore,
+        });
+      }
+    });
+  };
 
   for (let i = hi + 1; i < rows.length; i++) {
     const row = rows[i].map((c) => String(c ?? ''));
@@ -192,43 +203,19 @@ function parseMatrix(
     if (rowEmpty) continue;
 
     if (c0.toLowerCase() === 'грант') {
-      if (!currentProgram || !currentLabel) continue;
-      const pk = programKey(currentProgram);
-      uniCodes.forEach((uniCode, idx) => {
-        const cell = row[idx + 1];
-        const minScore = parseCellScore(cell);
-        cutoffs.push({
-          cycleSlug,
-          universityCode: uniCode,
-          programKey: pk,
-          quotaType: 'GRANT',
-          minScore,
-        });
-      });
+      emitCutoffs(row, 'GRANT');
       continue;
     }
 
     if (c0.toLowerCase().startsWith('сельск')) {
-      if (!currentProgram || !currentLabel) continue;
-      const pk = programKey(currentProgram);
-      uniCodes.forEach((uniCode, idx) => {
-        const cell = row[idx + 1];
-        const minScore = parseCellScore(cell);
-        cutoffs.push({
-          cycleSlug,
-          universityCode: uniCode,
-          programKey: pk,
-          quotaType: 'RURAL',
-          minScore,
-        });
-      });
+      emitCutoffs(row, 'RURAL');
       continue;
     }
 
     if (MATRIX_PROGRAM_LABEL_RE.test(c0)) {
       currentLabel = c0;
-      currentProgram = matchProgram(programs, c0);
-      if (!currentProgram) unknownProgramLabels.push(c0);
+      currentPrograms = matchPrograms(programs, c0);
+      if (!currentPrograms.length) unknownProgramLabels.push(c0);
       continue;
     }
   }

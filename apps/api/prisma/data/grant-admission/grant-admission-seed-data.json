@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-06-17T02:59:57.156Z",
+    "generatedAt": "2026-06-30T04:35:06.065Z",
     "generator": "import-grant-csvs"
   },
   "universities": [
@@ -34018,8 +34018,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 7,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 115
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 13,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": 115
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 13,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": 115
     },
@@ -34032,8 +34046,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 25,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 117
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 302,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": 116
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 302,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": 116
     },
@@ -34046,8 +34074,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 185,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 45,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 45,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34060,8 +34102,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 47,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 14,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 14,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34074,8 +34130,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 31,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 118
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 34,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 34,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34088,8 +34158,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 16,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 20,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 20,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34102,8 +34186,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 40,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 43,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 43,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34116,8 +34214,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 501,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 153,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 153,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34130,8 +34242,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 143,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 517,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 517,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34144,8 +34270,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 37,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 196,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 196,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34158,8 +34298,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 36,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 11,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 11,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34172,8 +34326,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 159,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 5,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 5,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34186,6 +34354,13 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 23,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 158,
       "programKey": "B037:0",
       "quotaType": "GRANT",
@@ -34193,8 +34368,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 158,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 10,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 10,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34207,8 +34396,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 38,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 116
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 93,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 93,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34221,8 +34424,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 27,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 115
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 22,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 22,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34235,8 +34452,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 35,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 42,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 42,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34249,8 +34480,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 53,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 79,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 79,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34263,8 +34508,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 154,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 182,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 182,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34277,8 +34536,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 184,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 503,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 503,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34291,8 +34564,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 15,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 174,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 174,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34305,8 +34592,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 21,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 69,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 69,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34319,8 +34620,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 83,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 190,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 190,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34333,8 +34648,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 522,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 122,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 122,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34347,8 +34676,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 421,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 3,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 3,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34361,8 +34704,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 12,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 49,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 49,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34375,8 +34732,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 2,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 29,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 29,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34389,8 +34760,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 141,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 8,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 8,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34403,8 +34788,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 82,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 24,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 24,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34417,8 +34816,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 30,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 223,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 223,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34431,8 +34844,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 173,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 9,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 9,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34445,8 +34872,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 32,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 39,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 39,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34459,8 +34900,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 57,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 146,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 146,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34473,8 +34928,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 33,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 140,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 140,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34487,8 +34956,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 147,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 162,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 162,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34501,8 +34984,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 19,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 199,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 199,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34515,8 +35012,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 160,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 198,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 198,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34529,8 +35040,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 78,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 157,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 157,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34543,8 +35068,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 416,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 26,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 26,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34557,8 +35096,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 44,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 103,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 103,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34571,8 +35124,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 527,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 1,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 1,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34585,8 +35152,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 4,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 41,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 41,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -34599,8 +35180,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 7,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 13,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 13,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34613,8 +35208,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 25,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 302,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 302,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34627,8 +35236,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 185,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 45,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 45,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34641,8 +35264,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 47,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 14,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 14,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34655,8 +35292,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 31,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 34,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 34,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34669,8 +35320,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 16,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 20,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 20,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34683,8 +35348,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 40,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 43,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 43,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34697,8 +35376,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 501,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 153,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 153,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34711,8 +35404,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 143,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 517,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 517,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34725,8 +35432,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 37,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 196,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 196,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34739,8 +35460,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 36,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 11,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 11,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34753,8 +35488,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 159,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 5,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 5,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34767,8 +35516,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 23,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 158,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 158,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34781,8 +35544,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 10,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 38,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 38,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34795,8 +35572,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 93,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 27,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 27,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34809,8 +35600,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 22,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 35,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 35,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34823,8 +35628,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 42,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 53,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 53,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34837,8 +35656,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 79,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 154,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 154,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34851,8 +35684,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 182,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 184,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 184,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34865,8 +35712,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 503,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 15,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 15,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34879,8 +35740,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 174,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 21,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 21,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34893,8 +35768,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 69,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 83,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 83,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34907,8 +35796,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 190,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 522,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 522,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34921,8 +35824,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 122,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 421,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 421,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34935,8 +35852,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 3,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 12,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 12,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34949,8 +35880,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 49,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 2,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 2,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34963,8 +35908,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 29,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 141,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 141,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34977,8 +35936,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 8,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 82,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 82,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -34991,8 +35964,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 24,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 30,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 30,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35005,8 +35992,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 223,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 173,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 173,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35019,8 +36020,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 9,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 32,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 32,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35033,8 +36048,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 39,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 57,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 57,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35047,8 +36076,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 146,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 33,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 33,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35061,8 +36104,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 140,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 147,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 147,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35075,8 +36132,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 162,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 19,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 19,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35089,8 +36160,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 199,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 160,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 160,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35103,8 +36188,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 198,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 78,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 78,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35117,8 +36216,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 157,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 416,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 416,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35131,8 +36244,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 26,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 44,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 44,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35145,8 +36272,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 103,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 527,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 527,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -35159,6 +36300,13 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 1,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 4,
       "programKey": "B037:0",
       "quotaType": "RURAL",
@@ -35166,8 +36314,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 4,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 41,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 41,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -43314,8 +44476,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 7,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 13,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 99
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 13,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 99
     },
@@ -43328,6 +44504,13 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 25,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 302,
       "programKey": "B043:0",
       "quotaType": "GRANT",
@@ -43335,8 +44518,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 302,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 185,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 103
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 185,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 103
     },
@@ -43349,8 +44546,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 45,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 104
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 47,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 47,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43363,8 +44574,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 14,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 31,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 102
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 31,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 102
     },
@@ -43377,8 +44602,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 34,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 16,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 97
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 16,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 97
     },
@@ -43391,8 +44630,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 20,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 40,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 40,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43405,8 +44658,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 43,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 501,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 501,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43419,8 +44686,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 153,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 143,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 143,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43433,8 +44714,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 517,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 37,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 37,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43447,8 +44742,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 196,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 36,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 99
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 36,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 99
     },
@@ -43461,8 +44770,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 11,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 159,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 159,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43475,8 +44798,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 5,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 101
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 23,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 23,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43489,6 +44826,13 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 158,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 10,
       "programKey": "B043:0",
       "quotaType": "GRANT",
@@ -43496,8 +44840,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 10,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 38,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 102
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 38,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 102
     },
@@ -43510,8 +44868,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 93,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 99
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 27,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 27,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 98
     },
@@ -43524,8 +44896,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 22,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 35,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 102
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 35,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 102
     },
@@ -43538,8 +44924,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 42,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 103
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 53,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 53,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43552,8 +44952,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 79,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 102
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 154,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 154,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43566,8 +44980,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 182,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 184,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 184,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43580,6 +45008,13 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 503,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 15,
       "programKey": "B043:0",
       "quotaType": "GRANT",
@@ -43587,8 +45022,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 15,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 174,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 174,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43601,8 +45050,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 21,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 97
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 69,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 69,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 98
     },
@@ -43615,8 +45078,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 83,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 190,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 190,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43629,8 +45106,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 522,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 122,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 122,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43643,8 +45134,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 421,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 3,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 3,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43657,8 +45162,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 12,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 49,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 49,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43671,8 +45190,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 2,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 29,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 29,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43685,8 +45218,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 141,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 8,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 8,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43699,8 +45246,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 82,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 24,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 24,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43713,8 +45274,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 30,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 223,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 223,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43727,8 +45302,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 173,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 9,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 9,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43741,8 +45330,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 32,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 39,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 39,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43755,8 +45358,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 57,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 146,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 146,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43769,8 +45386,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 33,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 140,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 140,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43783,8 +45414,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 147,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 162,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 162,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43797,8 +45442,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 19,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 199,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 199,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43811,8 +45470,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 160,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 198,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 198,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43825,8 +45498,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 78,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 157,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 157,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43839,8 +45526,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 416,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 26,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 26,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43853,8 +45554,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 44,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 103,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 103,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43867,8 +45582,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 527,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 1,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 1,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43881,8 +45610,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 4,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 41,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 41,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -43895,8 +45638,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 7,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 13,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 13,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 98
     },
@@ -43909,8 +45666,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 25,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 302,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 302,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -43923,8 +45694,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 185,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 45,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 45,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 98
     },
@@ -43937,8 +45722,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 47,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 14,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 14,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -43951,8 +45750,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 31,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 34,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 34,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -43965,8 +45778,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 16,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 20,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 20,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -43979,8 +45806,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 40,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 43,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 43,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -43993,8 +45834,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 501,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 153,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 153,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44007,8 +45862,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 143,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 517,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 517,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44021,8 +45890,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 37,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 196,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 196,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44035,8 +45918,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 36,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 11,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 11,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44049,8 +45946,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 159,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 5,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 5,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 98
     },
@@ -44063,8 +45974,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 23,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 158,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 158,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44077,8 +46002,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 10,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 38,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 38,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 98
     },
@@ -44091,8 +46030,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 93,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 27,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 27,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 98
     },
@@ -44105,8 +46058,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 22,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 35,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 35,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 98
     },
@@ -44119,8 +46086,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 42,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 53,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 53,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44133,8 +46114,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 79,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 154,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 154,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44147,8 +46142,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 182,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 184,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 184,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44161,8 +46170,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 503,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 15,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 15,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44175,8 +46198,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 174,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 21,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 21,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44189,8 +46226,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 69,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 98
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 83,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 83,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44203,8 +46254,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 190,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 522,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 522,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44217,8 +46282,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 122,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 421,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 421,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44231,8 +46310,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 3,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 12,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 12,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44245,8 +46338,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 49,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 2,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 2,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44259,8 +46366,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 29,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 141,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 141,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44273,8 +46394,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 8,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 82,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 82,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44287,8 +46422,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 24,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 30,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 30,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44301,8 +46450,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 223,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 173,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 173,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44315,8 +46478,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 9,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 32,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 32,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44329,8 +46506,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 39,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 57,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 57,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44343,8 +46534,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 146,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 33,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 33,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44357,8 +46562,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 140,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 147,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 147,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44371,8 +46590,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 162,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 19,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 19,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44385,8 +46618,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 199,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 160,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 160,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44399,8 +46646,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 198,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 78,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 78,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44413,8 +46674,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 157,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 416,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 416,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44427,8 +46702,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 26,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 44,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 44,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44441,8 +46730,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 103,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 527,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 527,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -44455,6 +46758,13 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 1,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 4,
       "programKey": "B043:0",
       "quotaType": "RURAL",
@@ -44462,8 +46772,22 @@
     },
     {
       "cycleSlug": "2023-2024",
+      "universityCode": 4,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
       "universityCode": 41,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2023-2024",
+      "universityCode": 41,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154068,8 +156392,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 7,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 120
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 13,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": 120
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 13,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": 120
     },
@@ -154082,6 +156420,13 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 25,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 120
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 302,
       "programKey": "B037:0",
       "quotaType": "GRANT",
@@ -154089,8 +156434,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 302,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 120
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 185,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 185,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154103,8 +156462,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 45,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 127
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 47,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 47,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154117,8 +156490,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 14,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 31,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 31,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154131,8 +156518,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 34,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 120
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 16,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 16,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154145,8 +156546,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 20,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 40,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 40,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154159,8 +156574,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 43,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 501,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 501,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154173,8 +156602,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 153,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 143,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 143,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154187,8 +156630,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 517,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 37,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 37,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154201,8 +156658,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 196,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 130
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 36,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 36,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154215,8 +156686,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 11,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 159,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 159,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154229,8 +156714,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 5,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 128
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 23,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 23,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154243,8 +156742,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 158,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 10,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 10,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154257,8 +156770,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 38,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 93,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 93,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154271,8 +156798,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 27,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": 120
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 22,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 22,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154285,8 +156826,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 35,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 42,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 42,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154299,8 +156854,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 53,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 79,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 79,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154313,8 +156882,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 154,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 182,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 182,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154327,8 +156910,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 184,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 503,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 503,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154341,8 +156938,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 15,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 174,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 174,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154355,8 +156966,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 21,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 69,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 69,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154369,8 +156994,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 83,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 190,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 190,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154383,8 +157022,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 522,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 122,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 122,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154397,8 +157050,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 421,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 3,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 3,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154411,8 +157078,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 12,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 49,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 49,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154425,8 +157106,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 2,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 29,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 29,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154439,8 +157134,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 141,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 8,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 8,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154453,8 +157162,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 82,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 24,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 24,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154467,8 +157190,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 30,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 223,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 223,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154481,8 +157218,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 173,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 9,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 9,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154495,8 +157246,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 32,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 39,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 39,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154509,8 +157274,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 57,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 146,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 146,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154523,8 +157302,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 33,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 140,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 140,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154537,8 +157330,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 147,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 162,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 162,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154551,8 +157358,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 19,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 199,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 199,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154565,8 +157386,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 160,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 198,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 198,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154579,8 +157414,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 78,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 157,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 157,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154593,8 +157442,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 416,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 26,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 26,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154607,8 +157470,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 44,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 103,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 103,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154621,8 +157498,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 527,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 1,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 1,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154635,8 +157526,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 4,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 41,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 41,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154649,8 +157554,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 80,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 202,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 202,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154663,8 +157582,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 305,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 528,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 528,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154677,8 +157610,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 529,
+      "programKey": "B037:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 89,
       "programKey": "B037:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 89,
+      "programKey": "B037:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -154691,8 +157638,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 7,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 13,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 13,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154705,8 +157666,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 25,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 302,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 302,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154719,8 +157694,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 185,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 45,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 45,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154733,8 +157722,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 47,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 14,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 14,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154747,8 +157750,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 31,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 34,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 34,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154761,8 +157778,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 16,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 20,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 20,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154775,8 +157806,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 40,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 43,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 43,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154789,8 +157834,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 501,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 153,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 153,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154803,8 +157862,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 143,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 517,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 517,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154817,8 +157890,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 37,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 196,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 196,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154831,8 +157918,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 36,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 11,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 11,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154845,8 +157946,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 159,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 5,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 5,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154859,8 +157974,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 23,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 158,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 158,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154873,8 +158002,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 10,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 38,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 38,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154887,8 +158030,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 93,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 27,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 27,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154901,8 +158058,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 22,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 35,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 35,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154915,8 +158086,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 42,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 53,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 53,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154929,8 +158114,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 79,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 154,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 154,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154943,8 +158142,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 182,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 184,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 184,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154957,8 +158170,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 503,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 15,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 15,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154971,8 +158198,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 174,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 21,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 21,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154985,8 +158226,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 69,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 83,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 83,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -154999,8 +158254,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 190,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 522,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 522,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155013,8 +158282,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 122,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 421,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 421,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155027,8 +158310,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 3,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 12,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 12,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155041,8 +158338,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 49,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 2,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 2,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155055,8 +158366,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 29,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 141,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 141,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155069,8 +158394,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 8,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 82,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 82,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155083,8 +158422,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 24,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 30,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 30,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155097,8 +158450,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 223,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 173,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 173,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155111,8 +158478,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 9,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 32,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 32,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155125,8 +158506,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 39,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 57,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 57,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155139,8 +158534,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 146,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 33,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 33,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155153,8 +158562,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 140,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 147,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 147,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155167,8 +158590,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 162,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 19,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 19,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155181,8 +158618,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 199,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 160,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 160,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155195,8 +158646,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 198,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 78,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 78,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155209,8 +158674,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 157,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 416,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 416,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155223,8 +158702,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 26,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 44,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 44,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155237,8 +158730,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 103,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 527,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 527,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155251,8 +158758,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 1,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 4,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 4,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155265,8 +158786,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 41,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 80,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 80,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155279,8 +158814,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 202,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 305,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 305,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -155293,6 +158842,13 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 528,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 529,
       "programKey": "B037:0",
       "quotaType": "RURAL",
@@ -155300,8 +158856,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 529,
+      "programKey": "B037:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 89,
       "programKey": "B037:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 89,
+      "programKey": "B037:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164036,8 +167606,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 7,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 13,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 13,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164050,8 +167634,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 25,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 111
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 302,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 302,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164064,8 +167662,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 185,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 45,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": 111
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 45,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": 111
     },
@@ -164078,8 +167690,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 47,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 14,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 14,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164092,8 +167718,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 31,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 34,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 34,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164106,8 +167746,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 16,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 20,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 20,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164120,8 +167774,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 40,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 43,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 43,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164134,8 +167802,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 501,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 153,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 153,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164148,8 +167830,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 143,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 517,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 517,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164162,8 +167858,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 37,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 196,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 196,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164176,8 +167886,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 36,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 112
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 11,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 11,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164190,8 +167914,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 159,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 5,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 5,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164204,8 +167942,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 23,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 158,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 158,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164218,6 +167970,13 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 10,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 38,
       "programKey": "B043:0",
       "quotaType": "GRANT",
@@ -164225,8 +167984,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 38,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 113
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 93,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 93,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164239,8 +168012,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 27,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 111
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 22,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 22,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164253,8 +168040,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 35,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 42,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 42,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164267,8 +168068,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 53,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 79,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 79,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164281,8 +168096,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 154,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 182,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 182,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164295,8 +168124,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 184,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 503,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 503,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164309,8 +168152,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 15,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 174,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 174,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164323,8 +168180,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 21,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 69,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 69,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164337,8 +168208,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 83,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 190,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 190,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164351,8 +168236,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 522,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 122,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 122,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164365,8 +168264,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 421,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 3,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 3,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164379,8 +168292,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 12,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 49,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 49,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164393,8 +168320,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 2,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 29,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 29,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164407,8 +168348,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 141,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 8,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 8,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164421,8 +168376,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 82,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 24,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 24,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164435,8 +168404,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 30,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 223,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 223,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164449,8 +168432,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 173,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 9,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 9,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164463,8 +168460,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 32,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 39,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 39,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164477,8 +168488,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 57,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 146,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 146,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164491,8 +168516,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 33,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 140,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 140,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164505,8 +168544,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 147,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 162,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 162,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164519,8 +168572,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 19,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 199,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 199,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164533,8 +168600,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 160,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 198,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 198,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164547,8 +168628,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 78,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 157,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 157,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164561,8 +168656,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 416,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 26,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 26,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164575,8 +168684,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 44,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 103,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 103,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164589,8 +168712,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 527,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 1,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 1,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164603,8 +168740,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 4,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 41,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 41,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164617,8 +168768,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 80,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 202,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 202,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164631,8 +168796,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 305,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": 113
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 528,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 528,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164645,8 +168824,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 529,
+      "programKey": "B043:1",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 89,
       "programKey": "B043:0",
+      "quotaType": "GRANT",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 89,
+      "programKey": "B043:1",
       "quotaType": "GRANT",
       "minScore": null
     },
@@ -164659,8 +168852,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 7,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 13,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 13,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164673,8 +168880,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 25,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 107
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 302,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 302,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164687,8 +168908,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 185,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 45,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 109
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 45,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 109
     },
@@ -164701,8 +168936,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 47,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 14,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 14,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164715,8 +168964,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 31,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 34,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 34,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164729,8 +168992,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 16,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 20,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 20,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164743,8 +169020,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 40,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 43,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 43,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164757,8 +169048,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 501,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 153,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 153,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164771,8 +169076,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 143,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 517,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 517,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164785,8 +169104,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 37,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 196,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 196,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164799,8 +169132,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 36,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 11,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 11,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164813,8 +169160,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 159,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 5,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 5,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164827,8 +169188,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 23,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 158,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 158,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164841,8 +169216,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 10,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 38,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 38,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164855,8 +169244,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 93,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 27,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": 108
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 27,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": 108
     },
@@ -164869,8 +169272,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 22,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 35,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 35,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164883,8 +169300,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 42,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 53,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 53,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164897,8 +169328,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 79,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 154,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 154,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164911,8 +169356,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 182,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 184,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 184,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164925,8 +169384,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 503,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 15,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 15,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164939,8 +169412,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 174,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 21,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 21,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164953,8 +169440,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 69,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 83,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 83,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164967,8 +169468,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 190,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 522,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 522,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164981,8 +169496,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 122,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 421,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 421,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -164995,8 +169524,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 3,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 12,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 12,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165009,8 +169552,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 49,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 2,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 2,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165023,8 +169580,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 29,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 141,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 141,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165037,8 +169608,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 8,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 82,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 82,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165051,8 +169636,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 24,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 30,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 30,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165065,8 +169664,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 223,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 173,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 173,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165079,8 +169692,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 9,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 32,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 32,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165093,8 +169720,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 39,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 57,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 57,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165107,8 +169748,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 146,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 33,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 33,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165121,8 +169776,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 140,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 147,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 147,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165135,8 +169804,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 162,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 19,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 19,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165149,8 +169832,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 199,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 160,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 160,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165163,8 +169860,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 198,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 78,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 78,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165177,8 +169888,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 157,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 416,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 416,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165191,8 +169916,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 26,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 44,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 44,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165205,8 +169944,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 103,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 527,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 527,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165219,8 +169972,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 1,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 4,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 4,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165233,8 +170000,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 41,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 80,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 80,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165247,8 +170028,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 202,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 305,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 305,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
@@ -165261,6 +170056,13 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 528,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": 108
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 529,
       "programKey": "B043:0",
       "quotaType": "RURAL",
@@ -165268,8 +170070,22 @@
     },
     {
       "cycleSlug": "2025-2026",
+      "universityCode": 529,
+      "programKey": "B043:1",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
       "universityCode": 89,
       "programKey": "B043:0",
+      "quotaType": "RURAL",
+      "minScore": null
+    },
+    {
+      "cycleSlug": "2025-2026",
+      "universityCode": 89,
+      "programKey": "B043:1",
       "quotaType": "RURAL",
       "minScore": null
     },
