@@ -81,6 +81,40 @@ describe('landing growth contracts', () => {
     );
   });
 
+  it('renormalizes a cached landing payload created before campaign settings existed', async () => {
+    const prismaMock = {
+      siteSetting: {
+        findUnique: jest.fn().mockResolvedValue({
+          value: {
+            instructionVideoUrl: 'https://example.com/video',
+            instagramUrl: 'https://instagram.com/mytest',
+            tiktokUrl: 'https://www.tiktok.com/@mytest',
+            whatsappUrl: 'https://wa.me/77000000000',
+            heroSlides: [],
+          },
+        }),
+      },
+    } as any;
+    const redisMock = {
+      get: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          instructionVideoUrl: 'https://example.com/video',
+          heroSlides: [],
+        }),
+      ),
+      set: jest.fn().mockResolvedValue('OK'),
+    } as any;
+    const service = new SettingsService(prismaMock, redisMock);
+
+    const result = await service.getLandingSettings();
+
+    expect(result.campaign).toMatchObject({
+      enabled: true,
+      ctaHref: '/login?source=campaign',
+    });
+    expect(prismaMock.siteSetting.findUnique).toHaveBeenCalled();
+  });
+
   it('returns lead CRM counts for every status, including empty columns', async () => {
     const prismaMock = {
       lead: {

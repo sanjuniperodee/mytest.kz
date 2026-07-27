@@ -63,7 +63,12 @@ export class SettingsService {
     const cached = await this.redis.get(CACHE_KEY);
     if (cached) {
       try {
-        return JSON.parse(cached) as LandingSettings;
+        const parsed = JSON.parse(cached) as Partial<LandingSettings>;
+        // A cached payload can outlive a deploy that adds a new public setting.
+        // Fall through to the database normalizer when the cache has the old shape.
+        if (parsed.campaign && Array.isArray(parsed.heroSlides)) {
+          return parsed as LandingSettings;
+        }
       } catch {}
     }
 
