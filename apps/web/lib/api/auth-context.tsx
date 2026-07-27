@@ -10,7 +10,11 @@ import {
   getRefreshToken,
   setTokens,
 } from "./storage"
-import { prepareTelegramWebApp, waitForTelegramInitData } from "@/lib/telegram-webapp"
+import {
+  isTelegramWebAppLaunch,
+  prepareTelegramWebApp,
+  waitForTelegramInitData,
+} from "@/lib/telegram-webapp"
 import type { AuthResponse, User } from "./types"
 
 interface AuthContextValue {
@@ -75,6 +79,8 @@ export function AuthProvider({
       try {
         const profile = await loadCurrentUser()
         if (cancelled || profile) return
+
+        if (!isTelegramWebAppLaunch()) return
 
         const initData = await waitForTelegramInitData()
         if (cancelled || !initData) return

@@ -14,6 +14,13 @@ const profiles = [
   "География — Иностранный язык",
 ]
 
+const currentScorePresets = [60, 80, 100]
+const targetScorePresets = [90, 110, 125]
+
+function clampScore(value: number, min = 0) {
+  return Math.min(140, Math.max(min, value))
+}
+
 function getPlan(gap: number) {
   if (gap <= 0) {
     return {
@@ -54,6 +61,7 @@ export function Diagnostic() {
   const [completed, setCompleted] = useState(false)
   const startedRef = useRef(false)
   const gap = Math.max(0, targetScore - currentScore)
+  const goalProgress = Math.min(100, Math.round((currentScore / Math.max(targetScore, 1)) * 100))
   const plan = useMemo(() => getPlan(targetScore - currentScore), [currentScore, targetScore])
 
   const markStarted = () => {
@@ -74,7 +82,12 @@ export function Diagnostic() {
     })
   }
 
-  const loginHref = `/login?source=diagnostic&score=${currentScore}&target=${targetScore}`
+  const loginHref = `/login?${new URLSearchParams({
+    source: "diagnostic",
+    score: String(currentScore),
+    target: String(targetScore),
+    profile,
+  }).toString()}`
 
   return (
     <section id="diagnostic" className="border-b border-border/60 bg-foreground text-background">
@@ -124,18 +137,32 @@ export function Diagnostic() {
             </div>
 
             <div className="space-y-7 p-5 sm:p-8">
-              <label className="block">
+              <div className="block">
                 <span className="flex items-center justify-between text-sm font-semibold">
-                  Текущий балл
-                  <output className="rounded-lg bg-secondary px-3 py-1 font-mono text-lg">
-                    {currentScore}
-                  </output>
+                  <label htmlFor="diagnostic-current-score">Текущий балл</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={140}
+                    value={currentScore}
+                    onFocus={markStarted}
+                    onChange={(event) => {
+                      markStarted()
+                      setCompleted(false)
+                      setCurrentScore(clampScore(Number(event.target.value)))
+                    }}
+                    aria-label="Текущий балл, точное значение"
+                    className="h-10 w-20 rounded-xl border border-input bg-secondary px-2 text-center font-mono text-lg font-semibold outline-none focus:ring-2 focus:ring-ring"
+                  />
                 </span>
                 <input
+                  id="diagnostic-current-score"
                   type="range"
                   min={0}
                   max={140}
                   value={currentScore}
+                  aria-label="Текущий балл"
+                  aria-valuetext={`${currentScore} из 140`}
                   onFocus={markStarted}
                   onChange={(event) => {
                     markStarted()
@@ -148,20 +175,54 @@ export function Diagnostic() {
                   <span>0</span>
                   <span>140</span>
                 </span>
-              </label>
+                <span className="mt-3 flex flex-wrap gap-2" aria-label="Быстрый выбор текущего балла">
+                  {currentScorePresets.map((score) => (
+                    <button
+                      key={score}
+                      type="button"
+                      onClick={() => {
+                        markStarted()
+                        setCompleted(false)
+                        setCurrentScore(score)
+                      }}
+                      className={`min-h-9 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                        currentScore === score
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-background text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                    >
+                      {score} баллов
+                    </button>
+                  ))}
+                </span>
+              </div>
 
-              <label className="block">
+              <div className="block">
                 <span className="flex items-center justify-between text-sm font-semibold">
-                  Целевой балл
-                  <output className="rounded-lg bg-secondary px-3 py-1 font-mono text-lg">
-                    {targetScore}
-                  </output>
+                  <label htmlFor="diagnostic-target-score">Целевой балл</label>
+                  <input
+                    type="number"
+                    min={50}
+                    max={140}
+                    value={targetScore}
+                    onFocus={markStarted}
+                    onChange={(event) => {
+                      markStarted()
+                      setCompleted(false)
+                      setTargetScore(clampScore(Number(event.target.value), 50))
+                    }}
+                    aria-label="Целевой балл, точное значение"
+                    className="h-10 w-20 rounded-xl border border-input bg-secondary px-2 text-center font-mono text-lg font-semibold outline-none focus:ring-2 focus:ring-ring"
+                  />
                 </span>
                 <input
+                  id="diagnostic-target-score"
                   type="range"
                   min={50}
                   max={140}
                   value={targetScore}
+                  aria-label="Целевой балл"
+                  aria-valuetext={`${targetScore} из 140`}
                   onFocus={markStarted}
                   onChange={(event) => {
                     markStarted()
@@ -174,7 +235,27 @@ export function Diagnostic() {
                   <span>50</span>
                   <span>140</span>
                 </span>
-              </label>
+                <span className="mt-3 flex flex-wrap gap-2" aria-label="Быстрый выбор целевого балла">
+                  {targetScorePresets.map((score) => (
+                    <button
+                      key={score}
+                      type="button"
+                      onClick={() => {
+                        markStarted()
+                        setCompleted(false)
+                        setTargetScore(score)
+                      }}
+                      className={`min-h-9 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                        targetScore === score
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-background text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                    >
+                      Цель {score}
+                    </button>
+                  ))}
+                </span>
+              </div>
 
               <label className="block text-sm font-semibold">
                 Профильные предметы
@@ -195,14 +276,38 @@ export function Diagnostic() {
               </label>
 
               {!completed ? (
-                <button
-                  type="button"
-                  onClick={complete}
-                  className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-6 text-sm font-semibold text-background transition-opacity hover:opacity-90"
-                >
-                  Собрать мой маршрут
-                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                </button>
+                <div className="space-y-4">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                      <span className="font-medium text-muted-foreground">Путь к цели</span>
+                      <span className="font-mono font-semibold">{goalProgress}%</span>
+                    </div>
+                    <div
+                      className="h-2 overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-label="Прогресс до целевого балла"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={goalProgress}
+                    >
+                      <div
+                        className="h-full rounded-full bg-accent transition-[width] duration-300"
+                        style={{ width: `${goalProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={complete}
+                    className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-6 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+                  >
+                    Показать мой маршрут
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                  <p className="text-center text-xs text-muted-foreground">
+                    Результат появится сразу · регистрация не нужна
+                  </p>
+                </div>
               ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-accent/25 bg-accent/[0.06] p-5 duration-300">
                   <div className="flex items-start justify-between gap-4">

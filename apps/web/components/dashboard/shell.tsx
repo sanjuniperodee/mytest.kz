@@ -10,6 +10,7 @@ import {
   Home,
   LogOut,
   Menu,
+  MoreHorizontal,
   Target,
   Trophy,
   User,
@@ -33,6 +34,13 @@ const nav = [
   { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy },
   { href: "/dashboard/billing", label: "Тарифы", icon: CreditCard },
   { href: "/dashboard/profile", label: "Профиль", icon: User },
+]
+
+const mobileNav = [
+  { href: "/dashboard", label: "Обзор", icon: Home },
+  { href: "/dashboard/exams", label: "Тесты", icon: BookOpen },
+  { href: "/dashboard/mistakes", label: "Ошибки", icon: Target },
+  { href: "/dashboard/admission", label: "Грант", icon: GraduationCap },
 ]
 
 const CHANNEL_GATE_PATH = "/dashboard/channel-gate"
@@ -200,10 +208,54 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        <main id="dashboard-content" className="flex-1 min-w-0">
+        <main id="dashboard-content" className="min-w-0 flex-1 pb-24 lg:pb-0">
           <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-2 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-12px_35px_-24px_oklch(0.18_0.012_60_/_0.45)] backdrop-blur-xl lg:hidden"
+        aria-label="Быстрая навигация"
+      >
+        <ul className="grid grid-cols-5">
+          {mobileNav.map((item) => {
+            const Icon = item.icon
+            const active =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href)
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors",
+                    active ? "bg-accent/10 text-accent" : "text-muted-foreground",
+                  )}
+                >
+                  <Icon className="size-5" aria-hidden="true" />
+                  {item.label}
+                </Link>
+              </li>
+            )
+          })}
+          <li>
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              aria-expanded={mobileOpen}
+              className={cn(
+                "flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors",
+                mobileOpen ? "bg-accent/10 text-accent" : "text-muted-foreground",
+              )}
+            >
+              <MoreHorizontal className="size-5" aria-hidden="true" />
+              Ещё
+            </button>
+          </li>
+        </ul>
+      </nav>
 
       <WhatsAppFab />
     </div>

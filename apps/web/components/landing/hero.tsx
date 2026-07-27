@@ -6,7 +6,7 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-border/60">
       <div className="absolute inset-0 grain opacity-60" aria-hidden="true" />
-      <div className="relative mx-auto grid max-w-7xl gap-12 px-4 pb-16 pt-12 sm:px-6 md:pt-20 lg:grid-cols-12 lg:gap-8 lg:pb-24 lg:pt-24">
+      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-10 sm:px-6 md:pt-16 lg:grid-cols-12 lg:gap-8 lg:pb-20 lg:pt-16">
         <div className="lg:col-span-7">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
             <span className="relative flex h-2 w-2">
@@ -16,20 +16,19 @@ export function Hero() {
             Подготовка к ЕНТ 2027 · разбор ошибок
           </div>
 
-          <h1 className="mt-6 text-balance text-[clamp(2.4rem,6.5vw,4.6rem)] font-semibold leading-[1.02] tracking-tight">
+          <h1 className="mt-5 text-balance text-[clamp(2.4rem,6vw,4.15rem)] font-semibold leading-[1.02] tracking-tight">
             Сдай пробный ЕНТ{" "}
             <span className="font-serif italic font-normal text-accent">так же,</span>{" "}
-            как настоящий — только{" "}
-            <span className="font-serif italic font-normal">без последствий.</span>
+            как настоящий — и сразу узнай,{" "}
+            <span className="font-serif italic font-normal">где теряешь баллы.</span>
           </h1>
 
-          <p className="mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Сдаёшь пробный в реальном формате и получаешь не только балл, а
-            подробное объяснение к каждому вопросу: почему правильный ответ именно
-            такой, где ты ошибся и что подтянуть дальше.
+          <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
+            140 вопросов, реальный таймер и подробный разбор. После попытки увидишь
+            свой балл, слабые темы и следующий шаг — без догадок и зубрёжки вслепую.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
             <ConversionLink
               href="/login?source=hero"
               placement="hero_primary"

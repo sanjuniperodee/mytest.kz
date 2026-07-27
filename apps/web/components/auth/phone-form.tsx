@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -216,7 +217,14 @@ export function PhoneForm() {
         )}
       </Button>
       <p className="text-xs text-muted-foreground text-center">
-        Нажимая кнопку, вы соглашаетесь с условиями использования
+        Нажимая кнопку, вы соглашаетесь с{" "}
+        <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+          условиями
+        </Link>{" "}
+        и{" "}
+        <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+          политикой конфиденциальности
+        </Link>
       </p>
     </form>
   )

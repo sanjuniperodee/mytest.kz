@@ -35,6 +35,17 @@ export function getTelegramInitData(): string {
   return (getTelegramWebApp()?.initData || "").trim()
 }
 
+export function isTelegramWebAppLaunch(): boolean {
+  if (typeof window === "undefined") return false
+  if (getTelegramInitData()) return true
+
+  const launchContext = `${window.location.search}&${window.location.hash}`
+  return (
+    /tgWebApp(?:Data|Version|Platform)=/i.test(launchContext) ||
+    window.navigator.userAgent.toLowerCase().includes("telegram")
+  )
+}
+
 export function prepareTelegramWebApp(webApp = getTelegramWebApp()) {
   if (!webApp) return
   try {
