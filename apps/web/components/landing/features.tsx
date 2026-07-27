@@ -1,4 +1,5 @@
-import { Bell, BookCheck, Sparkles, Target, Trophy, Users } from "lucide-react"
+import { Bell, BookCheck, Sparkles, Target, Trophy } from "lucide-react"
+import { LiveActivityStrip } from "./live-activity-strip"
 
 export function Features() {
   return (
@@ -70,10 +71,11 @@ export function Features() {
               Динамика балла
             </div>
             <h3 className="mt-3 text-2xl font-semibold tracking-tight">
-              От 87 до 128 — за 6 пробных.
+              От точки A к цели — попытка за попыткой.
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-background/70">
-              Реальная траектория ученицы Айдан. Каждый пробный — +6–8 баллов.
+              Пример того, как выглядит динамика в кабинете: видно не обещание,
+              а собственный прогресс ученика.
             </p>
 
             <div className="mt-6 flex-1 rounded-xl bg-background/[0.07] p-5">
@@ -126,26 +128,7 @@ export function Features() {
           />
         </div>
 
-        {/* Live counter strip */}
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/50 p-5 sm:flex-row sm:p-6">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
-              <Users className="h-5 w-5" />
-            </span>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">
-                Сейчас сдают пробный: <span className="tabular-nums">347</span> учеников
-              </div>
-              <div className="text-xs text-muted-foreground">обновляется в реальном времени</div>
-            </div>
-          </div>
-          <a
-            href="#start"
-            className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background hover:opacity-90"
-          >
-            Присоединиться
-          </a>
-        </div>
+        <LiveActivityStrip />
       </div>
     </section>
   )

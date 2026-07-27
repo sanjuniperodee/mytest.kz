@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
 import { SUPPORT_EMAIL } from "@/lib/legal-content"
+import { SocialLinks } from "./social-links"
 
 const groups = [
   {
@@ -67,23 +68,7 @@ export function SiteFooter() {
               <PaymentBrandStrip compact />
             </div>
 
-            <div className="mt-6 flex items-center gap-2">
-              {[
-                { label: "Telegram", href: "#" },
-                { label: "Instagram", href: "#" },
-                { label: "TikTok", href: "#" },
-                { label: "YouTube", href: "#" },
-              ].map((s) => (
-                <a
-                  key={s.label}
-                  href={s.href}
-                  aria-label={s.label}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-border px-3.5 text-xs font-medium hover:border-foreground/40 hover:bg-secondary"
-                >
-                  {s.label}
-                </a>
-              ))}
-            </div>
+            <SocialLinks />
           </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:col-span-7">

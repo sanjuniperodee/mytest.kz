@@ -1,5 +1,5 @@
-import Link from "next/link"
 import { Check, Flame, Gift } from "lucide-react"
+import { ConversionLink } from "./conversion-link"
 
 type Plan = {
   name: string
@@ -126,13 +126,14 @@ export function Pricing() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/login"
+            <ConversionLink
+              href="/login?source=pricing-free"
+              placement="pricing_free"
               className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
             >
               <Gift className="h-4 w-4" aria-hidden="true" />
               Получить бесплатно
-            </Link>
+            </ConversionLink>
           </div>
         </div>
 
@@ -234,8 +235,9 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <Link
+              <ConversionLink
                 href={plan.href}
+                placement={`pricing_${plan.name.toLowerCase()}`}
                 className={[
                   "mt-7 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all",
                   plan.highlighted
@@ -244,7 +246,7 @@ export function Pricing() {
                 ].join(" ")}
               >
                 {plan.cta}
-              </Link>
+              </ConversionLink>
             </article>
           ))}
         </div>

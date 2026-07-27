@@ -20,6 +20,29 @@ const ALLOWED_FUNNEL_EVENTS = new Set([
   'payment_cancelled',
 ]);
 
+const ALLOWED_PUBLIC_FUNNEL_EVENTS = new Set([
+  'landing_cta',
+  'diagnostic_started',
+  'diagnostic_completed',
+  'pricing_viewed',
+  'lead_submitted',
+]);
+
+function sanitizePublicMetadata(metadata?: Record<string, unknown>) {
+  if (!metadata) return {};
+  const allowedKeys = new Set(['placement', 'profile', 'currentScore', 'targetScore', 'gap', 'plan']);
+  return Object.fromEntries(
+    Object.entries(metadata)
+      .filter(([key, value]) => {
+        return (
+          allowedKeys.has(key) &&
+          (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+        );
+      })
+      .slice(0, 8),
+  );
+}
+
 @Injectable()
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
@@ -188,6 +211,56 @@ export class AnalyticsService {
     return { recorded: true };
   }
 
+  async recordPublicEvent(data: {
+    visitorId?: string;
+    step: string;
+    metadata?: Record<string, unknown>;
+    landingPath?: string;
+  }) {
+    const step = data.step.trim().slice(0, 32);
+    if (!ALLOWED_PUBLIC_FUNNEL_EVENTS.has(step)) {
+      return { recorded: false, reason: 'UNKNOWN_STEP' };
+    }
+
+    const visitorId = data.visitorId?.trim().slice(0, 64);
+    if (!visitorId) return { recorded: false, reason: 'NO_VISITOR' };
+
+    const landingPath = (data.landingPath || '/').slice(0, 255);
+    let visit = await this.prisma.visitEvent.findFirst({
+      where: { visitorId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (!visit) {
+      visit = await this.prisma.visitEvent.create({
+        data: { visitorId, landingPath },
+        select: { id: true },
+      });
+    }
+
+    const recentDuplicate = await this.prisma.funnelStep.findFirst({
+      where: {
+        visitId: visit.id,
+        step,
+        timestamp: { gte: new Date(Date.now() - 10_000) },
+      },
+      select: { id: true },
+    });
+    if (recentDuplicate) return { recorded: false, duplicate: true };
+
+    await this.prisma.funnelStep.create({
+      data: {
+        visitId: visit.id,
+        step,
+        metadata: {
+          ...sanitizePublicMetadata(data.metadata),
+          path: landingPath,
+        },
+      },
+    });
+    return { recorded: true };
+  }
+
   private async ensureVisitForUser(data: {
     userId: string;
     visitorId?: string;
@@ -237,32 +310,24 @@ export class AnalyticsService {
         billingOpened: number | bigint;
         checkoutCreated: number | bigint;
         paymentPaid: number | bigint;
+        diagnosticStarted: number | bigint;
+        diagnosticCompleted: number | bigint;
+        leadSubmitted: number | bigint;
       }>
     >`
       SELECT
         COUNT(DISTINCT v.visitor_id)::int AS visits,
         COUNT(DISTINCT CASE WHEN v.user_id IS NOT NULL THEN v.visitor_id END)::int AS registered,
-        COUNT(DISTINCT CASE WHEN fs_started.id IS NOT NULL THEN v.visitor_id END)::int AS started,
-        COUNT(DISTINCT CASE WHEN fs_completed.id IS NOT NULL THEN v.visitor_id END)::int AS completed,
-        COUNT(DISTINCT CASE WHEN fs_billing.id IS NOT NULL THEN v.visitor_id END)::int AS "billingOpened",
-        COUNT(DISTINCT CASE WHEN fs_checkout.id IS NOT NULL THEN v.visitor_id END)::int AS "checkoutCreated",
-        COUNT(DISTINCT CASE WHEN fs_paid.id IS NOT NULL THEN v.visitor_id END)::int AS "paymentPaid"
+        COUNT(DISTINCT CASE WHEN fs.step = 'started_test' THEN v.visitor_id END)::int AS started,
+        COUNT(DISTINCT CASE WHEN fs.step = 'completed_test' THEN v.visitor_id END)::int AS completed,
+        COUNT(DISTINCT CASE WHEN fs.step = 'billing_opened' THEN v.visitor_id END)::int AS "billingOpened",
+        COUNT(DISTINCT CASE WHEN fs.step = 'checkout_created' THEN v.visitor_id END)::int AS "checkoutCreated",
+        COUNT(DISTINCT CASE WHEN fs.step = 'payment_paid' THEN v.visitor_id END)::int AS "paymentPaid",
+        COUNT(DISTINCT CASE WHEN fs.step = 'diagnostic_started' THEN v.visitor_id END)::int AS "diagnosticStarted",
+        COUNT(DISTINCT CASE WHEN fs.step = 'diagnostic_completed' THEN v.visitor_id END)::int AS "diagnosticCompleted",
+        COUNT(DISTINCT CASE WHEN fs.step = 'lead_submitted' THEN v.visitor_id END)::int AS "leadSubmitted"
       FROM visit_events v
-      LEFT JOIN funnel_steps fs_started
-        ON fs_started.visit_id = v.id
-       AND fs_started.step = 'started_test'
-      LEFT JOIN funnel_steps fs_completed
-        ON fs_completed.visit_id = v.id
-       AND fs_completed.step = 'completed_test'
-      LEFT JOIN funnel_steps fs_billing
-        ON fs_billing.visit_id = v.id
-       AND fs_billing.step = 'billing_opened'
-      LEFT JOIN funnel_steps fs_checkout
-        ON fs_checkout.visit_id = v.id
-       AND fs_checkout.step = 'checkout_created'
-      LEFT JOIN funnel_steps fs_paid
-        ON fs_paid.visit_id = v.id
-       AND fs_paid.step = 'payment_paid'
+      LEFT JOIN funnel_steps fs ON fs.visit_id = v.id
       WHERE v.created_at >= ${from}
         AND v.created_at <= ${to}
     `;
@@ -274,6 +339,9 @@ export class AnalyticsService {
       billingOpened: 0,
       checkoutCreated: 0,
       paymentPaid: 0,
+      diagnosticStarted: 0,
+      diagnosticCompleted: 0,
+      leadSubmitted: 0,
     };
     const visits = Number(totals.visits);
     const registered = Number(totals.registered);
@@ -282,6 +350,9 @@ export class AnalyticsService {
     const billingOpened = Number(totals.billingOpened);
     const checkoutCreated = Number(totals.checkoutCreated);
     const paymentPaid = Number(totals.paymentPaid);
+    const diagnosticStarted = Number(totals.diagnosticStarted);
+    const diagnosticCompleted = Number(totals.diagnosticCompleted);
+    const leadSubmitted = Number(totals.leadSubmitted);
 
     // By date aggregation
     const rawByDate = await this.prisma.$queryRaw<
@@ -372,8 +443,27 @@ export class AnalyticsService {
 
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
-      totals: { visits, registered, started, completed, billingOpened, checkoutCreated, paymentPaid },
+      totals: {
+        visits,
+        diagnosticStarted,
+        diagnosticCompleted,
+        leadSubmitted,
+        registered,
+        started,
+        completed,
+        billingOpened,
+        checkoutCreated,
+        paymentPaid,
+      },
       conversionRates: {
+        visitToDiagnostic:
+          visits > 0 ? Math.round((diagnosticStarted / visits) * 10000) / 100 : 0,
+        diagnosticCompletion:
+          diagnosticStarted > 0
+            ? Math.round((diagnosticCompleted / diagnosticStarted) * 10000) / 100
+            : 0,
+        visitToLead:
+          visits > 0 ? Math.round((leadSubmitted / visits) * 10000) / 100 : 0,
         visitToRegistered:
           visits > 0 ? Math.round((registered / visits) * 10000) / 100 : 0,
         registeredToStarted:

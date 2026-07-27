@@ -33,6 +33,11 @@ export class SettingsController {
     return this.settingsService.getLandingSettings();
   }
 
+  @Get('public/landing-proof')
+  async getPublicLandingProof() {
+    return this.settingsService.getLandingProof();
+  }
+
   @Get('admin/settings/landing')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async getAdminLandingSettings() {

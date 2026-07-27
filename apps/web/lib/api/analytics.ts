@@ -55,3 +55,24 @@ export async function recordFunnelEvent(
     // Analytics is intentionally non-blocking.
   }
 }
+
+export async function recordPublicFunnelEvent(
+  step: string,
+  metadata?: Record<string, unknown>,
+) {
+  if (typeof window === "undefined") return
+  try {
+    await api("/analytics/public-event", {
+      method: "POST",
+      auth: false,
+      body: {
+        visitorId: getVisitorId(),
+        step,
+        metadata,
+        landingPath: window.location.pathname,
+      },
+    })
+  } catch {
+    // Conversion analytics must never block the landing experience.
+  }
+}

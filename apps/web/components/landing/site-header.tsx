@@ -9,6 +9,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 
 const nav = [
   { label: "Пробный ЕНТ", href: "/probnyy-ent", external: true },
+  { label: "Мой маршрут", href: "#diagnostic" },
   { label: "Предметы", href: "#subjects" },
   { label: "Тарифы", href: "#pricing" },
   { label: "Шансы поступления", href: "/admission", external: true },

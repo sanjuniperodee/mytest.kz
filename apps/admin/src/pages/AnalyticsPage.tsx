@@ -313,6 +313,9 @@ export function AnalyticsPage() {
                   <div className="pg-a__bento">
                     {[
                       { label: 'Визитов (уник.)', value: funnel.totals.visits },
+                      { label: 'Начали диагностику', value: funnel.totals.diagnosticStarted ?? 0 },
+                      { label: 'Получили маршрут', value: funnel.totals.diagnosticCompleted ?? 0 },
+                      { label: 'Оставили заявку', value: funnel.totals.leadSubmitted ?? 0 },
                       { label: 'Зарегистрировано', value: funnel.totals.registered },
                       { label: 'Начали тест', value: funnel.totals.started },
                       { label: 'Завершили тест', value: funnel.totals.completed },
@@ -350,6 +353,9 @@ export function AnalyticsPage() {
                         </h4>
                         <div className="pg-a__conv-list">
                           {[
+                            { label: 'Визит → диагностика', v: cr?.visitToDiagnostic ?? 0 },
+                            { label: 'Диагностика → маршрут', v: cr?.diagnosticCompletion ?? 0 },
+                            { label: 'Визит → заявка', v: cr?.visitToLead ?? 0 },
                             { label: 'Визит → регистрация', v: cr?.visitToRegistered ?? 0 },
                             { label: 'Регистрация → старт', v: cr?.registeredToStarted ?? 0 },
                             { label: 'Старт → завершение', v: cr?.startedToCompleted ?? 0 },

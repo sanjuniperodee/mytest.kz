@@ -1,6 +1,6 @@
-import Link from "next/link"
 import { ArrowRight, CheckCircle2, Clock, Gift, Star } from "lucide-react"
 import { ExamPreview } from "./exam-preview"
+import { ConversionLink } from "./conversion-link"
 
 export function Hero() {
   return (
@@ -30,18 +30,19 @@ export function Hero() {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link
-              href="/login"
+            <ConversionLink
+              href="/login?source=hero"
+              placement="hero_primary"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
             >
               Попробовать бесплатно
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+            </ConversionLink>
             <a
-              href="#pricing"
+              href="#diagnostic"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary sm:text-base"
             >
-              Смотреть тарифы
+              Узнать свой маршрут
             </a>
           </div>
 
@@ -61,7 +62,7 @@ export function Hero() {
             </li>
             <li className="inline-flex items-center gap-2">
               <Star className="h-4 w-4 text-accent" />
-              4.9 / 5 у школьников
+              Балл и слабые темы сразу
             </li>
           </ul>
         </div>

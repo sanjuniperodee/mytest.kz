@@ -20,10 +20,20 @@ type LandingSettings = {
     showButton: boolean;
     isActive: boolean;
   }>;
+  campaign: {
+    enabled: boolean;
+    eyebrow: string;
+    title: string;
+    description: string;
+    ctaLabel: string;
+    ctaHref: string;
+    endsAt: string | null;
+  };
 };
 
 const LANDING_SETTINGS_KEY = 'landing';
 const CACHE_KEY = `settings:${LANDING_SETTINGS_KEY}`;
+const LANDING_PROOF_CACHE_KEY = 'settings:landing-proof:v1';
 
 const DEFAULT_LANDING_SETTINGS: LandingSettings = {
   instructionVideoUrl: 'https://youtu.be/xsfHraWRMQ0?si=L3vYe1tIRvOU2XpJ',
@@ -31,6 +41,15 @@ const DEFAULT_LANDING_SETTINGS: LandingSettings = {
   tiktokUrl: 'https://www.tiktok.com/',
   whatsappUrl: 'https://wa.me/77775932124',
   heroSlides: [],
+  campaign: {
+    enabled: true,
+    eyebrow: 'Подготовка к ЕНТ 2027',
+    title: 'Первый полный пробный — бесплатно',
+    description: '140 вопросов, реальный таймер и разбор ошибок. Карта не нужна.',
+    ctaLabel: 'Начать бесплатно',
+    ctaHref: '/login?source=campaign',
+    endsAt: null,
+  },
 };
 
 @Injectable()
@@ -80,6 +99,29 @@ export class SettingsService {
               }))
               .filter((x) => x.desktopImageUrl && x.tabletImageUrl && x.mobileImageUrl)
           : DEFAULT_LANDING_SETTINGS.heroSlides,
+        campaign:
+          raw.campaign && typeof raw.campaign === 'object'
+            ? {
+                enabled: Boolean(raw.campaign.enabled ?? DEFAULT_LANDING_SETTINGS.campaign.enabled),
+                eyebrow: String(
+                  raw.campaign.eyebrow || DEFAULT_LANDING_SETTINGS.campaign.eyebrow,
+                ).trim(),
+                title: String(raw.campaign.title || DEFAULT_LANDING_SETTINGS.campaign.title).trim(),
+                description: String(
+                  raw.campaign.description || DEFAULT_LANDING_SETTINGS.campaign.description,
+                ).trim(),
+                ctaLabel: String(
+                  raw.campaign.ctaLabel || DEFAULT_LANDING_SETTINGS.campaign.ctaLabel,
+                ).trim(),
+                ctaHref: String(
+                  raw.campaign.ctaHref || DEFAULT_LANDING_SETTINGS.campaign.ctaHref,
+                ).trim(),
+                endsAt:
+                  typeof raw.campaign.endsAt === 'string' && raw.campaign.endsAt.trim()
+                    ? raw.campaign.endsAt.trim()
+                    : null,
+              }
+            : DEFAULT_LANDING_SETTINGS.campaign,
       };
     }
 
@@ -106,6 +148,17 @@ export class SettingsService {
           showButton: slide.showButton !== false,
           isActive: slide.isActive !== false,
         })) ?? current.heroSlides,
+      campaign: dto.campaign
+        ? {
+            enabled: dto.campaign.enabled,
+            eyebrow: dto.campaign.eyebrow.trim(),
+            title: dto.campaign.title.trim(),
+            description: dto.campaign.description.trim(),
+            ctaLabel: dto.campaign.ctaLabel.trim(),
+            ctaHref: dto.campaign.ctaHref.trim(),
+            endsAt: dto.campaign.endsAt?.trim() || null,
+          }
+        : current.campaign,
     };
     await this.prisma.siteSetting.upsert({
       where: { key: LANDING_SETTINGS_KEY },
@@ -114,5 +167,46 @@ export class SettingsService {
     });
     await this.redis.del(CACHE_KEY);
     return merged;
+  }
+
+  async getLandingProof() {
+    const cached = await this.redis.get(LANDING_PROOF_CACHE_KEY);
+    if (cached) {
+      try {
+        return JSON.parse(cached) as {
+          registeredStudents: number;
+          completedTrials: number;
+          completedTrials30d: number;
+          activeQuestions: number;
+          updatedAt: string;
+        };
+      } catch {}
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [registeredStudents, completedTrials, completedTrials30d, activeQuestions] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.testSession.count({
+          where: { status: { in: ['completed', 'timed_out'] } },
+        }),
+        this.prisma.testSession.count({
+          where: {
+            status: { in: ['completed', 'timed_out'] },
+            finishedAt: { gte: thirtyDaysAgo },
+          },
+        }),
+        this.prisma.question.count({ where: { isActive: true } }),
+      ]);
+
+    const result = {
+      registeredStudents,
+      completedTrials,
+      completedTrials30d,
+      activeQuestions,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.redis.set(LANDING_PROOF_CACHE_KEY, JSON.stringify(result), 'EX', 300);
+    return result;
   }
 }

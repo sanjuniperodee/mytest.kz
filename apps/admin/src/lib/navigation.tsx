@@ -15,6 +15,7 @@ import {
   GlobalOutlined,
   NotificationOutlined,
   FlagOutlined,
+  ContactsOutlined,
 } from '@ant-design/icons';
 
 /**
@@ -158,6 +159,15 @@ export const NAV_ITEMS: NavItem[] = [
     icon: <CrownOutlined />,
     title: 'Подписки',
     description: 'Управление активными тарифами, сроками и ручными выдачами доступа.',
+  },
+  {
+    key: 'leads',
+    path: '/leads',
+    group: 'Аккаунты',
+    menuLabel: 'Заявки',
+    icon: <ContactsOutlined />,
+    title: 'Заявки',
+    description: 'Очередь лидов с лендинга, статусы контакта и конверсия в клиента.',
   },
   {
     key: 'finance',

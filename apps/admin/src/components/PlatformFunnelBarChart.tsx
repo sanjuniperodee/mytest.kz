@@ -6,6 +6,8 @@ type Props = { data: FunnelData };
 /* Системные оттенки синего (Apple HIG) */
 const CHART = [
   { name: 'Визит', key: 'visits' as const, fill: '#007aff' },
+  { name: 'Диагностика', key: 'diagnosticStarted' as const, fill: '#5856d6' },
+  { name: 'Маршрут готов', key: 'diagnosticCompleted' as const, fill: '#af52de' },
   { name: 'Регистрация', key: 'registered' as const, fill: '#0a84ff' },
   { name: 'Старт теста', key: 'started' as const, fill: '#40a0ff' },
   { name: 'Завершили', key: 'completed' as const, fill: '#5ac8fa' },

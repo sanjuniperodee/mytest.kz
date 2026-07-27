@@ -47,6 +47,7 @@ const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage').then((m
 const FinancePage = lazy(() => import('./pages/FinancePage').then((m) => ({ default: m.FinancePage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const LandingSettingsPage = lazy(() => import('./pages/LandingSettingsPage').then((m) => ({ default: m.LandingSettingsPage })));
+const LeadsPage = lazy(() => import('./pages/LeadsPage').then((m) => ({ default: m.LeadsPage })));
 
 const { Sider, Content, Header } = Layout;
 const { useBreakpoint } = Grid;
@@ -278,6 +279,7 @@ function AdminLayout() {
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/landing-settings" element={<LandingSettingsPage />} />
+              <Route path="/leads" element={<LeadsPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </Suspense>

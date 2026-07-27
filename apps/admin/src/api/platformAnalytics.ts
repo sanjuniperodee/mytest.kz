@@ -4,6 +4,9 @@ export type FunnelData = {
   period: { from: string; to: string };
   totals: {
     visits: number;
+    diagnosticStarted?: number;
+    diagnosticCompleted?: number;
+    leadSubmitted?: number;
     registered: number;
     started: number;
     completed: number;
@@ -13,6 +16,9 @@ export type FunnelData = {
   };
   conversionRates: {
     visitToRegistered: number;
+    visitToDiagnostic?: number;
+    diagnosticCompletion?: number;
+    visitToLead?: number;
     registeredToStarted: number;
     startedToCompleted: number;
     visitToCompleted: number;

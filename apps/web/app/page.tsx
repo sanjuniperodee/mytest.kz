@@ -10,6 +10,8 @@ import { Pricing } from "@/components/landing/pricing"
 import { FAQ } from "@/components/landing/faq"
 import { CTA } from "@/components/landing/cta"
 import { SiteFooter } from "@/components/landing/site-footer"
+import { Diagnostic } from "@/components/landing/diagnostic"
+import { MobileStickyCta } from "@/components/landing/mobile-sticky-cta"
 
 export default function Page() {
   return (
@@ -18,6 +20,7 @@ export default function Page() {
       <SiteHeader />
       <Hero />
       <TrustBar />
+      <Diagnostic />
       <HowItWorks />
       <Subjects />
       <Features />
@@ -26,6 +29,7 @@ export default function Page() {
       <FAQ />
       <CTA />
       <SiteFooter />
+      <MobileStickyCta />
     </main>
   )
 }

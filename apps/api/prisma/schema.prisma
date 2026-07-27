@@ -41,7 +41,7 @@ model Subject {
   isMandatory Boolean @default(false) @map("is_mandatory")
   sortOrder   Int     @default(0) @map("sort_order")
 
-  examType             ExamType              @relation(fields: [examTypeId], references: [id])
+  examType             ExamType                      @relation(fields: [examTypeId], references: [id])
   topics               Topic[]
   questions            Question[]
   questionAppeals      QuestionAppeal[]
@@ -87,9 +87,9 @@ model Question {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  topic         Topic            @relation(fields: [topicId], references: [id])
-  subject       Subject          @relation(fields: [subjectId], references: [id])
-  examType      ExamType         @relation(fields: [examTypeId], references: [id])
+  topic               Topic                        @relation(fields: [topicId], references: [id])
+  subject             Subject                      @relation(fields: [subjectId], references: [id])
+  examType            ExamType                     @relation(fields: [examTypeId], references: [id])
   answerOptions       AnswerOption[]
   testAnswers         TestAnswer[]
   appeals             QuestionAppeal[]
@@ -238,9 +238,9 @@ model AiTopicLesson {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  examType ExamType @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
-  subject  Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  examType ExamType       @relation(fields: [examTypeId], references: [id], onDelete: Cascade)
+  subject  Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic    Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
   notes    AiLessonNote[]
 
   @@unique([topicId, language, lessonVersion])
@@ -858,12 +858,23 @@ enum LeadNotificationStatus {
   failed
 }
 
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  converted
+  closed
+}
+
 model Lead {
   id                 String                 @id @default(uuid()) @db.Uuid
   name               String                 @db.VarChar(100)
   phone              String                 @db.VarChar(30)
   message            String?                @db.Text
   source             String                 @default("landing") @db.VarChar(60)
+  status             LeadStatus             @default(new)
+  adminNote          String?                @map("admin_note") @db.Text
+  contactedAt        DateTime?              @map("contacted_at") @db.Timestamptz
   ip                 String?                @db.VarChar(64)
   userAgent          String?                @map("user_agent") @db.VarChar(500)
   notificationStatus LeadNotificationStatus @default(pending) @map("notification_status")
@@ -873,6 +884,7 @@ model Lead {
   updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([createdAt], map: "leads_created_idx")
+  @@index([status, createdAt], map: "leads_status_created_idx")
   @@index([notificationStatus, createdAt], map: "leads_notification_status_created_idx")
   @@map("leads")
 }

@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsArray,
   IsNotEmpty,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUrl,
@@ -56,6 +57,35 @@ class HeroSlideDto {
   isActive?: boolean;
 }
 
+class LandingCampaignDto {
+  @IsBoolean()
+  enabled!: boolean;
+
+  @IsString()
+  @MaxLength(80)
+  eyebrow!: string;
+
+  @IsString()
+  @MaxLength(140)
+  title!: string;
+
+  @IsString()
+  @MaxLength(280)
+  description!: string;
+
+  @IsString()
+  @MaxLength(60)
+  ctaLabel!: string;
+
+  @IsString()
+  @MaxLength(500)
+  ctaHref!: string;
+
+  @IsOptional()
+  @IsISO8601()
+  endsAt?: string;
+}
+
 export class UpdateLandingSettingsDto {
   @IsOptional()
   @IsUrl({ require_protocol: true })
@@ -83,4 +113,9 @@ export class UpdateLandingSettingsDto {
   @ValidateNested({ each: true })
   @Type(() => HeroSlideDto)
   heroSlides?: HeroSlideDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LandingCampaignDto)
+  campaign?: LandingCampaignDto;
 }

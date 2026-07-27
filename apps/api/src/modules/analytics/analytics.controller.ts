@@ -56,6 +56,26 @@ export class AnalyticsController {
     return result;
   }
 
+  @Post('public-event')
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  async recordPublicEvent(
+    @Body()
+    body: {
+      visitorId?: string;
+      step?: string;
+      metadata?: Record<string, unknown>;
+      landingPath?: string;
+    },
+    @Req() req: Request,
+  ) {
+    return this.analyticsService.recordPublicEvent({
+      visitorId: req.cookies?.['blm_vid'] || body.visitorId,
+      step: body.step || '',
+      metadata: body.metadata,
+      landingPath: body.landingPath,
+    });
+  }
+
   @Post('event')
   @UseGuards(AuthGuard('jwt'))
   async recordEvent(

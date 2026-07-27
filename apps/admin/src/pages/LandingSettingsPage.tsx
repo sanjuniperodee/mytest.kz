@@ -21,6 +21,15 @@ type LandingSettingsDto = {
   instagramUrl: string;
   tiktokUrl: string;
   whatsappUrl: string;
+  campaign: {
+    enabled: boolean;
+    eyebrow: string;
+    title: string;
+    description: string;
+    ctaLabel: string;
+    ctaHref: string;
+    endsAt?: string | null;
+  };
   heroSlides: Array<{
     title?: string;
     subtitle?: string;
@@ -117,7 +126,8 @@ export function LandingSettingsPage() {
     const total = slides.length;
     const active = slides.filter((s) => s.isActive !== false).length;
     const hasVideo = Boolean(data?.instructionVideoUrl?.trim());
-    return { total, active, hasVideo };
+    const campaignEnabled = data?.campaign?.enabled !== false;
+    return { total, active, hasVideo, campaignEnabled };
   }, [data]);
 
   useEffect(() => {
@@ -136,6 +146,15 @@ export function LandingSettingsPage() {
     mutationFn: async (values: LandingSettingsDto) => {
       const payload: LandingSettingsDto = {
         ...values,
+        campaign: {
+          ...values.campaign,
+          eyebrow: values.campaign.eyebrow.trim(),
+          title: values.campaign.title.trim(),
+          description: values.campaign.description.trim(),
+          ctaLabel: values.campaign.ctaLabel.trim(),
+          ctaHref: values.campaign.ctaHref.trim(),
+          endsAt: values.campaign.endsAt?.trim() || null,
+        },
         heroSlides: (values.heroSlides || []).map((slide) => ({
           ...slide,
           title: slide.title?.trim() ?? '',
@@ -256,13 +275,73 @@ export function LandingSettingsPage() {
               instagramUrl: '',
               tiktokUrl: '',
               whatsappUrl: '',
+              campaign: {
+                enabled: true,
+                eyebrow: 'Подготовка к ЕНТ 2027',
+                title: 'Первый полный пробный — бесплатно',
+                description: '140 вопросов, реальный таймер и разбор ошибок. Карта не нужна.',
+                ctaLabel: 'Начать бесплатно',
+                ctaHref: '/login?source=campaign',
+                endsAt: null,
+              },
               heroSlides: [],
             }}
           >
             <div className="pg-landing">
               <div className="pg-landing__grid">
                 <aside className="pg-landing__aside">
-                  <h3>Видео и соцсети</h3>
+                  <h3>Кампания</h3>
+                  <Form.Item
+                    name={['campaign', 'enabled']}
+                    label="Показывать промо"
+                    valuePropName="checked"
+                  >
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item
+                    name={['campaign', 'eyebrow']}
+                    label="Надзаголовок"
+                    rules={[{ required: true, message: 'Укажите надзаголовок' }]}
+                  >
+                    <Input placeholder="Подготовка к ЕНТ 2027" />
+                  </Form.Item>
+                  <Form.Item
+                    name={['campaign', 'title']}
+                    label="Оффер"
+                    rules={[{ required: true, message: 'Укажите оффер' }]}
+                  >
+                    <Input placeholder="Первый полный пробный — бесплатно" />
+                  </Form.Item>
+                  <Form.Item
+                    name={['campaign', 'description']}
+                    label="Описание"
+                    rules={[{ required: true, message: 'Укажите описание' }]}
+                  >
+                    <Input.TextArea rows={3} />
+                  </Form.Item>
+                  <Form.Item
+                    name={['campaign', 'ctaLabel']}
+                    label="Текст кнопки"
+                    rules={[{ required: true, message: 'Укажите текст кнопки' }]}
+                  >
+                    <Input placeholder="Начать бесплатно" />
+                  </Form.Item>
+                  <Form.Item
+                    name={['campaign', 'ctaHref']}
+                    label="Ссылка кнопки"
+                    rules={[{ required: true, message: 'Укажите ссылку' }]}
+                  >
+                    <Input placeholder="/login?source=campaign" />
+                  </Form.Item>
+                  <Form.Item
+                    name={['campaign', 'endsAt']}
+                    label="Дедлайн (ISO, необязательно)"
+                    extra="Например: 2027-05-01T00:00:00+05:00"
+                  >
+                    <Input placeholder="2027-05-01T00:00:00+05:00" />
+                  </Form.Item>
+
+                  <h3 style={{ marginTop: 28 }}>Видео и соцсети</h3>
                   <Form.Item
                     name="instructionVideoUrl"
                     label="Видео-инструкция"

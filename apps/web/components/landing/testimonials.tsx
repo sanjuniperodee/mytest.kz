@@ -1,47 +1,36 @@
-import { Star } from "lucide-react"
+import { ArrowRight, HeartHandshake, School, UserRound } from "lucide-react"
+import { ConversionLink } from "./conversion-link"
 
-const items = [
+const audiences = [
   {
-    quote:
-      "После третьего пробного увидела, что валю стереометрию. За месяц повторила, на ЕНТ — 132 балла. КазНУ, грант. Без репетитора.",
-    name: "Айдана М.",
-    school: "11 класс · Алматы",
-    score: "132",
+    icon: UserRound,
+    eyebrow: "Ученику",
+    title: "Понимать, где теряются баллы",
+    text: "Не «заниматься больше», а видеть слабые темы, разбирать ошибки и проверять рост следующим пробным.",
+    points: ["Реальный формат и таймер", "Разбор каждого ответа", "Динамика по попыткам"],
+    cta: "Начать бесплатно",
+    href: "/login?source=audience-student",
+    placement: "audience_student",
   },
   {
-    quote:
-      "Раньше готовился по PDF-сборникам 2019 года. Здесь формат точь-в-точь как на экзамене, и сразу видно, что я зря тратил время на лёгкие темы.",
-    name: "Ерасыл К.",
-    school: "11 класс · Астана",
-    score: "118",
+    icon: HeartHandshake,
+    eyebrow: "Родителю",
+    title: "Видеть прогресс без ежедневного контроля",
+    text: "Результат в баллах и темах понятнее, чем часы за учебниками. Можно обсуждать конкретный следующий шаг.",
+    points: ["Прозрачный результат", "План слабых тем", "Оплата без скрытой подписки"],
+    cta: "Посмотреть тарифы",
+    href: "#pricing",
+    placement: "audience_parent",
   },
   {
-    quote:
-      "Дочка боялась таймера. Прошла 5 пробных — привыкла. Пришла на ЕНТ спокойная, написала на 124. Мы дома плакали от счастья.",
-    name: "Гульнара А.",
-    school: "Мама выпускницы · Шымкент",
-    score: "124",
-  },
-  {
-    quote:
-      "История Казахстана — мой кошмар. Адаптивный режим вытащил. За 2 недели с 14/30 поднялся до 27/30. Серьёзно работает.",
-    name: "Данияр Б.",
-    school: "11 класс · Караганда",
-    score: "127",
-  },
-  {
-    quote:
-      "Сдавала пробные на телефоне в автобусе по дороге в школу. Удобно, что прогресс синхронизируется. Балл на ЕНТ — 135.",
-    name: "Аружан Т.",
-    school: "11 класс · Актобе",
-    score: "135",
-  },
-  {
-    quote:
-      "Аналитика по темам — это золото. Я думал, что хорошо знаю физику, а оказалось — провисал в электричестве. Подтянул и закрыл.",
-    name: "Тимур Н.",
-    school: "11 класс · Павлодар",
-    score: "129",
+    icon: School,
+    eyebrow: "Школе и учителю",
+    title: "Быстро диагностировать класс",
+    text: "Пробный помогает увидеть общие пробелы группы и не тратить урок на темы, которые большинство уже знает.",
+    points: ["Единый формат проверки", "Срез по предметам", "Условия для классов"],
+    cta: "Обсудить подключение",
+    href: "#lead",
+    placement: "audience_school",
   },
 ]
 
@@ -50,66 +39,78 @@ export function Testimonials() {
     <section id="reviews" className="border-b border-border/60 bg-secondary/40">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
-          <div className="max-w-2xl">
+          <div className="max-w-3xl">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
-              Отзывы
+              Для кого mytest
             </span>
             <h2 className="mt-4 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Это работает.{" "}
-              <span className="font-serif italic font-normal">У них сработало.</span>
+              Один результат.{" "}
+              <span className="font-serif font-normal italic">Три понятные пользы.</span>
             </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className="h-5 w-5 fill-accent text-accent"
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-            <span className="text-sm text-muted-foreground">
-              4.9 / 5 · 2 800+ отзывов
-            </span>
-          </div>
+          <p className="max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Вместо громких обещаний — конкретно, что меняется после первой попытки.
+          </p>
         </div>
 
-        <ul className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((t, i) => (
-            <li
-              key={i}
-              className="flex flex-col rounded-2xl border border-border bg-background p-6"
+        <div className="mt-12 grid gap-4 lg:grid-cols-3">
+          {audiences.map((audience, index) => (
+            <article
+              key={audience.eyebrow}
+              className={[
+                "flex min-h-[28rem] flex-col rounded-3xl border p-6 sm:p-8",
+                index === 0
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border bg-background",
+              ].join(" ")}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex">
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <Star
-                      key={j}
-                      className="h-4 w-4 fill-foreground text-foreground"
-                      aria-hidden="true"
-                    />
-                  ))}
-                </div>
-                <div className="rounded-full bg-accent/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-accent">
-                  ЕНТ {t.score}
-                </div>
+              <span
+                className={[
+                  "flex size-12 items-center justify-center rounded-2xl",
+                  index === 0 ? "bg-accent text-accent-foreground" : "bg-accent/10 text-accent",
+                ].join(" ")}
+              >
+                <audience.icon className="size-6" />
+              </span>
+              <div
+                className={[
+                  "mt-8 text-xs font-semibold uppercase tracking-[0.16em]",
+                  index === 0 ? "text-accent" : "text-muted-foreground",
+                ].join(" ")}
+              >
+                {audience.eyebrow}
               </div>
-              <blockquote className="mt-4 flex-1 text-pretty text-[15px] leading-relaxed">
-                {`«${t.quote}»`}
-              </blockquote>
-              <footer className="mt-5 flex items-center gap-3 border-t border-border/70 pt-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">
-                  {t.name.charAt(0)}
-                </span>
-                <div className="leading-tight">
-                  <div className="text-sm font-semibold">{t.name}</div>
-                  <div className="text-xs text-muted-foreground">{t.school}</div>
-                </div>
-              </footer>
-            </li>
+              <h3 className="mt-3 text-2xl font-semibold tracking-tight">{audience.title}</h3>
+              <p
+                className={[
+                  "mt-4 text-sm leading-relaxed",
+                  index === 0 ? "text-background/65" : "text-muted-foreground",
+                ].join(" ")}
+              >
+                {audience.text}
+              </p>
+              <ul className="mt-6 space-y-3 text-sm">
+                {audience.points.map((point) => (
+                  <li key={point} className="flex items-center gap-2.5">
+                    <span className="size-1.5 rounded-full bg-accent" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+              <ConversionLink
+                href={audience.href}
+                placement={audience.placement}
+                className={[
+                  "group mt-auto inline-flex items-center gap-2 pt-8 text-sm font-semibold",
+                  index === 0 ? "text-background" : "text-foreground",
+                ].join(" ")}
+              >
+                {audience.cta}
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              </ConversionLink>
+            </article>
           ))}
-        </ul>
+        </div>
       </div>
     </section>
   )

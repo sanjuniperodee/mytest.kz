@@ -4,10 +4,13 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 import { ArrowRight, CheckCircle2 } from "lucide-react"
 import { api, ApiError } from "@/lib/api/client"
+import { recordPublicFunnelEvent } from "@/lib/api/analytics"
+import { useLandingSettings } from "@/lib/api/landing"
 
 type LeadStatus = "idle" | "success" | "error"
 
 export function CTA() {
+  const { data: landingSettings } = useLandingSettings()
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [message, setMessage] = useState("")
@@ -47,6 +50,9 @@ export function CTA() {
       setPhone("")
       setMessage("")
       setStatus("success")
+      void recordPublicFunnelEvent("lead_submitted", {
+        placement: "landing_lead_form",
+      })
     } catch (err) {
       setStatus("error")
       setError(err instanceof ApiError ? err.message : "Не удалось отправить заявку.")
@@ -68,7 +74,7 @@ export function CTA() {
 
           <div className="relative mx-auto max-w-3xl text-center">
             <span className="inline-block text-xs font-medium uppercase tracking-[0.2em] text-accent">
-              До ЕНТ 2026 — 184 дня
+              {landingSettings?.campaign?.eyebrow || "Подготовка к ЕНТ 2027"}
             </span>
             <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
               Не угадывай свой балл.{" "}
@@ -154,11 +160,11 @@ export function CTA() {
 
             <p className="mt-4 text-xs text-background/60">
               Отправляя заявку, ты соглашаешься с{" "}
-              <a href="#" className="underline underline-offset-4">
+              <a href="/terms" className="underline underline-offset-4">
                 условиями
               </a>{" "}
               и{" "}
-              <a href="#" className="underline underline-offset-4">
+              <a href="/privacy" className="underline underline-offset-4">
                 политикой конфиденциальности
               </a>
               .
