@@ -20,10 +20,9 @@ type Plan = {
 
 const plans: Plan[] = [
   {
-    name: "Стартер",
-    oldPrice: "1 380",
-    price: "690",
-    period: "₸ / 7 дней · 1 попытка",
+    name: "Разовый",
+    price: "750",
+    period: "7 дней · 1 попытка",
     description: "Один полный пробный ЕНТ с Premium-разбором.",
     features: [
       "1 полный пробный ЕНТ",
@@ -31,15 +30,14 @@ const plans: Plan[] = [
       "Статистика результата",
       "Доступ 7 дней",
     ],
-    cta: "Купить Стартер",
+    cta: "Купить 1 пробный",
     href: "/login",
-    discount: "−50%",
   },
   {
-    name: "Базовый",
-    oldPrice: "2 980",
-    price: "1 490",
-    period: "₸ / 30 дней · 3 попытки",
+    name: "3 пробных",
+    oldPrice: "2 250",
+    price: "1 800",
+    period: "30 дней · 3 попытки",
     description: "Три полные попытки ЕНТ с Premium-разбором.",
     features: [
       "3 полных пробных ЕНТ",
@@ -47,15 +45,15 @@ const plans: Plan[] = [
       "Статистика по попыткам",
       "Доступ 30 дней",
     ],
-    cta: "Купить Базовый",
+    cta: "Взять 3 пробных",
     href: "/login",
-    discount: "−50%",
+    discount: "−20%",
   },
   {
-    name: "Про",
-    oldPrice: "3 980",
-    price: "1 990",
-    period: "₸ / 30 дней · 5 попыток",
+    name: "5 пробных",
+    oldPrice: "3 750",
+    price: "2 990",
+    period: "30 дней · 5 попыток",
     description: "Пять полных попыток ЕНТ с Premium-разбором.",
     features: [
       "5 полных пробных ЕНТ",
@@ -63,18 +61,18 @@ const plans: Plan[] = [
       "Статистика по попыткам",
       "Доступ 30 дней",
     ],
-    cta: "Купить Про",
+    cta: "Взять 5 пробных",
     href: "/login",
     badge: "Выгодно",
     badgeTone: "muted",
-    discount: "−50%",
+    discount: "−20%",
   },
   {
-    name: "Премиум",
-    oldPrice: "7 800",
-    price: "3 900",
-    perDay: "≈ 130 ₸ в день",
-    period: "₸ / 30 дней · безлимит",
+    name: "Месяц без лимита",
+    oldPrice: "9 000",
+    price: "5 890",
+    perDay: "≈ 196 ₸ в день",
+    period: "30 дней · безлимит",
     description: "Оптимально, чтобы реально подтянуть слабые темы.",
     features: [
       "Безлимитные попытки ЕНТ",
@@ -83,12 +81,12 @@ const plans: Plan[] = [
       "Работа над ошибками",
       "Объяснения ко всем вопросам",
     ],
-    cta: "Купить Премиум",
+    cta: "Готовиться без лимита",
     href: "/login",
     highlighted: true,
     badge: "Популярный",
     badgeTone: "accent",
-    discount: "−50%",
+    discount: "−35%",
   },
 ]
 
@@ -99,7 +97,7 @@ export function Pricing() {
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
             <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-            Скидка 50% до конца сезона
+            Новые выгодные тарифы
           </span>
           <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
             Начни{" "}
@@ -190,18 +188,26 @@ export function Pricing() {
                     {plan.oldPrice} ₸
                   </div>
                 )}
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-4xl font-semibold tracking-tight tabular-nums sm:text-[2.75rem]">
+                <div className="mt-1 flex items-baseline gap-1.5 whitespace-nowrap">
+                  <span className="text-4xl font-semibold tracking-tight tabular-nums lg:text-[2.35rem] xl:text-[2.75rem]">
                     {plan.price}
                   </span>
                   <span
                     className={[
-                      "text-xs font-medium",
+                      "text-base font-semibold",
                       plan.highlighted ? "text-background/70" : "text-muted-foreground",
                     ].join(" ")}
                   >
-                    {plan.period}
+                    ₸
                   </span>
+                </div>
+                <div
+                  className={[
+                    "mt-1 text-xs font-medium",
+                    plan.highlighted ? "text-background/70" : "text-muted-foreground",
+                  ].join(" ")}
+                >
+                  {plan.period}
                 </div>
                 {plan.perDay && (
                   <div className="mt-1 text-xs text-accent">
