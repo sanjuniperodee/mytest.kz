@@ -15,14 +15,14 @@ function httpContext(request: unknown): ExecutionContext {
 }
 
 describe('subscription premium access', () => {
-  it('syncs purchased trial subscriptions as premium entitlements with one attempt', async () => {
+  it('syncs purchased starter subscriptions as premium entitlements with one attempt', async () => {
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const tx = {
       subscription: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'sub-trial',
           userId: 'user-1',
-          planType: 'trial',
+          planType: 'starter',
           examTypeId: null,
           startsAt: new Date(Date.now() - 1000),
           expiresAt: future,
@@ -64,13 +64,13 @@ describe('subscription premium access', () => {
     );
   });
 
-  it('syncs weekly subscriptions as three premium ENT attempts', async () => {
+  it('syncs basic subscriptions as three premium attempts', async () => {
     const tx = {
       subscription: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'sub-week',
           userId: 'user-1',
-          planType: 'week',
+          planType: 'basic',
           examTypeId: null,
           startsAt: new Date(Date.now() - 1000),
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -112,13 +112,13 @@ describe('subscription premium access', () => {
     );
   });
 
-  it('syncs annual subscriptions as five premium ENT attempts', async () => {
+  it('syncs pro subscriptions as five premium attempts', async () => {
     const tx = {
       subscription: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'sub-annual',
           userId: 'user-1',
-          planType: 'annual',
+          planType: 'pro',
           examTypeId: null,
           startsAt: new Date(Date.now() - 1000),
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -156,13 +156,13 @@ describe('subscription premium access', () => {
     );
   });
 
-  it('syncs month subscriptions without daily or total limits', async () => {
+  it('syncs premium subscriptions without daily or total limits', async () => {
     const tx = {
       subscription: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'sub-month',
           userId: 'user-1',
-          planType: 'month',
+          planType: 'premium',
           examTypeId: null,
           startsAt: new Date(Date.now() - 1000),
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

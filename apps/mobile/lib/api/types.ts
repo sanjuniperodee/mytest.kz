@@ -328,6 +328,90 @@ export interface MistakesSummary {
   }[]
 }
 
+export interface MistakesSubjectDetail {
+  examTypeId: string
+  examSlug: string
+  examName: LocalizedText
+  subjectId: string
+  subjectSlug: string
+  subjectName: LocalizedText
+  isMandatory: boolean
+  openTotal: number
+  activeOpenTotal: number
+  topicCount: number
+  topics: {
+    topicId: string
+    topicName: LocalizedText
+    sortOrder: number
+    openCount: number
+    activeOpenCount: number
+    lastWrongAt: string | null
+  }[]
+}
+
+export interface StudyMapTheme {
+  themeId: string
+  key: string
+  name: string
+  openCount: number
+  activeOpenCount: number
+}
+
+export interface StudyMap {
+  examTypeId: string
+  examName: LocalizedText
+  subjectId: string
+  subjectName: LocalizedText
+  themes: StudyMapTheme[]
+  otherOpenCount: number
+  otherActiveOpenCount: number
+  openTotal: number
+  activeOpenTotal: number
+  classifiedCount: number
+  unclassifiedCount: number
+  pending: boolean
+}
+
+export interface AiTopicLesson {
+  lessonId?: string
+  lessonKind?: "topic" | "theme"
+  generatedAt: string
+  model: string
+  cached: boolean
+  lessonVersion: string
+  examTypeId: string
+  subjectId: string
+  topicId: string
+  subjectName: string
+  topicName: string
+  title: string
+  studentGoal: string
+  whyItMatters: string
+  pages?: {
+    slug: string
+    title: string
+    goal: string
+    content: string
+    examples: { title: string; question: string; steps: string[]; answer: string; trap: string }[]
+    practice: { prompt: string; options: string[]; answer: string; explanation: string }[]
+    checklist: string[]
+  }[]
+  sections: { title: string; content: string }[]
+  formulas: { latex: string; note: string }[]
+  visualizations: {
+    type: "line" | "bar" | "table"
+    title: string
+    xLabel: string
+    yLabel: string
+    data: { label: string; value: number; secondValue: number | null }[]
+  }[]
+  workedExamples: { title: string; question: string; steps: string[]; answer: string; trap: string }[]
+  practice: { prompt: string; options: string[]; answer: string; explanation: string }[]
+  commonTraps: string[]
+  checklist: string[]
+  miniTest: { prompt: string; options: string[]; answer: string; explanation: string }[]
+}
+
 export interface LeaderboardEntry {
   rank?: number | null
   position?: number | null

@@ -55,7 +55,7 @@ function NavShell({ children }: { children: React.ReactNode }) {
 
   return (
     <NavigationThemeProvider value={navTheme}>
-      <SWRConfig value={{ fetcher }}>{children}</SWRConfig>
+      <SWRConfig value={{ fetcher }}>{children as any}</SWRConfig>
     </NavigationThemeProvider>
   )
 }

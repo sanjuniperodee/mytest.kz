@@ -58,7 +58,7 @@ describe('UsersService current tariff', () => {
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'sub-trial',
-            planType: 'trial',
+            planType: 'starter',
             startsAt: new Date(now.getTime() - 1000),
             expiresAt: new Date(now.getTime() + 7 * 86400000),
             examType: null,
@@ -136,7 +136,7 @@ describe('UsersService current tariff', () => {
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'sub-trial',
-            planType: 'trial',
+            planType: 'starter',
             startsAt: new Date(now.getTime() - 1000),
             expiresAt: new Date(now.getTime() + 7 * 86400000),
             examType: null,

@@ -37,6 +37,7 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   profile: { ru: "Профиль", kk: "Профиль" },
   drawerCurrentExam: { ru: "Текущий пробник", kk: "Ағымдағы сынақ" },
   stats: { ru: "Динамика ЕНТ", kk: "ЕНТ динамикасы" },
+  history: { ru: "История", kk: "Тарих" },
   channelGate: { ru: "Подписка", kk: "Жазылу" },
   entLimitReached: { ru: "Лимит попыток", kk: "Әрекет шегі" },
   entLimitTitleDaily: { ru: "На сегодня достаточно", kk: "Бүгін үшін жеткілікті" },
@@ -645,6 +646,7 @@ export function dashboardScreenTitle(pathname: string, locale: UiLocale): string
     { prefix: "/dashboard/admission", key: "admission" },
     { prefix: "/dashboard/leaderboard", key: "leaderboard" },
     { prefix: "/dashboard/stats", key: "stats" },
+    { prefix: "/dashboard/history", key: "history" },
     { prefix: "/dashboard/billing", key: "billing" },
     { prefix: "/dashboard/profile", key: "profile" },
   ]

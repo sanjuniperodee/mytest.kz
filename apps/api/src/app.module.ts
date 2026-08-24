@@ -38,6 +38,15 @@ function validateProductionConfig(config: Record<string, unknown>) {
     config.APPLE_IAP_SHARED_SECRET.trim()
       ? ['APPLE_IAP_BUNDLE_ID']
       : []),
+    ...(config.STORE_BILLING_ENABLED === 'true'
+      ? [
+          'APPLE_IAP_BUNDLE_ID',
+          'APPLE_IAP_APP_APPLE_ID',
+          'APPLE_IAP_ROOT_CA_BASE64',
+          'GOOGLE_PLAY_PACKAGE_NAME',
+          'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+        ]
+      : []),
   ];
   const missing = required.filter((key) => {
     const value = config[key];

@@ -1,6 +1,7 @@
 import { Stack } from "expo-router"
 import { StyleSheet, View } from "react-native"
 import { MobileHeader } from "@/components/dashboard/MobileHeader"
+import { DashboardBottomNavigation } from "@/components/dashboard/DashboardBottomNavigation"
 import { WhatsAppFab } from "@/components/common/WhatsAppFab"
 import { useAppTheme } from "@/lib/theme/provider"
 
@@ -19,6 +20,7 @@ export default function DashboardLayout() {
           />
         </View>
       </View>
+      <DashboardBottomNavigation />
       <WhatsAppFab />
     </View>
   )

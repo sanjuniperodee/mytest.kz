@@ -8,7 +8,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import { GoogleAuth } from 'google-auth-library';
+import { Environment, SignedDataVerifier, type JWSTransactionDecodedPayload } from '@apple/app-store-server-library';
 import { normalizeKzPhone } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { BILLING_PLANS, ENT_TRIAL_LIMIT } from './billing.config';
@@ -16,10 +18,12 @@ import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './fre
 import { AccessService } from '../subscriptions/access.service';
 import { KaspiPosService } from './kaspi-pos.service';
 import { AnalyticsService } from '../analytics/analytics.service';
+import type { VerifyStorePurchaseDto } from './dto/store-purchase.dto';
 
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 type KaspiOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 type KaspiPaymentType = 'invoice' | 'qr';
+type StoreProvider = 'apple_iap' | 'google_play';
 
 /**
  * Не списываем kaspi-заказ сразу по истечении окна оплаты: платёж нередко
@@ -1318,6 +1322,250 @@ export class BillingService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
+  }
+
+  async verifyStorePurchase(userId: string, input: VerifyStorePurchaseDto) {
+    if (input.platform === 'ios') {
+      return this.verifyAppleSignedTransaction(userId, input);
+    }
+    return this.verifyGooglePlayPurchase(userId, input);
+  }
+
+  private async verifyAppleSignedTransaction(userId: string, input: VerifyStorePurchaseDto) {
+    const transaction = await this.verifyAppleJws(input.purchaseToken);
+    const expectedBundleId = this.config.get<string>('APPLE_IAP_BUNDLE_ID')?.trim();
+    if (!expectedBundleId) {
+      throw new InternalServerErrorException('APPLE_IAP_NOT_CONFIGURED');
+    }
+    if (transaction.bundleId !== expectedBundleId) {
+      throw new BadRequestException('APPLE_BUNDLE_MISMATCH');
+    }
+    if (!transaction.transactionId || !transaction.productId) {
+      throw new BadRequestException('APPLE_TRANSACTION_INVALID');
+    }
+    if (transaction.productId !== input.productId) {
+      throw new BadRequestException('APPLE_PRODUCT_MISMATCH');
+    }
+    if (input.transactionId && input.transactionId !== transaction.transactionId) {
+      throw new BadRequestException('APPLE_TRANSACTION_MISMATCH');
+    }
+    if (transaction.revocationDate) {
+      throw new BadRequestException('APPLE_TRANSACTION_REVOKED');
+    }
+    if (transaction.appAccountToken !== userId) {
+      throw new BadRequestException('APPLE_ACCOUNT_MISMATCH');
+    }
+
+    return this.grantStoreEntitlement({
+      userId,
+      provider: 'apple_iap',
+      providerOrderId: transaction.transactionId,
+      productId: transaction.productId,
+      providerPayload: {
+        environment: transaction.environment,
+        purchaseDate: transaction.purchaseDate,
+        transactionType: transaction.type,
+      },
+      expiresAt: transaction.expiresDate ? new Date(transaction.expiresDate) : undefined,
+    });
+  }
+
+  private async verifyAppleJws(jws: string): Promise<JWSTransactionDecodedPayload> {
+    const roots = this.readAppleRootCertificates();
+    const bundleId = this.config.get<string>('APPLE_IAP_BUNDLE_ID')?.trim();
+    const appAppleId = Number(this.config.get<string>('APPLE_IAP_APP_APPLE_ID'));
+    if (!bundleId || !Number.isSafeInteger(appAppleId) || appAppleId <= 0) {
+      throw new InternalServerErrorException('APPLE_IAP_NOT_CONFIGURED');
+    }
+    const environments = [Environment.PRODUCTION, Environment.SANDBOX];
+    for (const environment of environments) {
+      try {
+        const verifier = new SignedDataVerifier(
+          roots,
+          true,
+          environment,
+          bundleId,
+          environment === Environment.PRODUCTION ? appAppleId : undefined,
+        );
+        return await verifier.verifyAndDecodeTransaction(jws.trim());
+      } catch {
+        // App Review and TestFlight transactions use Sandbox even for a release binary.
+      }
+    }
+    throw new BadRequestException('APPLE_JWS_INVALID');
+  }
+
+  private readAppleRootCertificates(): Buffer[] {
+    const raw = this.config.get<string>('APPLE_IAP_ROOT_CA_BASE64')?.trim();
+    if (!raw) throw new InternalServerErrorException('APPLE_IAP_ROOT_CA_REQUIRED');
+    let entries: string[];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      entries = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [raw];
+    } catch {
+      entries = raw.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+    try {
+      const roots = entries.map((value) => Buffer.from(value, 'base64'));
+      if (!roots.length) throw new Error('empty');
+      return roots;
+    } catch {
+      throw new InternalServerErrorException('APPLE_IAP_ROOT_CA_INVALID');
+    }
+  }
+
+  private async verifyGooglePlayPurchase(userId: string, input: VerifyStorePurchaseDto) {
+    const packageName = this.config.get<string>('GOOGLE_PLAY_PACKAGE_NAME')?.trim();
+    const credentialsRaw = this.config.get<string>('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON')?.trim();
+    if (!packageName || !credentialsRaw) {
+      throw new InternalServerErrorException('GOOGLE_PLAY_NOT_CONFIGURED');
+    }
+    const providerOrderId = `gp_${createHash('sha256').update(input.purchaseToken).digest('hex')}`;
+    const existing = await this.getExistingStoreOrder('google_play', providerOrderId, userId);
+    if (existing) {
+      await this.consumeGooglePlayPurchase(packageName, input.productId, input.purchaseToken, credentialsRaw);
+      return { ok: true, reused: true, planId: existing.planCode };
+    }
+
+    let credentials: Record<string, unknown>;
+    try {
+      credentials = JSON.parse(credentialsRaw) as Record<string, unknown>;
+    } catch {
+      throw new InternalServerErrorException('GOOGLE_PLAY_CREDENTIALS_INVALID');
+    }
+    const auth = new GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/androidpublisher'] });
+    const client = await auth.getClient();
+    const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/products/${encodeURIComponent(input.productId)}/tokens/${encodeURIComponent(input.purchaseToken)}`;
+    let purchase: Record<string, unknown>;
+    try {
+      const response = await client.request<Record<string, unknown>>({ url, method: 'GET' });
+      purchase = response.data;
+    } catch {
+      throw new BadRequestException('GOOGLE_PURCHASE_INVALID');
+    }
+    if (Number(purchase.purchaseState) !== 0) {
+      throw new BadRequestException(Number(purchase.purchaseState) === 2 ? 'GOOGLE_PURCHASE_PENDING' : 'GOOGLE_PURCHASE_NOT_COMPLETED');
+    }
+    const expectedAccountId = createHash('sha256').update(userId).digest('hex');
+    const accountId = getString(purchase.obfuscatedExternalAccountId);
+    if (accountId !== expectedAccountId) {
+      throw new BadRequestException('GOOGLE_ACCOUNT_MISMATCH');
+    }
+
+    const result = await this.grantStoreEntitlement({
+      userId,
+      provider: 'google_play',
+      providerOrderId,
+      productId: input.productId,
+      providerPayload: {
+        packageName,
+        orderId: getString(purchase.orderId),
+        purchaseTimeMillis: getString(purchase.purchaseTimeMillis),
+        purchaseType: purchase.purchaseType,
+        regionCode: getString(purchase.regionCode),
+      },
+    });
+    await this.consumeGooglePlayPurchase(packageName, input.productId, input.purchaseToken, credentialsRaw);
+    return result;
+  }
+
+  private async consumeGooglePlayPurchase(packageName: string, productId: string, purchaseToken: string, credentialsRaw: string) {
+    let credentials: Record<string, unknown>;
+    try {
+      credentials = JSON.parse(credentialsRaw) as Record<string, unknown>;
+    } catch {
+      throw new InternalServerErrorException('GOOGLE_PLAY_CREDENTIALS_INVALID');
+    }
+    const auth = new GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/androidpublisher'] });
+    const client = await auth.getClient();
+    const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:consume`;
+    try {
+      await client.request({ url, method: 'POST' });
+    } catch (error) {
+      const status = asRecord(error)?.response ? getNumber(asRecord(asRecord(error)?.response)?.status) : null;
+      if (status !== 409) throw new ServiceUnavailableException('GOOGLE_PURCHASE_FINISH_FAILED');
+    }
+  }
+
+  private async getExistingStoreOrder(provider: StoreProvider, providerOrderId: string, userId: string) {
+    const existing = await this.prisma.paymentOrder.findUnique({ where: { providerOrderId } });
+    if (!existing) return null;
+    if (existing.provider !== provider || existing.userId !== userId) {
+      throw new BadRequestException('STORE_TRANSACTION_ALREADY_CLAIMED');
+    }
+    return existing;
+  }
+
+  private async grantStoreEntitlement(input: {
+    userId: string;
+    provider: StoreProvider;
+    providerOrderId: string;
+    productId: string;
+    providerPayload: Record<string, unknown>;
+    expiresAt?: Date;
+  }) {
+    const existing = await this.getExistingStoreOrder(input.provider, input.providerOrderId, input.userId);
+    if (existing) return { ok: true, reused: true, planId: existing.planCode };
+    const planId = this.mapStoreProductToPlan(input.productId);
+    const plan = BILLING_PLANS.find((item) => item.id === planId);
+    if (!plan) throw new BadRequestException('STORE_PLAN_NOT_MAPPED');
+    const now = new Date();
+    const expiresAt = input.expiresAt && input.expiresAt > now ? input.expiresAt : this.addDays(now, plan.durationDays);
+    try {
+      const subscription = await this.prisma.$transaction(async (tx) => {
+        const order = await tx.paymentOrder.create({ data: {
+          userId: input.userId,
+          planCode: plan.id,
+          amount: plan.priceKzt,
+          provider: input.provider,
+          providerOrderId: input.providerOrderId,
+          providerPaymentId: input.providerOrderId,
+          status: 'paid',
+          paidAt: now,
+          providerPayload: { provider: input.provider, productId: input.productId, ...input.providerPayload } as Prisma.InputJsonObject,
+        } });
+        return tx.subscription.create({ data: {
+          userId: input.userId,
+          planType: plan.id,
+          paymentOrderId: order.id,
+          startsAt: now,
+          expiresAt,
+          paymentNote: `${input.provider}:${input.productId}:${input.providerOrderId}`,
+        } });
+      });
+      await this.accessService.syncSubscriptionEntitlements(subscription.id);
+      return { ok: true, reused: false, planId, expiresAt };
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        const raced = await this.getExistingStoreOrder(input.provider, input.providerOrderId, input.userId);
+        if (raced) return { ok: true, reused: true, planId: raced.planCode };
+      }
+      throw error;
+    }
+  }
+
+  private mapStoreProductToPlan(productId: string): string {
+    const mappingRaw = this.config.get<string>('STORE_PRODUCT_PLAN_MAP')?.trim()
+      || this.config.get<string>('APPLE_IAP_PRODUCT_PLAN_MAP')?.trim();
+    if (mappingRaw) {
+      try {
+        const parsed = JSON.parse(mappingRaw) as Record<string, string>;
+        if (parsed[productId]) return parsed[productId];
+      } catch {
+        // Fall through to the release product contract below.
+      }
+    }
+    const defaults: Record<string, string> = {
+      'com.sanjuniperodee.mobile.premium.trial': 'starter',
+      'com.sanjuniperodee.mobile.premium.week': 'basic',
+      'com.sanjuniperodee.mobile.premium.annual': 'pro',
+      'com.sanjuniperodee.mobile.premium.month': 'premium',
+      'com.sanjuniperodee.mobile.plan.starter': 'starter',
+      'com.sanjuniperodee.mobile.plan.basic': 'basic',
+      'com.sanjuniperodee.mobile.plan.pro': 'pro',
+      'com.sanjuniperodee.mobile.plan.premium': 'premium',
+    };
+    return defaults[productId] || '';
   }
 
   async verifyAppleReceipt(userId: string, receiptData: string, requestedProductId?: string) {

@@ -23,6 +23,7 @@ import {
   KaspiSetupVerifyOtpDto,
 } from './dto/kaspi-setup.dto';
 import { normalizeKzPhone } from '@bilimland/shared';
+import { VerifyStorePurchaseDto } from './dto/store-purchase.dto';
 
 @Controller('billing')
 export class BillingController {
@@ -137,5 +138,14 @@ export class BillingController {
     @Body('productId') productId?: string,
   ) {
     return this.billingService.verifyAppleReceipt(userId, receiptData, productId);
+  }
+
+  @Post('store/verify')
+  @UseGuards(AuthGuard('jwt'))
+  verifyStorePurchase(
+    @CurrentUser('id') userId: string,
+    @Body() body: VerifyStorePurchaseDto,
+  ) {
+    return this.billingService.verifyStorePurchase(userId, body);
   }
 }

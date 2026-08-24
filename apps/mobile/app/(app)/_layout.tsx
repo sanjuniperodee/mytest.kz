@@ -1,15 +1,14 @@
-import { Drawer } from "expo-router/drawer"
+import { Stack } from "expo-router"
 import { Redirect, router, usePathname } from "expo-router"
 import { useEffect } from "react"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { DashboardDrawerContent } from "@/components/dashboard/DashboardDrawer"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/lib/api/auth-context"
 import { useAppTheme } from "@/lib/theme/provider"
 
 const CHANNEL_GATE = "/dashboard/channel-gate"
 
-export default function AppDrawerLayout() {
+export default function AppLayout() {
   const { isLoading, isAuthenticated, user } = useAuth()
   const pathname = usePathname()
   const { colors } = useAppTheme()
@@ -43,19 +42,5 @@ export default function AppDrawerLayout() {
     )
   }
 
-  return (
-    <Drawer
-      drawerContent={(props) => <DashboardDrawerContent {...props} />}
-      screenOptions={{
-        headerShown: false,
-        drawerType: "front",
-        overlayColor: "rgba(0,0,0,0.3)",
-        sceneStyle: { backgroundColor: colors.secondary },
-        drawerStyle: {
-          width: 316,
-          backgroundColor: colors.card,
-        },
-      }}
-    />
-  )
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.secondary } }} />
 }

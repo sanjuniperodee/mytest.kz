@@ -298,6 +298,36 @@ export function MistakesView() {
           </Card>
         </View>
 
+        {subjectOptions.length > 0 ? (
+          <Card>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              {ui === "kk" ? "Пәндер бойынша" : "По предметам"}
+            </Text>
+            <Text style={[styles.totalHint, { color: colors.mutedForeground }]}>
+              {ui === "kk"
+                ? "Тақырыптарды, AI-сабақтарды және пәндік жаттығуды ашу үшін пәнді таңдаңыз."
+                : "Выберите предмет, чтобы открыть темы, AI-уроки и предметную тренировку."}
+            </Text>
+            <View style={[styles.examList, { marginTop: 12 }]}>
+              {subjectOptions.map((subject) => (
+                <Pressable
+                  key={`${subject.examTypeId}:${subject.id}`}
+                  onPress={() => router.push(`/dashboard/mistakes/subjects/${subject.id}` as never)}
+                  style={[styles.examRow, { borderColor: colors.border, backgroundColor: colors.card }]}
+                >
+                  <Text style={[styles.examName, { color: colors.foreground }]} numberOfLines={2}>
+                    {subject.label}
+                  </Text>
+                  <View style={[styles.countPill, { backgroundColor: colors.secondary }]}>
+                    <Text style={[styles.countPillText, { color: colors.foreground }]}>{subject.count}</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.mutedForeground} />
+                </Pressable>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
         <Card>
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>
             {t("mistakesStartTraining", ui)}

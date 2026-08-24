@@ -18,8 +18,6 @@ import { Card } from "@/components/ui/card"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale } from "@/lib/api/i18n"
-import { useLocation } from "@/lib/location"
-import { mayAccessKaspiCommerce } from "@/lib/billing-region"
 import type { AccessByExamItem, BillingPlan, CurrentTariff, TrialStatusItem, User } from "@/lib/api/types"
 import {
   normalizeBillingPlan,
@@ -35,7 +33,7 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale, type UiLocale } from "@/lib/i18n/ui"
-import { APPLE_IAP_PRODUCTS, isAppleIapAvailable } from "@/lib/billing/apple-iap"
+import { StoreBillingProvider, useStoreBilling } from "@/lib/billing/store-billing"
 
 function formatPrice(plan: NormalizedPlan, ui: UiLocale): string {
   if (plan.price == null) return "—"
@@ -133,8 +131,8 @@ function paymentFooterCopy(ui: UiLocale, canUseKaspi: boolean, canUseAppleIap: b
   }
   if (canUseAppleIap) {
     return ui === "kk"
-      ? "Бұл аймақта сатып алу қолданба ішінде App Store арқылы қолжетімді."
-      : "В этом регионе покупка доступна внутри приложения через App Store."
+      ? "Сатып алу қолданба ішінде құрылғы дүкені арқылы қауіпсіз орындалады."
+      : "Покупка безопасно оформляется внутри приложения через магазин устройства."
   }
   return ui === "kk"
     ? "Қолданба ішінде төлем бұл құрылғыда әзірге қолжетімсіз. iPhone немесе iPad арқылы кіріп көріңіз."
@@ -142,17 +140,26 @@ function paymentFooterCopy(ui: UiLocale, canUseKaspi: boolean, canUseAppleIap: b
 }
 
 export function BillingView() {
+  const { user, refresh } = useAuth()
+  return (
+    <StoreBillingProvider userId={user?.id} onVerified={async () => { await refresh() }}>
+      <BillingViewContent />
+    </StoreBillingProvider>
+  )
+}
+
+function BillingViewContent() {
   const { colors } = useAppTheme()
   const { locale: ui } = useUiLocale()
   const { user, refresh } = useAuth()
-  const { isInKZ } = useLocation()
-  const canUseKaspi = mayAccessKaspiCommerce(isInKZ)
-  const canUseAppleIap = isAppleIapAvailable()
+  const store = useStoreBilling()
+  const canUseKaspi = false
+  const canUseAppleIap = store.available
   const { mutate: mutateGlobal } = useSWRConfig()
   const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const { data, isLoading } = useSWR<BillingPlan[] | { items: BillingPlan[] }>("/billing/plans")
   const { data: ordersData, isLoading: ordersLoading } = useSWR<KaspiOrder[] | { items: KaspiOrder[] }>(
-    "/billing/kaspi/orders/active",
+    null,
     (url: string) => api(url),
     { refreshInterval: 10000 },
   )
@@ -270,10 +277,25 @@ export function BillingView() {
             ) : null}
             {canUseAppleIap ? (
               <View style={[styles.brandChip, { borderColor: colors.border, backgroundColor: colors.secondary }]}>
-                <Text style={[styles.brandChipText, { color: colors.foreground }]}>App Store</Text>
+                <Text style={[styles.brandChipText, { color: colors.foreground }]}>{store.name}</Text>
               </View>
             ) : null}
           </View>
+          {store.available ? (
+            <Button variant="outline" disabled={store.loading} onPress={() => void store.restore()}>
+              {ui === "kk" ? "Сатып алуларды қалпына келтіру" : "Восстановить покупки"}
+            </Button>
+          ) : null}
+          {store.pending ? (
+            <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
+              {ui === "kk" ? "Төлем дүкенде расталуын күтуде." : "Платёж ожидает подтверждения в магазине."}
+            </Text>
+          ) : null}
+          {store.error ? (
+            <Text style={styles.modalError}>
+              {ui === "kk" ? "Дүкен төлемін аяқтау мүмкін болмады. Қайталап көріңіз." : "Не удалось завершить оплату в магазине. Повторите попытку."}
+            </Text>
+          ) : null}
         </View>
       </Card>
     </ScrollView>
@@ -414,6 +436,7 @@ function PlanCard({
   colors: ThemeColors
   ui: UiLocale
 }) {
+  const store = useStoreBilling()
   const [showModal, setShowModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(canUseKaspi ? "kaspi" : "apple")
   const [kaspiMethod, setKaspiMethod] = useState<KaspiMethod>("invoice")
@@ -452,108 +475,14 @@ function PlanCard({
   }
 
   const handleAppleCheckout = async () => {
-    const productId = APPLE_IAP_PRODUCTS[plan.id]
-    if (!productId) {
-      setError(ui === "kk" ? "Бұл тариф App Store үшін бапталмаған" : "Этот тариф не настроен для App Store")
-      return
-    }
     setLoading(true)
     setError(null)
     try {
-      const IAP = await import("react-native-iap")
-      await IAP.initConnection()
-      if (typeof IAP.requestPurchase !== "function") {
-        throw new Error("IAP_REQUEST_UNAVAILABLE")
-      }
-      let purchase: unknown = null
-      let lastError: unknown = null
-      const purchaseTypes = applePurchaseTypeOrder(plan.id)
-      for (let idx = 0; idx < purchaseTypes.length; idx += 1) {
-        const currentType = purchaseTypes[idx]
-        try {
-          if (typeof IAP.fetchProducts === "function") {
-            await IAP.fetchProducts({
-              skus: [productId],
-              type: currentType,
-            } as never)
-          }
-          purchase = await IAP.requestPurchase({
-            type: currentType,
-            request: {
-              apple: {
-                sku: productId,
-              },
-              ios: {
-                sku: productId,
-              },
-            },
-          } as never)
-          break
-        } catch (err) {
-          if (isUserCancelledIap(err)) {
-            setError(null)
-            return
-          }
-          lastError = err
-          const canFallback = idx < purchaseTypes.length - 1 && shouldTryAlternateIapType(err)
-          if (!canFallback) throw err
-        }
-      }
-      if (!purchase && lastError) {
-        throw lastError
-      }
-      const first = Array.isArray(purchase) ? purchase[0] : purchase
-      let receiptData =
-        (first as any)?.transactionReceipt ||
-        (first as any)?.transactionReceiptIOS ||
-        (first as any)?.originalJson
-      if (!receiptData && typeof IAP.getReceiptIOS === "function") {
-        try {
-          receiptData = await IAP.getReceiptIOS()
-        } catch {
-          // keep original behavior below if receipt could not be read
-        }
-      }
-      if (!receiptData) {
-        throw new Error("IAP_RECEIPT_MISSING")
-      }
-
-      await api("/billing/apple/verify-receipt", {
-        method: "POST",
-        body: { receiptData, productId },
-      })
-      await IAP.finishTransaction({ purchase: first, isConsumable: false } as never)
-      onRefreshUser()
+      await store.purchase(plan.id)
       setShowModal(false)
-      Alert.alert(ui === "kk" ? "Дайын" : "Готово", ui === "kk" ? "Premium қосылды" : "Premium подключён")
     } catch (err) {
       if (isUserCancelledIap(err)) return
-      const message = err instanceof ApiError ? err.message : parseIapError(err).message
-      if (message.includes("APPLE_IAP_NOT_CONFIGURED")) {
-        setError(
-          ui === "kk"
-            ? "App Store төлемі серверде бапталмаған. Қолдауға жазыңыз."
-            : "App Store-оплата пока не настроена на сервере. Напишите в поддержку.",
-        )
-      } else if (
-        message.includes("APPLE_RECEIPT_INVALID") ||
-        message.includes("APPLE_RECEIPT_EMPTY") ||
-        message.includes("APPLE_PRODUCT_NOT_FOUND")
-      ) {
-        setError(
-          ui === "kk"
-            ? "Төлем жасалды, бірақ чек тексеруден өтпеді. Қайта көріңіз немесе қолдауға жазыңыз."
-            : "Покупка прошла, но чек не подтвердился. Повторите попытку или обратитесь в поддержку.",
-        )
-      } else if (message.includes("APPLE_PLAN_NOT_MAPPED")) {
-        setError(
-          ui === "kk"
-            ? "Бұл App Store өнімі тарифке байланыстырылмаған. Қолдауға жазыңыз."
-            : "Этот App Store-продукт не привязан к тарифу. Напишите в поддержку.",
-        )
-      } else {
-        setError(ui === "kk" ? "Сатып алу сәтсіз аяқталды. Қайта көріңіз." : "Покупка не завершена. Попробуйте снова.")
-      }
+      setError(ui === "kk" ? "Сатып алу сәтсіз аяқталды. Қайта көріңіз." : "Покупка не завершена. Попробуйте снова.")
     } finally {
       setLoading(false)
     }
@@ -681,7 +610,7 @@ function PlanCard({
 
         <View style={{ marginTop: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-            <Text style={[styles.priceBig, { color: colors.foreground }]}>{formatPrice(plan, ui)}</Text>
+            <Text style={[styles.priceBig, { color: colors.foreground }]}>{store.priceForPlan(plan.id) || formatPrice(plan, ui)}</Text>
             {oldPriceLabel ? (
               <Text style={[styles.oldPrice, { color: colors.mutedForeground }]}>
                 {oldPriceLabel}
@@ -745,8 +674,8 @@ function PlanCard({
             </Text>
             <Text style={[styles.modalLead, { color: colors.mutedForeground }]}>
               {ui === "kk"
-                ? "Төлем тәсілін таңдаңыз: Kaspi шоты, Kaspi QR немесе қолданба ішіндегі App Store сатып алуы."
-                : "Выберите способ оплаты: счёт Kaspi, Kaspi QR или покупку внутри App Store."}
+                ? `Сатып алу ${store.name} арқылы қолданба ішінде орындалады.`
+                : `Покупка оформляется внутри приложения через ${store.name}.`}
             </Text>
 
             <View style={[styles.modalSummary, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
@@ -756,7 +685,7 @@ function PlanCard({
               </View>
               <View style={styles.modalSummaryRow}>
                 <Text style={{ color: colors.mutedForeground }}>{ui === "kk" ? "Бағасы" : "Цена"}</Text>
-                <Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{formatPrice(plan, ui)}</Text>
+                <Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{store.priceForPlan(plan.id) || formatPrice(plan, ui)}</Text>
               </View>
             </View>
 
@@ -803,7 +732,7 @@ function PlanCard({
                       },
                     ]}
                   >
-                    <Text style={[styles.methodTitle, { color: colors.foreground }]}>App Store</Text>
+                    <Text style={[styles.methodTitle, { color: colors.foreground }]}>{store.name}</Text>
                     <Text style={[styles.methodDesc, { color: colors.mutedForeground }]}>
                       {ui === "kk"
                         ? "Қолданба ішіндегі сатып алу"
@@ -888,17 +817,17 @@ function PlanCard({
             {paymentMethod === "apple" ? (
               <View style={[styles.noteCard, { borderColor: colors.border, backgroundColor: colors.secondary }]}>
                 <Text style={[styles.noteTitle, { color: colors.foreground }]}>
-                  {ui === "kk" ? "App Store ішіндегі сатып алу" : "Покупка внутри App Store"}
+                  {ui === "kk" ? `${store.name} ішіндегі сатып алу` : `Покупка внутри ${store.name}`}
                 </Text>
                 <Text style={[styles.noteDesc, { color: colors.mutedForeground }]}>
                   {ui === "kk"
-                    ? "Төлем Apple аккаунтыңыз арқылы расталады. Расталғаннан кейін Premium бірден қосылады."
-                    : "Оплата подтвердится через ваш Apple ID. После покупки Premium включится автоматически."}
+                    ? `Төлем ${store.name} аккаунтыңыз арқылы расталады. Содан кейін Premium автоматты түрде қосылады.`
+                    : `Оплата подтвердится через аккаунт ${store.name}. После покупки Premium включится автоматически.`}
                 </Text>
               </View>
             ) : null}
 
-            {error ? <Text style={styles.modalError}>{error}</Text> : null}
+            {error || store.error ? <Text style={styles.modalError}>{error || (ui === "kk" ? "Дүкен төлемін аяқтау мүмкін болмады." : "Не удалось завершить оплату в магазине.")}</Text> : null}
 
             <View style={styles.modalActions}>
               <Button variant="outline" disabled={loading} onPress={() => setShowModal(false)}>
@@ -914,8 +843,8 @@ function PlanCard({
                     : "Выполняем..."
                   : paymentMethod === "apple"
                     ? ui === "kk"
-                      ? "App Store арқылы сатып алу"
-                      : "Купить через App Store"
+                      ? `${store.name} арқылы сатып алу`
+                      : `Купить через ${store.name}`
                     : kaspiMethod === "qr"
                       ? ui === "kk"
                         ? "Kaspi QR көрсету"

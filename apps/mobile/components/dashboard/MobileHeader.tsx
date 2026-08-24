@@ -1,29 +1,23 @@
-import { DrawerActions, useNavigation } from "@react-navigation/native"
-import { useMemo } from "react"
-import { Pressable, StyleSheet, Text, View } from "react-native"
-import { usePathname } from "expo-router"
+import { Image, Pressable, StyleSheet, Text, View } from "react-native"
+import { router } from "expo-router"
 import { useTopInset } from "@/lib/use-top-inset"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { fonts } from "@/lib/theme/fonts"
-import { dashboardScreenTitle, t, useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
+import { useAuth } from "@/lib/api/auth-context"
+import { resolveMediaUrl } from "@/lib/api/client"
+import { localize, type Locale } from "@/lib/api/i18n"
 
-export function MobileHeader({ title }: { title?: string }) {
+export function MobileHeader() {
   const { colors } = useAppTheme()
   const topInset = useTopInset()
-  const navigation = useNavigation()
-  const { locale, setLocale } = useUiLocale()
-  const pathname = usePathname()
-
-  const resolvedTitle = useMemo(
-    () => title ?? dashboardScreenTitle(pathname || "/dashboard", locale),
-    [title, pathname, locale],
-  )
-  const isBrand = resolvedTitle === "mytest"
-
-  const openDrawer = () => {
-    navigation.dispatch(DrawerActions.openDrawer())
-  }
+  const { user } = useAuth()
+  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    localize(user?.fullName, locale) || user?.username || user?.phone || "U"
+  const initials = displayName.slice(0, 2).toUpperCase()
+  const avatarUri = resolveMediaUrl(user?.avatarUrl ?? null)
 
   return (
     <View
@@ -40,38 +34,27 @@ export function MobileHeader({ title }: { title?: string }) {
     >
       <View style={styles.bar}>
         <Pressable
-          accessibilityLabel={t("openMenu", locale)}
+          accessibilityLabel="На главную"
           hitSlop={12}
-          onPress={openDrawer}
-          style={styles.iconBtn}
+          onPress={() => router.push("/dashboard")}
+          style={styles.brandLockup}
         >
-          <MaterialCommunityIcons name="menu" size={22} color={colors.foreground} />
-        </Pressable>
-        {isBrand ? (
-          <View style={styles.brandLockup}>
-            <View style={[styles.brandMark, { backgroundColor: colors.foreground }]}>
-              <MaterialCommunityIcons
-                name="star-four-points-small"
-                size={16}
-                color={colors.background}
-              />
-            </View>
-            <Text style={[styles.title, styles.titleBrand, { color: colors.foreground }]} numberOfLines={1}>
-              mytest
-            </Text>
+          <View style={[styles.brandMark, { backgroundColor: colors.foreground }]}>
+            <MaterialCommunityIcons name="star-four-points-small" size={16} color={colors.background} />
           </View>
-        ) : (
-          <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
-            {resolvedTitle}
-          </Text>
-        )}
+          <Text style={[styles.title, { color: colors.foreground }]}>mytest</Text>
+        </Pressable>
         <Pressable
-          accessibilityLabel={t("language", locale)}
-          hitSlop={12}
-          onPress={() => setLocale(locale === "ru" ? "kk" : "ru")}
-          style={styles.langBtn}
+          accessibilityLabel="Открыть профиль"
+          hitSlop={10}
+          onPress={() => router.push("/dashboard/profile")}
+          style={[styles.avatar, { borderColor: colors.border, backgroundColor: colors.secondary }]}
         >
-          <Text style={[styles.langText, { color: colors.mutedForeground }]}>{locale.toUpperCase()}</Text>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+          ) : (
+            <Text style={[styles.avatarText, { color: colors.foreground }]}>{initials}</Text>
+          )}
         </Pressable>
       </View>
     </View>
@@ -92,13 +75,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   brandLockup: {
     flex: 1,
     minWidth: 0,
@@ -114,24 +90,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    flex: 1,
     fontSize: 16,
     fontFamily: fonts.sansSemi,
     letterSpacing: -0.2,
-  },
-  titleBrand: {
     textTransform: "lowercase",
   },
-  langBtn: {
-    minWidth: 44,
-    height: 40,
-    borderRadius: 10,
-    paddingHorizontal: 10,
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
-  langText: {
-    fontSize: 13,
+  avatarImage: { width: "100%", height: "100%" },
+  avatarText: {
+    fontSize: 12,
     fontFamily: fonts.sansSemi,
   },
 })
