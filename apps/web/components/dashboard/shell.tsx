@@ -4,17 +4,18 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import {
+  BarChart3,
   BookOpen,
+  ChevronRight,
   CreditCard,
   GraduationCap,
   Home,
+  History,
   LogOut,
-  Menu,
   MoreHorizontal,
   Target,
   Trophy,
   User,
-  X,
 } from "lucide-react"
 import { useAuth } from "@/lib/api/auth-context"
 import { Spinner } from "@/components/ui/spinner"
@@ -25,23 +26,52 @@ import { resolveMediaUrl } from "@/lib/api/client"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { WhatsAppFab } from "@/components/common/whatsapp-fab"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 
-const nav = [
-  { href: "/dashboard", label: "Обзор", icon: Home },
-  { href: "/dashboard/exams", label: "Экзамены", icon: BookOpen },
-  { href: "/dashboard/mistakes", label: "Мои ошибки", icon: Target },
-  { href: "/dashboard/admission", label: "Шанс поступления", icon: GraduationCap },
-  { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy },
-  { href: "/dashboard/billing", label: "Тарифы", icon: CreditCard },
-  { href: "/dashboard/profile", label: "Профиль", icon: User },
+const navigation = [
+  {
+    href: "/dashboard",
+    label: "Обзор",
+    mobileLabel: "Обзор",
+    icon: Home,
+    primary: true,
+  },
+  {
+    href: "/dashboard/exams",
+    label: "Экзамены",
+    mobileLabel: "Тесты",
+    icon: BookOpen,
+    primary: true,
+  },
+  {
+    href: "/dashboard/mistakes",
+    label: "Мои ошибки",
+    mobileLabel: "Ошибки",
+    icon: Target,
+    primary: true,
+  },
+  {
+    href: "/dashboard/admission",
+    label: "Шанс поступления",
+    mobileLabel: "Грант",
+    icon: GraduationCap,
+    primary: true,
+  },
+  { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy, primary: false },
+  { href: "/dashboard/stats", label: "Статистика", icon: BarChart3, primary: false },
+  { href: "/dashboard/history", label: "История", icon: History, primary: false },
+  { href: "/dashboard/billing", label: "Тарифы", icon: CreditCard, primary: false },
+  { href: "/dashboard/profile", label: "Профиль", icon: User, primary: false },
 ]
 
-const mobileNav = [
-  { href: "/dashboard", label: "Обзор", icon: Home },
-  { href: "/dashboard/exams", label: "Тесты", icon: BookOpen },
-  { href: "/dashboard/mistakes", label: "Ошибки", icon: Target },
-  { href: "/dashboard/admission", label: "Грант", icon: GraduationCap },
-]
+const primaryNavigation = navigation.filter((item) => item.primary)
+const secondaryNavigation = navigation.filter((item) => !item.primary)
 
 const CHANNEL_GATE_PATH = "/dashboard/channel-gate"
 
@@ -49,7 +79,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isLoading, signOut } = useAuth()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace("/login")
@@ -68,7 +98,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isLoading, pathname, router, user?.isChannelMember, user?.telegramId])
 
   useEffect(() => {
-    setMobileOpen(false)
+    setMoreOpen(false)
   }, [pathname])
 
   if (isLoading || !isAuthenticated) {
@@ -93,6 +123,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const displayName =
     fullNameStr || user?.telegramUsername || user?.username || user?.phone || "U"
   const initials = displayName.toString().slice(0, 2).toUpperCase()
+  const isActive = (href: string) =>
+    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
+  const isMoreRoute = !primaryNavigation.some((item) => isActive(item.href))
 
   return (
     <div className="min-h-svh bg-secondary/30">
@@ -102,34 +135,28 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       >
         Перейти к содержимому
       </a>
-      {/* Mobile header */}
-      <div className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background px-4">
+      {/* Mobile app bar */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur-xl lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Logo />
           <span className="text-base font-semibold lowercase">mytest</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher className="h-9" />
-          <button
-            onClick={() => setMobileOpen((v) => !v)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={mobileOpen ? "Закрыть меню" : "Открыть меню"}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
-        </div>
-      </div>
+        <Link
+          href="/dashboard/profile"
+          aria-label="Открыть профиль"
+          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <Avatar className="size-9 border border-border">
+            <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt="" />
+            <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+          </Avatar>
+        </Link>
+      </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside
-          className={cn(
-            "fixed lg:sticky lg:top-0 z-40 h-svh w-64 shrink-0 border-r border-border bg-background flex flex-col transition-transform lg:translate-x-0",
-            mobileOpen ? "translate-x-0" : "-translate-x-full",
-          )}
-        >
-          <div className="hidden lg:flex h-14 items-center px-5 border-b border-border">
+        {/* Desktop sidebar */}
+        <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-border bg-background lg:flex">
+          <div className="flex h-14 items-center border-b border-border px-5">
             <Link href="/dashboard" className="flex items-center gap-2">
               <Logo />
               <span className="text-base font-semibold lowercase">mytest</span>
@@ -138,12 +165,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
           <nav className="flex-1 overflow-y-auto p-3" aria-label="Основная навигация">
             <ul className="flex flex-col gap-1">
-              {nav.map((item) => {
+              {navigation.map((item) => {
                 const Icon = item.icon
-                const active =
-                  item.href === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname.startsWith(item.href)
+                const active = isActive(item.href)
                 return (
                   <li key={item.href}>
                     <Link
@@ -166,7 +190,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="border-t border-border p-3">
-            <div className="mb-3 hidden lg:block">
+            <div className="mb-3">
               <LanguageSwitcher className="w-full justify-center" />
             </div>
             <Link
@@ -199,15 +223,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        {mobileOpen && (
-          <button
-            type="button"
-            aria-label="Закрыть меню"
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 z-30 bg-black/30 lg:hidden"
-          />
-        )}
-
         <main id="dashboard-content" className="min-w-0 flex-1 pb-24 lg:pb-0">
           <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
@@ -218,12 +233,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         aria-label="Быстрая навигация"
       >
         <ul className="grid grid-cols-5">
-          {mobileNav.map((item) => {
+          {primaryNavigation.map((item) => {
             const Icon = item.icon
-            const active =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href)
+            const active = isActive(item.href)
             return (
               <li key={item.href}>
                 <Link
@@ -235,7 +247,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   )}
                 >
                   <Icon className="size-5" aria-hidden="true" />
-                  {item.label}
+                  {item.mobileLabel}
                 </Link>
               </li>
             )
@@ -243,11 +255,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <li>
             <button
               type="button"
-              onClick={() => setMobileOpen(true)}
-              aria-expanded={mobileOpen}
+              onClick={() => setMoreOpen(true)}
+              aria-expanded={moreOpen}
+              aria-controls="dashboard-more-menu"
               className={cn(
                 "flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors",
-                mobileOpen ? "bg-accent/10 text-accent" : "text-muted-foreground",
+                moreOpen || isMoreRoute
+                  ? "bg-accent/10 text-accent"
+                  : "text-muted-foreground",
               )}
             >
               <MoreHorizontal className="size-5" aria-hidden="true" />
@@ -256,6 +271,94 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </li>
         </ul>
       </nav>
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent
+          id="dashboard-more-menu"
+          side="bottom"
+          className="max-h-[85svh] gap-0 rounded-t-3xl pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden"
+        >
+          <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
+          <SheetHeader className="border-b border-border px-5 pb-4 pt-3 text-left">
+            <SheetTitle>Ещё</SheetTitle>
+            <SheetDescription>Аккаунт и дополнительные разделы</SheetDescription>
+          </SheetHeader>
+
+          <div className="overflow-y-auto px-3 py-3">
+            <Link
+              href="/dashboard/profile"
+              className="mb-3 flex items-center gap-3 rounded-2xl bg-secondary/70 p-3 transition-colors hover:bg-secondary"
+            >
+              <Avatar className="size-11 border border-border bg-background">
+                <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt="" />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">
+                  {displayName === "U" ? "Профиль" : displayName}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user?.phone || user?.telegramUsername || "Настройки аккаунта"}
+                </p>
+              </div>
+              <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+            </Link>
+
+            <nav aria-label="Дополнительная навигация">
+              <ul className="flex flex-col gap-1">
+                {secondaryNavigation
+                  .filter((item) => item.href !== "/dashboard/profile")
+                  .map((item) => {
+                    const Icon = item.icon
+                    const active = isActive(item.href)
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          aria-current={active ? "page" : undefined}
+                          className={cn(
+                            "flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                            active
+                              ? "bg-foreground text-background"
+                              : "text-foreground hover:bg-secondary",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex size-9 items-center justify-center rounded-lg",
+                              active ? "bg-background/15" : "bg-secondary",
+                            )}
+                          >
+                            <Icon className="size-4" aria-hidden="true" />
+                          </span>
+                          <span className="flex-1">{item.label}</span>
+                          <ChevronRight className="size-4 opacity-60" aria-hidden="true" />
+                        </Link>
+                      </li>
+                    )
+                  })}
+              </ul>
+            </nav>
+
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+              <span className="text-sm font-medium">Язык</span>
+              <LanguageSwitcher className="h-9" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                signOut()
+                router.replace("/")
+              }}
+              className="mt-2 flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <LogOut className="size-4" aria-hidden="true" />
+              Выйти
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <WhatsAppFab />
     </div>
