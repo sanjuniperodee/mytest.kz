@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises"
 const root = new URL("../", import.meta.url)
 const app = JSON.parse(await readFile(new URL("app.json", root), "utf8")).expo
 const eas = JSON.parse(await readFile(new URL("eas.json", root), "utf8"))
+const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"))
 const products = await readFile(new URL("lib/billing/store-products.ts", root), "utf8")
 const billing = await readFile(new URL("components/dashboard/billing/BillingView.tsx", root), "utf8")
 const metro = await readFile(new URL("metro.config.js", root), "utf8")
@@ -24,6 +25,7 @@ assert.equal(imagePicker?.[1]?.microphonePermission, false)
 assert.ok(!(app.android.permissions ?? []).includes("android.permission.RECORD_AUDIO"))
 assert.equal(eas.build.production.android.buildType, "app-bundle")
 assert.equal(eas.build.production.env.EXPO_PUBLIC_API_ORIGIN, "https://my-test.kz")
+assert.equal(pkg.scripts["eas-build-post-install"], "npm --prefix ../../packages/shared run build")
 
 for (const plan of ["starter", "basic", "pro", "premium"]) {
   assert.match(products, new RegExp(`${plan}:\\s*\"com\\.sanjuniperodee\\.mobile\\.`))

@@ -13,6 +13,7 @@
     "android:release": "expo run:android --variant release",
     "build:apk": "eas build -p android --profile preview",
     "build:aab": "eas build -p android --profile production",
+    "eas-build-post-install": "npm --prefix ../../packages/shared run build",
     "typecheck": "tsc --noEmit",
     "release:check": "node scripts/check-release.mjs && npm run typecheck",
     "build:production": "eas build --platform all --profile production",
