@@ -1374,18 +1374,23 @@ export class BillingService {
     const roots = this.readAppleRootCertificates();
     const bundleId = this.config.get<string>('APPLE_IAP_BUNDLE_ID')?.trim();
     const appAppleId = Number(this.config.get<string>('APPLE_IAP_APP_APPLE_ID'));
-    if (!bundleId || !Number.isSafeInteger(appAppleId) || appAppleId <= 0) {
+    if (!bundleId) {
       throw new InternalServerErrorException('APPLE_IAP_NOT_CONFIGURED');
     }
-    const environments = [Environment.PRODUCTION, Environment.SANDBOX];
-    for (const environment of environments) {
+    const verifiers = [
+      ...(Number.isSafeInteger(appAppleId) && appAppleId > 0
+        ? [{ environment: Environment.PRODUCTION, appAppleId }]
+        : []),
+      { environment: Environment.SANDBOX, appAppleId: undefined },
+    ];
+    for (const { environment, appAppleId: verifierAppAppleId } of verifiers) {
       try {
         const verifier = new SignedDataVerifier(
           roots,
           true,
           environment,
           bundleId,
-          environment === Environment.PRODUCTION ? appAppleId : undefined,
+          verifierAppAppleId,
         );
         return await verifier.verifyAndDecodeTransaction(jws.trim());
       } catch {
