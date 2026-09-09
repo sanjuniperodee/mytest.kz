@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import Link from "next/link"
@@ -26,7 +28,7 @@ import { StudyThemes } from "@/components/dashboard/study-themes"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
-import { localize, type Locale } from "@/lib/api/i18n"
+import { localize } from "@/lib/api/i18n"
 import type { MistakesSubjectDetail, TestSession } from "@/lib/api/types"
 
 export default function SubjectMistakesPage() {
@@ -36,7 +38,7 @@ export default function SubjectMistakesPage() {
   const detailKey = subjectId ? `/tests/mistakes/subjects/${subjectId}` : null
 
   const { user, refresh } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const [language, setLanguage] = useState<"ru" | "kk">("ru")
   const [limit, setLimit] = useState(15)
   const [duration, setDuration] = useState(25)

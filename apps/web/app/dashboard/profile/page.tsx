@@ -61,7 +61,7 @@ export default function ProfilePage() {
     }
   }, [uiLocale, user])
 
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const locale = uiLocale
   const firstLastName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim()
   const fullNameStr = firstLastName || localize(user?.fullName, locale)
   const displayName =

@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { use, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
@@ -24,7 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
-import { localize, type Locale } from "@/lib/api/i18n"
+import { localize } from "@/lib/api/i18n"
 import type { ExamType, Subject, TestSession, TestTemplate } from "@/lib/api/types"
 import {
   buildEntProfilePairOptions,
@@ -69,7 +71,7 @@ export default function ExamDetailPage({
   const { examTypeId } = use(params)
   const router = useRouter()
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const [selectedTemplate, setSelectedTemplate] = useState<TestTemplate | null>(null)
   const [language, setLanguage] = useState<"ru" | "kk">(
     user?.preferredLanguage === "kk" ? "kk" : "ru",

@@ -1,5 +1,9 @@
 "use client"
 
+import { getFormatLocale } from "@/lib/i18n/locale"
+
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import useSWR from "swr"
 import { useState } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
@@ -34,7 +38,7 @@ type EntHistoryResponse = {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "-"
-  return new Date(dateStr).toLocaleDateString("ru-RU", {
+  return new Date(dateStr).toLocaleDateString(getFormatLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -69,7 +73,7 @@ function CustomTooltip(props: {
 
 export default function StatsPage() {
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const [page, setPage] = useState(1)
   const limit = 50
 
@@ -122,7 +126,7 @@ export default function StatsPage() {
                     <XAxis
                       dataKey="date"
                       tickFormatter={(v: string) =>
-                        new Date(v).toLocaleDateString("ru-RU", {
+                        new Date(v).toLocaleDateString(getFormatLocale(), {
                           day: "2-digit",
                           month: "short",
                         })

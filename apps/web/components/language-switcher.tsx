@@ -10,6 +10,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const next = locale === "kk" ? "ru" : "kk"
   return (
     <Button
+      data-no-translate
       type="button"
       variant="outline"
       size="sm"

@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -124,7 +126,7 @@ export default function ExamSessionPage({
   const { sessionId } = use(params)
   const router = useRouter()
   const { user, refresh } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const { data: session, isLoading, error, mutate: revalidateSession } = useSWR<TestSession>(
     `/tests/sessions/${sessionId}`,
   )

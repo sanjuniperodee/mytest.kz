@@ -1,5 +1,9 @@
 "use client"
 
+import { getFormatLocale } from "@/lib/i18n/locale"
+
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import Link from "next/link"
 import useSWR from "swr"
 import {
@@ -41,7 +45,7 @@ type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
 
 export default function DashboardHomePage() {
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const userName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
     user?.telegramUsername ||
@@ -262,7 +266,7 @@ export default function DashboardHomePage() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {s.startedAt
-                            ? new Date(s.startedAt).toLocaleString("ru-RU", {
+                            ? new Date(s.startedAt).toLocaleString(getFormatLocale(), {
                                 day: "2-digit",
                                 month: "short",
                                 hour: "2-digit",

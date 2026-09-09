@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { useState } from "react"
 import useSWR from "swr"
 import { Crown, Medal, Sparkles, Trophy } from "lucide-react"
@@ -127,7 +129,7 @@ function formatPoints(entry: Pick<NormalizedEntry, "score" | "maxScore">): strin
 
 export default function LeaderboardPage() {
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const [limit, setLimit] = useState<(typeof LIMITS)[number]>(50)
   const { data, isLoading } = useSWR<
     | { items?: LeaderboardEntry[]; me?: LeaderboardEntry | null }

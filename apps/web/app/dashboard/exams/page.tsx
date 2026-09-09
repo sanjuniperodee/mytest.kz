@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import Link from "next/link"
 import useSWR from "swr"
 import { ArrowRight, BookOpen, Sparkles, Target, Trophy } from "lucide-react"
@@ -21,7 +23,7 @@ import type { ExamType, UserExamStats, UserStats } from "@/lib/api/types"
 
 export default function ExamsPage() {
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const { data, isLoading } = useSWR<ExamType[]>("/exams/types")
   const { data: stats } = useSWR<UserStats>("/users/me/stats")
   const items = Array.isArray(data) ? data : []

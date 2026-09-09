@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -85,7 +87,7 @@ export default function ReviewPage({
   const { sessionId } = use(params)
   const router = useRouter()
   const { user, refresh } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const { data, isLoading, error, mutate } = useSWR<ReviewResponse>(
     `/tests/sessions/${sessionId}/review`,
   )

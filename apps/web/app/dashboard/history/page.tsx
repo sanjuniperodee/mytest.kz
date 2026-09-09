@@ -1,5 +1,9 @@
 "use client"
 
+import { getFormatLocale } from "@/lib/i18n/locale"
+
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import * as React from "react"
 import Link from "next/link"
 import useSWR from "swr"
@@ -31,7 +35,7 @@ type SessionsResponse =
 
 export default function ExamHistoryPage() {
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const [page, setPage] = React.useState(1)
   const [examTypeId, setExamTypeId] = React.useState("all")
   const { data: examTypes } = useSWR<ExamType[]>("/exams/types")
@@ -210,7 +214,7 @@ function formatStartedAt(value?: string) {
   if (!value) return "—"
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
-  return date.toLocaleString("ru-RU", {
+  return date.toLocaleString(getFormatLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",

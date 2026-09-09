@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -34,13 +36,13 @@ import { ScoreProjection } from "@/components/dashboard/score-projection"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
-import { localize, type Locale } from "@/lib/api/i18n"
+import { localize } from "@/lib/api/i18n"
 import type { ExamType, MistakesSummary, TestSession } from "@/lib/api/types"
 
 export default function MistakesPage() {
   const router = useRouter()
   const { user, refresh } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale } = useUiI18n()
   const { data: summary, isLoading } = useSWR<MistakesSummary>("/tests/mistakes/summary")
   const { data: examTypes } = useSWR<ExamType[]>("/exams/types")
 

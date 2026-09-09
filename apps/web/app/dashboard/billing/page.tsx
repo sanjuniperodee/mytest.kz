@@ -1,5 +1,9 @@
 "use client"
 
+import { getFormatLocale } from "@/lib/i18n/locale"
+
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import useSWR from "swr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -269,7 +273,7 @@ function getBillingPitch(reason: BillingReason, trial?: TrialStatusItem) {
 
 export default function BillingPage() {
     const { user } = useAuth()
-    const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+    const { locale } = useUiI18n()
     const [billingContext, setBillingContext] = useState<{
         reason: BillingReason
         sourceSessionId?: string
@@ -463,11 +467,11 @@ function PendingKaspiOrders({
                                     {order.paymentType === "qr" ? " · Kaspi QR" : ""}
                                 </p>
                                 <p className="text-muted-foreground">
-                                    {order.amount.toLocaleString("ru-RU")} {order.currency}
+                                    {order.amount.toLocaleString(getFormatLocale())} {order.currency}
                                 </p>
                                 {order.paymentType === "qr" && order.expiresAt ? (
                                     <p className="text-xs text-muted-foreground">
-                                        Активен до {new Date(order.expiresAt).toLocaleString("ru-RU", {
+                                        Активен до {new Date(order.expiresAt).toLocaleString(getFormatLocale(), {
                                             day: "2-digit",
                                             month: "short",
                                             hour: "2-digit",
@@ -531,12 +535,12 @@ function CancelKaspiOrderButton({ invoiceId }: { invoiceId: string }) {
 
 function formatPrice(plan: NormalizedPlan): string {
     if (plan.price == null) return "—"
-    return `${plan.price.toLocaleString("ru-RU")} ${plan.currency}`
+    return `${plan.price.toLocaleString(getFormatLocale())} ${plan.currency}`
 }
 
 function formatOldPrice(plan: NormalizedPlan): string | null {
     if (plan.oldPrice == null || plan.oldPrice <= 0) return null
-    return `${plan.oldPrice.toLocaleString("ru-RU")} ${plan.currency}`
+    return `${plan.oldPrice.toLocaleString(getFormatLocale())} ${plan.currency}`
 }
 
 function PlanCard({
@@ -1085,7 +1089,7 @@ function TariffMetric({ label, value }: { label: string; value: string }) {
 }
 
 function formatDate(value: string) {
-    return new Date(value).toLocaleDateString("ru-RU", {
+    return new Date(value).toLocaleDateString(getFormatLocale(), {
         day: "2-digit",
         month: "long",
         year: "numeric",

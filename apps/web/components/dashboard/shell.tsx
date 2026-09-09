@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -23,7 +25,7 @@ import { Logo } from "@/components/landing/logo"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { resolveMediaUrl } from "@/lib/api/client"
-import { localize, type Locale } from "@/lib/api/i18n"
+import { localize } from "@/lib/api/i18n"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { WhatsAppFab } from "@/components/common/whatsapp-fab"
 import {
@@ -76,6 +78,7 @@ const secondaryNavigation = navigation.filter((item) => !item.primary)
 const CHANNEL_GATE_PATH = "/dashboard/channel-gate"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { locale } = useUiI18n()
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isLoading, signOut } = useAuth()
@@ -117,7 +120,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     )
   }
 
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
   const firstLastName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim()
   const fullNameStr = firstLastName || localize(user?.fullName, locale)
   const displayName =

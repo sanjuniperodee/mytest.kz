@@ -1,5 +1,7 @@
 "use client"
 
+import { getRequestLocale } from "../i18n/locale"
+
 import {
   Scope,
   clearTokens,
@@ -36,6 +38,7 @@ interface ApiOptions {
 
 function buildUrl(path: string, query?: ApiOptions["query"]) {
   const url = new URL(BASE + (path.startsWith("/") ? path : `/${path}`), window.location.origin)
+  url.searchParams.set("lang", getRequestLocale())
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v === undefined || v === null || v === "") continue

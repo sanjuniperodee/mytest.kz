@@ -10,15 +10,19 @@ import {
   useState,
   type ReactNode,
 } from "react"
+import kkTemplates from "./kk-templates.json"
+import kkAdditions from "./kk-additions.json"
+import { useSWRConfig } from "swr"
+import { STORAGE_KEY, setRequestLocale, type UiLocale } from "./locale"
+export type { UiLocale } from "./locale"
+
 import { api } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 
-export type UiLocale = "ru" | "kk"
-
-const STORAGE_KEY = "mytest-locale"
 const SUPPORTED_LOCALES: UiLocale[] = ["ru", "kk"]
 
 const kk: Record<string, string> = {
+  ...kkAdditions,
   "Возможности": "Мүмкіндіктер",
   "Предметы": "Пәндер",
   "Как это работает": "Қалай жұмыс істейді",
@@ -34,7 +38,7 @@ const kk: Record<string, string> = {
   "Подготовка к ЕНТ 2026": "ҰБТ 2026-ға дайындық",
   "Подготовка к ЕНТ 2026 · Premium-разбор ошибок": "ҰБТ 2026-ға дайындық · Premium қате талдауы",
   "Сдай пробный ЕНТ": "ҰБТ сынағын тапсыр",
-  "так же,": "дәл",
+  "так же,": "нақты емтихандай,",
   "как настоящий — только": "нағыз емтихандай, бірақ",
   "без последствий.": "еш салдарсыз.",
   "Сдаёшь пробный в реальном формате и получаешь не только балл, а подробное объяснение к каждому вопросу: почему правильный ответ именно такой, где ты ошибся и что подтянуть дальше.": "Сынақты нақты форматта тапсырып, тек балл ғана емес, әр сұрақ бойынша толық түсіндіру аласыз: дұрыс жауап неге солай, қай жерде қателестіңіз және нені күшейту керек.",
@@ -769,8 +773,9 @@ const kk: Record<string, string> = {
   "mytest — пробные ЕНТ онлайн с разбором ошибок": "mytest — қате талдауы бар онлайн ҰБТ сынақтары",
 }
 
-const textSources = new WeakMap<Text, string>()
-const attrSources = new WeakMap<Element, Map<string, string>>()
+type TranslationState = { source: string; rendered: string }
+const textSources = new WeakMap<Text, TranslationState>()
+const attrSources = new WeakMap<Element, Map<string, TranslationState>>()
 
 function normalizeLocale(value: unknown): UiLocale {
   return value === "kk" ? "kk" : "ru"
@@ -780,12 +785,35 @@ function sourceKey(value: string) {
   return value.replace(/\s+/g, " ").trim()
 }
 
+const dynamicTranslations = Object.entries(kkTemplates).map(([source, translated]) => {
+  const placeholders: string[] = []
+  const segments = source.split(/(\{\{\d+\}\})/)
+  const pattern = segments.map((segment) => {
+    if (/^\{\{\d+\}\}$/.test(segment)) {
+      placeholders.push(segment)
+      return "(.+?)"
+    }
+    return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  }).join("")
+  return { pattern: new RegExp(`^${pattern}$`), translated, placeholders }
+})
+
 export function translateUiText(value: string, locale: UiLocale): string {
   if (locale === "ru") return value
   const key = sourceKey(value)
   if (!key) return value
   const exact = kk[key]
-  if (exact) return value.replace(key, exact)
+  if (exact) return value.replace(/\S[\s\S]*\S|\S/, exact)
+
+  for (const { pattern, translated, placeholders } of dynamicTranslations) {
+    const match = key.match(pattern)
+    if (!match) continue
+    const result = translated.replace(/\{\{\d+\}\}/g, (token) => {
+      const captured = match[placeholders.indexOf(token) + 1]
+      return kk[sourceKey(captured)] || captured
+    })
+    return value.replace(/\S[\s\S]*\S|\S/, result)
+  }
 
   const dynamic = key
     .replace(/^Топ (\d+)$/, "Үздік $1")
@@ -823,36 +851,15 @@ export function translateUiText(value: string, locale: UiLocale): string {
 
 function translateDocumentTitle(locale: UiLocale) {
   if (typeof document === "undefined") return
-  const titleEl = document.head.querySelector("title")
-  if (!titleEl) return
-  const sourceAttr = "data-i18n-source"
-  const current = titleEl.textContent ?? ""
-  if (!current.trim()) return
-
-  if (locale === "ru") {
-    const source = titleEl.getAttribute(sourceAttr)
-    if (source) {
-      titleEl.textContent = source
-      titleEl.removeAttribute(sourceAttr)
-    }
-    return
-  }
-
-  const translatedCurrent = translateUiText(current, locale)
-  if (translatedCurrent !== current) {
-    titleEl.setAttribute(sourceAttr, current)
-    titleEl.textContent = translatedCurrent
-    return
-  }
-
-  const source = titleEl.getAttribute(sourceAttr)
-  if (source) {
-    const translatedSource = translateUiText(source, locale)
-    if (translatedSource !== current) titleEl.textContent = translatedSource
+  const title = document.head.querySelector("title")
+  if (!title) return
+  for (const node of title.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) translateTextNode(node as Text, locale)
   }
 }
 
 function translateAttributes(element: Element, locale: UiLocale) {
+  if (shouldSkipElement(element)) return
   for (const attr of ["placeholder", "aria-label", "title", "alt"]) {
     const current = element.getAttribute(attr)
     if (!current || !sourceKey(current)) continue
@@ -861,9 +868,10 @@ function translateAttributes(element: Element, locale: UiLocale) {
       byAttr = new Map()
       attrSources.set(element, byAttr)
     }
-    if (!byAttr.has(attr)) byAttr.set(attr, current)
-    const source = byAttr.get(attr) ?? current
+    const previous = byAttr.get(attr)
+    const source = previous && current === previous.rendered ? previous.source : current
     const next = translateUiText(source, locale)
+    byAttr.set(attr, { source, rendered: next })
     if (current !== next) element.setAttribute(attr, next)
   }
 }
@@ -881,10 +889,12 @@ function translateTextNode(node: Text, locale: UiLocale) {
   if (!sourceKey(node.nodeValue || "")) return
   const parent = node.parentElement
   if (shouldSkipElement(parent)) return
-  if (!textSources.has(node)) textSources.set(node, node.nodeValue || "")
-  const source = textSources.get(node) ?? node.nodeValue ?? ""
+  const current = node.nodeValue || ""
+  const previous = textSources.get(node)
+  const source = previous && current === previous.rendered ? previous.source : current
   const next = translateUiText(source, locale)
-  if (node.nodeValue !== next) node.nodeValue = next
+  textSources.set(node, { source, rendered: next })
+  if (current !== next) node.nodeValue = next
 }
 
 function translateSubtree(root: ParentNode, locale: UiLocale) {
@@ -921,41 +931,40 @@ function getInitialLocale(): UiLocale {
 export function UiI18nProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, refresh } = useAuth()
   const [locale, setLocaleState] = useState<UiLocale>("ru")
-  const syncInFlight = useRef(false)
+  const [initialized, setInitialized] = useState(false)
+  const { mutate } = useSWRConfig()
+  const previousLocale = useRef<UiLocale | null>(null)
 
   useEffect(() => {
     const initial = getInitialLocale()
-    setLocaleState((prev) => (prev === initial ? prev : initial))
+    setRequestLocale(initial)
+    setLocaleState(initial)
+    setInitialized(true)
   }, [])
 
   useEffect(() => {
     const preferred = normalizeLocale(user?.preferredLanguage)
     const stored = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null
-    if (user?.preferredLanguage && !stored && preferred !== locale) {
+    const explicit = new URLSearchParams(window.location.search).get("lang")
+    if (initialized && !SUPPORTED_LOCALES.includes(explicit as UiLocale) && user?.preferredLanguage && !stored && preferred !== locale) {
+      setRequestLocale(preferred)
       setLocaleState(preferred)
     }
-  }, [locale, user?.preferredLanguage])
+  }, [initialized, locale, user?.preferredLanguage])
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id || syncInFlight.current) return
-    const preferred = normalizeLocale(user.preferredLanguage)
-    const stored =
-      typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null
-    if (!stored || preferred === locale) return
-
-    syncInFlight.current = true
-    void api("/users/me", {
-      method: "PATCH",
-      body: { preferredLanguage: locale },
-    })
-      .then(() => refresh())
-      .catch(() => {})
-      .finally(() => {
-        syncInFlight.current = false
-      })
-  }, [isAuthenticated, locale, refresh, user?.id, user?.preferredLanguage])
+    if (!initialized) return
+    setRequestLocale(locale)
+    document.documentElement.lang = locale
+    if (previousLocale.current !== locale) {
+      previousLocale.current = locale
+      // Responses contain resolved strings, so fetch them again in the new language.
+      void mutate((key) => typeof key === "string" && key.startsWith("/"), undefined, { revalidate: true })
+    }
+  }, [initialized, locale, mutate])
 
   useEffect(() => {
+    if (!initialized) return
     document.documentElement.lang = locale
     translateDocumentTitle(locale)
     translateSubtree(document.body, locale)
@@ -995,16 +1004,22 @@ export function UiI18nProvider({ children }: { children: ReactNode }) {
       observer.disconnect()
       headObserver.disconnect()
     }
-  }, [locale])
+  }, [initialized, locale])
 
   const setLocale = useCallback(
     async (nextLocale: UiLocale, options?: { syncProfile?: boolean }) => {
       const next = normalizeLocale(nextLocale)
+      setRequestLocale(next)
       setLocaleState(next)
       window.localStorage.setItem(STORAGE_KEY, next)
+      document.documentElement.lang = next
+      const url = new URL(window.location.href)
+      if (url.searchParams.has("lang")) {
+        url.searchParams.set("lang", next)
+        window.history.replaceState(window.history.state, "", url)
+      }
       if (isAuthenticated && options?.syncProfile !== false) {
         try {
-          syncInFlight.current = true
           await api("/users/me", {
             method: "PATCH",
             body: { preferredLanguage: next },
@@ -1012,8 +1027,6 @@ export function UiI18nProvider({ children }: { children: ReactNode }) {
           await refresh()
         } catch {
           // The UI language should still switch even if profile sync fails.
-        } finally {
-          syncInFlight.current = false
         }
       }
     },

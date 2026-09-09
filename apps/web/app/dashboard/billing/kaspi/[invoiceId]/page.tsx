@@ -1,5 +1,7 @@
 "use client"
 
+import { getFormatLocale } from "@/lib/i18n/locale"
+
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
@@ -93,7 +95,7 @@ function isVisibleDocument() {
 function formatDateTime(value: string | null | undefined) {
   const parsed = parseTimestamp(value)
   if (parsed == null) return ""
-  return new Date(parsed).toLocaleString("ru-RU", {
+  return new Date(parsed).toLocaleString(getFormatLocale(), {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -394,7 +396,7 @@ export default function KaspiPaymentPage() {
             <div className="mt-2 flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Сумма</span>
               <span className="font-medium tabular-nums">
-                {order.amount.toLocaleString("ru-RU")} {order.currency}
+                {order.amount.toLocaleString(getFormatLocale())} {order.currency}
               </span>
             </div>
             <div className="mt-2 flex items-center justify-between gap-4">

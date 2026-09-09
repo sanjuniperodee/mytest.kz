@@ -1,5 +1,7 @@
 "use client"
 
+import { useUiI18n } from "@/lib/i18n/ui"
+
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
@@ -43,7 +45,7 @@ export default function ThemeLessonPage() {
   const params = useParams<{ themeId: string }>()
   const themeId = typeof params.themeId === "string" ? params.themeId : ""
   const { user, isLoading: authLoading } = useAuth()
-  const language: "ru" | "kk" = user?.preferredLanguage === "kk" ? "kk" : "ru"
+  const { locale: language } = useUiI18n()
   const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
 
   const [lesson, setLesson] = useState<AiTopicLesson | null>(null)
