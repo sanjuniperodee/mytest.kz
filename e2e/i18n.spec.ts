@@ -54,7 +54,8 @@ test('selected language overrides profile and revalidates API data', async ({ pa
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/users/me')) return route.fulfill({ json: { id: 'test-user', preferredLanguage: 'ru', firstName: 'Test' } });
     if (url.pathname.endsWith('/exams/types')) {
-      languages.push(url.searchParams.get('lang') || '');
+      languages.push(route.request().headers()['accept-language'] || '');
+      expect(url.searchParams.has('lang')).toBe(false);
       return route.fulfill({ json: [] });
     }
     return route.fulfill({ json: {} });

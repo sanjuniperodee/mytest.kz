@@ -38,7 +38,6 @@ interface ApiOptions {
 
 function buildUrl(path: string, query?: ApiOptions["query"]) {
   const url = new URL(BASE + (path.startsWith("/") ? path : `/${path}`), window.location.origin)
-  url.searchParams.set("lang", getRequestLocale())
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v === undefined || v === null || v === "") continue
@@ -93,7 +92,7 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
   const useAuth = opts.auth ?? Boolean(getAccessToken(scope))
 
   const doFetch = async (): Promise<Response> => {
-    const headers: Record<string, string> = { ...(opts.headers || {}) }
+    const headers: Record<string, string> = { "Accept-Language": getRequestLocale(), ...(opts.headers || {}) }
     let body: BodyInit | undefined
     if (opts.formData) {
       body = opts.formData

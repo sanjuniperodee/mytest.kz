@@ -38,8 +38,8 @@ export class I18nInterceptor implements NestInterceptor {
     // Get language from JWT payload, query param, or Accept-Language header
     const lang =
       request.query?.lang ||
-      request.user?.preferredLanguage ||
       this.parseAcceptLanguage(request.headers['accept-language']) ||
+      request.user?.preferredLanguage ||
       'ru';
 
     return next.handle().pipe(
