@@ -91,3 +91,17 @@ test('new landing copy and interpolated labels translate and restore', async ({ 
   await expect(page.locator('#dynamic-probe')).toHaveText('Страница 12');
   await expect(page.locator('h1')).toContainText('Сдай');
 });
+
+test('legacy current tariff translates on every render and restores Russian', async ({ page }) => {
+  await page.goto('/login?lang=kk');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'kk');
+  await page.evaluate(() => {
+    const card = document.createElement('div');
+    card.id = 'legacy-tariff';
+    card.textContent = 'Подписка на 5 пробных на 30 дней';
+    document.body.append(card);
+  });
+  await expect(page.locator('#legacy-tariff')).toHaveText('30 күнге 5 сынаққа жазылым');
+  await page.getByRole('button', { name: 'Русский язык' }).first().click();
+  await expect(page.locator('#legacy-tariff')).toHaveText('Подписка на 5 пробных на 30 дней');
+});

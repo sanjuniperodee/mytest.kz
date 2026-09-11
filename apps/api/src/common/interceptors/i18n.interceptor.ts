@@ -1,3 +1,4 @@
+import { localizeBillingFields } from "../billing-localization";
 import {
   Injectable,
   NestInterceptor,
@@ -43,7 +44,12 @@ export class I18nInterceptor implements NestInterceptor {
       'ru';
 
     return next.handle().pipe(
-      map((data) => this.resolveI18n(data, lang)),
+      map((data) => {
+        const resolved = this.resolveI18n(data, lang);
+        if (/\/billing\/plans(?:\?|$)/.test(url)) return localizeBillingFields(resolved, lang);
+        if (resolved?.currentTariff) return { ...resolved, currentTariff: localizeBillingFields(resolved.currentTariff, lang) };
+        return resolved;
+      }),
     );
   }
 

@@ -9,6 +9,13 @@ describe('API response language', () => {
     const context = { switchToHttp: () => ({ getRequest: () => req }) } as ExecutionContext;
     return firstValueFrom(new I18nInterceptor().intercept(context, { handle: () => of(data) }));
   }
+  it('localizes current tariff through the response interceptor without translating user names', async () => {
+    const data = { name: 'Подписка на год', currentTariff: { name: 'Подписка на 5 пробных на 30 дней', description: 'Подписка на год' } };
+    expect(await resolve({ path: '/api/v1/users/me', headers: { 'accept-language': 'kk' } }, data)).toEqual({
+      name: data.name,
+      currentTariff: { name: '30 күнге 5 сынаққа жазылым', description: 'Бір жылға жазылым' },
+    });
+  });
   it('uses the UI header ahead of an older token preference', async () => {
     expect(await resolve({ headers: { 'accept-language': 'kk-KZ' }, user: { preferredLanguage: 'ru' } }))
       .toEqual({ title: 'Тариф жоспары' });
@@ -23,4 +30,25 @@ describe('API response language', () => {
     ('preserves multilingual editing/catalog payloads on %s', async path => {
       expect(await resolve({ path, headers: { 'accept-language': 'kk' } })).toEqual(value);
     });
+});
+
+describe('billing presentation localization', () => {
+  const { localizeBillingFields } = require('../src/common/billing-localization');
+  const { BILLING_PLANS } = require('../src/modules/billing/billing.config');
+  it('translates all catalog names, descriptions and features without changing prices or IDs', () => {
+    for (const plan of BILLING_PLANS) {
+      const translated = localizeBillingFields(plan, 'kk');
+      expect(translated.name).not.toBe(plan.name);
+      expect(translated.description).not.toBe(plan.description);
+      expect(translated.features.every((f: string, i: number) => f !== plan.features[i])).toBe(true);
+      expect(translated.priceKzt).toBe(plan.priceKzt);
+      expect(translated.id).toBe(plan.id);
+      expect(localizeBillingFields(plan, 'ru')).toEqual(plan);
+    }
+  });
+  it('supports legacy subscription titles and preserves custom text and machine fields', () => {
+    const value = { name: 'Подписка на 5 пробных на 30 дней', description: 'Подписка на год', code: 'Подписка на год', customer: 'Подписка на год' };
+    expect(localizeBillingFields(value, 'kk')).toEqual({ ...value, name: '30 күнге 5 сынаққа жазылым', description: 'Бір жылға жазылым' });
+    expect(localizeBillingFields({ name: 'Custom school plan' }, 'kk').name).toBe('Custom school plan');
+  });
 });
