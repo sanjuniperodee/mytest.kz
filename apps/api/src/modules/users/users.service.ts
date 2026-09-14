@@ -1,18 +1,19 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from "@nestjs/common";
 import {
   EntitlementSourceType,
   EntitlementStatus,
   EntitlementTier,
-} from '@prisma/client';
-import { existsSync, unlinkSync } from 'fs';
-import { join, normalize, sep } from 'path';
-import { PrismaService } from '../../database/prisma.service';
-import { TelegramBotService } from '../telegram/telegram-bot.service';
-import { BILLING_PLANS, PLAN_BY_ID } from '../billing/billing.config';
-import { ENT_CONFIG } from '@bilimland/shared';
-import { AccessService } from '../subscriptions/access.service';
+} from "@prisma/client";
+import { existsSync, unlinkSync } from "fs";
+import { join, normalize, sep } from "path";
+import { PrismaService } from "../../database/prisma.service";
+import { TelegramBotService } from "../telegram/telegram-bot.service";
+import { BILLING_PLANS, PLAN_BY_ID } from "../billing/billing.config";
+import { ENT_CONFIG } from "@bilimland/shared";
+import { AccessService } from "../subscriptions/access.service";
 
-type ChannelMembershipStatus = 'member' | 'not_member' | 'not_required' | 'unknown';
+type ChannelMembershipStatus =
+  "member" | "not_member" | "not_required" | "unknown";
 
 @Injectable()
 export class UsersService {
@@ -35,8 +36,10 @@ export class UsersService {
     await this.accessService.ensureSignupEntitlementsForUser(userId);
 
     const accessByExam = await this.accessService.getUserAccessByExam(userId);
-    const entAccess = accessByExam.find((x) => x.examSlug === 'ent');
-    const activePaidAccess = accessByExam.some((x) => x.hasPaidTier && x.hasAccess);
+    const entAccess = accessByExam.find((x) => x.examSlug === "ent");
+    const activePaidAccess = accessByExam.some(
+      (x) => x.hasPaidTier && x.hasAccess,
+    );
     const now = new Date();
     const activePaidSubscription = await this.prisma.subscription.findFirst({
       where: {
@@ -44,7 +47,7 @@ export class UsersService {
         isActive: true,
         startsAt: { lte: now },
         expiresAt: { gt: now },
-        planType: { not: 'free' },
+        planType: { not: "free" },
       },
       select: { id: true },
     });
@@ -54,10 +57,10 @@ export class UsersService {
         userId,
         sourceType: EntitlementSourceType.plan_template,
         sourceRef: { startsWith: `signup:${userId}:exam:` },
-        examType: { slug: 'ent' },
+        examType: { slug: "ent" },
       },
       select: { totalAttemptsLimit: true, usedAttemptsTotal: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
     const freeLimit =
       signupEntitlement?.totalAttemptsLimit ??
@@ -68,8 +71,13 @@ export class UsersService {
     );
     const freeRemaining = Math.max(0, freeLimit - freeUsed);
     const totalRemainingFromAccess =
-      entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : 0;
-    const paidTrialRemaining = Math.max(0, totalRemainingFromAccess - freeRemaining);
+      entAccess?.total.remaining != null
+        ? Math.max(0, entAccess.total.remaining)
+        : 0;
+    const paidTrialRemaining = Math.max(
+      0,
+      totalRemainingFromAccess - freeRemaining,
+    );
     const paidTrialLimit = paidTrialRemaining;
     const paidTrialUsed = 0;
     const totalLimit = freeLimit + paidTrialLimit;
@@ -83,7 +91,7 @@ export class UsersService {
     const hasActivePaidSubscription =
       activePaidAccess ||
       Boolean(activePaidSubscription) ||
-      (currentTariff?.sourceType === 'subscription' &&
+      (currentTariff?.sourceType === "subscription" &&
         currentTariff.isActive === true &&
         currentTariff.isPaid === true);
 
@@ -154,7 +162,7 @@ export class UsersService {
   }> {
     if (!user.telegramId) {
       return {
-        status: 'not_required',
+        status: "not_required",
         isChannelMember: true,
         checkedAt: user.channelCheckedAt,
       };
@@ -169,7 +177,7 @@ export class UsersService {
 
     if (!shouldRecheck) {
       return {
-        status: user.isChannelMember ? 'member' : 'not_member',
+        status: user.isChannelMember ? "member" : "not_member",
         isChannelMember: user.isChannelMember,
         checkedAt: user.channelCheckedAt,
       };
@@ -182,7 +190,7 @@ export class UsersService {
 
     if (membership === null) {
       return {
-        status: 'unknown',
+        status: "unknown",
         isChannelMember: user.isChannelMember,
         checkedAt: user.channelCheckedAt,
       };
@@ -194,7 +202,7 @@ export class UsersService {
     });
 
     return {
-      status: membership ? 'member' : 'not_member',
+      status: membership ? "member" : "not_member",
       isChannelMember: membership,
       checkedAt,
     };
@@ -222,7 +230,7 @@ export class UsersService {
     });
     const sortedSubscriptions = [...subscriptions].sort((a, b) => {
       const rank = (planType: string) =>
-        planType === 'free' ? 0 : planType === 'starter' ? 1 : 2;
+        planType === "free" ? 0 : planType === "starter" ? 1 : 2;
       const aPaid = rank(a.planType);
       const bPaid = rank(b.planType);
       if (aPaid !== bPaid) return bPaid - aPaid;
@@ -230,21 +238,26 @@ export class UsersService {
     });
 
     const limitedSubscriptionIds = sortedSubscriptions
-      .filter((sub) => this.subscriptionTotalAttemptsLimit(sub.planType) != null)
+      .filter(
+        (sub) => this.subscriptionTotalAttemptsLimit(sub.planType) != null,
+      )
       .map((sub) => sub.id);
     const entitlementUsageBySubscription = new Map<string, number>();
     if (limitedSubscriptionIds.length > 0) {
-      const entitlementDelegate = this.prisma.userExamEntitlement as typeof this.prisma.userExamEntitlement & {
+      const entitlementDelegate = this.prisma
+        .userExamEntitlement as typeof this.prisma.userExamEntitlement & {
         groupBy?: typeof this.prisma.userExamEntitlement.groupBy;
       };
-      if (typeof entitlementDelegate.groupBy === 'function') {
+      if (typeof entitlementDelegate.groupBy === "function") {
         const usageRows = await entitlementDelegate.groupBy({
-          by: ['subscriptionId'],
+          by: ["subscriptionId"],
           where: {
             userId,
             subscriptionId: { in: limitedSubscriptionIds },
             sourceType: EntitlementSourceType.subscription,
-            status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+            status: {
+              in: [EntitlementStatus.active, EntitlementStatus.exhausted],
+            },
           },
           _sum: { usedAttemptsTotal: true },
         });
@@ -263,7 +276,9 @@ export class UsersService {
                 userId,
                 subscriptionId,
                 sourceType: EntitlementSourceType.subscription,
-                status: { in: [EntitlementStatus.active, EntitlementStatus.exhausted] },
+                status: {
+                  in: [EntitlementStatus.active, EntitlementStatus.exhausted],
+                },
               },
               _sum: { usedAttemptsTotal: true },
             });
@@ -278,9 +293,13 @@ export class UsersService {
 
     let exhaustedSubscriptionTariff: Record<string, unknown> | null = null;
     for (const activeSubscription of sortedSubscriptions) {
-      const plan = BILLING_PLANS.find((p) => p.id === activeSubscription.planType);
-      const isPaid = activeSubscription.planType !== 'free';
-      const totalLimit = this.subscriptionTotalAttemptsLimit(activeSubscription.planType);
+      const plan = BILLING_PLANS.find(
+        (p) => p.id === activeSubscription.planType,
+      );
+      const isPaid = activeSubscription.planType !== "free";
+      const totalLimit = this.subscriptionTotalAttemptsLimit(
+        activeSubscription.planType,
+      );
       const usedAttemptsTotal =
         totalLimit != null
           ? (entitlementUsageBySubscription.get(activeSubscription.id) ?? 0)
@@ -289,10 +308,11 @@ export class UsersService {
       const isActive = !exhausted;
       const tariff = {
         code: activeSubscription.planType,
-        name: plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
+        name:
+          plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
         description: plan?.description ?? null,
-        tier: isPaid ? 'paid' : 'free',
-        sourceType: 'subscription',
+        tier: isPaid ? "paid" : "free",
+        sourceType: "subscription",
         subscriptionId: activeSubscription.id,
         startsAt: activeSubscription.startsAt.toISOString(),
         expiresAt: activeSubscription.expiresAt.toISOString(),
@@ -300,7 +320,9 @@ export class UsersService {
         isPaid,
         examSlug: activeSubscription.examType?.slug ?? null,
         totalAttemptsLimit: totalLimit,
-        dailyAttemptsLimit: this.subscriptionDailyAttemptsLimit(activeSubscription.planType),
+        dailyAttemptsLimit: this.subscriptionDailyAttemptsLimit(
+          activeSubscription.planType,
+        ),
         usedAttemptsTotal,
         remainingAttempts:
           totalLimit == null
@@ -356,8 +378,7 @@ export class UsersService {
       const hasAttemptsLeft = limit == null || used < limit;
       return {
         code:
-          activeEntitlement.planTemplate?.code ??
-          activeEntitlement.sourceType,
+          activeEntitlement.planTemplate?.code ?? activeEntitlement.sourceType,
         name:
           activeEntitlement.planTemplate?.name ??
           this.fallbackTariffName(activeEntitlement.tier),
@@ -391,16 +412,17 @@ export class UsersService {
 
     if (free.freeRemaining <= 0) {
       return {
-        code: 'premium_required',
-        name: 'Premium не подключён',
-        description: 'Пробники, пересдача и работа над ошибками открываются в Premium',
-        tier: 'free',
-        sourceType: 'none',
+        code: "premium_required",
+        name: "Premium не подключён",
+        description:
+          "Пробники, пересдача и работа над ошибками открываются в Premium",
+        tier: "free",
+        sourceType: "none",
         startsAt: null,
         expiresAt: null,
         isActive: false,
         isPaid: false,
-        examSlug: 'ent',
+        examSlug: "ent",
         totalAttemptsLimit: free.freeLimit,
         dailyAttemptsLimit: null,
         usedAttemptsTotal: free.freeUsed,
@@ -409,16 +431,16 @@ export class UsersService {
     }
 
     return {
-      code: 'free_ent_trial',
-      name: 'Стартовый доступ',
-      description: 'Пробные попытки для ЕНТ',
-      tier: 'free',
-      sourceType: 'signup',
+      code: "free_ent_trial",
+      name: "Стартовый доступ",
+      description: "Пробные попытки для ЕНТ",
+      tier: "free",
+      sourceType: "signup",
       startsAt: null,
       expiresAt: null,
       isActive: free.freeRemaining > 0,
       isPaid: false,
-      examSlug: 'ent',
+      examSlug: "ent",
       totalAttemptsLimit: free.freeLimit,
       dailyAttemptsLimit: null,
       usedAttemptsTotal: free.freeUsed,
@@ -429,8 +451,8 @@ export class UsersService {
   private fallbackTariffName(code: string) {
     const plan = PLAN_BY_ID.get(code);
     if (plan) return plan.name;
-    if (code === 'paid') return 'Premium';
-    if (code === 'admin') return 'Админ-доступ';
+    if (code === "paid") return "Premium";
+    if (code === "admin") return "Админ-доступ";
     return code;
   }
 
@@ -444,31 +466,46 @@ export class UsersService {
 
   async updateProfile(
     userId: string,
-    data: { preferredLanguage?: string; timezone?: string; avatarUrl?: string | null },
+    data: {
+      firstName?: string;
+      lastName?: string;
+      preferredLanguage?: string;
+      timezone?: string;
+      avatarUrl?: string | null;
+    },
   ) {
     const updateData: {
       preferredLanguage?: string;
       avatarUrl?: string | null;
+      firstName?: string;
+      lastName?: string;
     } = {};
 
     if (data.preferredLanguage) {
       updateData.preferredLanguage = data.preferredLanguage;
     }
-    if ('avatarUrl' in data) {
+    if (data.firstName !== undefined)
+      updateData.firstName = data.firstName.trim();
+    if (data.lastName !== undefined) updateData.lastName = data.lastName.trim();
+    if ("avatarUrl" in data) {
       updateData.avatarUrl = this.normalizeAvatarUrl(data.avatarUrl);
     }
     if (Object.keys(updateData).length > 0) {
-      const previous = 'avatarUrl' in updateData
-        ? await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { avatarUrl: true },
-          })
-        : null;
+      const previous =
+        "avatarUrl" in updateData
+          ? await this.prisma.user.findUnique({
+              where: { id: userId },
+              select: { avatarUrl: true },
+            })
+          : null;
       await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
       });
-      if ('avatarUrl' in updateData && previous?.avatarUrl !== updateData.avatarUrl) {
+      if (
+        "avatarUrl" in updateData &&
+        previous?.avatarUrl !== updateData.avatarUrl
+      ) {
         this.deleteLocalAvatar(previous?.avatarUrl);
       }
     }
@@ -483,23 +520,28 @@ export class UsersService {
     const trimmed = value.trim();
     if (!trimmed) return null;
     if (trimmed.length > 200_000) {
-      throw new BadRequestException('Avatar image is too large');
+      throw new BadRequestException("Avatar image is too large");
     }
-    const isDataImage = /^data:image\/(png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(trimmed);
+    const isDataImage =
+      /^data:image\/(png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(trimmed);
     const isRemoteImage = /^https:\/\/[^\s]+$/i.test(trimmed);
-    const isUploadedAvatar = /^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(trimmed);
+    const isUploadedAvatar =
+      /^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(trimmed);
     if (!isDataImage && !isRemoteImage && !isUploadedAvatar) {
-      throw new BadRequestException('Unsupported avatar image');
+      throw new BadRequestException("Unsupported avatar image");
     }
     return trimmed;
   }
 
   private deleteLocalAvatar(avatarUrl: string | null | undefined) {
-    if (!avatarUrl || !/^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(avatarUrl)) {
+    if (
+      !avatarUrl ||
+      !/^\/uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i.test(avatarUrl)
+    ) {
       return;
     }
-    const relative = avatarUrl.replace(/^\/uploads\//, '');
-    const uploadRoot = join(process.cwd(), 'uploads');
+    const relative = avatarUrl.replace(/^\/uploads\//, "");
+    const uploadRoot = join(process.cwd(), "uploads");
     const fullPath = normalize(join(uploadRoot, relative));
     if (!fullPath.startsWith(`${normalize(uploadRoot)}${sep}`)) return;
     try {
@@ -510,7 +552,7 @@ export class UsersService {
   }
 
   async getStats(userId: string) {
-    const finishedStatuses = ['completed', 'timed_out'] as const;
+    const finishedStatuses = ["completed", "timed_out"] as const;
 
     const [finishedSessions, inProgressSessions] = await Promise.all([
       this.prisma.testSession.findMany({
@@ -529,7 +571,7 @@ export class UsersService {
         },
       }),
       this.prisma.testSession.findMany({
-        where: { userId, status: 'in_progress' },
+        where: { userId, status: "in_progress" },
         select: {
           examTypeId: true,
           status: true,
@@ -551,9 +593,9 @@ export class UsersService {
       maxScore: number | null;
       status: string;
     }) => {
-      if (session.examType?.slug !== 'ent') return true;
+      if (session.examType?.slug !== "ent") return true;
       if (session.totalQuestions !== ENT_CONFIG.totalQuestions) return false;
-      if (session.status === 'in_progress') return true;
+      if (session.status === "in_progress") return true;
       return (
         session.maxScore != null &&
         Number.isFinite(Number(session.maxScore)) &&
@@ -561,8 +603,12 @@ export class UsersService {
       );
     };
 
-    const analyticsFinishedSessions = finishedSessions.filter(isEntSessionEligibleForStats);
-    const analyticsInProgressSessions = inProgressSessions.filter(isEntSessionEligibleForStats);
+    const analyticsFinishedSessions = finishedSessions.filter(
+      isEntSessionEligibleForStats,
+    );
+    const analyticsInProgressSessions = inProgressSessions.filter(
+      isEntSessionEligibleForStats,
+    );
 
     type BestSessionPoints = { score: number; raw: number; max: number };
 
@@ -591,7 +637,7 @@ export class UsersService {
       if (!byExam.has(id)) {
         byExam.set(id, {
           examTypeId: id,
-          examSlug: session.examType?.slug ?? '',
+          examSlug: session.examType?.slug ?? "",
           examName: session.examType?.name ?? null,
           scores: [],
           durations: [],
@@ -626,7 +672,12 @@ export class UsersService {
             : s.correctCount != null
               ? s.correctCount
               : null;
-        if (maxRaw != null && maxRaw > 0 && rawVal != null && Number.isFinite(rawVal)) {
+        if (
+          maxRaw != null &&
+          maxRaw > 0 &&
+          rawVal != null &&
+          Number.isFinite(rawVal)
+        ) {
           const raw = Math.round(rawVal);
           const candidate = { score: sc, raw, max: maxRaw };
           const prev = agg.bestByPoints;
@@ -648,8 +699,8 @@ export class UsersService {
       if (s.finishedAt) {
         agg.finishedAts.push(s.finishedAt);
       }
-      if (s.status === 'completed') agg.completedCount++;
-      if (s.status === 'timed_out') agg.timedOutCount++;
+      if (s.status === "completed") agg.completedCount++;
+      if (s.status === "timed_out") agg.timedOutCount++;
       const list = finishedByExam.get(s.examTypeId) ?? [];
       list.push(s);
       finishedByExam.set(s.examTypeId, list);
@@ -662,7 +713,10 @@ export class UsersService {
         if (!agg.examSlug) agg.examSlug = s.examType.slug;
         if (agg.examName == null) agg.examName = s.examType.name;
       }
-      inProgressByExam.set(s.examTypeId, (inProgressByExam.get(s.examTypeId) ?? 0) + 1);
+      inProgressByExam.set(
+        s.examTypeId,
+        (inProgressByExam.get(s.examTypeId) ?? 0) + 1,
+      );
     }
 
     const withScore = analyticsFinishedSessions.filter((s) =>
@@ -682,7 +736,9 @@ export class UsersService {
         const scoredChrono = list
           .filter((x) => Number.isFinite(Number(x.score)) && x.finishedAt)
           .sort((a, b) => a.finishedAt!.getTime() - b.finishedAt!.getTime());
-        const recentScores = scoredChrono.slice(-10).map((x) => Math.round(Number(x.score)));
+        const recentScores = scoredChrono
+          .slice(-10)
+          .map((x) => Math.round(Number(x.score)));
 
         return {
           examTypeId: agg.examTypeId,
@@ -697,27 +753,38 @@ export class UsersService {
           completedCount: agg.completedCount,
           timedOutCount: agg.timedOutCount,
           averageScore: n > 0 ? Math.round(avg * 100) / 100 : null,
-          bestScore: n > 0 ? Math.round(Math.max(...agg.scores) * 100) / 100 : null,
+          bestScore:
+            n > 0 ? Math.round(Math.max(...agg.scores) * 100) / 100 : null,
           bestRawScore: agg.bestByPoints?.raw ?? null,
           bestMaxScore: agg.bestByPoints?.max ?? null,
-          worstScore: n > 0 ? Math.round(Math.min(...agg.scores) * 100) / 100 : null,
+          worstScore:
+            n > 0 ? Math.round(Math.min(...agg.scores) * 100) / 100 : null,
           averageCorrectPercent:
             agg.correctPct.length > 0
               ? Math.round(
-                  (agg.correctPct.reduce((a, b) => a + b, 0) / agg.correctPct.length) * 100,
+                  (agg.correctPct.reduce((a, b) => a + b, 0) /
+                    agg.correctPct.length) *
+                    100,
                 ) / 100
               : null,
           averageDurationSecs:
             agg.durations.length > 0
-              ? Math.round(agg.durations.reduce((a, b) => a + b, 0) / agg.durations.length)
+              ? Math.round(
+                  agg.durations.reduce((a, b) => a + b, 0) /
+                    agg.durations.length,
+                )
               : null,
           lastFinishedAt:
             agg.finishedAts.length > 0
-              ? new Date(Math.max(...agg.finishedAts.map((d) => d.getTime()))).toISOString()
+              ? new Date(
+                  Math.max(...agg.finishedAts.map((d) => d.getTime())),
+                ).toISOString()
               : null,
           firstFinishedAt:
             agg.finishedAts.length > 0
-              ? new Date(Math.min(...agg.finishedAts.map((d) => d.getTime()))).toISOString()
+              ? new Date(
+                  Math.min(...agg.finishedAts.map((d) => d.getTime())),
+                ).toISOString()
               : null,
           inProgressCount: inProgressByExam.get(agg.examTypeId) ?? 0,
           recentScores,
@@ -744,27 +811,33 @@ export class UsersService {
   ): Promise<
     | { sessions: ReturnType<typeof this.mapEntHistoryRow>[] }
     | {
-        sessions: ReturnType<typeof this.mapEntHistoryRow>[]
-        chartSessions: ReturnType<typeof this.mapEntHistoryRow>[]
-        total: number
-        page: number
-        limit: number
+        sessions: ReturnType<typeof this.mapEntHistoryRow>[];
+        chartSessions: ReturnType<typeof this.mapEntHistoryRow>[];
+        total: number;
+        page: number;
+        limit: number;
       }
   > {
     const ent = await this.prisma.examType.findUnique({
-      where: { slug: 'ent' },
+      where: { slug: "ent" },
       select: { id: true },
     });
     if (!ent) {
       return paging
-        ? { sessions: [], chartSessions: [], total: 0, page: paging.page, limit: paging.limit }
+        ? {
+            sessions: [],
+            chartSessions: [],
+            total: 0,
+            page: paging.page,
+            limit: paging.limit,
+          }
         : { sessions: [] };
     }
 
     const where = {
       userId,
       examTypeId: ent.id,
-      status: { in: ['completed', 'timed_out'] },
+      status: { in: ["completed", "timed_out"] },
       score: { not: null },
     };
 
@@ -784,7 +857,7 @@ export class UsersService {
       const sessions = await this.prisma.testSession.findMany({
         where,
         select,
-        orderBy: { finishedAt: 'asc' },
+        orderBy: { finishedAt: "asc" },
       });
       return {
         sessions: sessions.map((s) => this.mapEntHistoryRow(s)),
@@ -799,19 +872,21 @@ export class UsersService {
       this.prisma.testSession.findMany({
         where,
         select,
-        orderBy: { finishedAt: 'desc' },
+        orderBy: { finishedAt: "desc" },
         skip,
         take: limit,
       }),
       this.prisma.testSession.findMany({
         where,
         select,
-        orderBy: { finishedAt: 'desc' },
+        orderBy: { finishedAt: "desc" },
         take: 120,
       }),
     ]);
 
-    const chartSessionsAsc = [...chartRows].reverse().map((s) => this.mapEntHistoryRow(s));
+    const chartSessionsAsc = [...chartRows]
+      .reverse()
+      .map((s) => this.mapEntHistoryRow(s));
 
     return {
       sessions: pageRows.map((s) => this.mapEntHistoryRow(s)),
@@ -827,44 +902,47 @@ export class UsersService {
       where: { id: userId },
       select: { avatarUrl: true },
     });
-    await this.prisma.$transaction(async (tx) => {
-      // Delete visit events (funnel steps cascade)
-      await tx.visitEvent.deleteMany({ where: { userId } });
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Delete visit events (funnel steps cascade)
+        await tx.visitEvent.deleteMany({ where: { userId } });
 
-      // Daily usage
-      await tx.userExamDailyUsage.deleteMany({ where: { userId } });
-      // Usage ledger
-      await tx.attemptUsageLedger.deleteMany({ where: { userId } });
+        // Daily usage
+        await tx.userExamDailyUsage.deleteMany({ where: { userId } });
+        // Usage ledger
+        await tx.attemptUsageLedger.deleteMany({ where: { userId } });
 
-      // Test sessions
-      await tx.testSession.deleteMany({ where: { userId } });
-      // Entitlements granted by this user
-      await tx.userExamEntitlement.updateMany({
-        where: { createdBy: userId },
-        data: { createdBy: null },
-      });
-      // Entitlements for this user
-      await tx.userExamEntitlement.deleteMany({ where: { userId } });
-      // Granted subscriptions
-      await tx.subscription.updateMany({
-        where: { grantedBy: userId },
-        data: { grantedBy: null },
-      });
-      // Subscriptions
-      await tx.subscription.deleteMany({ where: { userId } });
-      // Payment orders
-      await tx.paymentOrder.deleteMany({ where: { userId } });
-      // Plan templates created by user
-      await tx.subscriptionPlanTemplate.updateMany({
-        where: { createdBy: userId },
-        data: { createdBy: null },
-      });
-      // Notification deliveries
-      await tx.notificationDelivery.deleteMany({ where: { userId } });
+        // Test sessions
+        await tx.testSession.deleteMany({ where: { userId } });
+        // Entitlements granted by this user
+        await tx.userExamEntitlement.updateMany({
+          where: { createdBy: userId },
+          data: { createdBy: null },
+        });
+        // Entitlements for this user
+        await tx.userExamEntitlement.deleteMany({ where: { userId } });
+        // Granted subscriptions
+        await tx.subscription.updateMany({
+          where: { grantedBy: userId },
+          data: { grantedBy: null },
+        });
+        // Subscriptions
+        await tx.subscription.deleteMany({ where: { userId } });
+        // Payment orders
+        await tx.paymentOrder.deleteMany({ where: { userId } });
+        // Plan templates created by user
+        await tx.subscriptionPlanTemplate.updateMany({
+          where: { createdBy: userId },
+          data: { createdBy: null },
+        });
+        // Notification deliveries
+        await tx.notificationDelivery.deleteMany({ where: { userId } });
 
-      // Finally delete the user
-      await tx.user.delete({ where: { id: userId } });
-    }, { timeout: 30_000, maxWait: 5_000 });
+        // Finally delete the user
+        await tx.user.delete({ where: { id: userId } });
+      },
+      { timeout: 30_000, maxWait: 5_000 },
+    );
     this.deleteLocalAvatar(user?.avatarUrl);
   }
 

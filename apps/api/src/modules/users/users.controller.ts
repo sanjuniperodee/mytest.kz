@@ -10,120 +10,147 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { AuthGuard } from '@nestjs/passport';
-import { randomUUID } from 'crypto';
-import { existsSync, mkdirSync, unlinkSync } from 'fs';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { UsersService } from './users.service';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { isSupportedImageFile } from '../../common/files/image-signature';
+  UsePipes,
+  ValidationPipe,
+} from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { AuthGuard } from "@nestjs/passport";
+import { randomUUID } from "crypto";
+import { existsSync, mkdirSync, unlinkSync } from "fs";
+import { diskStorage } from "multer";
+import { extname, join } from "path";
+import { UsersService } from "./users.service";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { isSupportedImageFile } from "../../common/files/image-signature";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
 
-const AVATAR_IMAGE_SUBDIR = 'avatars';
+const AVATAR_IMAGE_SUBDIR = "avatars";
 const AVATAR_IMAGE_MIME = /^image\/(jpeg|jpg|png|webp)$/i;
 const MAX_AVATAR_IMAGE_BYTES = 3 * 1024 * 1024;
 
-@Controller('users')
-@UseGuards(AuthGuard('jwt'))
+@Controller("users")
+@UseGuards(AuthGuard("jwt"))
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  @Get('me')
-  async getProfile(@CurrentUser('id') userId: string) {
+  @Get("me")
+  async getProfile(@CurrentUser("id") userId: string) {
     return this.usersService.getProfile(userId);
   }
 
-  @Post('me/channel-membership/recheck')
-  async recheckChannelMembership(@CurrentUser('id') userId: string) {
+  @Post("me/channel-membership/recheck")
+  async recheckChannelMembership(@CurrentUser("id") userId: string) {
     return this.usersService.recheckChannelMembership(userId);
   }
 
-  @Patch('me')
+  @Patch("me")
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
   async updateProfile(
-    @CurrentUser('id') userId: string,
-    @Body() data: { preferredLanguage?: string; timezone?: string; avatarUrl?: string | null },
+    @CurrentUser("id") userId: string,
+    @Body() data: UpdateProfileDto,
   ) {
     return this.usersService.updateProfile(userId, data);
   }
 
-  @Post('me/avatar')
+  @Post("me/avatar")
   @UseInterceptors(
-    FileInterceptor('file', {
+    FileInterceptor("file", {
       limits: { fileSize: MAX_AVATAR_IMAGE_BYTES },
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype || !AVATAR_IMAGE_MIME.test(file.mimetype)) {
-          cb(new BadRequestException('Допустимы только изображения: jpeg, png, webp'), false);
+          cb(
+            new BadRequestException(
+              "Допустимы только изображения: jpeg, png, webp",
+            ),
+            false,
+          );
           return;
         }
         cb(null, true);
       },
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const dir = join(process.cwd(), 'uploads', AVATAR_IMAGE_SUBDIR);
+          const dir = join(process.cwd(), "uploads", AVATAR_IMAGE_SUBDIR);
           if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
         filename: (_req, file, cb) => {
-          const ext = extname(file.originalname || '').toLowerCase();
-          const safe = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.png';
+          const ext = extname(file.originalname || "").toLowerCase();
+          const safe = [".jpg", ".jpeg", ".png", ".webp"].includes(ext)
+            ? ext
+            : ".png";
           cb(null, `${randomUUID()}${safe}`);
         },
       }),
     }),
   )
   async uploadAvatar(
-    @CurrentUser('id') userId: string,
+    @CurrentUser("id") userId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.filename) {
-      throw new BadRequestException('Файл не получен');
+      throw new BadRequestException("Файл не получен");
     }
-    const fullPath = join(process.cwd(), 'uploads', AVATAR_IMAGE_SUBDIR, file.filename);
+    const fullPath = join(
+      process.cwd(),
+      "uploads",
+      AVATAR_IMAGE_SUBDIR,
+      file.filename,
+    );
     if (!isSupportedImageFile(fullPath, false)) {
       try {
         unlinkSync(fullPath);
       } catch {
         // Best effort cleanup; the request must still fail closed.
       }
-      throw new BadRequestException('Файл не похож на допустимое изображение');
+      throw new BadRequestException("Файл не похож на допустимое изображение");
     }
     const avatarUrl = `/uploads/${AVATAR_IMAGE_SUBDIR}/${file.filename}`;
     return this.usersService.updateProfile(userId, { avatarUrl });
   }
 
-  @Delete('me/avatar')
-  async deleteAvatar(@CurrentUser('id') userId: string) {
+  @Delete("me/avatar")
+  async deleteAvatar(@CurrentUser("id") userId: string) {
     return this.usersService.updateProfile(userId, { avatarUrl: null });
   }
 
-  @Delete('me')
-  async deleteAccount(@CurrentUser('id') userId: string) {
+  @Delete("me")
+  async deleteAccount(@CurrentUser("id") userId: string) {
     await this.usersService.deleteAccount(userId);
-    return { message: 'Account deleted' };
+    return { message: "Account deleted" };
   }
 
-  @Get('me/stats')
-  async getStats(@CurrentUser('id') userId: string) {
+  @Get("me/stats")
+  async getStats(@CurrentUser("id") userId: string) {
     return this.usersService.getStats(userId);
   }
 
-  @Get('me/ent-history')
+  @Get("me/ent-history")
   async getEntHistory(
-    @CurrentUser('id') userId: string,
-    @Query('page') pageStr?: string,
-    @Query('limit') limitStr?: string,
+    @CurrentUser("id") userId: string,
+    @Query("page") pageStr?: string,
+    @Query("limit") limitStr?: string,
   ) {
     const usePaging = pageStr !== undefined || limitStr !== undefined;
     if (!usePaging) {
       return this.usersService.getEntHistory(userId, undefined);
     }
 
-    const parsePositiveInt = (raw: string | undefined, fallback: number, max?: number) => {
-      if (raw === undefined || raw.trim() === '') return fallback;
+    const parsePositiveInt = (
+      raw: string | undefined,
+      fallback: number,
+      max?: number,
+    ) => {
+      if (raw === undefined || raw.trim() === "") return fallback;
       const n = Number(raw);
-      if (!Number.isFinite(n) || n < 1) throw new BadRequestException('Invalid page or limit');
+      if (!Number.isFinite(n) || n < 1)
+        throw new BadRequestException("Invalid page or limit");
       const floored = Math.floor(n);
       if (max !== undefined) return Math.min(max, floored);
       return floored;
