@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/api/auth-context"
 import { resolveMediaUrl } from "@/lib/api/client"
 import { localize, type Locale } from "@/lib/api/i18n"
 import { cn } from "@/lib/utils"
+import { PageHeader } from "@/components/dashboard/page-header"
 import type { LeaderboardEntry } from "@/lib/api/types"
 
 const LIMITS = [10, 50, 100] as const
@@ -158,18 +159,12 @@ export default function LeaderboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-          <Sparkles className="size-3" />
-          Соревнование
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Лидерборд ЕНТ
-        </h1>
-        <p className="text-muted-foreground">
-          Топ участников по набранным баллам пробного ЕНТ
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Соревнование"
+        eyebrowIcon={Sparkles}
+        title="Лидерборд ЕНТ"
+        description="Топ участников по набранным баллам пробного ЕНТ"
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ToggleGroup

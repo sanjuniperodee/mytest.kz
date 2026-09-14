@@ -10,9 +10,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/api/auth-context"
-import { BarChart3 } from "lucide-react"
+import { TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ExamAnalytics } from "@/components/dashboard/exam-analytics"
+import { PageHeader } from "@/components/dashboard/page-header"
 import type { Locale } from "@/lib/api/i18n"
 import type { UserStats } from "@/lib/api/types"
 
@@ -84,7 +85,7 @@ export default function StatsPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-6 p-4">
+      <div className="flex flex-col gap-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64" />
       </div>
@@ -97,11 +98,13 @@ export default function StatsPage() {
   const pageCount = Math.max(1, Math.ceil(total / limit))
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 p-4">
-      <div className="flex items-center gap-3">
-        <BarChart3 className="size-6" />
-        <h1 className="text-2xl font-semibold tracking-tight">Динамика ЕНТ</h1>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow="Аналитика"
+        eyebrowIcon={TrendingUp}
+        title="Статистика ЕНТ"
+        description="Динамика баллов и детальный разбор по предметам"
+      />
 
       {sessions.length === 0 ? (
         <Card>

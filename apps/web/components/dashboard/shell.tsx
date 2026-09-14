@@ -7,20 +7,21 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import {
-  BarChart3,
-  BookOpen,
   ChevronRight,
-  CreditCard,
+  Clock,
+  FileText,
+  Globe2,
   GraduationCap,
-  Home,
-  History,
+  LayoutDashboard,
   LogOut,
+  MessageCircle,
   MoreHorizontal,
-  MessagesSquare,
-  Users,
+  Radio,
+  Sparkles,
   Target,
+  TrendingUp,
   Trophy,
-  User,
+  UserCircle,
 } from "lucide-react"
 import { useAuth } from "@/lib/api/auth-context"
 import { Spinner } from "@/components/ui/spinner"
@@ -39,45 +40,55 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 
-const navigation = [
+type NavItem = {
+  href: string
+  label: string
+  mobileLabel?: string
+  icon: React.ElementType
+  primary?: boolean
+}
+
+type NavSection = {
+  section: string
+  items: NavItem[]
+}
+
+const navSections: NavSection[] = [
   {
-    href: "/dashboard",
-    label: "Обзор",
-    mobileLabel: "Обзор",
-    icon: Home,
-    primary: true,
+    section: "Учёба",
+    items: [
+      { href: "/dashboard", label: "Обзор", mobileLabel: "Обзор", icon: LayoutDashboard, primary: true },
+      { href: "/dashboard/exams", label: "Экзамены", mobileLabel: "Тесты", icon: FileText, primary: true },
+      { href: "/dashboard/mistakes", label: "Мои ошибки", mobileLabel: "Ошибки", icon: Target, primary: true },
+    ],
   },
   {
-    href: "/dashboard/exams",
-    label: "Экзамены",
-    mobileLabel: "Тесты",
-    icon: BookOpen,
-    primary: true,
+    section: "Аналитика",
+    items: [
+      { href: "/dashboard/admission", label: "Шанс поступления", icon: GraduationCap },
+      { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy },
+      { href: "/dashboard/stats", label: "Статистика", icon: TrendingUp },
+      { href: "/dashboard/history", label: "История", icon: Clock },
+    ],
   },
   {
-    href: "/dashboard/mistakes",
-    label: "Мои ошибки",
-    mobileLabel: "Ошибки",
-    icon: Target,
-    primary: true,
+    section: "Сообщество",
+    items: [
+      { href: "/dashboard/community", label: "Сообщество", mobileLabel: "Лента", icon: Globe2, primary: true },
+      { href: "/dashboard/messages", label: "Сообщения", icon: MessageCircle },
+      { href: "/dashboard/global-chat", label: "Глобальный чат", icon: Radio },
+    ],
   },
   {
-    href: "/dashboard/admission",
-    label: "Шанс поступления",
-    mobileLabel: "Грант",
-    icon: GraduationCap,
-    primary: false,
+    section: "Аккаунт",
+    items: [
+      { href: "/dashboard/billing", label: "Тарифы", icon: Sparkles },
+      { href: "/dashboard/profile", label: "Профиль", icon: UserCircle },
+    ],
   },
-  { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy, primary: false },
-  { href: "/dashboard/community", label: "Сообщество", mobileLabel: "Лента", icon: Users, primary: true },
-  { href: "/dashboard/messages", label: "Сообщения", icon: MessagesSquare, primary: false },
-  { href: "/dashboard/global-chat", label: "Глобальный чат", icon: MessagesSquare, primary: false },
-  { href: "/dashboard/stats", label: "Статистика", icon: BarChart3, primary: false },
-  { href: "/dashboard/history", label: "История", icon: History, primary: false },
-  { href: "/dashboard/billing", label: "Тарифы", icon: CreditCard, primary: false },
-  { href: "/dashboard/profile", label: "Профиль", icon: User, primary: false },
 ]
 
+const navigation = navSections.flatMap((s) => s.items)
 const primaryNavigation = navigation.filter((item) => item.primary)
 const secondaryNavigation = navigation.filter((item) => !item.primary)
 
@@ -172,29 +183,38 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="flex-1 overflow-y-auto p-3" aria-label="Основная навигация">
-            <ul className="flex flex-col gap-1">
-              {navigation.map((item) => {
-                const Icon = item.icon
-                const active = isActive(item.href)
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                        active
-                          ? "bg-foreground text-background"
-                          : "text-foreground/80 hover:bg-secondary",
-                      )}
-                    >
-                      <Icon className="size-4 shrink-0" aria-hidden="true" />
-                      {item.label}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="flex flex-col gap-4">
+              {navSections.map((section) => (
+                <div key={section.section}>
+                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    {section.section}
+                  </p>
+                  <ul className="flex flex-col gap-0.5">
+                    {section.items.map((item) => {
+                      const Icon = item.icon
+                      const active = isActive(item.href)
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            aria-current={active ? "page" : undefined}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                              active
+                                ? "border-l-2 border-accent bg-accent/10 text-accent"
+                                : "text-foreground/70 hover:bg-secondary hover:text-foreground",
+                            )}
+                          >
+                            <Icon className="size-4 shrink-0" aria-hidden="true" />
+                            {item.label}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </nav>
 
           <div className="border-t border-border p-3">

@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ScoreProjection } from "@/components/dashboard/score-projection"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
@@ -161,12 +162,12 @@ export default function MistakesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Работа над ошибками</h1>
-        <p className="text-muted-foreground">
-          Прорабатывайте вопросы, в которых ранее ошиблись, чтобы закрыть пробелы быстрее
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Работа над ошибками"
+        eyebrowIcon={Target}
+        title="Мои ошибки"
+        description="Прорабатывайте вопросы, в которых ранее ошиблись, чтобы закрыть пробелы быстрее"
+      />
 
       {/* Deterministic score projection — visible to everyone, updates live */}
       {!isLoading && <ScoreProjection impact={summary?.scoreImpact} />}
