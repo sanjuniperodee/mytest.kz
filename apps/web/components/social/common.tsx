@@ -87,7 +87,7 @@ export function SocialNav() {
   return (
     <nav
       aria-label={t("Сообщество", "Қауымдастық")}
-      className="mb-5 flex gap-1 rounded-2xl border border-border bg-background p-1.5"
+      className="mb-5 flex gap-1 rounded-xl border border-border bg-background p-1.5"
     >
       {[
         {
@@ -136,7 +136,7 @@ export function CommunityFrame({ children }: { children: React.ReactNode }) {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_240px]">
         <div className="min-w-0">{children}</div>
         <aside className="hidden space-y-4 xl:block">
-          <div className="rounded-3xl bg-emerald-500/10 p-5">
+          <div className="rounded-xl bg-emerald-500/10 p-5">
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
               mytest community
             </span>
@@ -182,7 +182,7 @@ export function LoadState({
     return (
       <div
         role="alert"
-        className="rounded-2xl border border-destructive/30 p-5 text-sm"
+        className="rounded-xl border border-destructive/30 p-5 text-sm"
       >
         <p>
           {error instanceof Error
@@ -207,7 +207,7 @@ export function LoadState({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-20 animate-pulse rounded-2xl bg-secondary"
+            className="h-20 animate-pulse rounded-xl bg-secondary"
           />
         ))}
       </div>

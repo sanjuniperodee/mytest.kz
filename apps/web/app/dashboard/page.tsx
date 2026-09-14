@@ -116,7 +116,7 @@ export default function DashboardHomePage() {
                 </span>
               )}
             </div>
-            <h1 className="font-serif text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
               Привет{userName ? `, ${userName.split(" ")[0]}` : ""}.
             </h1>
             <p className="max-w-xl text-muted-foreground">
@@ -233,7 +233,7 @@ export default function DashboardHomePage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle>Последние пробники</CardTitle>
+            <CardTitle className="text-base">Последние пробники</CardTitle>
             <Link
               href="/dashboard/history"
               className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
@@ -258,7 +258,7 @@ export default function DashboardHomePage() {
                           ? `/exam/${s.id}`
                           : `/exam/${s.id}/review`
                       }
-                      className="flex items-center justify-between gap-4 py-3 hover:bg-secondary/40 -mx-2 px-2 rounded-md transition-colors"
+                      className="flex items-center justify-between gap-4 rounded-md px-4 py-3 transition-colors hover:bg-secondary/50"
                     >
                       <div className="flex min-w-0 flex-col gap-1">
                         <p className="truncate font-medium">
@@ -293,7 +293,7 @@ export default function DashboardHomePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Быстрые действия</CardTitle>
+            <CardTitle className="text-base">Быстрые действия</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <Button asChild className="h-11 justify-start">

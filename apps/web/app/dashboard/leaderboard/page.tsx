@@ -345,7 +345,7 @@ function LeaderRow({
     >
       <Link href={profileHref(entry.userId)}
       className={cn(
-        "flex items-center gap-3 border-t border-border px-4 py-3 transition-colors hover:bg-secondary/60 focus-visible:outline-2 focus-visible:outline-emerald-600",
+        "flex items-center gap-3 border-t border-border px-4 py-3 transition-colors hover:bg-secondary/50 focus-visible:outline-2 focus-visible:outline-emerald-600",
         highlight && "bg-secondary",
       )}
     >

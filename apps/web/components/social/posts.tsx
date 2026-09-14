@@ -164,7 +164,7 @@ export function Composer({
               type="submit"
               size="sm"
               disabled={busy || !text.trim()}
-              className="rounded-full gap-2"
+              className="gap-2"
             >
               {busy
                 ? t("Публикуем…", "Жариялануда…")
@@ -623,7 +623,7 @@ export function PostList({
         <Button
           variant="outline"
           disabled={isValidating}
-          className="w-full rounded-full"
+          className="w-full"
           onClick={() => void setSize(size + 1)}
         >
           {isValidating

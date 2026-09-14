@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { useAuth } from "@/lib/api/auth-context";
 import { api, ApiError, resolveMediaUrl } from "@/lib/api/client";
@@ -198,9 +199,9 @@ export default function ProfilePage() {
       />
 
       {/* Identity card */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <Card className="overflow-hidden py-0">
         {/* Top section: avatar + name */}
-        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:gap-6">
+        <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:gap-6">
           {/* Avatar */}
           <div className="relative shrink-0">
             <Avatar className="size-20 ring-2 ring-border shadow-sm">
@@ -258,10 +259,10 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
-        </div>
+        </CardContent>
 
         {/* Avatar actions */}
-        <div className="flex flex-col gap-2 border-t border-border bg-secondary/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardFooter className="flex flex-col gap-2 border-t border-border bg-secondary/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <User2 className="size-3.5" aria-hidden="true" />
             Фото профиля · JPG, PNG или WebP до 3 МБ
@@ -298,8 +299,8 @@ export default function ProfilePage() {
               </Button>
             )}
           </div>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
 
       {/* Preferences */}
       {user && (
@@ -315,15 +316,17 @@ export default function ProfilePage() {
           <ProfileActivity userId={user.id} />
         </section>
       )}
-      <div className="rounded-2xl border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border px-6 py-4">
-          <Settings2
-            className="size-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span className="text-sm font-semibold">Настройки</span>
-        </div>
-        <div className="p-6 flex flex-col gap-5">
+      <Card className="py-0">
+        <CardHeader className="border-b border-border px-6 py-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Settings2
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            Настройки
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 flex flex-col gap-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="first-name">Имя</Label>
@@ -407,8 +410,8 @@ export default function ProfilePage() {
               {saving ? <Spinner className="size-4" /> : "Сохранить"}
             </Button>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

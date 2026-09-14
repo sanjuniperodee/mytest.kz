@@ -106,6 +106,7 @@ export default function ExamHistoryPage() {
       <div className="flex items-center justify-between gap-3">
         <Button
           variant="outline"
+          size="sm"
           disabled={!canGoPrev}
           onClick={() => setPage((value) => Math.max(1, value - 1))}
         >
@@ -117,6 +118,7 @@ export default function ExamHistoryPage() {
         </span>
         <Button
           variant="outline"
+          size="sm"
           disabled={!canGoNext}
           onClick={() => setPage((value) => value + 1)}
         >

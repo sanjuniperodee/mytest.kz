@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { Globe2 } from "lucide-react";
 import { useAuth } from "@/lib/api/auth-context";
 import {
   CommunityFrame,
@@ -8,6 +9,7 @@ import {
   useSocialText,
 } from "@/components/social/common";
 import { PostList } from "@/components/social/posts";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { cn } from "@/lib/utils";
 export default function CommunityPage() {
   const [tab, setTab] = useState("all");
@@ -15,29 +17,26 @@ export default function CommunityPage() {
   const { user } = useAuth();
   return (
     <CommunityFrame>
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-emerald-600">
-            mytest community
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {t("Свои люди. Общая цель.", "Өз ортаң. Ортақ мақсат.")}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t(
-              "Готовиться легче, когда ты не один.",
-              "Бірге дайындалу жеңілірек.",
-            )}
-          </p>
-        </div>
-        {user && (
-          <Link
-            href={profileHref(user.id)}
-            className="shrink-0 text-xs font-medium underline underline-offset-4"
-          >
-            {t("Мой профиль", "Менің профилім")}
-          </Link>
-        )}
+      <div className="mb-5">
+        <PageHeader
+          eyebrow="mytest community"
+          eyebrowIcon={Globe2}
+          title={t("Свои люди. Общая цель.", "Өз ортаң. Ортақ мақсат.")}
+          description={t(
+            "Готовиться легче, когда ты не один.",
+            "Бірге дайындалу жеңілірек.",
+          )}
+          actions={
+            user ? (
+              <Link
+                href={profileHref(user.id)}
+                className="shrink-0 text-xs font-medium underline underline-offset-4"
+              >
+                {t("Мой профиль", "Менің профилім")}
+              </Link>
+            ) : undefined
+          }
+        />
       </div>
       <div
         role="tablist"
@@ -54,10 +53,10 @@ export default function CommunityPage() {
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className={cn(
-              "min-h-11 rounded-full px-5 text-sm font-medium",
+              "min-h-11 rounded-lg px-5 text-sm font-medium transition-colors",
               tab === id
                 ? "bg-foreground text-background"
-                : "bg-background text-muted-foreground border border-border",
+                : "bg-background text-muted-foreground border border-border hover:bg-secondary",
             )}
           >
             {label}

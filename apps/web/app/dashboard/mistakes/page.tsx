@@ -353,7 +353,7 @@ export default function MistakesPage() {
       {hasPremium ? (
         <Card>
           <CardHeader>
-            <CardTitle>Запустить тренировку</CardTitle>
+            <CardTitle className="text-base">Запустить тренировку</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             <div className="grid gap-5 sm:grid-cols-2">
