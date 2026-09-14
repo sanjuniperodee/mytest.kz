@@ -55,7 +55,7 @@ export function AdmissionGoalCard({
       <Card className="rounded-xl border bg-card">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2 text-base">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
               <Target className="size-4" aria-hidden="true" />
             </span>
             Цель поступления
@@ -77,7 +77,7 @@ export function AdmissionGoalCard({
             />
           ) : (
             <div className="flex flex-col items-center gap-4 py-8 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
                 <GraduationCap className="size-5" aria-hidden="true" />
               </div>
               <p className="max-w-md text-sm text-muted-foreground">

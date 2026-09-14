@@ -76,25 +76,27 @@ export function Conversation({
   const other = room?.members.find((m) => m.userId !== user?.id)?.user;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex min-h-18 items-center gap-3 border-b border-border px-4 py-3">
-        {!standalone && <Button asChild variant="ghost" size="icon" className="md:hidden">
-          <Link
-            href="/dashboard/messages"
-            aria-label={t("Назад к чатам", "Чаттарға оралу")}
-          >
-            <ArrowLeft className="size-5" />
-          </Link>
-        </Button>}
+      <header className="flex h-14 sm:h-16 items-center gap-3 border-b border-border/80 px-3.5 sm:px-4 py-2 bg-background/80 backdrop-blur-xs">
+        {!standalone && (
+          <Button asChild variant="ghost" size="icon" className="size-8 shrink-0 md:hidden">
+            <Link
+              href="/dashboard/messages"
+              aria-label={t("Назад к чатам", "Чаттарға оралу")}
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+        )}
         {room?.title ? (
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
-            <Users className="size-5 text-emerald-600" />
+          <span className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 dark:bg-emerald-950/40">
+            <Users className="size-4 sm:size-5 text-emerald-600 dark:text-emerald-400" />
           </span>
         ) : room?.key === "global" ? (
-          <span className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
-            <Globe2 className="size-5" />
+          <span className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+            <Globe2 className="size-4 sm:size-5" />
           </span>
         ) : (
-          other && <PersonAvatar person={other} />
+          other && <PersonAvatar person={other} className="size-9 sm:size-10" />
         )}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold">
@@ -107,7 +109,7 @@ export function Conversation({
                 t("Переписка", "Хат алмасу")
               ))}
           </h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="truncate text-xs text-muted-foreground">
             {room?.title
               ? t("Групповой чат", "Топтық чат")
               : room?.key === "global"
@@ -172,15 +174,22 @@ export function Conversation({
               key={m.id}
               className={cn("flex items-end gap-2", mine ? "flex-row-reverse" : "justify-start")}
             >
-              <Link href={profileHref(m.authorId)} aria-label={t("Профиль", "Профиль") + ": " + personName(m.author)} className="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-emerald-600">
-                <PersonAvatar person={m.author} className="size-8" />
+              <Link
+                href={profileHref(m.authorId)}
+                aria-label={t("Профиль", "Профиль") + ": " + personName(m.author)}
+                className={cn(
+                  "shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-emerald-600",
+                  mine && "hidden sm:inline-block",
+                )}
+              >
+                <PersonAvatar person={m.author} className="size-7 sm:size-8" />
               </Link>
               <div
                 className={cn(
-                  "min-w-0 max-w-[calc(100%-2.5rem)] rounded-2xl px-3.5 py-2.5 sm:max-w-[78%]",
+                  "min-w-0 max-w-[88%] sm:max-w-[78%] rounded-2xl px-3.5 py-2 sm:py-2.5",
                   mine
-                    ? "rounded-br-sm bg-foreground text-background"
-                    : "rounded-bl-sm border border-border bg-background",
+                    ? "rounded-br-xs bg-foreground text-background"
+                    : "rounded-bl-xs border border-border/80 bg-background shadow-2xs",
                 )}
               >
                 {!mine && (
@@ -238,16 +247,16 @@ export function Conversation({
       </div>
       <form
         onSubmit={send}
-        className="border-t border-border bg-background p-3"
+        className="border-t border-border/80 bg-background p-2 sm:p-3"
       >
-        <p className="mb-1 text-[10px] text-muted-foreground">
+        <p className="mb-1 hidden text-[10px] text-muted-foreground sm:block">
           {t(
             "Модераторы платформы могут просматривать сообщения и вложения.",
             "Платформа модераторлары хабарламалар мен тіркемелерді көре алады.",
           )}
         </p>
         {restricted && (
-          <p role="status" className="mb-2 text-xs text-amber-600">
+          <p role="status" className="mb-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
             {t(
               "Отправка сообщений ограничена администратором.",
               "Хабарлама жіберуді әкімші шектеген.",
@@ -261,16 +270,24 @@ export function Conversation({
           onBusy={setMediaBusy}
           disabled={sending || !!restricted}
         />
-        <div className="flex items-end gap-2 rounded-2xl border border-border bg-secondary/30 p-2">
+        <div className="flex items-end gap-1.5 rounded-2xl border border-border/80 bg-secondary/30 p-1.5 sm:gap-2 sm:p-2">
           <textarea
             aria-label={t("Сообщение", "Хабарлама")}
-            rows={2}
+            rows={1}
             maxLength={2000}
             value={draft}
             disabled={sending || !!restricted}
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (draft.trim() || attachment) {
+                  void send(e);
+                }
+              }
+            }}
             placeholder={t("Напиши сообщение…", "Хабарлама жаз…")}
-            className="max-h-32 min-w-0 flex-1 resize-none rounded-lg bg-transparent p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-[38px] max-h-32 min-w-0 flex-1 resize-none rounded-lg bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <Button
             type="submit"
@@ -282,15 +299,12 @@ export function Conversation({
               !!restricted
             }
             size="icon"
-            className="mb-1 rounded-xl"
+            className="size-9 shrink-0 rounded-xl transition-transform active:scale-95"
             aria-label={t("Отправить", "Жіберу")}
           >
             <Send className="size-4" />
           </Button>
         </div>
-        <p className="mt-1 text-right text-[10px] text-muted-foreground">
-          {draft.length}/2000
-        </p>
       </form>
     </div>
   );

@@ -100,18 +100,19 @@ export default function DashboardHomePage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Hero greeting */}
-      <div className="relative overflow-hidden rounded-xl border border-border bg-card p-6 sm:p-8">
-        <div className="grain pointer-events-none absolute inset-0 opacity-60" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="relative overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-card via-card to-accent/5 p-6 shadow-xs sm:p-8">
+        <div className="grain pointer-events-none absolute inset-0 opacity-40" />
+        <div className="pointer-events-none absolute -right-16 -top-16 size-64 rounded-full bg-accent/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent shadow-2xs">
                 <Sparkles className="size-3" />
                 Готов к ЕНТ
               </span>
               {weeklyStreak > 0 && (
-                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-800">
-                  <Flame className="size-3" />
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800 shadow-2xs dark:bg-orange-950/40 dark:text-orange-300">
+                  <Flame className="size-3 text-orange-600 dark:text-orange-400 animate-pulse" />
                   {weeklyStreak} нед. подряд
                 </span>
               )}
@@ -124,7 +125,7 @@ export default function DashboardHomePage() {
               отработанная ошибка приближает к высокому баллу.
             </p>
             <div
-              className={`mt-2 grid gap-2 text-sm ${
+              className={`mt-2 grid gap-2.5 text-sm ${
                 hasPaidSubscription ? "sm:grid-cols-2" : "sm:grid-cols-3"
               }`}
             >
@@ -142,14 +143,14 @@ export default function DashboardHomePage() {
             </div>
           </div>
           {inProgress ? (
-            <Button asChild size="lg" className="h-11 shrink-0">
+            <Button asChild size="lg" className="h-11 shrink-0 font-semibold shadow-md shadow-primary/10 transition-all duration-200 hover:shadow-lg active:scale-[0.98]">
               <Link href={`/exam/${inProgress.id}`}>
                 Продолжить
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
           ) : (
-            <Button asChild size="lg" className="h-11 shrink-0">
+            <Button asChild size="lg" className="h-11 shrink-0 font-semibold shadow-md shadow-primary/10 transition-all duration-200 hover:shadow-lg active:scale-[0.98]">
               <Link href={quickStartHref}>
                 <BookOpen className="size-4" />
                 Сдать пробный
@@ -372,21 +373,22 @@ function NextActionCard({
   const Icon = action.icon
 
   return (
-    <Card className="overflow-hidden rounded-xl border-violet-300 bg-violet-600 text-white">
-      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+    <Card className="relative overflow-hidden rounded-xl border border-accent/25 bg-gradient-to-r from-primary via-primary/95 to-primary/90 text-primary-foreground shadow-md shadow-accent/5">
+      <div className="pointer-events-none absolute -bottom-10 -right-10 size-44 rounded-full bg-accent/20 blur-2xl" />
+      <CardContent className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-start gap-3.5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent-foreground shadow-2xs">
             <Icon className="size-5" />
           </span>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-white/75">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">
               Что дальше
             </p>
             <h2 className="mt-1 text-xl font-semibold tracking-tight">{action.title}</h2>
-            <p className="mt-1 max-w-2xl text-sm text-white/80">{action.text}</p>
+            <p className="mt-1 max-w-2xl text-sm text-primary-foreground/80">{action.text}</p>
           </div>
         </div>
-        <Button asChild variant="secondary" className="h-10 shrink-0">
+        <Button asChild variant="secondary" className="h-10 shrink-0 font-semibold shadow-xs transition-transform active:scale-95">
           <Link href={action.href}>
             {action.label}
             <ArrowRight className="size-4" />
@@ -399,8 +401,8 @@ function NextActionCard({
 
 function HeroLimit({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border/70 bg-background/70 px-3 py-2 backdrop-blur">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-2.5 backdrop-blur-md transition-colors hover:border-border">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
       <p className="mt-0.5 truncate font-semibold tabular-nums">{value}</p>

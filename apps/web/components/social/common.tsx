@@ -87,7 +87,7 @@ export function SocialNav() {
   return (
     <nav
       aria-label={t("Сообщество", "Қауымдастық")}
-      className="mb-5 flex gap-1 rounded-xl border border-border bg-background p-1.5"
+      className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-border/80 bg-background/90 p-1.5 backdrop-blur-md scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none]"
     >
       {[
         {
@@ -116,12 +116,12 @@ export function SocialNav() {
           href={href}
           aria-current={pathname === href ? "page" : undefined}
           className={cn(
-            "flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl px-1 text-xs font-medium transition-colors hover:bg-secondary sm:gap-2 sm:px-2 sm:text-sm",
+            "flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition-all duration-200 hover:bg-secondary sm:min-h-11 sm:flex-1 sm:px-2 sm:text-sm",
             pathname === href &&
-              "bg-foreground text-background hover:bg-foreground/90",
+              "bg-foreground text-background shadow-xs hover:bg-foreground/90 font-semibold",
           )}
         >
-          <Icon className="hidden size-4 shrink-0 sm:block" />
+          <Icon className="size-3.5 shrink-0 sm:size-4" />
           <span>{text}</span>
         </Link>
       ))}

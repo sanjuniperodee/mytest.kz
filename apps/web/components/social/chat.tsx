@@ -50,22 +50,39 @@ export function ChatPage() {
   useEffect(() => {
     if (selectedGlobal) router.replace("/dashboard/global-chat");
   }, [selectedGlobal, router]);
+
   return (
     <div className="mx-auto max-w-5xl" data-no-translate>
-      <SocialNav />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className={cn(selected ? "hidden md:block" : "block")}>
+        <SocialNav />
+      </div>
+      <div
+        className={cn(
+          "mb-4 flex flex-wrap items-center justify-between gap-2",
+          selected ? "hidden md:flex" : "flex",
+        )}
+      >
         <h1 className="text-2xl font-semibold tracking-tight">
           {t("Сообщения", "Хабарламалар")}
         </h1>
-        <CreateGroup onCreated={() => void mutate()} />
-        <Button asChild variant="outline" size="sm">
-          <Link href="/dashboard/community/people">
-            <Plus className="size-4" />
-            {t("Новый чат", "Жаңа чат")}
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <CreateGroup onCreated={() => void mutate()} />
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard/community/people">
+              <Plus className="size-4" />
+              {t("Новый чат", "Жаңа чат")}
+            </Link>
+          </Button>
+        </div>
       </div>
-      <div className="flex h-[calc(100dvh-22rem)] min-h-[390px] overflow-hidden rounded-xl border border-border bg-background lg:h-[min(720px,calc(100dvh-13rem))]">
+      <div
+        className={cn(
+          "flex overflow-hidden rounded-xl border border-border/80 bg-background shadow-xs lg:h-[min(720px,calc(100dvh-13rem))]",
+          selected
+            ? "h-[calc(100dvh-11rem)] min-h-[440px]"
+            : "h-[calc(100dvh-20rem)] min-h-[390px]",
+        )}
+      >
         <aside
           className={cn(
             "w-full shrink-0 flex-col border-r border-border md:flex md:w-64",

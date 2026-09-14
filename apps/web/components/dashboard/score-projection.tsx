@@ -47,10 +47,10 @@ export function ScoreProjection({ impact }: { impact: EntScoreImpact | undefined
   const pct = (v: number) => `${Math.max(0, Math.min(100, (v / maxScore) * 100))}%`
 
   return (
-    <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-background">
+    <Card className="overflow-hidden border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-card to-background dark:border-emerald-900/50 dark:from-emerald-950/25 dark:via-card dark:to-background shadow-xs">
       <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
         <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-2xs">
             <Gauge className="size-4" />
           </span>
           <h2 className="text-base font-semibold">Прогноз балла ЕНТ</h2>
@@ -70,21 +70,21 @@ export function ScoreProjection({ impact }: { impact: EntScoreImpact | undefined
           </div>
 
           {recoverable > 0 && (
-            <div className="flex flex-col items-center pb-1.5 text-emerald-700">
+            <div className="flex flex-col items-center pb-1.5 text-emerald-700 dark:text-emerald-400">
               <TrendingUp className="size-5" />
               <span className="text-sm font-semibold tabular-nums">+{recoverable}</span>
             </div>
           )}
 
           <div className="text-right">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
               Потенциал
             </p>
-            <p className="text-3xl font-semibold tabular-nums text-emerald-700 sm:text-4xl">
+            <p className="text-3xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400 sm:text-4xl">
               {potentialScore}
-              <span className="text-lg text-emerald-600/70">/{maxScore}</span>
+              <span className="text-lg text-emerald-600/70 dark:text-emerald-400/70">/{maxScore}</span>
             </p>
-            <p className="text-xs text-emerald-700">{impact.potentialTier}</p>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">{impact.potentialTier}</p>
           </div>
         </div>
 

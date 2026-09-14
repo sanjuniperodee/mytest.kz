@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/api/auth-context"
 import { fetcher } from "@/lib/api/swr"
 import { UiI18nProvider } from "@/lib/i18n/ui"
 import { recordVisit } from "@/lib/api/analytics"
+import { ThemeProvider } from "@/components/theme-provider"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -16,16 +17,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   return (
-    <SWRConfig
-      value={{
-        fetcher,
-        revalidateOnFocus: false,
-        shouldRetryOnError: false,
-      }}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
     >
-      <AuthProvider scope="user">
-        <UiI18nProvider>{children}</UiI18nProvider>
-      </AuthProvider>
-    </SWRConfig>
+      <SWRConfig
+        value={{
+          fetcher,
+          revalidateOnFocus: false,
+          shouldRetryOnError: false,
+        }}
+      >
+        <AuthProvider scope="user">
+          <UiI18nProvider>{children}</UiI18nProvider>
+        </AuthProvider>
+      </SWRConfig>
+    </ThemeProvider>
   )
 }

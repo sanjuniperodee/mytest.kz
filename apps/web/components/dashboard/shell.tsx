@@ -31,6 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { resolveMediaUrl } from "@/lib/api/client"
 import { localize } from "@/lib/api/i18n"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { WhatsAppFab } from "@/components/common/whatsapp-fab"
 import {
   Sheet,
@@ -155,27 +156,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         Перейти к содержимому
       </a>
       {/* Mobile app bar */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/80 bg-background/85 px-4 backdrop-blur-xl lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Logo />
           <span className="text-base font-semibold lowercase">mytest</span>
         </Link>
-        <Link
-          href="/dashboard/profile"
-          aria-label="Открыть профиль"
-          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Avatar className="size-9 border border-border">
-            <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt="" />
-            <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
-          </Avatar>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link
+            href="/dashboard/profile"
+            aria-label="Открыть профиль"
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Avatar className="size-9 border border-border">
+              <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt="" />
+              <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+            </Avatar>
+          </Link>
+        </div>
       </header>
 
       <div className="flex">
         {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-border bg-background lg:flex">
-          <div className="flex h-14 items-center border-b border-border px-5">
+        <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-border/70 bg-background/80 backdrop-blur-xl lg:flex">
+          <div className="flex h-14 items-center border-b border-border/70 px-5">
             <Link href="/dashboard" className="flex items-center gap-2">
               <Logo />
               <span className="text-base font-semibold lowercase">mytest</span>
@@ -199,10 +203,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                             href={item.href}
                             aria-current={active ? "page" : undefined}
                             className={cn(
-                              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                               active
-                                ? "border-l-2 border-accent bg-accent/10 text-accent"
-                                : "text-foreground/70 hover:bg-secondary hover:text-foreground",
+                                ? "border-l-2 border-accent bg-accent/10 text-accent font-semibold shadow-xs"
+                                : "text-foreground/70 hover:bg-secondary/80 hover:text-foreground",
                             )}
                           >
                             <Icon className="size-4 shrink-0" aria-hidden="true" />
@@ -217,15 +221,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
 
-          <div className="border-t border-border p-3">
-            <div className="mb-3">
-              <LanguageSwitcher className="w-full justify-center" />
+          <div className="border-t border-border/70 p-3">
+            <div className="mb-3 flex items-center gap-2">
+              <LanguageSwitcher className="flex-1 justify-center rounded-xl" />
+              <ThemeToggle showLabel className="flex-1 justify-center" />
             </div>
             <Link
               href="/dashboard/profile"
-              className="flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex items-center gap-3 rounded-xl p-2 transition-all duration-200 hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <Avatar className="size-9">
+              <Avatar className="size-9 border border-border/60">
                 <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt={initials} />
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
@@ -243,7 +248,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 signOut()
                 router.replace("/")
               }}
-              className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <LogOut className="size-4" aria-hidden="true" />
               Выйти
@@ -257,7 +262,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-2 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-12px_35px_-24px_oklch(0.18_0.012_60_/_0.45)] backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/90 px-2 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-12px_35px_-24px_oklch(0.18_0.012_60_/_0.45)] backdrop-blur-xl lg:hidden"
         aria-label="Быстрая навигация"
       >
         <ul className="grid grid-cols-5">
@@ -270,11 +275,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors",
-                    active ? "bg-accent/10 text-accent" : "text-muted-foreground",
+                    "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-all duration-200 active:scale-95",
+                    active
+                      ? "bg-accent/10 text-accent font-bold"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon className="size-5" aria-hidden="true" />
+                  <Icon className={cn("size-5 transition-transform duration-200", active && "scale-110")} aria-hidden="true" />
                   {item.mobileLabel}
                 </Link>
               </li>
@@ -287,13 +294,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               aria-expanded={moreOpen}
               aria-controls="dashboard-more-menu"
               className={cn(
-                "flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors",
+                "flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-all duration-200 active:scale-95",
                 moreOpen || isMoreRoute
-                  ? "bg-accent/10 text-accent"
-                  : "text-muted-foreground",
+                  ? "bg-accent/10 text-accent font-bold"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <MoreHorizontal className="size-5" aria-hidden="true" />
+              <MoreHorizontal className={cn("size-5 transition-transform duration-200", (moreOpen || isMoreRoute) && "scale-110")} aria-hidden="true" />
               Ещё
             </button>
           </li>
@@ -318,24 +325,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               className="mb-3 flex items-center gap-3 rounded-2xl bg-secondary/70 p-3 transition-colors hover:bg-secondary"
             >
               <Avatar className="size-11 border border-border bg-background">
-                <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt="" />
+                <AvatarImage src={resolveMediaUrl(user?.avatarUrl)} alt={initials} />
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">
-                  {displayName === "U" ? "Профиль" : displayName}
-                </p>
+              <div className="flex-1 min-w-0">
+                <p className="truncate font-semibold">{displayName === "U" ? "Профиль" : displayName}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {user?.phone || user?.telegramUsername || "Настройки аккаунта"}
+                  {user?.phone || user?.telegramUsername || "Открыть профиль"}
                 </p>
               </div>
               <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
             </Link>
 
-            <nav aria-label="Дополнительная навигация">
+            <nav aria-label="Дополнительные разделы">
               <ul className="flex flex-col gap-1">
                 {secondaryNavigation
-                  .filter((item) => item.href !== "/dashboard/profile")
+                  .filter((item) => !primaryNavigation.some((primary) => primary.href === item.href))
                   .map((item) => {
                     const Icon = item.icon
                     const active = isActive(item.href)
@@ -343,18 +348,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                       <li key={item.href}>
                         <Link
                           href={item.href}
-                          aria-current={active ? "page" : undefined}
+                          onClick={() => setMoreOpen(false)}
                           className={cn(
-                            "flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                             active
-                              ? "bg-foreground text-background"
+                              ? "bg-accent/10 text-accent font-semibold"
                               : "text-foreground hover:bg-secondary",
                           )}
                         >
                           <span
                             className={cn(
-                              "flex size-9 items-center justify-center rounded-lg",
-                              active ? "bg-background/15" : "bg-secondary",
+                              "flex size-8 items-center justify-center rounded-lg",
+                              active ? "bg-accent text-accent-foreground" : "bg-secondary text-foreground",
                             )}
                           >
                             <Icon className="size-4" aria-hidden="true" />
@@ -371,6 +376,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
               <span className="text-sm font-medium">Язык</span>
               <LanguageSwitcher className="h-9" />
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+              <span className="text-sm font-medium">Тема</span>
+              <ThemeToggle showLabel className="h-9" />
             </div>
 
             <button

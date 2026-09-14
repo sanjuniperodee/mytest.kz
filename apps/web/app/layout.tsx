@@ -233,6 +233,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
+      suppressHydrationWarning
       data-scroll-behavior="smooth"
       className={`${manrope.variable} ${instrumentSerif.variable} bg-background`}
     >
