@@ -71,6 +71,7 @@ const navigation = [
   { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy, primary: false },
   { href: "/dashboard/community", label: "Сообщество", mobileLabel: "Лента", icon: Users, primary: true },
   { href: "/dashboard/messages", label: "Сообщения", icon: MessagesSquare, primary: false },
+  { href: "/dashboard/global-chat", label: "Глобальный чат", icon: MessagesSquare, primary: false },
   { href: "/dashboard/stats", label: "Статистика", icon: BarChart3, primary: false },
   { href: "/dashboard/history", label: "История", icon: History, primary: false },
   { href: "/dashboard/billing", label: "Тарифы", icon: CreditCard, primary: false },
@@ -367,7 +368,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      {!pathname.startsWith("/dashboard/messages") && <WhatsAppFab />}
+      {!pathname.startsWith("/dashboard/messages") && pathname !== "/dashboard/global-chat" && <WhatsAppFab />}
     </div>
   )
 }

@@ -38,10 +38,12 @@ export function Conversation({
   id,
   room,
   onRead,
+  standalone = false,
 }: {
   id: string;
   room?: Room;
   onRead: () => void;
+  standalone?: boolean;
 }) {
   const { user } = useAuth();
   const t = useSocialText();
@@ -75,14 +77,14 @@ export function Conversation({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex min-h-18 items-center gap-3 border-b border-border px-4 py-3">
-        <Button asChild variant="ghost" size="icon" className="md:hidden">
+        {!standalone && <Button asChild variant="ghost" size="icon" className="md:hidden">
           <Link
             href="/dashboard/messages"
             aria-label={t("Назад к чатам", "Чаттарға оралу")}
           >
             <ArrowLeft className="size-5" />
           </Link>
-        </Button>
+        </Button>}
         {room?.title ? (
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
             <Users className="size-5 text-emerald-600" />
@@ -98,7 +100,7 @@ export function Conversation({
           <h2 className="truncate text-sm font-semibold">
             {room?.title ||
               (room?.key === "global" ? (
-                t("Общий чат", "Ортақ чат")
+                t("Глобальный чат", "Жаһандық чат")
               ) : other ? (
                 <Link href={profileHref(other.id)}>{personName(other)}</Link>
               ) : (
@@ -168,11 +170,14 @@ export function Conversation({
           return (
             <div
               key={m.id}
-              className={cn("flex", mine ? "justify-end" : "justify-start")}
+              className={cn("flex items-end gap-2", mine ? "flex-row-reverse" : "justify-start")}
             >
+              <Link href={profileHref(m.authorId)} aria-label={t("Профиль", "Профиль") + ": " + personName(m.author)} className="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-emerald-600">
+                <PersonAvatar person={m.author} className="size-8" />
+              </Link>
               <div
                 className={cn(
-                  "max-w-[88%] rounded-2xl px-3.5 py-2.5 sm:max-w-[78%]",
+                  "min-w-0 max-w-[calc(100%-2.5rem)] rounded-2xl px-3.5 py-2.5 sm:max-w-[78%]",
                   mine
                     ? "rounded-br-sm bg-foreground text-background"
                     : "rounded-bl-sm border border-border bg-background",

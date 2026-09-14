@@ -3,6 +3,8 @@
 import { useUiI18n } from "@/lib/i18n/ui"
 
 import { useState } from "react"
+import Link from "next/link"
+import { profileHref } from "@/components/social/common"
 import useSWR from "swr"
 import { Crown, Medal, Sparkles, Trophy } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -309,7 +311,8 @@ function PodiumCard({
         entry.rank === 1 ? "sm:order-2 sm:scale-105" : entry.rank === 2 ? "sm:order-1" : "sm:order-3",
       )}
     >
-      <CardContent className="flex flex-col items-center gap-3 p-5">
+      <CardContent className="p-0">
+        <Link href={profileHref(entry.userId)} className="flex flex-col items-center gap-3 rounded-xl p-5 hover:bg-secondary/50 focus-visible:outline-2 focus-visible:outline-emerald-600">
         <div className="flex items-center gap-2">
           <Icon className={cn("size-5", color)} />
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -328,6 +331,7 @@ function PodiumCard({
             <p className="text-xs text-muted-foreground">{entry.totalTests} тестов</p>
           )}
         </div>
+        </Link>
       </CardContent>
     </Card>
   )
@@ -343,8 +347,10 @@ function LeaderRow({
   const initials = entry.name.slice(0, 2).toUpperCase()
   return (
     <li
+    >
+      <Link href={profileHref(entry.userId)}
       className={cn(
-        "flex items-center gap-3 border-t border-border px-4 py-3 first:border-t-0 transition-colors",
+        "flex items-center gap-3 border-t border-border px-4 py-3 transition-colors hover:bg-secondary/60 focus-visible:outline-2 focus-visible:outline-emerald-600",
         highlight && "bg-secondary",
       )}
     >
@@ -370,6 +376,7 @@ function LeaderRow({
         <span className="text-base font-semibold tabular-nums">{formatPoints(entry)}</span>
         <span className="text-xs text-muted-foreground">баллов</span>
       </div>
+      </Link>
     </li>
   )
 }

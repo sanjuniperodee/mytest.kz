@@ -80,6 +80,11 @@ export function SocialNav() {
     >
       {[
         {
+          href: "/dashboard/global-chat",
+          text: t("Глобальный чат", "Жаһандық чат"),
+          icon: MessageCircle,
+        },
+        {
           href: "/dashboard/community",
           text: t("Лента", "Лента"),
           icon: Globe2,
@@ -105,7 +110,7 @@ export function SocialNav() {
               "bg-foreground text-background hover:bg-foreground/90",
           )}
         >
-          <Icon className="hidden size-4 shrink-0 min-[380px]:block" />
+          <Icon className="hidden size-4 shrink-0 sm:block" />
           <span>{text}</span>
         </Link>
       ))}

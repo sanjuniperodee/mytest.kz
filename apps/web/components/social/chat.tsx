@@ -38,7 +38,6 @@ export function ChatPage() {
   const selected = params.get("room");
   const { user } = useAuth();
   const t = useSocialText();
-  const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
   const { data, error, isLoading, mutate } = useSWR<Room[]>(
     "/social/rooms",
@@ -47,20 +46,10 @@ export function ChatPage() {
   );
   // SWR mutate has stable identity; avoid a read-marker/revalidation feedback loop.
   const onRead = mutate;
-  async function openGlobal() {
-    setBusy(true);
-    try {
-      const room = await api<{ id: string }>("/social/rooms/global", {
-        method: "POST",
-      });
-      await mutate();
-      router.push(`/dashboard/messages?room=${room.id}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const selectedGlobal = data?.some((room) => room.id === selected && room.kind === "global");
+  useEffect(() => {
+    if (selectedGlobal) router.replace("/dashboard/global-chat");
+  }, [selectedGlobal, router]);
   return (
     <div className="mx-auto max-w-5xl" data-no-translate>
       <SocialNav />
@@ -85,13 +74,14 @@ export function ChatPage() {
         >
           <div className="space-y-3 border-b border-border p-4">
             <Button
+              asChild
               variant="outline"
               className="w-full justify-start rounded-xl"
-              disabled={busy}
-              onClick={() => void openGlobal()}
             >
+              <Link href="/dashboard/global-chat">
               <Globe2 className="size-4 text-emerald-600" />
-              {t("Общий чат", "Ортақ чат")}
+              {t("Глобальный чат", "Жаһандық чат")}
+              </Link>
             </Button>
             <label className="flex items-center gap-2 rounded-xl bg-secondary/60 px-3 py-2">
               <Search className="size-4 text-muted-foreground" />
@@ -111,11 +101,12 @@ export function ChatPage() {
               retry={() => void mutate()}
             />
             {data
+              ?.filter((r) => r.kind !== "global")
               ?.filter((r) =>
                 (
                   r.title ||
                   (r.key === "global"
-                    ? t("Общий чат", "Ортақ чат")
+                    ? t("Глобальный чат", "Жаһандық чат")
                     : personName(
                         r.members.find((m) => m.userId !== user?.id)?.user || {
                           id: "",
@@ -153,7 +144,7 @@ export function ChatPage() {
                       <p className="truncate text-sm font-semibold">
                         {r.title ||
                           (r.key === "global"
-                            ? t("Общий чат", "Ортақ чат")
+                            ? t("Глобальный чат", "Жаһандық чат")
                             : other
                               ? personName(other)
                               : t("Переписка", "Хат алмасу"))}
@@ -174,17 +165,17 @@ export function ChatPage() {
                   </Link>
                 );
               })}
-            {data?.length === 0 && (
+            {data?.filter((r) => r.kind !== "global").length === 0 && (
               <p className="p-5 text-center text-sm text-muted-foreground">
                 {t(
-                  "Личные чаты появятся здесь. Найди собеседника или присоединяйся к общему чату.",
-                  "Жеке чаттар осы жерде болады. Әңгімелесуші тап немесе ортақ чатқа қосыл.",
+                  "Личные чаты появятся здесь. Найди собеседника или присоединяйся к глобальному чату.",
+                  "Жеке чаттар осы жерде болады. Әңгімелесуші тап немесе жаһандық чатқа қосыл.",
                 )}
               </p>
             )}
           </div>
         </aside>
-        {selected ? (
+        {selected && !selectedGlobal ? (
           <Conversation
             key={selected}
             id={selected}

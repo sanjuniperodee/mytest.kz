@@ -247,18 +247,16 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("http://localhost:4318/dashboard/messages");
-    await page.getByRole("button", { name: "Общий чат", exact: true }).click();
+    await page.getByRole("link", { name: "Глобальный чат", exact: true }).first().click();
+    await page.waitForURL('**/dashboard/global-chat');
     await page
       .getByLabel("Сообщение", { exact: true })
       .fill("Привет всему сообществу!");
     await page.getByRole("button", { name: "Отправить", exact: true }).click();
     await page.getByText("Привет всему сообществу!", { exact: true }).waitFor();
-    await page
-      .getByRole("link", { name: "Назад к чатам", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Общий чат", exact: true })
-      .waitFor();
+    await page.getByRole('link', { name: 'Профиль: Аружан Серик', exact: true }).waitFor();
+    assert.equal(await page.getByRole('link', { name: 'Назад к чатам', exact: true }).count(), 0);
+    await page.screenshot({ path: `${artifacts}/global-chat-mobile.png`, fullPage: true });
     await page.goto(
       `http://localhost:4318/dashboard/community/people/${ids[0]}`,
     );
@@ -303,6 +301,19 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
     await page.screenshot({ path: `${artifacts}/group-media-mobile.png`, fullPage: true });
     assert.equal(await db.chatMessage.count({ where: { roomId: groupId, attachment: { mime: { startsWith: 'audio/' } } } }), 1);
     assert.deepEqual(errors, []);
+    await page.route('**/api/v1/leaderboard/ent?*', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [users[0], users[1], users[2], users[1]].map((person, index) => ({
+        userId: person.id, firstName: person.firstName, lastName: person.lastName, rank: index + 1, score: 130 - index,
+      })) }),
+    }));
+    await page.goto('http://localhost:4318/dashboard/leaderboard');
+    const profileLinks = page.locator(`main a[href="/dashboard/community/people/${ids[1]}"]`);
+    await profileLinks.last().click();
+    await page.waitForURL(`**/dashboard/community/people/${ids[1]}`);
+    await page.goto('http://localhost:4318/dashboard/leaderboard');
+    await profileLinks.first().click();
+    await page.waitForURL(`**/dashboard/community/people/${ids[1]}`);
     console.log(
       "SOCIAL_BROWSER_OK: posts, likes, reposts, nested replies, follows, direct/global messages, profile; widths 320/390/768/1440; no page errors",
     );
