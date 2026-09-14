@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import type { ChangeEvent } from "react"
 import { toast } from "sonner"
 import {
@@ -32,6 +33,7 @@ import { localize, type Locale } from "@/lib/api/i18n"
 import { useUiI18n } from "@/lib/i18n/ui"
 import { cn } from "@/lib/utils"
 import type { User } from "@/lib/api/types"
+import { ProfileActivity } from "@/components/social/people"
 
 const TIMEZONES = [
   "Asia/Almaty",
@@ -256,6 +258,12 @@ export default function ProfilePage() {
       </div>
 
       {/* Preferences */}
+      {user && <section className="space-y-3">
+        <Link href={`/dashboard/community/people/${user.id}`} className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4">
+          {uiLocale === "kk" ? "Қауымдастықтағы профиль және жазылушылар →" : "Профиль в сообществе и подписчики →"}
+        </Link>
+        <ProfileActivity userId={user.id} />
+      </section>}
       <div className="rounded-2xl border border-border bg-card">
         <div className="flex items-center gap-2 border-b border-border px-6 py-4">
           <Settings2 className="size-4 text-muted-foreground" aria-hidden="true" />

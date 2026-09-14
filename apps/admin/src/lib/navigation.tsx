@@ -49,6 +49,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { key: 'social', path: '/social', group: 'Сервис', menuLabel: 'Сообщество', icon: <FlagOutlined />, title: 'Модерация сообщества', description: 'Жалобы на публикации и ответы участников.' },
   {
     key: 'dashboard',
     path: '/dashboard',

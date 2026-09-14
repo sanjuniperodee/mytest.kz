@@ -1,6 +1,7 @@
 "use client"
 
 import { useUiI18n } from "@/lib/i18n/ui"
+import { rememberInvite } from '@/lib/api/login-return'
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -15,6 +16,8 @@ import {
   History,
   LogOut,
   MoreHorizontal,
+  MessagesSquare,
+  Users,
   Target,
   Trophy,
   User,
@@ -63,9 +66,11 @@ const navigation = [
     label: "Шанс поступления",
     mobileLabel: "Грант",
     icon: GraduationCap,
-    primary: true,
+    primary: false,
   },
   { href: "/dashboard/leaderboard", label: "Лидерборд", icon: Trophy, primary: false },
+  { href: "/dashboard/community", label: "Сообщество", mobileLabel: "Лента", icon: Users, primary: true },
+  { href: "/dashboard/messages", label: "Сообщения", icon: MessagesSquare, primary: false },
   { href: "/dashboard/stats", label: "Статистика", icon: BarChart3, primary: false },
   { href: "/dashboard/history", label: "История", icon: History, primary: false },
   { href: "/dashboard/billing", label: "Тарифы", icon: CreditCard, primary: false },
@@ -85,8 +90,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) router.replace("/login")
-  }, [isAuthenticated, isLoading, router])
+    if (!isLoading && !isAuthenticated) { rememberInvite(pathname); router.replace("/login") }
+  }, [isAuthenticated, isLoading, router, pathname])
 
   useEffect(() => {
     if (
@@ -362,7 +367,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <WhatsAppFab />
+      {!pathname.startsWith("/dashboard/messages") && <WhatsAppFab />}
     </div>
   )
 }

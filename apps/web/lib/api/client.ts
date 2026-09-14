@@ -179,6 +179,17 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
   return payload as T
 }
 
+// Media stays behind JWT authorization. Object URLs are released by the consuming view.
+export async function chatMediaBlob(id: string): Promise<Blob> {
+  const fetchMedia = () => fetch(`${BASE}/social/media/${encodeURIComponent(id)}`, {
+    credentials: 'include', headers: { Authorization: `Bearer ${getAccessToken('user') || ''}` },
+  });
+  let response = await fetchMedia();
+  if (response.status === 401 && await refreshAuthSession('user')) response = await fetchMedia();
+  if (!response.ok) throw new Error('Не удалось загрузить вложение');
+  return response.blob();
+}
+
 // Resolve /uploads/... media paths against the API origin
 export function resolveMediaUrl(path: string | null | undefined): string {
   if (!path) return ""

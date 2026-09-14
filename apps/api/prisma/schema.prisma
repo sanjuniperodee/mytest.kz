@@ -149,6 +149,16 @@ model TestTemplateSection {
 }
 
 model User {
+  socialPosts SocialPost[]
+  socialLikes SocialLike[]
+  socialReposts SocialRepost[]
+  following SocialFollow[] @relation("Following")
+  followers SocialFollow[] @relation("Followers")
+  socialBlocks SocialBlock[] @relation("Blocker")
+  blockedBy SocialBlock[] @relation("Blocked")
+  socialReports SocialReport[]
+  chatMembers ChatMember[]
+  chatMessages ChatMessage[]
   id                   String    @id @default(uuid()) @db.Uuid
   telegramId           BigInt?   @unique @map("telegram_id")
   telegramUsername     String?   @map("telegram_username") @db.VarChar(100)
@@ -193,6 +203,155 @@ model User {
   admissionGoal          UserAdmissionGoal?
 
   @@map("users")
+}
+
+model SocialPost {
+  groupInviteId String? @db.Uuid
+  groupInviteToken String? @db.Uuid
+  groupInvite ChatRoom? @relation(fields: [groupInviteId], references: [id], onDelete: SetNull)
+  id String @id @default(uuid()) @db.Uuid
+  authorId String @db.Uuid
+  body String @db.VarChar(2000)
+  parentId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  deletedAt DateTime? @db.Timestamptz
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent SocialPost? @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies SocialPost[] @relation("Replies")
+  likes SocialLike[]
+  reposts SocialRepost[]
+  reports SocialReport[]
+  @@index([parentId, createdAt, id])
+  @@index([authorId, createdAt, id])
+}
+
+model SocialLike {
+  userId String @db.Uuid
+  postId String @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@id([userId, postId])
+  @@index([postId])
+}
+
+model SocialRepost {
+  userId String @db.Uuid
+  postId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@id([userId, postId])
+  @@index([postId])
+}
+
+model SocialFollow {
+  followerId String @db.Uuid
+  followingId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  follower User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model SocialBlock {
+  blockerId String @db.Uuid
+  blockedId String @db.Uuid
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model SocialReport {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  postId String @db.Uuid
+  reason String @db.VarChar(500)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@unique([userId, postId])
+}
+
+enum ChatKind {
+  direct
+  group
+  global
+}
+
+enum ChatRole {
+  owner
+  admin
+  member
+}
+
+model ChatRoom {
+  kind ChatKind @default(direct)
+  title String? @db.VarChar(100)
+  description String @default("") @db.VarChar(500)
+  inviteToken String? @unique @db.Uuid
+  onlyAdminsPost Boolean @default(false)
+  archived Boolean @default(false)
+  attachments ChatAttachment[]
+  invitePosts SocialPost[]
+  id String @id @default(uuid()) @db.Uuid
+  key String @unique @db.VarChar(100)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+  members ChatMember[]
+  messages ChatMessage[]
+}
+
+model ChatMember {
+  role ChatRole @default(member)
+  muted Boolean @default(false)
+  banned Boolean @default(false)
+  roomId String @db.Uuid
+  userId String @db.Uuid
+  readAt DateTime @default(now()) @db.Timestamptz
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([roomId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  deletedAt DateTime? @db.Timestamptz
+  attachmentId String? @unique @db.Uuid
+  attachment ChatAttachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  id String @id @default(uuid()) @db.Uuid
+  roomId String @db.Uuid
+  authorId String @db.Uuid
+  clientId String @db.Uuid
+  body String @db.VarChar(2000)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  @@unique([authorId, clientId])
+  @@index([roomId, createdAt, id])
+}
+
+model ChatAttachment {
+  id String @id @default(uuid()) @db.Uuid
+  roomId String @db.Uuid
+  uploaderId String @db.Uuid
+  name String @db.VarChar(150)
+  mime String @db.VarChar(80)
+  size Int
+  createdAt DateTime @default(now()) @db.Timestamptz
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  message ChatMessage?
+  @@index([roomId, createdAt])
+}
+
+model ChatModerationAudit {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String @db.Uuid
+  roomId String @db.Uuid
+  action String @db.VarChar(50)
+  targetId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([roomId, createdAt])
 }
 
 /// Cached AI weak-zone analysis of a user's open mistakes (DeepSeek output).

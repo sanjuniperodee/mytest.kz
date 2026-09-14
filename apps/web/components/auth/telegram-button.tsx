@@ -1,5 +1,7 @@
 "use client"
 
+import { loginDestination } from "@/lib/api/login-return"
+
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -42,7 +44,7 @@ export function TelegramButton() {
         })
         setSession(data)
         toast.success("Вы вошли через Telegram")
-        router.replace("/dashboard")
+        router.replace(loginDestination())
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : "Не удалось войти через Telegram"
         toast.error(msg)

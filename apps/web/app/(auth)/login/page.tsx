@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useEffect } from "react"
+import { loginDestination } from '@/lib/api/login-return'
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowRight, Check, Gift, LockKeyhole, Route, Sparkles } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -32,7 +33,7 @@ function LoginContent() {
   const hasGoogle = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) router.replace("/dashboard")
+    if (!isLoading && isAuthenticated) router.replace(loginDestination())
   }, [isAuthenticated, isLoading, router])
 
   if (isLoading) {

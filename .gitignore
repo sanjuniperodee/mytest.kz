@@ -28,3 +28,4 @@ apps/api/backups/db-snapshots/*.dump
 /apps/mytest-v2/
 
 .minimax
+private-chat-media/

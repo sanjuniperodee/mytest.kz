@@ -1,5 +1,7 @@
 "use client"
 
+import { loginDestination } from "@/lib/api/login-return"
+
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -85,7 +87,7 @@ export function PhoneForm() {
       })
       setSession(data)
       toast.success("Добро пожаловать!")
-      router.replace("/dashboard")
+      router.replace(loginDestination())
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Неверный код"
       toast.error(msg)

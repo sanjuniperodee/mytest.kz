@@ -48,6 +48,7 @@ const FinancePage = lazy(() => import('./pages/FinancePage').then((m) => ({ defa
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const LandingSettingsPage = lazy(() => import('./pages/LandingSettingsPage').then((m) => ({ default: m.LandingSettingsPage })));
 const LeadsPage = lazy(() => import('./pages/LeadsPage').then((m) => ({ default: m.LeadsPage })));
+const SocialModerationPage = lazy(() => import('./pages/SocialModerationPage').then((m) => ({ default: m.SocialModerationPage })));
 
 const { Sider, Content, Header } = Layout;
 const { useBreakpoint } = Grid;
@@ -280,6 +281,7 @@ function AdminLayout() {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/landing-settings" element={<LandingSettingsPage />} />
               <Route path="/leads" element={<LeadsPage />} />
+              <Route path="/social" element={<SocialModerationPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </Suspense>

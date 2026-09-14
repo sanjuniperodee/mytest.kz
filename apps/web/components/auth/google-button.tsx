@@ -1,5 +1,7 @@
 "use client"
 
+import { loginDestination } from "@/lib/api/login-return"
+
 import { useEffect, useRef } from "react"
 import Script from "next/script"
 import { useRouter } from "next/navigation"
@@ -42,7 +44,7 @@ export function GoogleButton() {
       })
       setSession(data)
       toast.success("Вы вошли через Google")
-      router.replace("/dashboard")
+      router.replace(loginDestination())
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Не удалось войти через Google"
       toast.error(msg)
