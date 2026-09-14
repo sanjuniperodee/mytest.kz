@@ -599,11 +599,13 @@ function PlanCard({
     const handleKaspiCheckout = async () => {
         const digits = phone.replace(/\D/g, "")
         if (kaspiMethod === "invoice" && digits.length < 10) {
+            void recordFunnelEvent("checkout_error", { provider: "kaspi", reason: "invalid_phone", planCode: plan.code }, sourceSessionId || undefined)
             setError("Введите корректный номер телефона")
             return
         }
         setLoading(true)
         setError(null)
+        void recordFunnelEvent("checkout_attempted", { provider: "kaspi", paymentType: kaspiMethod, planCode: plan.code }, sourceSessionId || undefined)
         try {
             const rawResult = await api<KaspiCheckoutResponse>("/billing/kaspi/checkout", {
                 method: "POST",
@@ -624,6 +626,7 @@ function PlanCard({
                 sessionId: sourceSessionId,
             })
             if (!result.invoiceId) {
+                void recordFunnelEvent("checkout_error", { provider: "kaspi", reason: "missing_invoice", planCode: plan.code }, sourceSessionId || undefined)
                 setError("Платёж создан, но сервер не вернул номер. Обновите страницу и откройте его из блока активных оплат.")
                 return
             }
@@ -632,18 +635,20 @@ function PlanCard({
         } catch (err: unknown) {
             const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err)
             if (msg.includes("KASPI_NOT_AUTHENTICATED")) {
+                void recordFunnelEvent("checkout_error", { provider: "kaspi", reason: "provider_unavailable", planCode: plan.code }, sourceSessionId || undefined)
                 setError(
                     <>
-                        Kaspi не авторизован.{" "}
-                        <Link href="/dashboard/kaspi-setup" className="font-medium underline underline-offset-2">
-                            Настроить сессию
+                        Оплата через Kaspi временно недоступна.{" "}
+                        <Link href="/support" className="font-medium underline underline-offset-2">
+                            Связаться с поддержкой
                         </Link>
-                        {" или обратитесь к поддержке."}
                     </>,
                 )
             } else if (msg.includes("PENDING_ORDER_EXISTS")) {
+                void recordFunnelEvent("checkout_error", { provider: "kaspi", reason: "pending_order", planCode: plan.code }, sourceSessionId || undefined)
                 setError("Активная оплата уже существует. Обновите страницу и продолжите её из блока активных оплат.")
             } else {
+                void recordFunnelEvent("checkout_error", { provider: "kaspi", reason: "request_failed", planCode: plan.code }, sourceSessionId || undefined)
                 setError(kaspiMethod === "qr" ? "Ошибка при создании Kaspi QR. Попробуйте ещё раз." : "Ошибка при создании счёта. Попробуйте ещё раз.")
             }
         } finally {
@@ -652,6 +657,7 @@ function PlanCard({
     }
 
     const handleFreedomCheckout = async () => {
+        void recordFunnelEvent("checkout_attempted", { provider: "freedompay", planCode: plan.code }, sourceSessionId || undefined)
         setLoading(true)
         setError(null)
         try {
@@ -661,10 +667,12 @@ function PlanCard({
             })
             const checkoutUrl = result.checkoutUrl || result.paymentUrl
             if (!checkoutUrl) {
+                void recordFunnelEvent("checkout_error", { provider: "freedompay", reason: "missing_url", planCode: plan.code }, sourceSessionId || undefined)
                 setError("Платёж создан, но ссылка на оплату не пришла. Попробуйте ещё раз.")
                 return
             }
             if (!isAllowedFreedomCheckoutUrl(checkoutUrl)) {
+                void recordFunnelEvent("checkout_error", { provider: "freedompay", reason: "invalid_url", planCode: plan.code }, sourceSessionId || undefined)
                 setError("Платёжная ссылка не прошла проверку безопасности. Обратитесь в поддержку.")
                 return
             }
@@ -680,9 +688,11 @@ function PlanCard({
         } catch (err: unknown) {
             const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err)
             if (msg.includes("FREEDOMPAY_NOT_CONFIGURED")) {
+                void recordFunnelEvent("checkout_error", { provider: "freedompay", reason: "provider_unavailable", planCode: plan.code }, sourceSessionId || undefined)
                 setError("Freedom Pay пока недоступен. Попробуйте Kaspi или обратитесь в поддержку.")
             } else {
                 setError("Ошибка при переходе к оплате картой. Попробуйте ещё раз.")
+                void recordFunnelEvent("checkout_error", { provider: "freedompay", reason: "request_failed", planCode: plan.code }, sourceSessionId || undefined)
             }
         } finally {
             setLoading(false)

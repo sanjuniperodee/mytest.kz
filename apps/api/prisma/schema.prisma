@@ -769,6 +769,7 @@ model TestSession {
   usageLedger            AttemptUsageLedger[]
   funnelSteps            FunnelStep[]
   notificationDeliveries NotificationDelivery[]
+  feedback               TestFeedback?
 
   @@index([userId, startedAt])
   @@index([userId, status, finishedAt], map: "test_sessions_user_status_finished_idx")
@@ -778,6 +779,23 @@ model TestSession {
   @@index([visitId])
   @@index([status, finishedAt])
   @@map("test_sessions")
+}
+
+model TestFeedback {
+  sessionId String @id @map("session_id") @db.Uuid
+  rating Int?
+  blocker String? @db.VarChar(32)
+  intent String? @db.VarChar(20)
+  comment String? @db.VarChar(1000)
+  locale String @default("ru") @db.VarChar(2)
+  shownAt DateTime? @map("shown_at") @db.Timestamptz
+  skippedAt DateTime? @map("skipped_at") @db.Timestamptz
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([submittedAt])
+  @@index([shownAt])
+  @@map("test_feedback")
 }
 
 model TestAnswer {

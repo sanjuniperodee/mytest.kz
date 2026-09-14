@@ -51,6 +51,7 @@ import {
 } from "@/components/exam/rich-text"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
+import { TestFeedback } from "@/components/exam/test-feedback"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import {
@@ -316,6 +317,8 @@ export default function ReviewPage({
               weakSections={weakSections}
               hasPremium={hasPremium}
             />
+
+            <TestFeedback key={sessionId} sessionId={sessionId} />
 
             {/* Sections + questions */}
             {sections.map((sec) => {

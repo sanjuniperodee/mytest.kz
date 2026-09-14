@@ -14,6 +14,8 @@ const ALLOWED_FUNNEL_EVENTS = new Set([
   'billing_opened',
   'plan_selected',
   'checkout_created',
+  'checkout_attempted',
+  'checkout_error',
   'payment_opened',
   'payment_paid',
   'payment_failed',
@@ -183,10 +185,19 @@ export class AnalyticsService {
     });
     if (!visit) return { recorded: false, reason: 'NO_VISIT' };
 
+    // Retry noise may be deduplicated, but a different checkout failure or plan
+    // within the same 30 seconds is a separate diagnostic event.
+    const checkoutDimensions: Prisma.FunnelStepWhereInput[] =
+      step === 'checkout_attempted' || step === 'checkout_error'
+        ? ['provider', 'reason', 'planCode', 'paymentType']
+            .filter((key) => typeof data.metadata?.[key] === 'string')
+            .map((key) => ({ metadata: { path: [key], equals: data.metadata![key] as string } }))
+        : [];
     const recentDuplicate = await this.prisma.funnelStep.findFirst({
       where: {
         visitId: visit.id,
         step,
+        AND: checkoutDimensions,
         ...(data.sessionId ? { sessionId: data.sessionId } : {}),
         timestamp: { gte: new Date(Date.now() - 30_000) },
       },

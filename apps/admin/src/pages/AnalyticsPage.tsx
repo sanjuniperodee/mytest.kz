@@ -25,6 +25,7 @@ import { PlatformFunnelBarChart } from '../components/PlatformFunnelBarChart';
 import { AdminPageShell } from '../components/AdminPageShell';
 import { PageHero } from '../components/PageHero';
 import { HigTableCard } from '../components/HigBlocks';
+import { GrowthAnalytics } from '../components/GrowthAnalytics';
 
 const df = 'YYYY-MM-DD';
 const PAGE_SIZE = 50;
@@ -302,6 +303,7 @@ export function AnalyticsPage() {
         activeKey={activeTab}
         onChange={setActiveTab}
         items={[
+          { key: 'growth', label: 'Продажи и фидбек', children: <GrowthAnalytics key={`${from}:${to}`} from={from} to={to} /> },
           {
             key: 'summary',
             label: 'Сводка',

@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { AdminAnalyticsService } from './services/admin-analytics.service';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { GrowthAnalyticsService } from '../analytics/growth-analytics.service';
 
 @Controller('admin/analytics')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -10,11 +11,17 @@ export class AdminAnalyticsController {
   constructor(
     private adminAnalyticsService: AdminAnalyticsService,
     private analyticsService: AnalyticsService,
+    private growthAnalytics: GrowthAnalyticsService,
   ) {}
 
   @Get('overview')
   async getOverview() {
     return this.adminAnalyticsService.getAnalyticsOverview();
+  }
+
+  @Get('growth')
+  growth(@Query('from') from?: string, @Query('to') to?: string, @Query('page') page?: string) {
+    return this.growthAnalytics.report(from, to, page === undefined ? 1 : Number(page));
   }
 
   @Get('ent-trials')
