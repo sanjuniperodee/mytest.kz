@@ -180,6 +180,17 @@ export function Composer({
   );
 }
 
+function AnimatedCounter({ value }: { value: string | number }) {
+  return (
+    <span
+      key={String(value)}
+      className="inline-block transition-transform duration-200 tabular-nums motion-safe:animate-in motion-safe:fade-in-50 motion-safe:zoom-in-95"
+    >
+      {value}
+    </span>
+  );
+}
+
 const viewedPosts = new Set<string>();
 
 export function PostCard({
@@ -193,11 +204,86 @@ export function PostCard({
   const t = useSocialText();
   const [busy, setBusy] = useState(false);
 
+  const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
+  const [optimisticLikesDelta, setOptimisticLikesDelta] = useState(0);
+  const [optimisticReposted, setOptimisticReposted] = useState<boolean | null>(null);
+  const [optimisticRepostsDelta, setOptimisticRepostsDelta] = useState(0);
+
+  const isLikedServer = post.likes.some((l) => l.userId === user?.id);
+  const isRepostedServer = post.reposts.some((r) => r.userId === user?.id);
+
+  const liked = optimisticLiked !== null ? optimisticLiked : isLikedServer;
+  const likesCount = Math.max(0, post._count.likes + optimisticLikesDelta);
+
+  const reposted = optimisticReposted !== null ? optimisticReposted : isRepostedServer;
+  const repostsCount = Math.max(0, post._count.reposts + optimisticRepostsDelta);
+
+  useEffect(() => {
+    if (optimisticLiked !== null && isLikedServer === optimisticLiked) {
+      setOptimisticLiked(null);
+      setOptimisticLikesDelta(0);
+    }
+  }, [isLikedServer, optimisticLiked]);
+
+  useEffect(() => {
+    if (optimisticReposted !== null && isRepostedServer === optimisticReposted) {
+      setOptimisticReposted(null);
+      setOptimisticRepostsDelta(0);
+    }
+  }, [isRepostedServer, optimisticReposted]);
+
   useEffect(() => {
     if (!post.id || viewedPosts.has(post.id)) return;
     viewedPosts.add(post.id);
     api(`/social/posts/${post.id}/view`, { method: "POST" }).catch(() => {});
   }, [post.id]);
+
+  async function toggleLike() {
+    if (busy) return;
+    const next = !liked;
+    const delta = next ? 1 : -1;
+    setOptimisticLiked(next);
+    setOptimisticLikesDelta((prev) => prev + delta);
+
+    try {
+      await api(`/social/posts/${post.id}/like`, {
+        method: next ? "PUT" : "DELETE",
+      });
+      await refresh();
+    } catch (e) {
+      setOptimisticLiked(null);
+      setOptimisticLikesDelta(0);
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : t("Не удалось сохранить", "Сақтау мүмкін болмады"),
+      );
+    }
+  }
+
+  async function toggleRepost() {
+    if (busy) return;
+    const next = !reposted;
+    const delta = next ? 1 : -1;
+    setOptimisticReposted(next);
+    setOptimisticRepostsDelta((prev) => prev + delta);
+
+    try {
+      await api(`/social/posts/${post.id}/repost`, {
+        method: next ? "PUT" : "DELETE",
+      });
+      await refresh();
+    } catch (e) {
+      setOptimisticReposted(null);
+      setOptimisticRepostsDelta(0);
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : t("Не удалось сохранить", "Сақтау мүмкін болмады"),
+      );
+    }
+  }
+
   async function act(
     path: string,
     method: "PUT" | "DELETE" | "POST",
@@ -337,32 +423,30 @@ export function PostCard({
               size="sm"
               disabled={busy}
               aria-label={t("Нравится", "Ұнайды")}
-              aria-pressed={post.likes.length > 0}
+              aria-pressed={liked}
               className={cn(
-                "min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground",
-                post.likes.length > 0 && "text-rose-500",
+                "min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95",
+                liked && "text-rose-500",
               )}
-              onClick={() =>
-                void act("/like", post.likes.length ? "DELETE" : "PUT")
-              }
+              onClick={() => void toggleLike()}
             >
               <Heart
                 className={cn(
-                  "size-[18px]",
-                  post.likes.length > 0 && "fill-current",
+                  "size-[18px] transition-transform duration-200 active:scale-75",
+                  liked && "fill-current scale-110",
                 )}
               />
-              {post._count.likes}
+              <AnimatedCounter value={likesCount} />
             </Button>
             <Button
               asChild
               variant="ghost"
               size="sm"
-              className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground"
+              className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95"
             >
               <Link href={href} aria-label={t("Комментарии", "Пікірлер")}>
-                <MessageCircle className="size-[18px]" />
-                {post._count.replies}
+                <MessageCircle className="size-[18px] transition-transform duration-200 active:scale-75" />
+                <AnimatedCounter value={post._count.replies} />
               </Link>
             </Button>
             <Button
@@ -370,25 +454,28 @@ export function PostCard({
               size="sm"
               disabled={busy}
               aria-label={t("Репост", "Репост")}
-              aria-pressed={post.reposts.length > 0}
+              aria-pressed={reposted}
               className={cn(
-                "min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground",
-                post.reposts.length > 0 && "text-emerald-600",
+                "min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95",
+                reposted && "text-emerald-600",
               )}
-              onClick={() =>
-                void act("/repost", post.reposts.length ? "DELETE" : "PUT")
-              }
+              onClick={() => void toggleRepost()}
             >
-              <Repeat2 className="size-[18px]" />
-              {post._count.reposts}
+              <Repeat2
+                className={cn(
+                  "size-[18px] transition-transform duration-200 active:scale-75",
+                  reposted && "scale-110",
+                )}
+              />
+              <AnimatedCounter value={repostsCount} />
             </Button>
             <div
               className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs sm:text-sm text-muted-foreground select-none"
               title={t("Просмотры", "Қаралымдар")}
               aria-label={t("Просмотры", "Қаралымдар")}
             >
-              <Eye className="size-[18px]" />
-              <span>{formatViews(post.views ?? 0)}</span>
+              <Eye className="size-[18px] transition-transform duration-200" />
+              <AnimatedCounter value={formatViews(post.views ?? 0)} />
             </div>
             <Button
               variant="ghost"
@@ -439,7 +526,12 @@ export function PostList({
           ? null
           : `/social/posts?${query}${parentId ? `&parentId=${parentId}` : ""}${index ? `&cursor=${previous?.nextCursor}` : ""}`,
       (path: string) => api<Page<Post>>(path),
-      { revalidateOnFocus: true },
+      {
+        revalidateOnFocus: true,
+        revalidateAll: false,
+        refreshInterval: 4000,
+        refreshWhenHidden: false,
+      },
     );
   const posts = [
     ...new Map(

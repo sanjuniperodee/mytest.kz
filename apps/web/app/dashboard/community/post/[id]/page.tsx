@@ -17,6 +17,11 @@ export default function ThreadPage() {
   const { data, error, isLoading, mutate } = useSWR<Post>(
     `/social/posts/${id}`,
     (path: string) => api<Post>(path),
+    {
+      revalidateOnFocus: true,
+      refreshInterval: 4000,
+      refreshWhenHidden: false,
+    },
   );
   return (
     <CommunityFrame>
