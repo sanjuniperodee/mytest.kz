@@ -137,7 +137,7 @@ export function Conversation({
             variant="outline"
             size="sm"
             disabled={isValidating}
-            className="mx-auto flex rounded-full"
+            className="mx-auto flex"
             onClick={async () => {
               const el = scroller.current;
               const before = el?.scrollHeight || 0;

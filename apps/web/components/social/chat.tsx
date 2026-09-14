@@ -58,14 +58,14 @@ export function ChatPage() {
           {t("Сообщения", "Хабарламалар")}
         </h1>
         <CreateGroup onCreated={() => void mutate()} />
-        <Button asChild variant="outline" size="sm" className="rounded-full">
+        <Button asChild variant="outline" size="sm">
           <Link href="/dashboard/community/people">
             <Plus className="size-4" />
             {t("Новый чат", "Жаңа чат")}
           </Link>
         </Button>
       </div>
-      <div className="flex h-[calc(100dvh-16rem)] min-h-[390px] overflow-hidden rounded-3xl border border-border bg-background md:h-[min(720px,calc(100dvh-13rem))]">
+      <div className="flex h-[calc(100dvh-22rem)] min-h-[390px] overflow-hidden rounded-xl border border-border bg-background lg:h-[min(720px,calc(100dvh-13rem))]">
         <aside
           className={cn(
             "w-full shrink-0 flex-col border-r border-border md:flex md:w-64",
@@ -184,7 +184,7 @@ export function ChatPage() {
           />
         ) : (
           <div className="hidden flex-1 flex-col items-center justify-center p-6 text-center md:flex">
-            <div className="mb-5 rounded-3xl bg-emerald-500/10 p-5">
+            <div className="mb-5 rounded-xl bg-emerald-500/10 p-5">
               <MessageCircle className="size-9 text-emerald-600" />
             </div>
             <h2 className="text-xl font-semibold">
