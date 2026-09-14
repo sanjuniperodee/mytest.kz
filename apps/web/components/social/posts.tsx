@@ -86,7 +86,7 @@ export function Composer({
   return (
     <form
       onSubmit={submit}
-      className="rounded-3xl border border-border bg-background p-4 sm:p-5"
+      className="rounded-xl border border-border bg-background p-4 sm:p-5"
     >
       <div className="flex gap-3">
         {user && (
@@ -196,9 +196,11 @@ const viewedPosts = new Set<string>();
 export function PostCard({
   post,
   refresh,
+  nested = false,
 }: {
   post: Post;
   refresh: () => void | Promise<unknown>;
+  nested?: boolean;
 }) {
   const { user } = useAuth();
   const t = useSocialText();
@@ -208,6 +210,8 @@ export function PostCard({
   const [optimisticLikesDelta, setOptimisticLikesDelta] = useState(0);
   const [optimisticReposted, setOptimisticReposted] = useState<boolean | null>(null);
   const [optimisticRepostsDelta, setOptimisticRepostsDelta] = useState(0);
+  const [replying, setReplying] = useState(false);
+  const [repliesOpen, setRepliesOpen] = useState(false);
 
   const isLikedServer = post.likes.some((l) => l.userId === user?.id);
   const isRepostedServer = post.reposts.some((r) => r.userId === user?.id);
@@ -438,17 +442,26 @@ export function PostCard({
               />
               <AnimatedCounter value={likesCount} />
             </Button>
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95"
-            >
-              <Link href={href} aria-label={t("Комментарии", "Пікірлер")}>
+            {nested ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95"
+                aria-label={t("Ответить", "Жауап беру")}
+                aria-expanded={replying}
+                onClick={() => setReplying((value) => !value)}
+              >
+                  <MessageCircle className="size-[18px] transition-transform duration-200 active:scale-75" />
+                  <AnimatedCounter value={post._count.replies} />
+              </Button>
+            ) : (
+              <Button asChild variant="ghost" size="sm" className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95">
+                <Link href={href} aria-label={t("Комментарии", "Пікірлер")}>
                 <MessageCircle className="size-[18px] transition-transform duration-200 active:scale-75" />
                 <AnimatedCounter value={post._count.replies} />
-              </Link>
-            </Button>
+                </Link>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -501,6 +514,37 @@ export function PostCard({
               <Share2 className="size-4" />
             </Button>
           </div>
+          {nested && replying && (
+            <div className="mt-3">
+              <Composer
+                parentId={post.id}
+                onDone={async () => {
+                  setReplying(false);
+                  await refresh();
+                }}
+              />
+            </div>
+          )}
+          {nested && post._count.replies > 0 && (
+            <button
+              type="button"
+              className="mt-2 min-h-9 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              aria-expanded={repliesOpen}
+              onClick={() => setRepliesOpen((value) => !value)}
+            >
+              {repliesOpen
+                ? t("Скрыть ответы", "Жауаптарды жасыру")
+                : t(
+                    `Посмотреть все ответы (${post._count.replies})`,
+                    `Барлық жауапты көру (${post._count.replies})`,
+                  )}
+            </button>
+          )}
+          {nested && repliesOpen && (
+            <div className="mt-2 border-l-2 border-border pl-2 sm:pl-4">
+              <PostList parentId={post.id} nested />
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -512,11 +556,13 @@ export function PostList({
   composer = false,
   parentId,
   onChange,
+  nested = false,
 }: {
   query?: string;
   composer?: boolean;
   parentId?: string;
   onChange?: () => void | Promise<unknown>;
+  nested?: boolean;
 }) {
   const t = useSocialText();
   const { data, error, isLoading, isValidating, mutate, size, setSize } =
@@ -549,14 +595,14 @@ export function PostList({
           }}
         />
       )}
-      <div className="overflow-hidden rounded-3xl border border-border bg-background">
+      <div className={cn("overflow-hidden bg-background", nested ? "rounded-lg border border-border/70" : "rounded-xl border border-border")}>
         <LoadState
           loading={isLoading}
           error={error}
           retry={() => void mutate()}
         />
         {posts.map((post) => (
-          <PostCard key={post.id} post={post} refresh={() => mutate()} />
+          <PostCard key={post.id} post={post} refresh={() => mutate()} nested={nested || Boolean(parentId)} />
         ))}
         {!isLoading && !error && !posts.length && (
           <div className="px-6 py-14 text-center">

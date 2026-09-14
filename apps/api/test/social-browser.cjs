@@ -6,13 +6,14 @@ const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const { mkdir } = require("node:fs/promises");
 const { Test } = require("@nestjs/testing");
-const { ConfigService } = require("@nestjs/config");
+const { ConfigModule, ConfigService } = require("@nestjs/config");
 const { JwtService } = require("@nestjs/jwt");
 const { chromium } = require("playwright");
 const { SocialModule } = require("../dist/modules/social/social.module");
 const { PostsService } = require("../dist/modules/social/posts.service");
 const { ChatsService } = require("../dist/modules/social/chats.service");
 const { PrismaService } = require("../dist/database/prisma.service");
+const { REDIS_CLIENT } = require("../dist/database/redis.module");
 const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
 
 (async () => {
@@ -23,7 +24,7 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
   );
   process.env.DATABASE_URL = url;
   const module = await Test.createTestingModule({
-    imports: [SocialModule],
+    imports: [ConfigModule.forRoot({ isGlobal: true }), SocialModule],
     providers: [
       JwtStrategy,
       {
@@ -31,7 +32,10 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
         useValue: new ConfigService({ JWT_SECRET: "browser-test-only" }),
       },
     ],
-  }).compile();
+  })
+    .overrideProvider(REDIS_CLIENT)
+    .useValue({ set: async () => "OK", ping: async () => "PONG", quit: async () => "OK" })
+    .compile();
   const app = module.createNestApplication();
   app.setGlobalPrefix("api/v1");
   const db = module.get(PrismaService),
@@ -176,21 +180,25 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
     await page
       .getByText("Крутой результат! Продолжай 🙌", { exact: true })
       .waitFor();
-    await page
+    const firstReply = page
       .locator("article")
       .filter({ hasText: "Крутой результат!" })
-      .getByRole("link", { name: "Комментарии", exact: true })
+      .last();
+    await firstReply
+      .getByRole("button", { name: "Ответить", exact: true })
+      .first()
       .click();
-    await page.waitForURL(
-      (u) => u.pathname.includes("/post/") && !u.pathname.endsWith(first.id),
-    );
-    await page
+    await firstReply
       .getByLabel("Текст публикации")
       .fill("Ответ на ответ из браузера");
-    await page.getByRole("button", { name: "Ответить", exact: true }).click();
-    await page
+    await firstReply.locator("form").getByRole("button", { name: "Ответить", exact: true }).click();
+    await firstReply
+      .getByRole("button", { name: /Посмотреть все ответы \(1\)/ })
+      .click();
+    await firstReply
       .getByText("Ответ на ответ из браузера", { exact: true })
       .waitFor();
+    assert.equal(new URL(page.url()).pathname, `/dashboard/community/post/${first.id}`);
     await page.goto(
       `http://localhost:4318/dashboard/community/people/${ids[1]}`,
     );
