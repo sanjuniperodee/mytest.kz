@@ -215,6 +215,7 @@ model SocialPost {
   parentId String? @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz
   deletedAt DateTime? @db.Timestamptz
+  views Int @default(0)
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parent SocialPost? @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
   replies SocialPost[] @relation("Replies")

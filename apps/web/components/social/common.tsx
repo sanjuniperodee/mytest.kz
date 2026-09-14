@@ -28,7 +28,18 @@ export type Post = {
   _count: { likes: number; replies: number; reposts: number };
   likes: { userId: string }[];
   reposts: { userId: string }[];
+  views?: number;
 };
+export function formatViews(views?: number): string {
+  const n = views ?? 0;
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) {
+    const k = n / 1000;
+    return `${k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, "")}K`;
+  }
+  const m = n / 1_000_000;
+  return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace(/\.0$/, "")}M`;
+}
 export type Page<T> = { items: T[]; nextCursor: string | null };
 export const personName = (p: Person) =>
   [p.firstName, p.lastName].filter(Boolean).join(" ") || "mytest user";

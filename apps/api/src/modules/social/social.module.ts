@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../database/prisma.module";
+import { RedisModule } from "../../database/redis.module";
 import { AdminGuard } from "../../common/guards/admin.guard";
 import { PostsService } from "./posts.service";
 import { PeopleService } from "./people.service";
@@ -18,7 +19,7 @@ import { SocialAdminController } from "./social-admin.controller";
 import { ModerationService } from "./moderation.service";
 import { ChatRepository } from "./infrastructure/chat.repository";
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, RedisModule],
   controllers: [
     PostsController,
     PeopleController,

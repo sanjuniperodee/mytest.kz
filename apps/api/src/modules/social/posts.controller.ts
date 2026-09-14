@@ -87,4 +87,10 @@ export class PostsController {
   ) {
     return this.service.report(user, id, body.reason);
   }
+  @Post("posts/:id/view") view(
+    @CurrentUser("id") user: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.service.view(user, id);
+  }
 }

@@ -14,6 +14,7 @@ import {
   Send,
   Trash2,
   Flag,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api/client";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
+  formatViews,
   LoadState,
   Page,
   PersonAvatar,
@@ -178,6 +180,8 @@ export function Composer({
   );
 }
 
+const viewedPosts = new Set<string>();
+
 export function PostCard({
   post,
   refresh,
@@ -188,6 +192,12 @@ export function PostCard({
   const { user } = useAuth();
   const t = useSocialText();
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!post.id || viewedPosts.has(post.id)) return;
+    viewedPosts.add(post.id);
+    api(`/social/posts/${post.id}/view`, { method: "POST" }).catch(() => {});
+  }, [post.id]);
   async function act(
     path: string,
     method: "PUT" | "DELETE" | "POST",
@@ -372,6 +382,14 @@ export function PostCard({
               <Repeat2 className="size-[18px]" />
               {post._count.reposts}
             </Button>
+            <div
+              className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs sm:text-sm text-muted-foreground select-none"
+              title={t("Просмотры", "Қаралымдар")}
+              aria-label={t("Просмотры", "Қаралымдар")}
+            >
+              <Eye className="size-[18px]" />
+              <span>{formatViews(post.views ?? 0)}</span>
+            </div>
             <Button
               variant="ghost"
               size="icon"

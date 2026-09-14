@@ -139,6 +139,11 @@ suite("social HTTP + PostgreSQL", () => {
       .set(auth(1))
       .expect(200);
     expect(result.body._count).toEqual({ likes: 1, reposts: 1, replies: 1 });
+    expect(typeof result.body.views).toBe("number");
+    await request(app.getHttpServer())
+      .post(`/social/posts/${post}/view`)
+      .set(auth(1))
+      .expect(201);
     for (const query of [
       `tab=following`,
       `tab=reposts&authorId=${ids[1]}`,

@@ -1,11 +1,15 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import type Redis from "ioredis";
 import { PrismaService } from "../../database/prisma.service";
+import { REDIS_CLIENT } from "../../database/redis.module";
 import { SocialAccessService } from "./social-access.service";
 import { ChatAccessService } from "./chat-access.service";
 import { FeedDto, MessageDto, PeopleDto, PostDto } from "./social.dto";
@@ -16,6 +20,7 @@ export class PostsService {
     private readonly db: PrismaService,
     private readonly socialAccess: SocialAccessService,
     private readonly chatAccess: ChatAccessService,
+    @Optional() @Inject(REDIS_CLIENT) private readonly redis?: Redis,
   ) {}
   private include(user: string) {
     return {
@@ -69,6 +74,7 @@ export class PostsService {
     if (!post || post.deletedAt)
       throw new NotFoundException("Публикация недоступна");
     await this.socialAccess.allowed(user, post.authorId);
+    void this.view(user, id).catch(() => {});
     return post;
   }
   async create(user: string, data: PostDto) {
@@ -152,6 +158,35 @@ export class PostsService {
       create: { userId: user, postId: id, reason },
       update: { reason },
     });
+    return { ok: true };
+  }
+  async view(user: string, id: string) {
+    const post = await this.db.socialPost.findUnique({
+      where: { id },
+      select: { id: true, deletedAt: true, authorId: true },
+    });
+    if (!post || post.deletedAt)
+      throw new NotFoundException("Публикация недоступна");
+    await this.socialAccess.allowed(user, post.authorId);
+
+    let shouldIncrement = true;
+    if (this.redis) {
+      try {
+        const key = `post:view:${id}:${user}`;
+        const set = await this.redis.set(key, "1", "EX", 86400, "NX");
+        shouldIncrement = set === "OK";
+      } catch {
+        shouldIncrement = true;
+      }
+    }
+    if (shouldIncrement) {
+      await this.db.socialPost
+        .update({
+          where: { id },
+          data: { views: { increment: 1 } },
+        })
+        .catch(() => {});
+    }
     return { ok: true };
   }
 }
