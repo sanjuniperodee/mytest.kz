@@ -1,528 +1,117 @@
 "use client"
 
-import { useUiI18n } from "@/lib/i18n/ui"
-
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { toast } from "sonner"
-import {
-  AlertTriangle,
-  ArrowRight,
-  BookOpen,
-  BrainCircuit,
-  Crown,
-  Play,
-  Sparkles,
-  Target,
-  TrendingDown,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowRight, BookOpen, CheckCheck, Crown, Play, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Spinner } from "@/components/ui/spinner"
-import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ScoreProjection } from "@/components/dashboard/score-projection"
-import { PageHeader } from "@/components/dashboard/page-header"
-import { api, ApiError } from "@/lib/api/client"
-import { recordFunnelEvent } from "@/lib/api/analytics"
+import { MistakesPracticeDialog } from "@/components/dashboard/mistakes-practice-dialog"
+import { useUiI18n } from "@/lib/i18n/ui"
 import { useAuth } from "@/lib/api/auth-context"
 import { localize } from "@/lib/api/i18n"
-import type { ExamType, MistakesSummary, TestSession } from "@/lib/api/types"
+import { recordFunnelEvent } from "@/lib/api/analytics"
+import type { MistakesSummary } from "@/lib/api/types"
+
+type PracticeScope = { examTypeId: string; subjectId?: string }
+const subjectHref = (subject: MistakesSummary["openBySubject"][number]) =>
+  `/dashboard/mistakes/subjects/${subject.subjectId}?examTypeId=${encodeURIComponent(subject.examTypeId)}`
 
 export default function MistakesPage() {
-  const router = useRouter()
   const { user, refresh } = useAuth()
   const { locale } = useUiI18n()
-  const { data: summary, isLoading } = useSWR<MistakesSummary>("/tests/mistakes/summary")
-  const { data: examTypes } = useSWR<ExamType[]>("/exams/types")
+  const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
+  const { data, error, isLoading, isValidating, mutate } = useSWR<MistakesSummary>("/tests/mistakes/summary")
+  const [examFilter, setExamFilter] = useState("all")
+  const [practice, setPractice] = useState<PracticeScope | null>(null)
+  const practiceTrigger = useRef<HTMLButtonElement | null>(null)
+  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const exams = data?.openByExam ?? []
+  const subjects = [...(data?.openBySubject ?? [])].sort((a, b) => b.count - a.count)
+  const selectedExam = exams.some(exam => exam.examTypeId === examFilter) ? examFilter : "all"
+  const visibleSubjects = subjects.filter(subject => selectedExam === "all" || subject.examTypeId === selectedExam)
+  const recommended = subjects[0]
+  const total = data?.openTotal ?? 0
+  const recoveries = data?.recentRecoveries?.slice(0, 3) ?? []
 
-  const [examTypeId, setExamTypeId] = useState<string>("all")
-  const [subjectId, setSubjectId] = useState<string>("all")
-  const [language, setLanguage] = useState<"ru" | "kk">("ru")
-  const [limit, setLimit] = useState(20)
-  const [duration, setDuration] = useState(30)
-  const [starting, setStarting] = useState(false)
-  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  useEffect(() => { void refresh({ silent: true }) }, [refresh])
 
-  const total = summary?.openTotal ?? 0
-  const byExam = summary?.openByExam ?? []
-  const bySubject = summary?.openBySubject ?? []
-  const examsById = useMemo(
-    () => new Map<string, ExamType>((examTypes || []).map((exam) => [exam.id, exam])),
-    [examTypes],
-  )
-  const examOptions = useMemo(
-    () =>
-      byExam.map((row) => {
-        const exam = examsById.get(row.examTypeId)
-        return {
-          id: row.examTypeId,
-          name: localize(exam?.name ?? row.examName, locale, "Экзамен"),
-          count: row.count,
-        }
-      }),
-    [byExam, examsById, locale],
-  )
-  const subjectOptions = useMemo(
-    () =>
-      bySubject
-        .filter((row) => examTypeId === "all" || row.examTypeId === examTypeId)
-        .map((row) => {
-          const exam = examsById.get(row.examTypeId)
-          const examName = localize(exam?.name ?? row.examName, locale, "Экзамен")
-          const subjectName = localize(row.subjectName, locale, "Предмет")
-          return {
-            id: row.subjectId,
-            examTypeId: row.examTypeId,
-            label: examTypeId === "all" ? `${subjectName} · ${examName}` : subjectName,
-            shortLabel: subjectName,
-            count: row.count,
-          }
-        }),
-    [bySubject, examTypeId, examsById, locale],
-  )
-
-  // Top weak subjects for the weakness chart
-  const topWeakSubjects = useMemo(
-    () => [...subjectOptions].sort((a, b) => b.count - a.count).slice(0, 6),
-    [subjectOptions],
-  )
-  const maxSubjectCount = topWeakSubjects[0]?.count ?? 1
-
-  useEffect(() => {
-    void refresh({ silent: true })
-  }, [refresh])
-
-  useEffect(() => {
-    if (subjectId === "all") return
-    if (!subjectOptions.some((subject) => subject.id === subjectId)) {
-      setSubjectId("all")
-    }
-  }, [subjectId, subjectOptions])
-
-  useEffect(() => {
-    setLanguage(locale === "kk" ? "kk" : "ru")
-  }, [locale])
-
-  const launch = async (scope: { examTypeId?: string; subjectId?: string; topicId?: string }) => {
-    setStarting(true)
-    try {
-      const session = await api<TestSession>("/tests/mistakes/practice", {
-        method: "POST",
-        body: {
-          language,
-          examTypeId: scope.examTypeId,
-          subjectId: scope.subjectId,
-          topicId: scope.topicId,
-          limit,
-          durationMins: duration,
-        },
-      })
-      router.push(`/exam/${session.id}`)
-    } catch (err) {
-      let message = "Не удалось запустить практику"
-      if (err instanceof ApiError) {
-        if (err.message === "EXAM_TYPE_REQUIRED") {
-          message = "Выберите конкретный экзамен"
-        } else if (err.message === "NO_OPEN_MISTAKES_FOR_SUBJECT") {
-          message = "По этому предмету нет открытых ошибок"
-        } else if (err.message === "NO_OPEN_MISTAKES_FOR_TOPIC") {
-          message = "По этой теме нет открытых ошибок"
-        } else if (err.message === "NO_OPEN_MISTAKES") {
-          message = "Открытых ошибок пока нет"
-        } else if (err.status === 402 || err.status === 403) {
-          void recordFunnelEvent("premium_gate", { feature: "mistakes_practice" })
-          router.push("/dashboard/billing?reason=mistakes_practice")
-          return
-        } else {
-          message = err.message
-        }
-      }
-      toast.error(message)
-      setStarting(false)
-    }
+  const openPractice = (scope: PracticeScope, trigger: HTMLButtonElement) => {
+    practiceTrigger.current = trigger
+    setPractice(scope)
   }
 
-  const start = () =>
-    launch({
-      examTypeId: examTypeId === "all" ? undefined : examTypeId,
-      subjectId: subjectId === "all" ? undefined : subjectId,
-    })
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Работа над ошибками"
-        eyebrowIcon={Target}
-        title="Мои ошибки"
-        description="Прорабатывайте вопросы, в которых ранее ошиблись, чтобы закрыть пробелы быстрее"
-      />
-
-      {/* Deterministic score projection — visible to everyone, updates live */}
-      {!isLoading && <ScoreProjection impact={summary?.scoreImpact} />}
-
-      {/* Summary stats */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardContent className="flex flex-col gap-2 p-5">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Target className="size-4" />
-              <span className="text-xs font-medium uppercase tracking-wide">
-                Всего ошибок
-              </span>
-            </div>
-            {isLoading ? (
-              <Skeleton className="h-9 w-20" />
-            ) : (
-              <span className="text-4xl font-semibold tabular-nums">{total}</span>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Каждая отработанная ошибка приближает к высокому баллу
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingDown className="size-4 text-destructive" />
-              По экзаменам
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-9" />
-                ))}
-              </div>
-            ) : examOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Пока нет ошибок — отлично!
-              </p>
-            ) : (
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {examOptions.map((exam) => (
-                  <li
-                    key={exam.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2"
-                  >
-                    <span className="truncate text-sm font-medium">
-                      {exam.name}
-                    </span>
-                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-destructive">
-                      {exam.count}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+  return <div className="flex min-w-0 flex-col gap-6" data-no-translate>
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("Работа над ошибками", "Қателермен жұмыс")}</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{t("Мои ошибки", "Менің қателерім")}</h1>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{t("Разберите сложные вопросы и закрепите то, что пока не получилось.", "Қиын сұрақтарды талдап, әлі меңгермеген тақырыптарды бекітіңіз.")}</p>
       </div>
+      <Link href="/dashboard/history" className="inline-flex min-h-10 items-center gap-2 text-sm font-medium hover:underline">{t("История пробных", "Сынақтар тарихы")}<ArrowRight className="size-4" /></Link>
+    </header>
 
-      {/* Weakness analysis — visible to all users as a teaser */}
-      {(isLoading || topWeakSubjects.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="size-4 text-amber-500" />
-              Слабые места по предметам
-              {!hasPremium && (
-                <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                  Только просмотр
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {isLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8" />
-                ))}
-              </div>
-            ) : topWeakSubjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Ошибок пока нет.</p>
-            ) : (
-              <>
-                {topWeakSubjects.map((subject, i) => {
-                  const pct = Math.round((subject.count / maxSubjectCount) * 100)
-                  const isTop = i === 0
-                  return (
-                    <Link
-                      key={`${subject.examTypeId}:${subject.id}`}
-                      href={`/dashboard/mistakes/subjects/${subject.id}?examTypeId=${subject.examTypeId}`}
-                      className="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-secondary/60"
-                    >
-                      <span
-                        className={`w-5 text-center text-xs font-semibold tabular-nums ${
-                          isTop ? "text-destructive" : "text-muted-foreground"
-                        }`}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="w-36 shrink-0 truncate text-sm font-medium">
-                        {subject.shortLabel}
-                      </span>
-                      <div className="flex flex-1 items-center gap-2">
-                        <Progress
-                          value={pct}
-                          className={`h-2 flex-1 ${isTop ? "[&>div]:bg-destructive" : "[&>div]:bg-amber-400"}`}
-                        />
-                        <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
-                          {subject.count}
-                        </span>
-                      </div>
-                    </Link>
-                  )
-                })}
-                {!hasPremium && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Выше — твоя карта слабых мест. Оформи Premium, чтобы открыть
-                    AI-разбор, уроки и тренировки внутри каждого предмета.
-                  </p>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+    {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+      <p>{t("Не удалось обновить ошибки. Попробуйте загрузить их ещё раз.", "Қателерді жаңарту мүмкін болмады. Қайта жүктеп көріңіз.")}</p>
+      <Button variant="outline" size="sm" disabled={isValidating} onClick={() => { void mutate().catch(() => {}) }}>{t("Повторить загрузку", "Қайта жүктеу")}</Button>
+    </div>}
 
-      {(isLoading || topWeakSubjects.length > 0) && (
-        <Card className="border-violet-200 bg-violet-50/60">
-          <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-violet-600 text-white">
-                <BrainCircuit className="size-5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold text-violet-950">AI-разбор по предметам</h2>
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-                    компактно
-                  </span>
-                </div>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-violet-900/80">
-                  Большой разбор, уроки с LaTeX, графиками и мини-тестами теперь открываются
-                  внутри конкретного предмета, чтобы общая страница не превращалась в длинную ленту.
-                </p>
-                {topWeakSubjects.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {topWeakSubjects.slice(0, 3).map((subject) => (
-                      <Link
-                        key={`${subject.examTypeId}:${subject.id}:ai-chip`}
-                        href={`/dashboard/mistakes/subjects/${subject.id}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-medium text-violet-900 transition-colors hover:bg-violet-100"
-                      >
-                        <span className="max-w-40 truncate">{subject.shortLabel}</span>
-                        <span className="tabular-nums text-violet-600">{subject.count}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
+    {isLoading ? <section aria-busy="true" aria-label={t("Загрузка ошибок", "Қателер жүктелуде")} className="space-y-5 rounded-xl border border-border bg-card p-6"><Skeleton className="h-7 w-2/3" /><Skeleton className="h-12 w-full" /><Skeleton className="h-11 w-44" /><Skeleton className="h-32 w-full" /></section> : data && total === 0 ? <section className="rounded-xl border border-border bg-card p-6 sm:p-8" data-testid="mistakes-empty">
+      <span className="mb-4 flex size-11 items-center justify-center rounded-full bg-muted"><CheckCheck className="size-5 text-muted-foreground" /></span>
+      <h2 className="text-xl font-semibold">{t("Сейчас нет открытых ошибок", "Қазір ашық қателер жоқ")}</h2>
+      <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">{t("После завершённого пробного здесь появятся вопросы, на которые вы ответили неверно. Если ошибки уже исправлены — можно проверить себя снова.", "Аяқталған сынақтан кейін қате жауап берген сұрақтар осында пайда болады. Қателер түзетілсе, өзіңізді қайта тексере аласыз.")}</p>
+      <Button asChild className="mt-5 h-auto min-h-11 whitespace-normal py-3"><Link href="/dashboard/exams">{t("Выбрать пробный", "Сынақты таңдау")}<ArrowRight className="size-4" /></Link></Button>
+    </section> : data && <>
+      <section className="overflow-hidden rounded-xl border border-border bg-card" data-testid="mistakes-next-step">
+        <div className="grid md:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="min-w-0 p-5 sm:p-6">
+            <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Target className="size-4" />{t("С чего начать", "Неден бастау керек")}</p>
+            <h2 className="break-words text-xl font-semibold tracking-tight sm:text-2xl">{recommended ? localize(recommended.subjectName, locale, t("Разберите один предмет", "Бір пәнді талдаңыз")) : t("Вернитесь к сложным вопросам", "Қиын сұрақтарға оралыңыз")}</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{recommended ? t(`Здесь больше всего открытых ошибок: ${recommended.count}. Начните с разбора тем, затем проверьте себя в короткой тренировке.`, `Ашық қателер ең көп осы пәнде: ${recommended.count}. Тақырыптарды талдап, қысқа жаттығуда өзіңізді тексеріңіз.`) : t("Выберите экзамен и повторите вопросы из прошлых попыток.", "Емтиханды таңдап, өткен әрекеттердегі сұрақтарды қайталаңыз.")}</p>
+            {recommended && <p className="mt-2 text-xs text-muted-foreground">{localize(recommended.examName, locale)}</p>}
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {recommended && <Button asChild className="h-auto min-h-11 whitespace-normal py-3"><Link href={subjectHref(recommended)}>{t("Разобрать предмет", "Пәнді талдау")}<ArrowRight className="size-4" /></Link></Button>}
+              {paid && exams[0] && <Button variant="outline" disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-3" onClick={event => openPractice({examTypeId: recommended?.examTypeId ?? exams[0].examTypeId, subjectId: recommended?.subjectId}, event.currentTarget)}><Play className="size-4" />{t("Настроить тренировку", "Жаттығуды баптау")}</Button>}
             </div>
-            {topWeakSubjects[0] ? (
-              <Button asChild className="h-10 bg-violet-600 hover:bg-violet-700">
-                <Link href={`/dashboard/mistakes/subjects/${topWeakSubjects[0].id}`}>
-                  Открыть {topWeakSubjects[0].shortLabel}
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            ) : (
-              <Button disabled className="h-10 bg-violet-600 hover:bg-violet-700">
-                Нет ошибок
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          <dl className="grid grid-cols-2 gap-4 border-t border-border bg-muted/30 p-5 sm:p-6 md:grid-cols-1 md:content-center md:border-l md:border-t-0">
+            <div><dt className="text-xs text-muted-foreground">{t("Ошибок в работе", "Түзетілмеген қателер")}</dt><dd className="mt-1 text-3xl font-semibold tabular-nums">{total}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{t("Предметов с ошибками", "Қате бар пәндер")}</dt><dd className="mt-1 text-3xl font-semibold tabular-nums">{subjects.length}</dd></div>
+          </dl>
+        </div>
+      </section>
 
-      {hasPremium ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Запустить тренировку</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="examType">Экзамен</Label>
-                <Select value={examTypeId} onValueChange={setExamTypeId}>
-                  <SelectTrigger id="examType">
-                    <SelectValue placeholder="Все экзамены" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Все экзамены</SelectItem>
-                    {examOptions.map((exam) => (
-                      <SelectItem key={exam.id} value={exam.id}>
-                        {exam.name} ({exam.count})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {examTypeId === "all" && byExam.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Будут включены ошибки из всех экзаменов
-                  </p>
-                )}
-              </div>
+      {!paid && <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4 sm:p-5">
+        <div className="flex min-w-0 items-start gap-3"><Crown className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><h2 className="text-sm font-semibold">{t("Тренировки и AI-разбор — с Premium", "Жаттығулар мен AI талдауы — Premium арқылы")}</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">{t("Карта ошибок доступна уже сейчас. Premium добавляет разбор причин, уроки и практику по вашим вопросам.", "Қателер картасы қазір қолжетімді. Premium қате себептерін талдауды, сабақтар мен сұрақтарыңыз бойынша жаттығуды қосады.")}</p></div></div>
+        <Button asChild variant="outline" className="h-auto min-h-10 whitespace-normal py-2"><Link href="/dashboard/billing?reason=mistakes_practice" onClick={() => { void recordFunnelEvent("premium_gate", {feature:"mistakes_practice"}) }}>{t("Посмотреть тарифы", "Тарифтерді көру")}<ArrowRight className="size-4" /></Link></Button>
+      </section>}
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="subject">Предмет</Label>
-                <Select
-                  value={subjectId}
-                  onValueChange={setSubjectId}
-                  disabled={subjectOptions.length === 0}
-                >
-                  <SelectTrigger id="subject">
-                    <SelectValue placeholder="Все предметы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Все предметы</SelectItem>
-                    {subjectOptions.map((subject) => (
-                      <SelectItem key={`${subject.examTypeId}:${subject.id}`} value={subject.id}>
-                        {subject.label} ({subject.count})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {subjectId === "all" && subjectOptions.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Будут включены ошибки из всех предметов
-                  </p>
-                )}
-              </div>
+      <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card" aria-labelledby="mistakes-subjects-title">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
+          <div><h2 id="mistakes-subjects-title" className="font-semibold">{t("Ошибки по предметам", "Пәндер бойынша қателер")}</h2><p className="mt-1 text-xs text-muted-foreground">{t("Сначала — предметы с наибольшим количеством ошибок", "Алдымен — қатесі ең көп пәндер")}</p></div>
+          {exams.length > 1 && <label className="flex max-w-full flex-col gap-1 text-xs text-muted-foreground">{t("Экзамен", "Емтихан")}<select aria-label={t("Фильтр по экзамену", "Емтихан бойынша сүзгі")} value={selectedExam} onChange={event => setExamFilter(event.target.value)} className="h-10 max-w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"><option value="all">{t("Все экзамены", "Барлық емтихандар")}</option>{exams.map(exam => <option key={exam.examTypeId} value={exam.examTypeId}>{localize(exam.examName, locale, t("Экзамен", "Емтихан"))}</option>)}</select></label>}
+        </div>
+        <ul className="divide-y divide-border" data-testid="mistakes-subjects">{visibleSubjects.map(subject => {
+          const name = localize(subject.subjectName, locale, t("Предмет", "Пән"))
+          return <li key={`${subject.examTypeId}:${subject.subjectId}`} className="flex flex-wrap items-center gap-x-3 px-4 py-2 sm:px-5">
+            <Link href={subjectHref(subject)} className="group flex min-w-0 flex-1 basis-48 items-center gap-3 rounded-lg py-3 focus-visible:outline-2 focus-visible:outline-ring">
+              <BookOpen className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
+              <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-medium group-hover:underline">{name}</h3><p className="mt-1 text-xs text-muted-foreground">{localize(subject.examName, locale)} · {t("Ошибок", "Қателер")}: <span className="font-medium tabular-nums text-foreground">{subject.count}</span></p></div>
+              <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+            </Link>
+            {paid && <Button variant="outline" size="sm" disabled={Boolean(error)} className="mb-2 min-h-9 sm:mb-0" aria-label={`${t("Тренировать", "Жаттығу")}: ${name}`} onClick={event => openPractice({examTypeId:subject.examTypeId, subjectId:subject.subjectId}, event.currentTarget)}><Play className="size-3.5" />{t("Тренировать", "Жаттығу")}</Button>}
+          </li>
+        })}</ul>
+        <p className="border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground">{t("Здесь вопросы, на которые вы в последний раз ответили неверно. После правильного ответа в завершённом тесте ошибка исчезнет из списка.", "Мұнда соңғы рет қате жауап берген сұрақтар көрсетілген. Аяқталған тестте дұрыс жауап бергеннен кейін қате тізімнен жойылады.")}</p>
+      </section>
+    </>}
 
-              <div className="flex flex-col gap-2">
-                <Label>Язык</Label>
-                <RadioGroup
-                  value={language}
-                  onValueChange={(v) => setLanguage(v as "ru" | "kk")}
-                  className="flex gap-2"
-                >
-                  <Label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2">
-                    <RadioGroupItem value="ru" />
-                    Русский
-                  </Label>
-                  <Label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2">
-                    <RadioGroupItem value="kk" />
-                    Қазақша
-                  </Label>
-                </RadioGroup>
-              </div>
+    {data && recoveries.length > 0 && <section className="rounded-xl border border-border bg-card p-5" aria-labelledby="mistakes-recovered-title">
+      <h2 id="mistakes-recovered-title" className="flex items-center gap-2 text-sm font-semibold"><CheckCheck className="size-4 text-emerald-600 dark:text-emerald-400" />{t("Недавно исправлены", "Жақында түзетілген")}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">{t("В этих вопросах неверный ответ сменился правильным.", "Бұл сұрақтарда қате жауап дұрыс жауапқа ауысты.")}</p>
+      <ul className="mt-3 divide-y divide-border">{recoveries.map((item, index) => <li key={`${item.sessionId}:${item.questionId}:${index}`}><Link href={`/exam/${item.sessionId}/review`} className="flex min-h-12 items-center justify-between gap-3 py-2 text-sm hover:underline"><span className="min-w-0 break-words">{localize(item.subjectName, locale, t("Предмет", "Пән"))}<span className="mt-0.5 block text-xs text-muted-foreground">{localize(item.examName, locale)} · {new Date(item.recoveredAt).toLocaleDateString(locale === "kk" ? "kk-KZ" : "ru-RU", {day:"2-digit",month:"2-digit",year:"numeric"})}</span></span><ArrowRight className="size-4 shrink-0 text-muted-foreground" /></Link></li>)}</ul>
+    </section>}
 
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Label>Количество вопросов</Label>
-                  <span className="text-sm font-semibold tabular-nums">{limit}</span>
-                </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={50}
-                  step={5}
-                  value={limit}
-                  onInput={(e) => setLimit(Number((e.target as HTMLInputElement).value))}
-                  onChange={(e) => setLimit(Number(e.target.value))}
-                  className="w-full cursor-pointer accent-black"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Label>Длительность, мин</Label>
-                  <span className="text-sm font-semibold tabular-nums">{duration}</span>
-                </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={120}
-                  step={5}
-                  value={duration}
-                  onInput={(e) => setDuration(Number((e.target as HTMLInputElement).value))}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full cursor-pointer accent-black"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-secondary/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <Sparkles className="size-5 shrink-0 text-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Подберём вопросы автоматически</p>
-                  <p className="text-xs text-muted-foreground">
-                    Берём ваши прошлые ошибки и формируем мини-тест на {limit} вопросов
-                  </p>
-                </div>
-              </div>
-              <Button onClick={start} disabled={starting || total === 0} className="h-11">
-                {starting ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <>
-                    <Play className="size-4" />
-                    Начать тренировку
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {total === 0 && !isLoading && (
-              <div className="flex items-center gap-3 rounded-md border border-border bg-card p-4 text-sm">
-                <BookOpen className="size-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  Сначала пройдите хотя бы один пробник — после него ваши ошибки появятся тут.
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="overflow-hidden border-amber-200 bg-amber-50">
-          <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Crown className="size-5 text-amber-700" />
-                <span className="text-sm font-semibold uppercase tracking-wide">
-                  Premium-функция
-                </span>
-              </div>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                Запусти тренировку точно по слабым местам
-              </h2>
-              <p className="max-w-2xl text-sm leading-6 text-amber-900">
-                Выше ты видишь карту слабых предметов. Premium позволяет запустить
-                мини-тест точно по этим вопросам — чтобы закрывать пробелы, а не
-                повторять то, что уже знаешь. В очереди:{" "}
-                <span className="font-semibold tabular-nums">{total}</span> ошибок.
-              </p>
-            </div>
-            <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
-              <Link
-                href="/dashboard/billing?reason=mistakes_practice"
-                onClick={() =>
-                  void recordFunnelEvent("premium_gate", { feature: "mistakes_practice" })
-                }
-              >
-                Открыть Premium
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
+    {practice && data && <MistakesPracticeDialog summary={data} initialScope={practice} onClose={() => setPractice(null)} onRestoreFocus={() => practiceTrigger.current?.focus()} />}
+  </div>
 }
