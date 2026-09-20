@@ -16,13 +16,11 @@ import {
   Lightbulb,
   RefreshCw,
   Target,
-  TrendingUp,
-  Trophy,
   XCircle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
@@ -89,10 +87,12 @@ export default function ReviewPage({
   const router = useRouter()
   const { user, refresh } = useAuth()
   const { locale } = useUiI18n()
+  const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
   const { data, isLoading, error, mutate } = useSWR<ReviewResponse>(
     `/tests/sessions/${sessionId}/review`,
   )
   const [retaking, setRetaking] = useState(false)
+  const [filter, setFilter] = useState<"all" | "mistakes" | "unanswered">("all")
 
   const sections: ReviewSectionModel[] = useMemo(() => {
     if (!data) return []
@@ -115,6 +115,7 @@ export default function ReviewPage({
   )
   const weakSections = useMemo(() => {
     return sections
+      .filter((sec) => sec.id !== "all")
       .map((sec) => {
         const pct =
           sec.score != null
@@ -134,6 +135,13 @@ export default function ReviewPage({
       .sort((a, b) => a.pct - b.pct)
       .slice(0, 3)
   }, [sections])
+
+  const matchesFilter = (q: FlatSessionQuestion) => filter === "all" ||
+    (filter === "mistakes" ? q.reviewStatus !== "correct" : q.reviewStatus === "unanswered")
+  const questionCount = sections.reduce((sum, sec) => sum + sec.questions.length, 0)
+  const mistakeCount = sections.reduce((sum, sec) => sum + sec.questions.filter(q => q.reviewStatus !== "correct").length, 0)
+  const unansweredCount = sections.reduce((sum, sec) => sum + sec.questions.filter(q => q.reviewStatus === "unanswered").length, 0)
+  const visibleCount = sections.reduce((sum, sec) => sum + sec.questions.filter(matchesFilter).length, 0)
 
   useEffect(() => {
     void refresh({ silent: true })
@@ -205,21 +213,23 @@ export default function ReviewPage({
               <p className="mt-1 text-sm text-muted-foreground">
                 {(error as ApiError).message || "Попробуйте позже"}
               </p>
+              <Button variant="outline" className="mt-4" onClick={() => void mutate()} data-no-translate>{t("Попробовать снова", "Қайта көру")}</Button>
             </CardContent>
           </Card>
         ) : data ? (
           <>
             {/* Score summary */}
-            <Card className="overflow-hidden">
-              <CardContent className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center">
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                    Результат
+            <Card className="gap-0 overflow-hidden py-0" data-testid="review-summary">
+              <CardContent className="grid gap-6 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
+                <div className="flex min-w-0 flex-col gap-2">
+                  <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground" data-no-translate>
+                    {t("Ваш результат", "Сіздің нәтижеңіз")}
                   </p>
                   <div className="flex items-baseline gap-3">
-                    <span className="text-5xl font-semibold tabular-nums">
+                    <h1 className="text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
                       {displayScore}
-                    </span>
+                      <span className="sr-only" data-no-translate> {t("баллов", "балл")}</span>
+                    </h1>
                     <span className="text-xl text-muted-foreground tabular-nums">
                       / {displayMax}
                     </span>
@@ -228,13 +238,13 @@ export default function ReviewPage({
                     <Progress value={accuracy} className="max-w-xs" />
                     <span className="text-sm font-medium tabular-nums">{accuracy}%</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Точно верных ответов: {overallCorrect} из {overallTotal}
+                  <p className="text-sm text-muted-foreground" data-no-translate>
+                    {t("Точно верных ответов", "Толық дұрыс жауаптар")}: {overallCorrect} / {overallTotal}
                   </p>
                   {canRetakeEnt && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       {hasPremium ? (
-                        <Button onClick={startRetake} disabled={retaking}>
+                        <Button variant="outline" size="sm" onClick={startRetake} disabled={retaking}>
                           {retaking ? (
                             <Spinner className="size-4" />
                           ) : (
@@ -243,7 +253,7 @@ export default function ReviewPage({
                           Повторить этот ЕНТ
                         </Button>
                       ) : (
-                        <Button asChild>
+                        <Button asChild variant="outline" size="sm">
                           <Link
                             href={`/dashboard/billing?reason=retake&sessionId=${encodeURIComponent(sessionId)}`}
                             onClick={() => void recordFunnelEvent("premium_gate", { feature: "retake" }, sessionId)}
@@ -253,18 +263,15 @@ export default function ReviewPage({
                           </Link>
                         </Button>
                       )}
-                      <span className="text-sm text-muted-foreground">
-                        {hasPremium
-                          ? "Повторите этот же ЕНТ после разбора, чтобы увидеть рост"
-                          : "Пересдача доступна в Premium и помогает проверить рост после разбора"}
-                      </span>
                     </div>
                   )}
                 </div>
-                <div className="flex size-24 items-center justify-center rounded-full bg-foreground text-background">
-                  <Trophy className="size-10" />
-                </div>
+                <ReviewNextStep sessionId={sessionId} weakSections={weakSections} hasPremium={hasPremium} hasMistakes={mistakeCount > 0} />
               </CardContent>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 sm:px-6">
+                <Button asChild variant="ghost" size="sm"><a href="#review-questions" data-no-translate>{t("Перейти к разбору", "Талдауға өту")}<ChevronDown className="size-4" /></a></Button>
+                <TestFeedback key={sessionId} sessionId={sessionId} />
+              </div>
             </Card>
 
             {/* Section breakdown */}
@@ -286,11 +293,11 @@ export default function ReviewPage({
                       ? `${rawPoints}/${maxPoints} ${pluralizePoints(maxPoints)}`
                       : `${correct}/${total}`
                   return (
-                    <Card key={sec.id}>
-                      <CardContent className="flex flex-col gap-2 p-4">
+                    <a key={sec.id} href={`#review-section-${sec.id}`} onClick={() => setFilter("all")} className="rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring">
+                      <div className="flex flex-col gap-2">
                         <p className="text-sm font-medium">{sec.title}</p>
                         <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-semibold tabular-nums">
+                          <span className="text-xl font-semibold tabular-nums">
                             {pointsLabel}
                           </span>
                           <span className="text-xs text-muted-foreground">{pct}%</span>
@@ -301,32 +308,37 @@ export default function ReviewPage({
                           </p>
                         )}
                         <Progress value={pct} />
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </a>
                   )
                 })}
               </div>
             )}
 
-            <ReviewSalesCard
-              sessionId={sessionId}
-              score={displayScore}
-              maxScore={displayMax}
-              accuracy={accuracy}
-              scoreSegment={scoreSegment}
-              weakSections={weakSections}
-              hasPremium={hasPremium}
-            />
-
-            <TestFeedback key={sessionId} sessionId={sessionId} />
+            <div id="review-questions" className="scroll-mt-20 space-y-3" data-no-translate>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-xl font-semibold tracking-tight">{t("Разбор ответов", "Жауаптарды талдау")}</h2>
+                <p role="status" className="text-sm text-muted-foreground">{t("Показано", "Көрсетілді")}: {visibleCount} / {questionCount}</p>
+              </div>
+              <div className="flex flex-wrap gap-2" role="group" aria-label={t("Фильтр ответов", "Жауаптар сүзгісі")}>
+                {([
+                  ["all", t("Все", "Барлығы"), questionCount],
+                  ["mistakes", t("Ошибки", "Қателер"), mistakeCount],
+                  ["unanswered", t("Без ответа", "Жауапсыз"), unansweredCount],
+                ] as const).map(([value, label, count]) => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span className="opacity-60 tabular-nums">{count}</span></Button>)}
+              </div>
+              {visibleCount === 0 && <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{questionCount === 0 ? t("В этом разборе пока нет вопросов.", "Бұл талдауда әзірге сұрақтар жоқ.") : t("Таких ответов нет. Выберите другой фильтр.", "Мұндай жауаптар жоқ. Басқа сүзгіні таңдаңыз.")}</p>}
+            </div>
 
             {/* Sections + questions */}
             {sections.map((sec) => {
+              if (!sec.questions.some(matchesFilter)) return null
               return (
-                <section key={sec.id}>
+                <section key={sec.id} id={`review-section-${sec.id}`} className="scroll-mt-20">
                   <h2 className="mb-3 text-lg font-semibold">{sec.title}</h2>
                   <Accordion type="multiple" className="flex flex-col gap-2">
                     {sec.questions.map((q, idx) => {
+                      if (!matchesFilter(q)) return null
                       const qSubject = localize(q.subjectName, locale)
                       const reviewMeta = getQuestionReviewMeta(q)
                       const detachedImageUrls = getDetachedImageUrls(q.imageUrls, [
@@ -345,16 +357,16 @@ export default function ReviewPage({
                           className={cn(
                             "rounded-lg border bg-card",
                             q.reviewStatus === "correct"
-                              ? "border-emerald-200"
+                              ? "border-emerald-200 dark:border-emerald-900"
                               : q.reviewStatus === "partial"
-                                ? "border-amber-200"
+                                ? "border-amber-200 dark:border-amber-900"
                                 : q.reviewStatus === "unanswered"
-                                  ? "border-slate-200"
-                                  : "border-rose-200",
+                                  ? "border-slate-200 dark:border-slate-700"
+                                  : "border-rose-200 dark:border-rose-900",
                           )}
                         >
                           <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                            <div className="flex w-full flex-wrap items-center gap-3 pr-2 text-left sm:flex-nowrap">
+                            <div className="flex w-full min-w-0 flex-col gap-2 pr-2 text-left sm:flex-row sm:items-center sm:gap-3">
                               <div className="flex min-w-0 flex-1 items-center gap-3">
                                 <reviewMeta.Icon className={cn("size-5 shrink-0", reviewMeta.iconClassName)} />
                                 <span className="text-sm font-medium tabular-nums text-muted-foreground">
@@ -364,10 +376,10 @@ export default function ReviewPage({
                                   as="span"
                                   value={q.display.stem || q.display.topicLine || qSubject || "Вопрос"}
                                   locale={locale}
-                                  className="line-clamp-1 flex-1 text-sm font-normal"
+                                  className="line-clamp-2 min-w-0 flex-1 text-sm font-normal sm:line-clamp-1"
                                 />
                               </div>
-                              <div className="flex shrink-0 items-center gap-2">
+                              <div className="flex shrink-0 items-center gap-2 pl-8 sm:pl-0">
                                 <Badge
                                   variant="outline"
                                   className={cn(
@@ -539,7 +551,7 @@ function getQuestionReviewMeta(question: Pick<
       label: "Верно",
       Icon: CheckCircle2,
       iconClassName: "text-emerald-600",
-      badgeClassName: "text-emerald-700",
+      badgeClassName: "text-emerald-700 dark:text-emerald-400",
       fillClassName: "bg-emerald-600 hover:bg-emerald-600 text-white",
     }
   }
@@ -548,7 +560,7 @@ function getQuestionReviewMeta(question: Pick<
       label: "Частично",
       Icon: Target,
       iconClassName: "text-amber-600",
-      badgeClassName: "text-amber-700",
+      badgeClassName: "text-amber-700 dark:text-amber-400",
       fillClassName: "bg-amber-600 hover:bg-amber-600 text-white",
     }
   }
@@ -557,7 +569,7 @@ function getQuestionReviewMeta(question: Pick<
       label: "Без ответа",
       Icon: Flag,
       iconClassName: "text-slate-500",
-      badgeClassName: "text-slate-700",
+      badgeClassName: "text-slate-700 dark:text-slate-300",
       fillClassName: "bg-slate-600 hover:bg-slate-600 text-white",
     }
   }
@@ -565,7 +577,7 @@ function getQuestionReviewMeta(question: Pick<
     label: question.earnedPoints > 0 && question.earnedPoints < question.maxPoints ? "Частично" : "Неверно",
     Icon: XCircle,
     iconClassName: "text-rose-600",
-    badgeClassName: "text-rose-700",
+    badgeClassName: "text-rose-700 dark:text-rose-400",
     fillClassName: "bg-rose-600 hover:bg-rose-600 text-white",
   }
 }
@@ -573,24 +585,24 @@ function getQuestionReviewMeta(question: Pick<
 function getReviewOptionMeta(isSelected: boolean, isCorrect: boolean) {
   if (isSelected && isCorrect) {
     return {
-      containerClassName: "border-emerald-400 bg-emerald-50",
+      containerClassName: "border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40",
       badges: [
-        { label: "Ваш выбор", variant: "outline" as const, className: "border-emerald-300 text-emerald-800" },
+        { label: "Ваш выбор", variant: "outline" as const, className: "border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-300" },
         { label: "Верно", variant: "default" as const, className: "bg-emerald-600 hover:bg-emerald-600" },
       ],
     }
   }
   if (isCorrect) {
     return {
-      containerClassName: "border-emerald-200 bg-emerald-50/60",
+      containerClassName: "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30",
       badges: [
-        { label: "Правильный ответ", variant: "outline" as const, className: "border-emerald-300 text-emerald-800" },
+        { label: "Правильный ответ", variant: "outline" as const, className: "border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-300" },
       ],
     }
   }
   if (isSelected) {
     return {
-      containerClassName: "border-rose-300 bg-rose-50",
+      containerClassName: "border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30",
       badges: [
         { label: "Ваш выбор", variant: "destructive" as const, className: "" },
       ],
@@ -625,85 +637,53 @@ function getScoreSegment(score: number, maxScore: number): ScoreSegment {
   }
 }
 
-function ReviewSalesCard({
+function ReviewNextStep({
   sessionId,
-  score,
-  maxScore,
-  accuracy,
-  scoreSegment,
   weakSections,
   hasPremium,
+  hasMistakes,
 }: {
   sessionId: string
-  score: number
-  maxScore: number
-  accuracy: number
-  scoreSegment: ScoreSegment
   weakSections: Array<{ title: string; pct: number; lost: number }>
   hasPremium: boolean
+  hasMistakes: boolean
 }) {
-  const potentialGain = Math.max(6, Math.min(18, Math.round((100 - accuracy) / 4)))
-  const primaryWeak = weakSections[0]
+  const { locale } = useUiI18n()
+  const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
+  const primaryWeak = weakSections.find(section => section.lost > 0)
 
   return (
-    <Card className="overflow-hidden border-amber-200 bg-amber-50">
-      <CardContent className="grid gap-5 p-5 text-amber-950 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-amber-600 text-white hover:bg-amber-600">
-              {hasPremium ? "Premium активен" : "Персональный план"}
-            </Badge>
-            <span className="text-sm font-medium">
-              Результат: <span className="tabular-nums">{score}/{maxScore}</span>
-            </span>
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">
-              {scoreSegment.title}
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900">
-              {hasPremium
-                ? `${scoreSegment.text} Объяснения, тренировки по ошибкам и повтор этого пробника уже открыты. Начните с ошибок, чтобы добрать ориентировочно +${potentialGain} баллов.`
-                : `${scoreSegment.text} Premium откроет объяснения, тренировки по ошибкам и следующий пробник, чтобы добрать ориентировочно +${potentialGain} баллов.`}
-            </p>
-          </div>
-          <div className="grid gap-2 text-sm sm:grid-cols-3">
-            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
-              <Target className="mb-2 size-4 text-amber-700" />
-              <p className="font-medium">Слабая зона</p>
-              <p className="mt-1 text-amber-800">{primaryWeak?.title ?? "Ошибки по предметам"}</p>
-            </div>
-            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
-              <TrendingUp className="mb-2 size-4 text-amber-700" />
-              <p className="font-medium">Потенциал роста</p>
-              <p className="mt-1 text-amber-800">+{potentialGain} баллов при разборе ошибок</p>
-            </div>
-            <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
-              <Lightbulb className="mb-2 size-4 text-amber-700" />
-              <p className="font-medium">{hasPremium ? "Уже открыто" : "Что откроется"}</p>
-              <p className="mt-1 text-amber-800">Объяснения и тренировка ошибок</p>
-            </div>
-          </div>
+    <div className="min-w-0 rounded-xl border border-border bg-muted/40 p-4 sm:p-5" data-no-translate>
+        <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <Target className="size-4" />{t("Следующий шаг", "Келесі қадам")}
+          {hasPremium && <Badge variant="outline" className="ml-auto">Premium</Badge>}
         </div>
-        <Button asChild size="lg" className="h-11 bg-amber-700 text-white hover:bg-amber-800">
+        <h2 className="text-lg font-semibold tracking-tight">{hasMistakes ? t("Работа над ошибками", "Қателермен жұмыс") : t("Закрепите результат", "Нәтижені бекітіңіз")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {hasMistakes
+            ? t("Разберите неверные ответы и потренируйтесь в темах, где потеряли баллы.", "Қате жауаптарды талдап, балл жоғалтқан тақырыптар бойынша жаттығыңыз.")
+            : t("Просмотрите ответы и решения, чтобы закрепить пройденные темы.", "Өткен тақырыптарды бекіту үшін жауаптар мен шешімдерді қарап шығыңыз.")}
+        </p>
+        {hasMistakes && primaryWeak && <p className="mt-2 text-sm"><span className="text-muted-foreground">{t("Начните с: ", "Осыдан бастаңыз: ")}</span>{primaryWeak.title}</p>}
+        <Button asChild className="mt-4 h-auto min-h-11 w-full whitespace-normal px-3 py-3">
           <Link
             href={
-              hasPremium
+              !hasMistakes ? "#review-questions" : hasPremium
                 ? "/dashboard/mistakes"
                 : `/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`
             }
             onClick={() => {
-              if (!hasPremium) {
+              if (!hasPremium && hasMistakes) {
                 void recordFunnelEvent("premium_gate", { feature: "review_recovery" }, sessionId)
               }
             }}
           >
-            {hasPremium ? "Работать над ошибками" : "Открыть план роста"}
+            {!hasMistakes ? t("Посмотреть ответы", "Жауаптарды көру") : hasPremium ? t("Работать над ошибками", "Қателермен жұмыс істеу") : t("Открыть работу над ошибками", "Қателермен жұмысты ашу")}
             <ArrowRight className="size-4" />
           </Link>
         </Button>
-      </CardContent>
-    </Card>
+        {hasMistakes && !hasPremium && <p className="mt-2 text-xs text-muted-foreground">{t("Тренировка и объяснения — в Premium. Ответы доступны ниже.", "Жаттығу мен түсіндірмелер — Premium-де. Жауаптар төменде қолжетімді.")}</p>}
+    </div>
   )
 }
 

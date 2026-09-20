@@ -5,6 +5,8 @@ import useSWR from "swr"
 import { api } from "@/lib/api/client"
 import { useUiI18n } from "@/lib/i18n/ui"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { MessageSquare, X } from "lucide-react"
 
 type Feedback = { submittedAt: string | null; skippedAt: string | null } | null
 
@@ -19,49 +21,69 @@ export function TestFeedback({ sessionId }: { sessionId: string }) {
   const [comment, setComment] = useState("")
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState("")
-  const container = useRef<HTMLElement>(null)
+  const [open, setOpen] = useState(false)
+  const prompted = useRef(false)
+  const shown = useRef(false)
+  const storageKey = `review-feedback:${sessionId}`
   const closed = Boolean(data?.submittedAt || data?.skippedAt)
 
   useEffect(() => {
-    if (isLoading || error || closed || !container.current) return
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting || document.visibilityState !== "visible") return
-      void api(`${endpoint}/shown`, { method: "POST" }).catch(() => {})
-      observer.disconnect()
-    }, { threshold: 0.5 })
-    observer.observe(container.current)
-    return () => observer.disconnect()
-  }, [endpoint, isLoading, error, closed])
+    if (isLoading || error || closed || prompted.current) return
+    try { if (sessionStorage.getItem(storageKey)) return } catch { /* Storage can be disabled. */ }
+    const timer = window.setTimeout(() => {
+      // Never steal focus from another dialog or from a background tab.
+      if (document.visibilityState !== "visible" || document.querySelector('[role="dialog"]')) return
+      prompted.current = true
+      setOpen(true)
+    }, 1500)
+    return () => window.clearTimeout(timer)
+  }, [storageKey, isLoading, error, closed])
 
-  async function save(skip = false) {
+  useEffect(() => {
+    if (!open) return
+    prompted.current = true
+    try { sessionStorage.setItem(storageKey, "1") } catch { /* Optional persistence. */ }
+    if (!shown.current) {
+      shown.current = true
+      void api(`${endpoint}/shown`, { method: "POST" }).catch(() => { shown.current = false })
+    }
+  }, [open, endpoint, storageKey])
+
+  function dismiss() {
+    setOpen(false)
+    // Closing must never be blocked by an unavailable API.
+    if (!busy && !data?.submittedAt) {
+      void api(`${endpoint}/skip`, { method: "POST" })
+        .then(() => mutate())
+        .catch(() => {})
+    }
+  }
+
+  async function save() {
     if (busy) return
     setBusy(true); setFailure("")
     try {
-      if (skip) {
-        await api(`${endpoint}/skip`, { method: "POST" })
-        await mutate({ submittedAt: null, skippedAt: new Date().toISOString() }, { revalidate: false })
-      } else {
-        const result = await api<Feedback>(endpoint, { method: "PUT", body: { rating, intent, blocker, comment: comment.trim(), locale } })
-        await mutate(result, { revalidate: false })
-      }
+      const result = await api<Feedback>(endpoint, { method: "PUT", body: { rating, intent, blocker, comment: comment.trim(), locale } })
+      await mutate(result, { revalidate: false })
+      setOpen(false)
     } catch {
       setFailure(t("Не удалось отправить. Попробуйте ещё раз — текст сохранён в форме.", "Жіберілмеді. Қайта көріңіз — мәтін нысанда сақталды."))
     } finally { setBusy(false) }
   }
 
-  if (isLoading || error || data?.skippedAt) return null
+  if (isLoading || error) return null
   if (data?.submittedAt) return <p role="status" className="text-sm text-muted-foreground" data-no-translate>{t("Спасибо за отзыв! Он поможет улучшить пробный.", "Пікіріңізге рақмет! Ол сынақты жақсартуға көмектеседі.")}</p>
   const selectClass = "min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm"
   return (
-    <section ref={container} aria-labelledby="test-feedback-heading" className="rounded-xl border border-border bg-card p-4 sm:p-6" data-no-translate>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 id="test-feedback-heading" className="font-semibold">{t("Как вам пробный?", "Сынақ қалай өтті?")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t("30 секунд: что было полезно и что стоит улучшить? Отзыв необязателен.", "30 секунд: не пайдалы болды, нені жақсарту керек? Пікір қалдыру міндетті емес.")}</p>
-        </div>
-        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void save(true)}>{t("Пропустить", "Өткізу")}</Button>
-      </div>
-      <form className="mt-4 space-y-4" onSubmit={(event) => { event.preventDefault(); if (rating && intent && blocker) void save() }}>
+    <Dialog open={open} onOpenChange={(next) => next ? setOpen(true) : dismiss()}>
+      <DialogTrigger asChild><Button variant="ghost" size="sm" data-no-translate><MessageSquare className="size-4" />{t("Оценить пробный", "Сынақты бағалау")}</Button></DialogTrigger>
+      <DialogContent showCloseButton={false} className="gap-5 sm:max-w-lg" data-no-translate>
+        <DialogHeader className="pr-9 text-left">
+          <DialogTitle className="text-xl">{t("Как вам пробный?", "Сынақ қалай өтті?")}</DialogTitle>
+          <DialogDescription>{t("Оцените пользу и подскажите, что улучшить. Это необязательно — к разбору можно вернуться в любой момент.", "Пайдасын бағалап, нені жақсартуға болатынын айтыңыз. Бұл міндетті емес — талдауға кез келген уақытта орала аласыз.")}</DialogDescription>
+        </DialogHeader>
+        <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-2" aria-label={t("Закрыть опрос", "Сауалнаманы жабу")} onClick={dismiss}><X className="size-4" /></Button>
+      <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (rating && intent && blocker) void save() }}>
         <fieldset disabled={busy}>
           <legend className="mb-2 text-sm">{t("Насколько полезным был пробный?", "Сынақ қаншалықты пайдалы болды?")}</legend>
           <div className="flex gap-2" role="group" aria-label={t("Оценка от 1 до 5", "1-ден 5-ке дейін бағалау")}>
@@ -87,8 +109,12 @@ export function TestFeedback({ sessionId }: { sessionId: string }) {
           <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} disabled={busy} rows={2} className="w-full rounded-lg border border-border bg-background p-3" placeholder={t("Не указывайте телефон и другие личные данные", "Телефон мен басқа жеке деректерді жазбаңыз")} />
         </label>
         {failure && <p role="alert" className="text-sm text-destructive">{failure}</p>}
-        <Button type="submit" disabled={busy || !rating || !intent || !blocker}>{busy ? t("Отправляем…", "Жіберілуде…") : t("Отправить отзыв", "Пікір жіберу")}</Button>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+          <Button type="button" variant="ghost" onClick={dismiss}>{t("Не сейчас", "Кейінірек")}</Button>
+          <Button type="submit" disabled={busy || !rating || !intent || !blocker}>{busy ? t("Отправляем…", "Жіберілуде…") : t("Отправить отзыв", "Пікір жіберу")}</Button>
+        </div>
       </form>
-    </section>
+      </DialogContent>
+    </Dialog>
   )
 }
