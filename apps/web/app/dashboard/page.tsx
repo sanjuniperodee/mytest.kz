@@ -1,459 +1,152 @@
 "use client"
 
-import { getFormatLocale } from "@/lib/i18n/locale"
-
-import { useUiI18n } from "@/lib/i18n/ui"
-
 import Link from "next/link"
 import useSWR from "swr"
-import {
-  ArrowRight,
-  BarChart3,
-  BookOpen,
-  CheckCircle2,
-  Flame,
-  Gift,
-  History,
-  ListChecks,
-  Sparkles,
-  Target,
-  TrendingUp,
-  Trophy,
-} from "lucide-react"
+import { ArrowRight, BookOpen, Flame, MessageCircle, Target, Trophy, TrendingUp } from "lucide-react"
+import { useUiI18n } from "@/lib/i18n/ui"
+import { getFormatLocale } from "@/lib/i18n/locale"
+import { useAuth } from "@/lib/api/auth-context"
+import { localize } from "@/lib/api/i18n"
+import { formatBestPoints } from "@/lib/dashboard/format"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AdmissionGoalCard } from "@/components/dashboard/admission-goal-card"
-import { ScoreProjection } from "@/components/dashboard/score-projection"
-import {
-  SessionStatusBadge,
-  StatCard,
-} from "@/components/dashboard/data-display"
-import { formatBestPoints } from "@/lib/dashboard/format"
-import { useAuth } from "@/lib/api/auth-context"
-import { localize, type Locale } from "@/lib/api/i18n"
-import type {
-  AccessByExamItem,
-  ExamType,
-  MistakesSummary,
-  SessionListItem,
-  UserExamStats,
-  UserStats,
-} from "@/lib/api/types"
+import { SessionStatusBadge } from "@/components/dashboard/data-display"
+import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
 
 type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
+const sessionsList = (data?: SessionsResponse) => Array.isArray(data) ? data : data?.items ?? []
 
 export default function DashboardHomePage() {
   const { user } = useAuth()
   const { locale } = useUiI18n()
-  const userName =
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
-    user?.telegramUsername ||
-    user?.username ||
-    ""
-  const { data: stats, isLoading: statsLoading } = useSWR<UserStats>("/users/me/stats")
-  const { data: summary } = useSWR<MistakesSummary>("/tests/mistakes/summary")
-  const { data: sessions, isLoading: sessLoading } = useSWR<SessionsResponse>(
-    "/tests/sessions?page=1&limit=4",
-  )
-  const { data: examTypes } = useSWR<ExamType[]>("/exams/types")
-
-  const sessionList = normalizeSessions(sessions)
-  const inProgress = sessionList.find((s) => s.status === "in_progress")
-  const entExam = (examTypes || []).find((exam) => exam.slug === "ent")
-  const entAccess = user?.accessByExam?.find((item) => item.examSlug === "ent")
-  const entTrial = user?.trialStatus?.ent
-  const hasPaidSubscription = Boolean(user?.hasActiveSubscription)
-  const freeTrialRemaining =
-    entTrial?.freeRemaining ?? entTrial?.remaining ?? null
-  const hasUnusedFreeTrial =
-    !hasPaidSubscription &&
-    freeTrialRemaining != null &&
-    freeTrialRemaining > 0 &&
-    (stats?.completedTests ?? 0) === 0
-  const quickStartHref =
-    entExam && entAccess && !entAccess.hasAccess
-      ? "/dashboard/billing?reason=no_access"
-      : entExam
-        ? `/dashboard/exams/${entExam.id}`
-        : "/dashboard/exams"
-  const tariffName = localize(
-    user?.currentTariff?.name,
-    locale,
-    hasPaidSubscription ? "Premium" : "Стартовый доступ",
-  )
-  const bestExam =
-    stats?.byExamType?.reduce<UserExamStats | null>((best, item) => {
-      if (item.bestScore == null) return best
-      if (!best || best.bestScore == null || item.bestScore > best.bestScore) return item
-      return best
-    }, null) ?? null
-  const scoreImpact = summary?.scoreImpact
-  const averageResult = stats ? `${Math.round(stats.averageScore)}%` : "—"
-  const bestResult = bestExam
-    ? formatBestPoints(bestExam)
-    : stats?.bestScore != null
-      ? `${Math.round(stats.bestScore)}%`
-      : "—"
-  const weeklyStreak = stats?.weeklyStreak ?? 0
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Hero greeting */}
-      <div className="relative overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-card via-card to-accent/5 p-6 shadow-xs sm:p-8">
-        <div className="grain pointer-events-none absolute inset-0 opacity-40" />
-        <div className="pointer-events-none absolute -right-16 -top-16 size-64 rounded-full bg-accent/10 blur-3xl" />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent shadow-2xs">
-                <Sparkles className="size-3" />
-                Готов к ЕНТ
-              </span>
-              {weeklyStreak > 0 && (
-                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800 shadow-2xs dark:bg-orange-950/40 dark:text-orange-300">
-                  <Flame className="size-3 text-orange-600 dark:text-orange-400 animate-pulse" />
-                  {weeklyStreak} нед. подряд
-                </span>
-              )}
-            </div>
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-              Привет{userName ? `, ${userName.split(" ")[0]}` : ""}.
-            </h1>
-            <p className="max-w-xl text-muted-foreground">
-              Готов к новому пробному ЕНТ? Продолжим там, где остановились — каждая
-              отработанная ошибка приближает к высокому баллу.
-            </p>
-            <div
-              className={`mt-2 grid gap-2.5 text-sm ${
-                hasPaidSubscription ? "sm:grid-cols-2" : "sm:grid-cols-3"
-              }`}
-            >
-              <HeroLimit label="Текущий тариф" value={tariffName} />
-              <HeroLimit
-                label="Сегодня осталось"
-                value={formatDailyRemaining(entAccess)}
-              />
-              {!hasPaidSubscription && (
-                <HeroLimit
-                  label="Доступ к ЕНТ"
-                  value={formatEntAccess(entAccess, entTrial)}
-                />
-              )}
-            </div>
-          </div>
-          {inProgress ? (
-            <Button asChild size="lg" className="h-11 shrink-0 font-semibold shadow-md shadow-primary/10 transition-all duration-200 hover:shadow-lg active:scale-[0.98]">
-              <Link href={`/exam/${inProgress.id}`}>
-                Продолжить
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          ) : (
-            <Button asChild size="lg" className="h-11 shrink-0 font-semibold shadow-md shadow-primary/10 transition-all duration-200 hover:shadow-lg active:scale-[0.98]">
-              <Link href={quickStartHref}>
-                <BookOpen className="size-4" />
-                Сдать пробный
-              </Link>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Free trial nudge — only for new users with unused trial */}
-      {hasUnusedFreeTrial && (
-        <div className="flex flex-col gap-3 rounded-xl border-2 border-accent/30 bg-accent/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15">
-              <Gift className="size-5 text-accent" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">
-                У тебя есть бесплатный пробный ЕНТ
-              </p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                140 вопросов · реальный формат · разбор ошибок — без карты
-              </p>
-            </div>
-          </div>
-          <Button asChild size="sm" className="h-9 shrink-0">
-            <Link href={quickStartHref}>
-              <BookOpen className="size-4" />
-              Начать сейчас
-            </Link>
-          </Button>
-        </div>
-      )}
-
-      <NextActionCard
-        inProgress={inProgress}
-        openTotal={summary?.openTotal ?? 0}
-        scoreImpact={scoreImpact}
-        quickStartHref={quickStartHref}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ScoreProjection impact={scoreImpact} />
-        <AdmissionGoalCard
-          currentScore={scoreImpact?.available ? scoreImpact.lastScore : null}
-          potentialScore={scoreImpact?.available ? scoreImpact.potentialScore : null}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          icon={CheckCircle2}
-          label="Пройдено пробников"
-          value={stats?.completedTests ?? 0}
-          loading={statsLoading}
-          accent="emerald"
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Средний результат"
-          value={averageResult}
-          loading={statsLoading}
-          accent="blue"
-        />
-        <StatCard
-          icon={Trophy}
-          label="Лучший результат"
-          value={bestResult}
-          loading={statsLoading}
-          accent="amber"
-        />
-        <StatCard
-          icon={Flame}
-          label="Серия"
-          value={`${weeklyStreak} нед.`}
-          loading={statsLoading}
-          accent="orange"
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle className="text-base">Последние пробники</CardTitle>
-            <Link
-              href="/dashboard/history"
-              className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
-            >
-              Вся история <ArrowRight className="size-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {sessLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Spinner className="size-5" />
-              </div>
-            ) : sessionList.length === 0 ? (
-              <EmptySessions href={quickStartHref} />
-            ) : (
-              <ul className="flex flex-col divide-y divide-border">
-                {sessionList.map((s) => (
-                  <li key={s.id}>
-                    <Link
-                      href={
-                        s.status === "in_progress"
-                          ? `/exam/${s.id}`
-                          : `/exam/${s.id}/review`
-                      }
-                      className="flex items-center justify-between gap-4 rounded-md px-4 py-3 transition-colors hover:bg-secondary/50"
-                    >
-                      <div className="flex min-w-0 flex-col gap-1">
-                        <p className="truncate font-medium">
-                          {localize(s.examType?.name, locale) || "Пробный тест"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {s.startedAt
-                            ? new Date(s.startedAt).toLocaleString(getFormatLocale(), {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {(s.rawScore != null || s.score != null) && s.maxScore != null && (
-                          <span className="text-sm font-semibold tabular-nums">
-                            {s.rawScore ?? s.score}/{s.maxScore}
-                          </span>
-                        )}
-                        <SessionStatusBadge status={s.status} />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Быстрые действия</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Button asChild className="h-11 justify-start">
-              <Link href={quickStartHref}>
-                <BookOpen className="size-4" />
-                Сдать пробный
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-11 justify-start">
-              <Link href="/dashboard/mistakes">
-                <Target className="size-4" />
-                Работа над ошибками
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" className="h-11 justify-start">
-              <Link href="/dashboard/leaderboard">
-                <Trophy className="size-4" />
-                Лидерборд
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" className="h-11 justify-start">
-              <Link href="/dashboard/stats">
-                <BarChart3 className="size-4" />
-                Вся статистика
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" className="h-11 justify-start">
-              <Link href="/dashboard/history">
-                <History className="size-4" />
-                История
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-function NextActionCard({
-  inProgress,
-  openTotal,
-  scoreImpact,
-  quickStartHref,
-}: {
-  inProgress?: SessionListItem
-  openTotal: number
-  scoreImpact?: MistakesSummary["scoreImpact"]
-  quickStartHref: string
-}) {
-  const action = inProgress
-    ? {
-        title: "Продолжи пробник",
-        text: "Незавершённая попытка ждёт тебя в том же месте.",
-        href: `/exam/${inProgress.id}`,
-        label: "Продолжить",
-        icon: ListChecks,
-      }
-    : openTotal > 0
-      ? {
-          title: "Проработай ошибки",
-          text: `${openTotal} открытых ошибок${
-            scoreImpact?.available ? ` · потенциал +${scoreImpact.recoverable} б.` : ""
-          }`,
-          href: "/dashboard/mistakes",
-          label: "Работа над ошибками",
-          icon: Target,
-        }
-      : {
-          title: "Сдай пробный ЕНТ",
-          text: "Полная попытка обновит прогноз, цель поступления и историю результатов.",
-          href: quickStartHref,
-          label: "Сдать пробный",
-          icon: BookOpen,
-        }
-  const Icon = action.icon
-
-  return (
-    <Card className="relative overflow-hidden rounded-xl border border-accent/25 bg-gradient-to-r from-primary via-primary/95 to-primary/90 text-primary-foreground shadow-md shadow-accent/5">
-      <div className="pointer-events-none absolute -bottom-10 -right-10 size-44 rounded-full bg-accent/20 blur-2xl" />
-      <CardContent className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div className="flex items-start gap-3.5">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent-foreground shadow-2xs">
-            <Icon className="size-5" />
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">
-              Что дальше
-            </p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight">{action.title}</h2>
-            <p className="mt-1 max-w-2xl text-sm text-primary-foreground/80">{action.text}</p>
-          </div>
-        </div>
-        <Button asChild variant="secondary" className="h-10 shrink-0 font-semibold shadow-xs transition-transform active:scale-95">
-          <Link href={action.href}>
-            {action.label}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-function HeroLimit({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-2.5 backdrop-blur-md transition-colors hover:border-border">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-0.5 truncate font-semibold tabular-nums">{value}</p>
-    </div>
-  )
-}
-
-function formatDailyRemaining(item: AccessByExamItem | undefined): string {
-  if (!item) return "—"
-  if (item.daily.isUnlimited) return "Без лимита"
-  if (item.daily.limit == null) return "—"
-  return `${item.daily.remaining ?? 0}/${item.daily.limit}`
-}
-
-function formatEntAccess(
-  access: AccessByExamItem | undefined,
-  trial: { freeRemaining?: number; freeLimit?: number; remaining?: number; limit?: number } | undefined,
-): string {
-  if (access?.hasAccess) {
-    const remaining = access.total.remaining
-    if (access.total.isUnlimited || remaining == null) return "Premium"
-    return `${remaining}/${access.total.limit ?? remaining}`
+  const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
+  const stats = useSWR<UserStats>("/users/me/stats")
+  const summary = useSWR<MistakesSummary>("/tests/mistakes/summary")
+  const recent = useSWR<SessionsResponse>("/tests/sessions?page=1&limit=4")
+  // An unfinished attempt may be older than the four recent sessions.
+  const active = useSWR<SessionsResponse>("/tests/sessions?page=1&limit=1&status=in_progress")
+  const exams = useSWR<ExamType[]>("/exams/types")
+  const requests = [stats, summary, recent, active, exams]
+  const failed = requests.some(request => request.error)
+  const retry = () => { void Promise.allSettled(requests.map(request => request.mutate())) }
+  const name = user?.firstName || user?.telegramUsername || user?.username
+  const sessions = sessionsList(recent.data)
+  const inProgress = sessionsList(active.data)[0] ?? sessions.find(session => session.status === "in_progress")
+  const ent = exams.data?.find(exam => exam.slug === "ent")
+  const access = user?.accessByExam?.find(item => item.examSlug === "ent")
+  const freeRemaining = user?.trialStatus?.ent.freeRemaining ?? user?.trialStatus?.ent.remaining ?? 0
+  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const dailyLimit = access?.reasonCode === "DAILY_LIMIT_REACHED"
+  const needsAccess = access?.hasAccess === false && !dailyLimit
+  const examHref = ent ? `/dashboard/exams/${ent.id}` : "/dashboard/exams"
+  const startHref = needsAccess ? "/dashboard/billing?reason=no_access" : examHref
+  const openMistakes = summary.data?.openTotal ?? 0
+  const entStats = stats.data?.byExamType?.find(item => item.examSlug === "ent")
+  const impact = summary.data?.scoreImpact
+  const completed = stats.data?.completedTests
+  const next = inProgress ? {
+    kind: "continue", title: t("Продолжите начатый пробный", "Бастаған сынақты жалғастырыңыз"),
+    text: t("Ответы сохранены. Вернитесь к тесту, который ещё не завершён.", "Жауаптар сақталған. Әлі аяқталмаған тестке оралыңыз."),
+    label: t("Продолжить пробный", "Сынақты жалғастыру"), href: `/exam/${inProgress.id}`,
+  } : active.error ? {
+    kind: "history", title: t("Продолжим подготовку", "Дайындықты жалғастырайық"),
+    text: t("Не удалось проверить незавершённые попытки. Их можно найти в истории.", "Аяқталмаған әрекеттерді тексеру мүмкін болмады. Оларды тарихтан табуға болады."),
+    label: t("Открыть историю", "Тарихты ашу"), href: "/dashboard/history",
+  } : openMistakes > 0 ? {
+    kind: "mistakes", title: t("Разберите ошибки перед новым тестом", "Жаңа тестке дейін қателерді талдаңыз"),
+    text: t(`В работе ${openMistakes} ошибок. Начните с одной темы и закрепите её тренировкой.`, `Қателер саны: ${openMistakes}. Бір тақырыптан бастап, жаттығумен бекітіңіз.`),
+    label: t("Работать над ошибками", "Қателермен жұмыс істеу"), href: "/dashboard/mistakes",
+  } : dailyLimit ? {
+    kind: "daily-limit", title: t("Лимит пробных на сегодня исчерпан", "Бүгінгі сынақтар лимиті таусылды"),
+    text: t("Пока можно вернуться к решениям и повторить пройденные темы.", "Әзірге шешімдерді қарап, өткен тақырыптарды қайталауға болады."),
+    label: t("Посмотреть результаты", "Нәтижелерді көру"), href: "/dashboard/history",
+  } : needsAccess ? {
+    kind: "access", title: t("Выберите доступ к следующему пробному", "Келесі сынаққа қолжетімділікті таңдаңыз"),
+    text: t("Предыдущие результаты остаются в истории. Для новой попытки выберите подходящий пакет.", "Алдыңғы нәтижелер тарихта сақталады. Жаңа әрекет үшін қолайлы пакетті таңдаңыз."),
+    label: t("Посмотреть пакеты", "Пакеттерді көру"), href: startHref,
+  } : {
+    kind: "start", title: !paid && freeRemaining > 0 ? t("Начните с бесплатного пробного", "Тегін сынақтан бастаңыз") : t("Проверьте себя на новом пробном", "Жаңа сынақта өзіңізді тексеріңіз"),
+    text: t("Узнайте свой результат и темы, которым стоит уделить внимание. Выберите предметы перед началом.", "Нәтижеңізді және назар аудару керек тақырыптарды біліңіз. Бастамас бұрын пәндерді таңдаңыз."),
+    label: t("Выбрать пробный", "Сынақты таңдау"), href: startHref,
   }
-  if (!trial) return "Нужен Premium"
-  const remaining = trial.freeRemaining ?? trial.remaining ?? 0
-  const limit = trial.freeLimit ?? trial.limit ?? 0
-  if (limit <= 0) return "Нужен Premium"
-  return `${remaining}/${limit}`
-}
+  const actionLoading = active.isLoading || summary.isLoading || exams.isLoading
+  const tariff = localize(user?.currentTariff?.name, locale) || (paid ? t("Платный доступ", "Ақылы қолжетімділік") : t("Стартовый доступ", "Бастапқы қолжетімділік"))
+  const remaining = !access ? "—" : access.total.isUnlimited ? t("Без лимита", "Шектеусіз") : String(access.total.remaining ?? "—")
+  const finiteLimits = access ? [access.total, access.daily].filter(limit => !limit.isUnlimited) : []
+  const today = !access ? "—" : finiteLimits.length === 0 ? t("Без лимита", "Шектеусіз")
+    : finiteLimits.some(limit => limit.remaining == null) ? "—" : String(Math.max(0, Math.min(...finiteLimits.map(limit => limit.remaining!))))
 
-function EmptySessions({ href }: { href: string }) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-secondary">
-        <BookOpen className="size-5 text-muted-foreground" />
+  return <div className="flex min-w-0 flex-col gap-6">
+    <header className="flex flex-wrap items-start justify-between gap-3" data-no-translate>
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("Моя подготовка", "Менің дайындығым")}</p>
+        <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight sm:text-3xl">{t("Привет", "Сәлем")}{name ? `, ${name}` : ""}!</h1>
       </div>
-      <div>
-        <p className="font-medium">Пока нет пробников</p>
-        <p className="text-sm text-muted-foreground">
-          Откройте первый пробный и получите Premium-разбор
-        </p>
+      {(stats.data?.weeklyStreak ?? 0) > 0 && <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground"><Flame className="size-3.5 text-orange-500" />{stats.data?.weeklyStreak} {t("нед. подряд", "апта қатарынан")}</span>}
+    </header>
+
+    {failed && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm" data-no-translate><span>{t("Часть данных не загрузилась. Доступные разделы продолжают работать.", "Кейбір деректер жүктелмеді. Қолжетімді бөлімдер жұмыс істейді.")}</span><Button variant="outline" size="sm" onClick={retry}>{t("Повторить загрузку", "Қайта жүктеу")}</Button></div>}
+
+    <section className="overflow-hidden rounded-xl border border-border bg-card" aria-label={t("Следующий шаг", "Келесі қадам")} data-testid="dashboard-next-step" data-no-translate>
+      <div className="grid md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="min-w-0 p-5 sm:p-6">
+          <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Target className="size-4" />{t("Следующий шаг", "Келесі қадам")}</p>
+          {actionLoading ? <div className="space-y-3" aria-busy="true"><Skeleton className="h-7 w-3/4" /><Skeleton className="h-10 w-full" /><Skeleton className="h-11 w-44" /></div> : <>
+            <h2 className="max-w-lg text-xl font-semibold tracking-tight sm:text-2xl">{next.title}</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{next.text}</p>
+            <Button asChild className="mt-5 h-auto min-h-11 w-full whitespace-normal py-3 sm:w-auto" data-action={next.kind}><Link href={next.href}>{next.label}<ArrowRight className="size-4" /></Link></Button>
+          </>}
+        </div>
+        <div className="border-t border-border bg-muted/30 p-5 sm:p-6 md:border-l md:border-t-0">
+          <p className="text-xs text-muted-foreground">{t("Ваш доступ", "Сіздің қолжетімділігіңіз")}</p>
+          <p className="mt-1 break-words font-semibold">{tariff}</p>
+          <dl className="mt-4 space-y-2 text-sm">
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("Попыток осталось", "Қалған әрекеттер")}</dt><dd className="text-right font-medium tabular-nums">{remaining}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("Можно сегодня", "Бүгін қолжетімді")}</dt><dd className="text-right font-medium tabular-nums">{today}</dd></div>
+          </dl>
+          <Link href="/dashboard/billing" className="mt-4 inline-flex min-h-9 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline">{t("Управлять доступом", "Қолжетімділікті басқару")}<ArrowRight className="size-3" /></Link>
+        </div>
       </div>
-      <Button asChild>
-        <Link href={href}>Сдать пробный</Link>
-      </Button>
+    </section>
+
+    <section aria-label={t("Результаты подготовки", "Дайындық нәтижелері")} className="grid grid-cols-1 divide-y divide-border rounded-xl border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0" data-no-translate>
+      {[
+        [t("Завершено пробных", "Аяқталған сынақтар"), completed ?? "—"],
+        [t("Лучший результат ЕНТ", "ҰБТ-дағы үздік нәтиже"), entStats ? formatBestPoints(entStats) : "—"],
+        [t("Средний результат всех тестов", "Барлық тесттердің орташа нәтижесі"), completed && stats.data ? `${Math.round(stats.data.averageScore)}%` : "—"],
+      ].map(([label, value]) => <div key={label} className="flex items-center justify-between gap-3 p-4 sm:block sm:p-5"><p className="text-xs text-muted-foreground">{label}</p>{stats.isLoading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="text-xl font-semibold tabular-nums sm:mt-1 sm:text-2xl">{value}</p>}</div>)}
+    </section>
+
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <Card className="min-w-0 gap-4 py-5">
+        <CardHeader className="flex flex-wrap flex-row items-center justify-between gap-2 px-5" data-no-translate>
+          <CardTitle className="text-base">{t("Последние пробные", "Соңғы сынақтар")}</CardTitle>
+          <Link href="/dashboard/history" className="inline-flex min-h-9 items-center gap-1 text-xs font-medium hover:underline">{t("Вся история", "Барлық тарих")}<ArrowRight className="size-3.5" /></Link>
+        </CardHeader>
+        <CardContent className="px-5">
+          {recent.isLoading ? <div className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div> : recent.error && !recent.data ? <p className="py-4 text-sm text-muted-foreground" data-no-translate>{t("История временно недоступна. Попробуйте обновить данные.", "Тарих уақытша қолжетімсіз. Деректерді жаңартып көріңіз.")}</p> : sessions.length === 0 ? <div className="rounded-lg border border-dashed border-border p-5" data-no-translate>
+            <BookOpen className="mb-3 size-5 text-muted-foreground" /><p className="font-medium">{t("Здесь появятся ваши результаты", "Нәтижелеріңіз осында пайда болады")}</p><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t("После первого пробного вы сможете открыть разбор ответов и сравнивать попытки.", "Бірінші сынақтан кейін жауаптарды талдап, әрекеттерді салыстыра аласыз.")}</p>
+          </div> : <ul className="divide-y divide-border">{sessions.map(session => {
+            const finished = session.status === "completed" || session.status === "timed_out"
+            const href = session.status === "in_progress" ? `/exam/${session.id}` : finished ? `/exam/${session.id}/review` : "/dashboard/history"
+            return <li key={session.id}><Link href={href} className="-mx-2 flex min-w-0 items-center gap-3 rounded-lg px-2 py-4 transition-colors hover:bg-muted/50">
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium" data-no-translate>{localize(session.examType?.name, locale) || t("Пробный тест", "Сынақ тесті")}</p><div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span data-no-translate>{session.startedAt ? new Date(session.startedAt).toLocaleDateString(getFormatLocale(), {day:"numeric",month:"short"}) : "—"}</span><SessionStatusBadge status={session.status} /></div></div>
+              <span className="shrink-0 text-right text-sm font-semibold tabular-nums">{finished && session.rawScore != null && session.maxScore != null ? `${session.rawScore}/${session.maxScore}` : finished && session.score != null ? `${Math.round(session.score)}%` : ""}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+            </Link></li>
+          })}</ul>}
+        </CardContent>
+      </Card>
+      <div className="min-w-0"><AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={null} /></div>
     </div>
-  )
-}
 
-function normalizeSessions(data?: SessionsResponse): SessionListItem[] {
-  if (!data) return []
-  if (Array.isArray(data)) return data
-  return Array.isArray(data.items) ? data.items : []
+    <nav className="grid gap-3 sm:grid-cols-3" aria-label={t("Другие разделы", "Басқа бөлімдер")} data-no-translate>
+      {[
+        {href:"/dashboard/stats",Icon:TrendingUp,title:t("Мой прогресс", "Менің жетістігім"),text:t("Динамика результатов по предметам", "Пәндер бойынша нәтижелер динамикасы")},
+        {href:"/dashboard/community",Icon:MessageCircle,title:t("Сообщество", "Қауымдастық"),text:t("Обсуждения и помощь с подготовкой", "Талқылаулар мен дайындыққа көмек")},
+        {href:"/dashboard/leaderboard",Icon:Trophy,title:t("Лидерборд", "Көшбасшылар"),text:t("Результаты других участников", "Басқа қатысушылардың нәтижелері")},
+      ].map(({href,Icon,title,text}) => <Link key={href} href={href} className="flex min-w-0 items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/50"><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><p className="text-sm font-medium">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p></div></Link>)}
+    </nav>
+  </div>
 }

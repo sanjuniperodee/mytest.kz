@@ -3,10 +3,9 @@
 import * as React from "react"
 import Link from "next/link"
 import useSWR from "swr"
-import { ArrowLeft, GraduationCap, Target } from "lucide-react"
+import { ArrowLeft, Target } from "lucide-react"
 import { toast } from "sonner"
 import { ApiError, api } from "@/lib/api/client"
-import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +27,7 @@ import type {
   AdmissionGoalResponse,
   University,
 } from "@/lib/api/types"
+import { useUiI18n } from "@/lib/i18n/ui"
 
 type AdmissionGoalCardProps = {
   currentScore: number | null
@@ -42,18 +42,22 @@ export function AdmissionGoalCard({
   potentialScore,
   maxScore = 140,
 }: AdmissionGoalCardProps) {
-  const { data, mutate, isLoading } = useSWR<AdmissionGoalResponse>("/admission/goal")
+  const { data, mutate, isLoading, error } = useSWR<AdmissionGoalResponse>("/admission/goal")
+  const { locale } = useUiI18n()
+  const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
   const [open, setOpen] = React.useState(false)
   const goal = data?.goal ?? null
 
   if (isLoading) {
-    return <Skeleton className="h-72 rounded-xl" />
+    return <Skeleton className="h-56 rounded-xl" />
   }
+
+  if (error && !data) return <Card><CardContent className="space-y-3" data-no-translate><p role="alert" className="text-sm text-muted-foreground">{t("Не удалось загрузить цель поступления.", "Оқуға түсу мақсаты жүктелмеді.")}</p><Button variant="outline" size="sm" onClick={() => void mutate()}>{t("Повторить", "Қайталау")}</Button></CardContent></Card>
 
   return (
     <>
-      <Card className="rounded-xl border bg-card">
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
+      <Card className="gap-4 rounded-xl border bg-card py-5">
+        <CardHeader className="flex flex-wrap flex-row items-center justify-between gap-2 px-5">
           <CardTitle className="flex items-center gap-2 text-base">
             <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
               <Target className="size-4" aria-hidden="true" />
@@ -66,27 +70,22 @@ export function AdmissionGoalCard({
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5">
           {goal ? (
             <GoalContent
               goal={goal}
               currentScore={currentScore}
               potentialScore={potentialScore}
               maxScore={maxScore}
-              onEdit={() => setOpen(true)}
             />
           ) : (
-            <div className="flex flex-col items-center gap-4 py-8 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                <GraduationCap className="size-5" aria-hidden="true" />
-              </div>
+            <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed border-border p-4" data-no-translate>
               <p className="max-w-md text-sm text-muted-foreground">
-                Выбери вуз и специальность — покажем, сколько баллов нужно для гранта и
-                сколько не хватает.
+                {t("Выберите вуз и специальность, чтобы сравнивать свой результат с опубликованным проходным баллом.", "Нәтижеңізді жарияланған өту балымен салыстыру үшін ЖОО мен мамандықты таңдаңыз.")}
               </p>
-              <Button onClick={() => setOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
                 <Target className="size-4" aria-hidden="true" />
-                Выбрать цель
+                {t("Выбрать цель", "Мақсатты таңдау")}
               </Button>
             </div>
           )}
@@ -103,15 +102,15 @@ function GoalContent({
   currentScore,
   potentialScore,
   maxScore,
-  onEdit,
 }: {
   goal: AdmissionGoal
   currentScore: number | null
   potentialScore: number | null
   maxScore: number
-  onEdit: () => void
 }) {
-  const verdict = goalVerdict(goal.requiredScore, currentScore, potentialScore)
+  const { locale } = useUiI18n()
+  const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
+  const missing = goal.requiredScore != null && currentScore != null ? Math.max(0, goal.requiredScore - currentScore) : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -136,23 +135,19 @@ function GoalContent({
         maxScore={maxScore}
       />
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <GoalMetric label="Нужно для гранта" value={formatScore(goal.requiredScore)} />
-        <GoalMetric label="Сейчас" value={formatScore(currentScore)} />
-        <GoalMetric label="Потенциал" value={formatScore(potentialScore)} />
+      <div className="grid grid-cols-2 gap-2" data-no-translate>
+        <GoalMetric label={t("Проходной балл", "Өту балы")} value={formatScore(goal.requiredScore)} />
+        <GoalMetric label={t("Ваш пробный", "Сіздің сынағыңыз")} value={formatScore(currentScore)} />
       </div>
 
-      <p className={cn("text-sm font-semibold", verdict.className)}>{verdict.text}</p>
+      <div className="space-y-2 text-sm" data-no-translate>
+        <p>{missing == null ? t("Пройдите полный пробный и сравните результат с целью, когда оба балла будут доступны.", "Толық сынақтан өтіп, екі балл да қолжетімді болғанда нәтижені мақсатпен салыстырыңыз.") : missing > 0 ? t(`До ориентира: ${missing} баллов.`, `Бағдарға дейін: ${missing} балл.`) : t("Результат пробного не ниже указанного ориентира.", "Сынақ нәтижесі көрсетілген бағдардан төмен емес.")}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{t("Проходной балл — ориентир по опубликованным данным, не гарантия получения гранта.", "Өту балы — жарияланған деректер бойынша бағдар, грант алуға кепілдік емес.")}</p>
+      </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm">
-          <Link href="/dashboard/mistakes">Работа над ошибками</Link>
-        </Button>
         <Button asChild size="sm" variant="outline">
           <Link href="/dashboard/admission">Шанс на грант</Link>
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onEdit}>
-          Изменить цель
         </Button>
       </div>
     </div>
@@ -241,13 +236,13 @@ function GoalPickerDialog({
   const [savingProgramId, setSavingProgramId] = React.useState<string | null>(null)
   const [removing, setRemoving] = React.useState(false)
   const { data: universities, isLoading: universitiesLoading } =
-    useSWR<University[]>("/admission/universities")
-  const { data: cycles } = useSWR<AdmissionCycle[]>("/admission/cycles")
+    useSWR<University[]>(open ? "/admission/universities" : null)
+  const { data: cycles } = useSWR<AdmissionCycle[]>(open ? "/admission/cycles" : null)
   const latestCycle = React.useMemo(() => pickLatestCycle(cycles), [cycles])
   const cycleSlug = latestCycle?.slug
   const universityCode = selectedUniversity?.code
   const cutoffKey =
-    step === "program" && cycleSlug && universityCode != null
+    open && step === "program" && cycleSlug && universityCode != null
       ? `/admission/cutoffs:${cycleSlug}:${universityCode}`
       : null
   const { data: programs, isLoading: programsLoading } = useSWR<AdmissionCutoffRow[]>(
@@ -464,33 +459,6 @@ function pickLatestCycle(cycles?: AdmissionCycle[]): AdmissionCycle | null {
     if (cycleOrder === latestOrder && cycle.slug.localeCompare(latest.slug) > 0) return cycle
     return latest
   })
-}
-
-function goalVerdict(
-  requiredScore: number | null,
-  currentScore: number | null,
-  potentialScore: number | null,
-): { text: string; className: string } {
-  if (requiredScore == null) {
-    return {
-      text: "Проходной балл для этой специальности пока не опубликован.",
-      className: "text-muted-foreground",
-    }
-  }
-  if (currentScore != null && currentScore >= requiredScore) {
-    return { text: "Ты уже проходишь на грант! 🎉", className: "text-emerald-700" }
-  }
-  const missing = Math.max(0, requiredScore - (currentScore ?? 0))
-  if (potentialScore != null && potentialScore >= requiredScore) {
-    return {
-      text: `Не хватает ${missing} б. Закрой ошибки — потенциал ${potentialScore} уже проходной.`,
-      className: "text-emerald-700",
-    }
-  }
-  return {
-    text: `Не хватает ${missing} б. до гранта. Тренируйся и закрывай ошибки.`,
-    className: "text-amber-700",
-  }
 }
 
 function scorePct(score: number | null, maxScore: number) {
