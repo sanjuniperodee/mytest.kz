@@ -266,7 +266,7 @@ export default function ReviewPage({
                     </div>
                   )}
                 </div>
-                <ReviewNextStep sessionId={sessionId} weakSections={weakSections} hasPremium={hasPremium} hasMistakes={mistakeCount > 0} />
+                <ReviewNextStep sessionId={sessionId} weakSections={weakSections} hasPremium={hasPremium} hasMistakes={mistakeCount > 0} practiceHref={data.metadata?.kind === "remediation" ? data.metadata.remediationScope?.themeId ? `/dashboard/mistakes/themes/${data.metadata.remediationScope.themeId}` : data.metadata.remediationScope?.subjectId ? `/dashboard/mistakes/subjects/${data.metadata.remediationScope.subjectId}` : "/dashboard/mistakes" : undefined} />
               </CardContent>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 sm:px-6">
                 <Button asChild variant="ghost" size="sm"><a href="#review-questions" data-no-translate>{t("Перейти к разбору", "Талдауға өту")}<ChevronDown className="size-4" /></a></Button>
@@ -642,11 +642,13 @@ function ReviewNextStep({
   weakSections,
   hasPremium,
   hasMistakes,
+  practiceHref,
 }: {
   sessionId: string
   weakSections: Array<{ title: string; pct: number; lost: number }>
   hasPremium: boolean
   hasMistakes: boolean
+  practiceHref?: string
 }) {
   const { locale } = useUiI18n()
   const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
@@ -668,9 +670,9 @@ function ReviewNextStep({
         <Button asChild className="mt-4 h-auto min-h-11 w-full whitespace-normal px-3 py-3">
           <Link
             href={
-              !hasMistakes ? "#review-questions" : hasPremium
+              practiceHref || (!hasMistakes ? "#review-questions" : hasPremium
                 ? "/dashboard/mistakes"
-                : `/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`
+                : `/dashboard/billing?reason=review_recovery&sessionId=${encodeURIComponent(sessionId)}`)
             }
             onClick={() => {
               if (!hasPremium && hasMistakes) {
@@ -678,7 +680,7 @@ function ReviewNextStep({
               }
             }}
           >
-            {!hasMistakes ? t("Посмотреть ответы", "Жауаптарды көру") : hasPremium ? t("Работать над ошибками", "Қателермен жұмыс істеу") : t("Открыть работу над ошибками", "Қателермен жұмысты ашу")}
+            {practiceHref ? t("Посмотреть прогресс по ошибкам", "Қателер бойынша ілгерілеуді көру") : !hasMistakes ? t("Посмотреть ответы", "Жауаптарды көру") : hasPremium ? t("Работать над ошибками", "Қателермен жұмыс істеу") : t("Открыть работу над ошибками", "Қателермен жұмысты ашу")}
             <ArrowRight className="size-4" />
           </Link>
         </Button>

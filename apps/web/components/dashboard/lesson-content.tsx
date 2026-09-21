@@ -527,6 +527,8 @@ function TaskList({
                 ))}
               </div>
             )}
+            {(task.answer || task.explanation) && <details className="mt-3">
+              <summary className="cursor-pointer py-2 text-sm font-medium" data-no-translate>{language === "kk" ? "Шешімін көрсету" : "Показать решение"}</summary>
             {task.answer && (
               <RichText
                 value={task.answer}
@@ -543,6 +545,7 @@ function TaskList({
                 className="mt-2 rounded-lg border border-border bg-card p-3 text-sm leading-6 text-muted-foreground"
               />
             )}
+            </details>}
           </div>
         )
       })}

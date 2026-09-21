@@ -50,6 +50,7 @@ export class TestsController {
       subjectId: dto.subjectId,
       topicId: dto.topicId,
       themeId: dto.themeId,
+      unclassifiedOnly: dto.unclassifiedOnly,
       limit: dto.limit,
       durationMins: dto.durationMins,
     });

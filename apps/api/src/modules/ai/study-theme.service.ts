@@ -21,7 +21,7 @@ const TAXONOMY_LANG: AiLanguage = 'ru'; // canonical theme names; shared across 
 const LESSON_VERSION = 'v3';
 const TAXONOMY_SAMPLE = 30;
 const CLASSIFY_BATCH = 40;
-const MAX_CLASSIFY_BATCHES_PER_CALL = 6; // bound cost per study-map load
+const MAX_CLASSIFY_BATCHES_PER_CALL = 1; // explicit, bounded preparation action
 const LESSON_SAMPLE = 12;
 const QUESTION_CHAR_CAP = 320;
 const OPTION_CHAR_CAP = 160;
@@ -37,7 +37,7 @@ interface ThemeRow {
 export interface StudyMapTheme {
   themeId: string;
   key: string;
-  name: string;
+  name: unknown;
   openCount: number;
   activeOpenCount: number;
 }
@@ -48,6 +48,7 @@ export interface StudyMap {
   subjectId: string;
   subjectName: unknown;
   themes: StudyMapTheme[];
+  reviewThemes: { themeId: string; key: string; name: unknown }[];
   otherOpenCount: number;
   otherActiveOpenCount: number;
   openTotal: number;
@@ -55,6 +56,7 @@ export interface StudyMap {
   classifiedCount: number;
   unclassifiedCount: number;
   pending: boolean; // true while classification is still incomplete (quota/scale)
+  generationAvailable: boolean;
 }
 
 type LessonNoteWithRelations = Prisma.AiLessonNoteGetPayload<{
@@ -276,7 +278,7 @@ export class StudyThemeService {
 
   // ─── study map ───────────────────────────────────────────────────────────────
 
-  async getStudyMap(userId: string, subjectId: string, examTypeId?: string): Promise<StudyMap> {
+  async getStudyMap(userId: string, subjectId: string, examTypeId?: string, prepare = false): Promise<StudyMap> {
     const subject = await this.prisma.subject.findFirst({
       where: { id: subjectId, ...(examTypeId ? { examTypeId } : {}) },
       include: { examType: { select: { id: true, name: true, slug: true } } },
@@ -284,14 +286,18 @@ export class StudyThemeService {
     if (!subject) throw new NotFoundException('SUBJECT_NOT_FOUND');
 
     const latest = await this.mistakes.getLatestOutcomes(userId);
-    const open = latest.filter(
-      (r) => r.isCorrect === false && r.subjectId === subjectId && (!examTypeId || r.examTypeId === examTypeId),
-    );
+    const scopedLatest = latest.filter(r => r.subjectId === subjectId && r.examTypeId === subject.examTypeId);
+    const open = scopedLatest.filter(r => r.isCorrect === false);
     const openIds = open.map((r) => r.questionId);
 
-    const themes = this.isEnabled() ? await this.ensureTaxonomy(userId, subjectId) : [];
+    const themes = prepare && openIds.length > 0 && this.isEnabled()
+      ? await this.ensureTaxonomy(userId, subjectId)
+      : await this.prisma.subjectStudyTheme.findMany({
+          where: { subjectId, isActive: true }, orderBy: { sortOrder: 'asc' },
+          select: { id: true, key: true, name: true, sortOrder: true },
+        });
     let pending = false;
-    if (themes.length > 0 && openIds.length > 0) {
+    if (prepare && this.isEnabled() && themes.length > 0 && openIds.length > 0) {
       const status = await this.classifyOpenMistakes(userId, subjectId, themes, openIds);
       // Only "more" means auto-classification will continue → worth polling.
       // "stopped" (quota/error) must NOT keep the client polling forever.
@@ -300,7 +306,7 @@ export class StudyThemeService {
 
     const [classifications, activeRows] = await Promise.all([
       this.prisma.questionThemeClassification.findMany({
-        where: { questionId: { in: openIds } },
+        where: { questionId: { in: scopedLatest.map(row => row.questionId) } },
         select: { questionId: true, themeId: true },
       }),
       this.prisma.question.findMany({
@@ -312,6 +318,7 @@ export class StudyThemeService {
     const activeById = new Map(activeRows.map((q) => [q.id, q.isActive]));
 
     const counts = new Map<string, { open: number; active: number }>();
+    const activeThemeIds = new Set(themes.map(theme => theme.id));
     let otherOpen = 0;
     let otherActive = 0;
     let unclassified = 0;
@@ -319,7 +326,7 @@ export class StudyThemeService {
       const active = activeById.get(id) ?? false;
       const themeId = themeByQuestion.get(id);
       if (!themeByQuestion.has(id)) unclassified++;
-      if (themeId) {
+      if (themeId && activeThemeIds.has(themeId)) {
         const c = counts.get(themeId) ?? { open: 0, active: 0 };
         c.open++;
         if (active) c.active++;
@@ -336,7 +343,7 @@ export class StudyThemeService {
         return {
           themeId: t.id,
           key: t.key,
-          name: localizeFlat(t.name, 'ru', t.key),
+          name: t.name,
           openCount: c.open,
           activeOpenCount: c.active,
         };
@@ -350,6 +357,8 @@ export class StudyThemeService {
       subjectId: subject.id,
       subjectName: subject.name,
       themes: themeRows,
+      reviewThemes: themes.filter(theme => !counts.has(theme.id) && classifications.some(row => row.themeId === theme.id))
+        .map(theme => ({ themeId: theme.id, key: theme.key, name: theme.name })),
       otherOpenCount: otherOpen,
       otherActiveOpenCount: otherActive,
       openTotal: openIds.length,
@@ -357,6 +366,36 @@ export class StudyThemeService {
       classifiedCount: openIds.length - unclassified,
       unclassifiedCount: unclassified,
       pending,
+      generationAvailable: this.isEnabled(),
+    };
+  }
+
+  /** Read-only personal theme context. Historical participation retains access
+   * to saved lessons after mistakes are corrected; unrelated users get 404. */
+  async getThemeDetail(userId: string, themeId: string, language: string) {
+    const theme = await this.prisma.subjectStudyTheme.findFirst({
+      where: { id: themeId, isActive: true },
+      include: { subject: { select: { name: true } }, examType: { select: { name: true } } },
+    });
+    if (!theme) throw new NotFoundException('THEME_NOT_FOUND');
+    const latest = (await this.mistakes.getLatestOutcomes(userId))
+      .filter(row => row.subjectId === theme.subjectId && row.examTypeId === theme.examTypeId);
+    const questions = await this.prisma.question.findMany({
+      where: { id: { in: latest.map(row => row.questionId) }, themeClassification: { themeId } },
+      select: { id: true, isActive: true },
+    });
+    if (!questions.length) throw new NotFoundException('THEME_NOT_FOUND');
+    const openIds = new Set(latest.filter(row => !row.isCorrect).map(row => row.questionId));
+    const open = questions.filter(question => openIds.has(question.id));
+    const cached = await this.prisma.subjectThemeLesson.findUnique({
+      where: { themeId_language_lessonVersion: { themeId, language: language === 'kk' ? 'kk' : 'ru', lessonVersion: LESSON_VERSION } },
+    });
+    return {
+      themeId, themeName: theme.name, examTypeId: theme.examTypeId, examName: theme.examType.name,
+      subjectId: theme.subjectId, subjectName: theme.subject.name,
+      openCount: open.length, activeOpenCount: open.filter(question => question.isActive).length,
+      resolvedCount: questions.length - open.length, generationAvailable: this.isEnabled(),
+      lesson: cached ? { ...(cached.result as unknown as TopicLesson), lessonId: cached.id, lessonKind: 'theme' as const, cached: true } : null,
     };
   }
 
@@ -368,8 +407,11 @@ export class StudyThemeService {
     language: string,
     force = false,
   ): Promise<TopicLesson> {
-    if (!this.isEnabled()) throw new BadRequestException('AI_DISABLED');
     const lang: AiLanguage = language === 'kk' ? 'kk' : 'ru';
+
+    const context = await this.getThemeDetail(userId, themeId, lang);
+    if (!force && context.lesson) return context.lesson;
+    if (!this.isEnabled()) throw new BadRequestException('AI_DISABLED');
 
     const theme = await this.prisma.subjectStudyTheme.findUnique({
       where: { id: themeId },
@@ -380,31 +422,8 @@ export class StudyThemeService {
     });
     if (!theme) throw new NotFoundException('THEME_NOT_FOUND');
 
-    // Gate: the user must have an open mistake in this theme.
-    const latest = await this.mistakes.getLatestOutcomes(userId);
-    const openIds = latest
-      .filter((r) => r.isCorrect === false && r.subjectId === theme.subjectId)
-      .map((r) => r.questionId);
-    const openInTheme = openIds.length
-      ? await this.prisma.questionThemeClassification.count({
-          where: { themeId, questionId: { in: openIds } },
-        })
-      : 0;
-    if (openInTheme === 0) throw new BadRequestException('NO_OPEN_MISTAKES_FOR_THEME');
-
-    if (!force) {
-      const cached = await this.prisma.subjectThemeLesson.findUnique({
-        where: { themeId_language_lessonVersion: { themeId, language: lang, lessonVersion: LESSON_VERSION } },
-      });
-      if (cached) {
-        return {
-          ...(cached.result as unknown as TopicLesson),
-          lessonId: cached.id,
-          lessonKind: 'theme',
-          cached: true,
-        };
-      }
-    }
+    // Generating new content requires an open mistake; saved content stays readable.
+    if (context.openCount === 0) throw new BadRequestException('NO_OPEN_MISTAKES_FOR_THEME');
 
     // Source questions: any active question in this theme (not just the user's).
     const sourceQuestions = await this.prisma.question.findMany({
@@ -413,6 +432,7 @@ export class StudyThemeService {
       orderBy: [{ difficulty: 'asc' }, { createdAt: 'asc' }],
       take: LESSON_SAMPLE,
     });
+    if (!sourceQuestions.length) throw new BadRequestException('NO_ACTIVE_QUESTIONS_FOR_THEME');
 
     const themeName = localizeFlat(theme.name, lang, theme.key);
     const promptQuestions: PromptLessonQuestion[] = sourceQuestions.map((q, i) => ({
@@ -493,10 +513,7 @@ export class StudyThemeService {
     });
     if (!lesson) throw new NotFoundException('LESSON_NOT_FOUND');
 
-    const openQuestionIds = await this.getOpenQuestionIdsForTheme(userId, lesson.themeId);
-    if (openQuestionIds.length === 0) {
-      throw new BadRequestException('NO_OPEN_MISTAKES_FOR_THEME');
-    }
+    await this.getThemeDetail(userId, lesson.themeId, lesson.language);
 
     const note = await this.prisma.aiLessonNote.create({
       data: {

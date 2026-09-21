@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsInt, IsBoolean, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class MistakesPracticeDto {
@@ -20,6 +20,10 @@ export class MistakesPracticeDto {
   @IsOptional()
   @IsUUID()
   themeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  unclassifiedOnly?: boolean;
 
   @IsOptional()
   @Type(() => Number)

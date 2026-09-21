@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Post,
@@ -42,10 +43,12 @@ export class AiController {
     @CurrentUser('id') userId: string,
     @Query('examTypeId') examTypeId?: string,
     @Query('subjectId') subjectId?: string,
+    @Headers('accept-language') language?: string,
   ) {
     const analysis = await this.aiCoach.getStoredAnalysis(userId, {
       examTypeId: examTypeId || undefined,
       subjectId: subjectId || undefined,
+      language: language?.toLowerCase().startsWith('kk') ? 'kk' : 'ru',
     });
     return { enabled: this.aiCoach.isEnabled(), analysis };
   }
@@ -107,7 +110,38 @@ export class AiController {
     @Param('subjectId') subjectId: string,
     @Query('examTypeId') examTypeId?: string,
   ) {
+    // Compatibility for installed mobile clients, which have no prepare button yet.
+    return this.studyTheme.getStudyMap(userId, subjectId, examTypeId || undefined, true);
+  }
+
+  @Get('mistakes/subjects/:subjectId/study-map/overview')
+  @UseGuards(PremiumGuard)
+  async studyMapOverview(
+    @CurrentUser('id') userId: string,
+    @Param('subjectId', ParseUUIDPipe) subjectId: string,
+    @Query('examTypeId') examTypeId?: string,
+  ) {
     return this.studyTheme.getStudyMap(userId, subjectId, examTypeId || undefined);
+  }
+
+  @Post('mistakes/subjects/:subjectId/study-map/prepare')
+  @UseGuards(PremiumGuard)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  async prepareStudyMap(
+    @CurrentUser('id') userId: string,
+    @Param('subjectId', ParseUUIDPipe) subjectId: string,
+  ) {
+    return this.studyTheme.getStudyMap(userId, subjectId, undefined, true);
+  }
+
+  @Get('mistakes/themes/:themeId')
+  @UseGuards(PremiumGuard)
+  async themeDetail(
+    @CurrentUser('id') userId: string,
+    @Param('themeId', ParseUUIDPipe) themeId: string,
+    @Headers('accept-language') language?: string,
+  ) {
+    return this.studyTheme.getThemeDetail(userId, themeId, language?.toLowerCase().startsWith('kk') ? 'kk' : 'ru');
   }
 
   /** Full cached reinforcement lesson for a study theme (built from the theme's questions). */

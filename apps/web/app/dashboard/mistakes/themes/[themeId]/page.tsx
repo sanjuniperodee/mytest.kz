@@ -1,384 +1,113 @@
 "use client"
 
-import { useUiI18n } from "@/lib/i18n/ui"
-
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
-import { toast } from "sonner"
-import {
-  ArrowLeft,
-  BookOpen,
-  Crown,
-  Lightbulb,
-  MessageSquare,
-  Play,
-  Send,
-  Sparkles,
-  Target,
-} from "lucide-react"
+import { useParams } from "next/navigation"
+import useSWR from "swr"
+import { ArrowLeft, Play, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
-import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FullLessonReader } from "@/components/dashboard/lesson-content"
+import { MistakesPracticeDialog, type FixedPracticeScope } from "@/components/dashboard/mistakes-practice-dialog"
 import { RichText } from "@/components/exam/rich-text"
-import {
-  FullLessonReader,
-  getPresentLessonSections,
-} from "@/components/dashboard/lesson-content"
-import { api, ApiError } from "@/lib/api/client"
+import { useUiI18n } from "@/lib/i18n/ui"
 import { useAuth } from "@/lib/api/auth-context"
-import type { AiTopicLesson } from "@/lib/api/types"
-
-type LessonStatus = "idle" | "loading"
+import { api, ApiError } from "@/lib/api/client"
+import { localize } from "@/lib/api/i18n"
+import type { AiTopicLesson, MistakesThemeDetail } from "@/lib/api/types"
 
 export default function ThemeLessonPage() {
-  const router = useRouter()
-  const params = useParams<{ themeId: string }>()
-  const themeId = typeof params.themeId === "string" ? params.themeId : ""
+  const { themeId } = useParams<{themeId:string}>()
+  const { locale } = useUiI18n()
+  return <ThemeContent key={`${themeId}:${locale}`} themeId={themeId} language={locale} />
+}
+
+function ThemeContent({ themeId, language }: {themeId:string; language:"ru"|"kk"}) {
+  const t = (ru:string,kk:string) => language === "kk" ? kk : ru
   const { user, isLoading: authLoading } = useAuth()
-  const { locale: language } = useUiI18n()
-  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
-
-  const [lesson, setLesson] = useState<AiTopicLesson | null>(null)
-  const [status, setStatus] = useState<LessonStatus>("idle")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [training, setTraining] = useState(false)
-  const [noteOpen, setNoteOpen] = useState(false)
-  const [noteMessage, setNoteMessage] = useState("")
-  const [noteSubmitting, setNoteSubmitting] = useState(false)
-
-  const presentSections = useMemo(
-    () => (lesson && !lesson.pages?.length ? getPresentLessonSections(lesson) : []),
-    [lesson],
-  )
-
-  const loadLesson = useCallback(
-    async () => {
-      if (!themeId || !hasPremium) return
-      setStatus("loading")
-      setErrorMessage(null)
-      try {
-        const nextLesson = await api<AiTopicLesson>("/ai/mistakes/theme-lesson", {
-          method: "POST",
-          body: { themeId, language },
-        })
-        setLesson(nextLesson)
-      } catch (err) {
-        if (err instanceof ApiError && (err.status === 402 || err.status === 403)) {
-          router.push("/dashboard/billing?reason=theme_lesson")
-          return
-        }
-
-        const message = lessonErrorMessage(err)
-        toast.error(message)
-        setErrorMessage(message)
-      } finally {
-        setStatus("idle")
-      }
-    },
-    [hasPremium, language, router, themeId],
-  )
-
-  useEffect(() => {
-    if (authLoading || !hasPremium) return
-    void loadLesson()
-  }, [authLoading, hasPremium, loadLesson])
-
-  const startPractice = async () => {
-    if (!lesson) return
-    setTraining(true)
+  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const url = `/ai/mistakes/themes/${themeId}`
+  const {data,error,isLoading,isValidating,mutate} = useSWR<MistakesThemeDetail>(paid ? [url,language] : null, ([path]:[string,string]) => api<MistakesThemeDetail>(path))
+  const [busy,setBusy] = useState(false)
+  const [failure,setFailure] = useState("")
+  const [practice,setPractice] = useState<FixedPracticeScope|null>(null)
+  const [noteOpen,setNoteOpen] = useState(false)
+  const [note,setNote] = useState("")
+  const [noteBusy,setNoteBusy] = useState(false)
+  const [noteError,setNoteError] = useState("")
+  const [noteSent,setNoteSent] = useState(false)
+  const generating = useRef(false), sending = useRef(false)
+  const practiceTrigger = useRef<HTMLButtonElement|null>(null)
+  const noteTrigger = useRef<HTMLButtonElement|null>(null)
+  const lesson = data?.lesson
+  const back = data ? `/dashboard/mistakes/subjects/${data.subjectId}?examTypeId=${data.examTypeId}` : "/dashboard/mistakes"
+  const prepare = async () => {
+    if(generating.current || !data) return
+    generating.current=true;setBusy(true);setFailure("")
     try {
-      const session = await api<{ id: string }>("/tests/mistakes/practice", {
-        method: "POST",
-        body: {
-          language,
-          examTypeId: lesson.examTypeId,
-          subjectId: lesson.subjectId,
-          themeId: lesson.topicId,
-          limit: 15,
-          durationMins: 25,
-        },
-      })
-      router.push(`/exam/${session.id}`)
-    } catch (err) {
-      setTraining(false)
-      if (err instanceof ApiError && (err.status === 402 || err.status === 403)) {
-        router.push("/dashboard/billing?reason=theme_lesson")
-        return
-      }
-      toast.error(practiceErrorMessage(err))
-    }
+      const lesson = await api<AiTopicLesson>("/ai/mistakes/theme-lesson",{method:"POST",body:{themeId,language}})
+      await mutate(current => current ? {...current,lesson} : current,{revalidate:false})
+    } catch(err) {
+      setFailure(err instanceof ApiError && err.message==="AI_DAILY_LIMIT" ? t("Лимит AI на сегодня исчерпан. Практика остаётся доступной.", "Бүгінгі AI лимиті таусылды. Жаттығу қолжетімді.") : t("Не удалось подготовить урок. Попробуйте позже или начните практику.", "Сабақты дайындау мүмкін болмады. Кейінірек көріңіз немесе жаттығуды бастаңыз."))
+    } finally {generating.current=false;setBusy(false)}
   }
-
-  const submitLessonNote = async () => {
-    const message = noteMessage.trim()
-    if (!lesson?.lessonId) {
-      toast.error("Урок ещё не сохранён. Попробуйте открыть его заново.")
-      return
-    }
-    if (message.length < 12) {
-      toast.error("Опишите замечание чуть подробнее")
-      return
-    }
-
-    setNoteSubmitting(true)
+  const sendNote = async () => {
+    if(sending.current || !lesson?.lessonId || note.trim().length<12) return
+    sending.current=true;setNoteBusy(true);setNoteError("")
     try {
-      await api(`/ai/mistakes/theme-lesson/${lesson.lessonId}/note`, {
-        method: "POST",
-        body: { message },
-      })
-      setNoteMessage("")
-      setNoteOpen(false)
-      toast.success("Замечание отправлено админу")
-    } catch (err) {
-      toast.error(lessonNoteErrorMessage(err))
-    } finally {
-      setNoteSubmitting(false)
-    }
+      await api(`/ai/mistakes/theme-lesson/${lesson.lessonId}/note`,{method:"POST",body:{message:note.trim()}})
+      setNote("");setNoteOpen(false);setNoteSent(true)
+    } catch {setNoteError(t("Не удалось отправить. Текст сохранён — попробуйте ещё раз.", "Жіберу мүмкін болмады. Мәтін сақталған — қайталап көріңіз."))}
+    finally {sending.current=false;setNoteBusy(false)}
   }
-
-  if (authLoading) {
-    return (
-      <div className="mx-auto flex min-h-80 w-full max-w-7xl items-center justify-center gap-3 text-sm text-muted-foreground">
-        <Spinner className="size-5 text-violet-600" />
-        Загружаем доступ...
-      </div>
-    )
-  }
-
-  if (!hasPremium) {
-    return (
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-        <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
-          <Link href="/dashboard/mistakes">
-            <ArrowLeft className="size-4" />
-            Работа над ошибками
-          </Link>
-        </Button>
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="grid gap-4 p-5 text-amber-950 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div className="flex items-start gap-3">
-              <Crown className="mt-0.5 size-5 shrink-0 text-amber-700" />
-              <div>
-                <p className="font-semibold">Персональный урок доступен в Premium</p>
-                <p className="mt-1 text-sm leading-6 text-amber-900">
-                  Premium откроет AI-уроки по темам ошибок, визуализации, примеры и мини-тест.
-                </p>
-              </div>
-            </div>
-            <Button asChild className="bg-amber-700 text-white hover:bg-amber-800">
-              <Link href="/dashboard/billing?reason=theme_lesson">
-                <Crown className="size-4" />
-                Открыть Premium
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (status === "loading" && !lesson) {
-    return (
-      <div className="mx-auto flex min-h-80 w-full max-w-7xl items-center justify-center gap-3 rounded-xl border border-violet-100 bg-violet-50 text-sm text-violet-950">
-        <Spinner className="size-6 text-violet-600" />
-        AI готовит полный урок...
-      </div>
-    )
-  }
-
-  if (!lesson) {
-    return (
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-        <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
-          <Link href="/dashboard/mistakes">
-            <ArrowLeft className="size-4" />
-            Работа над ошибками
-          </Link>
-        </Button>
-        <Card>
-          <CardContent className="flex flex-col gap-4 p-6">
-            <p className="text-sm text-muted-foreground">
-              {errorMessage ?? "Не удалось открыть урок по теме."}
-            </p>
-            <Button type="button" className="w-fit" onClick={() => void loadLesson()}>
-              <Sparkles className="size-4" />
-              Повторить
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-      <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
-        <Link href={`/dashboard/mistakes/subjects/${lesson.subjectId}`}>
-          <ArrowLeft className="size-4" />
-          К предмету
-        </Link>
-      </Button>
-
-      <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-card to-violet-50/70">
-        <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-            <div className="flex min-w-0 flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <BookOpen className="size-4 text-emerald-600" />
-                <RichText value={lesson.subjectName} locale={language} as="span" />
-                <span>·</span>
-                <RichText value={lesson.topicName} locale={language} as="span" />
-              </div>
-              <RichText
-                value={lesson.title}
-                locale={language}
-                as="div"
-                className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl"
-              />
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2 lg:w-[340px]">
-              <Button type="button" size="lg" onClick={() => void startPractice()} disabled={training}>
-                {training ? <Spinner className="size-4" /> : <Play className="size-4" />}
-                Тренировать
-              </Button>
-              <Button type="button" size="lg" variant="outline" onClick={() => setNoteOpen(true)}>
-                <MessageSquare className="size-4" />
-                Замечание
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-emerald-100 bg-white/70 p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                <Target className="size-4" />
-                Цель
-              </div>
-              <RichText value={lesson.studentGoal} locale={language} as="div" className="text-sm leading-6 text-emerald-950" />
-            </div>
-            <div className="rounded-xl border border-violet-100 bg-white/70 p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-violet-900">
-                <Lightbulb className="size-4" />
-                Зачем на ЕНТ
-              </div>
-              <RichText value={lesson.whyItMatters} locale={language} as="div" className="text-sm leading-6 text-violet-950" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {presentSections.length > 0 && (
-        <nav className="flex flex-wrap gap-2 rounded-xl border border-border bg-card p-3">
-          {presentSections.map((section) => (
-            <a
-              key={section.id}
-              href={`#sec-${section.id}`}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              {section.label}
-            </a>
-          ))}
-        </nav>
-      )}
-
-      <main className="min-w-0">
-        <FullLessonReader lesson={lesson} language={language} />
-        <p className="mt-6 text-sm text-muted-foreground">
-          {lesson.cached ? "Сохранённый урок" : "Сгенерировано сейчас"} · {lesson.model}
-        </p>
-      </main>
-
-      <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Замечание к уроку</DialogTitle>
-            <DialogDescription>
-              Сообщение попадёт админу, а сам урок ученики обновлять не могут.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={noteMessage}
-            onChange={(event) => setNoteMessage(event.target.value)}
-            placeholder="Например: в этой формуле ошибка или тема названа неточно"
-            className="min-h-32 resize-none text-sm"
-            maxLength={2000}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setNoteOpen(false)}
-              disabled={noteSubmitting}
-            >
-              Закрыть
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void submitLessonNote()}
-              disabled={noteSubmitting || noteMessage.trim().length < 12}
-            >
-              {noteSubmitting ? <Spinner className="size-4" /> : <Send className="size-4" />}
-              Отправить админу
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
-function lessonNoteErrorMessage(err: unknown) {
-  if (!(err instanceof ApiError)) return "Не удалось отправить замечание. Попробуйте ещё раз."
-  if (err.message === "LESSON_NOTE_TOO_SHORT") return "Опишите замечание чуть подробнее"
-  if (err.message === "NO_OPEN_MISTAKES_FOR_THEME") return "По этой теме нет открытых ошибок"
-  if (err.status === 429) return "Слишком часто — подождите минуту"
-  return err.message || "Не удалось отправить замечание. Попробуйте ещё раз."
-}
-
-function lessonErrorMessage(err: unknown) {
-  if (!(err instanceof ApiError)) return "Не удалось подготовить урок. Попробуйте ещё раз."
-  if (err.message === "AI_DAILY_LIMIT") {
-    return "Дневной лимит AI исчерпан — продолжишь завтра"
-  }
-  if (err.message === "AI_BUSY" || err.status === 503) {
-    return "AI перегружен, попробуйте позже"
-  }
-  if (err.message === "NO_OPEN_MISTAKES_FOR_THEME") {
-    return "По этой теме нет открытых ошибок"
-  }
-  if (err.status === 429) {
-    return "Слишком часто, подождите минуту"
-  }
-  return err.message || "Не удалось подготовить урок. Попробуйте ещё раз."
-}
-
-function practiceErrorMessage(err: unknown) {
-  // Not an ApiError → the request never got an HTTP response (connection dropped/blocked).
-  if (!(err instanceof ApiError)) {
-    return "Не удалось связаться с сервером. Проверьте интернет и попробуйте ещё раз."
-  }
-  switch (err.message) {
-    case "NO_OPEN_MISTAKES_FOR_THEME":
-      return "По этой теме больше нет открытых ошибок — выбери другую."
-    case "NO_OPEN_MISTAKES_FOR_SUBJECT":
-      return "По этому предмету нет открытых ошибок."
-    case "NO_OPEN_MISTAKES":
-      return "Открытых ошибок пока нет."
-    case "EXAM_TYPE_REQUIRED":
-      return "Выберите конкретный экзамен."
-  }
-  if (err.status === 429) return "Слишком часто — подождите минуту и попробуйте снова."
-  if (err.status >= 500) return "Сервис временно недоступен. Попробуйте ещё раз."
-  return "Не удалось запустить тренировку. Попробуйте ещё раз."
+  return <div className="flex min-w-0 flex-col gap-6">
+    <Link href={back} className="inline-flex min-h-10 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground" data-no-translate><ArrowLeft className="size-4" />{data ? t("К предмету", "Пәнге оралу") : t("Мои ошибки", "Менің қателерім")}</Link>
+    {authLoading || isLoading ? <Skeleton className="h-52 w-full rounded-xl" /> : !paid ? <section className="rounded-xl border border-border bg-card p-5" data-no-translate><h1 className="text-xl font-semibold">{t("Уроки по ошибкам с Premium", "Premium арқылы қателер бойынша сабақтар")}</h1><p className="mt-2 text-sm text-muted-foreground">{t("Урок помогает разобраться в теме перед тренировкой.", "Сабақ жаттығу алдында тақырыпты түсінуге көмектеседі.")}</p><Button asChild className="mt-4"><Link href="/dashboard/billing?reason=theme_lesson">{t("Посмотреть тарифы", "Тарифтерді көру")}</Link></Button></section> : null}
+    {error && <section role="alert" className="rounded-xl border border-border bg-card p-5" data-no-translate><p>{t("Не удалось открыть тему. Она может быть недоступна для вашего аккаунта.", "Тақырыпты ашу мүмкін болмады. Ол аккаунтыңыз үшін қолжетімсіз болуы мүмкін.")}</p><Button className="mt-3" variant="outline" disabled={isValidating} onClick={() => {void mutate().catch(()=>{})}}>{t("Повторить", "Қайталау")}</Button></section>}
+    {data && <>
+      <section className="rounded-xl border border-border bg-card p-5 sm:p-6" data-no-translate data-testid="theme-summary">
+        <p className="text-xs text-muted-foreground">{localize(data.examName,language)} · {localize(data.subjectName,language)}</p>
+        <h1 className="mt-2 break-words text-2xl font-semibold tracking-tight sm:text-3xl">{localize(data.themeName,language)}</h1>
+        <dl className="mt-5 grid grid-cols-3 gap-3 border-y border-border py-4">
+          {[[t("Ошибок", "Қателер"),data.openCount],[t("Для практики", "Жаттығуға"),data.activeOpenCount],[t("Исправлено", "Түзетілген"),data.resolvedCount]].map(([label,value])=><div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{value}</dd></div>)}
+        </dl>
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{data.openCount===0 ? t("Ошибки по этой теме закрыты. Сохранённый урок остаётся доступен для повторения.", "Бұл тақырыптағы қателер түзетілген. Сақталған сабақ қайталау үшін қолжетімді.") : t("Изучите объяснение, попробуйте задания без подсказок и затем проверьте себя в тренировке.", "Түсіндірмені оқып, тапсырмаларды көмексіз орындап, содан кейін жаттығуда өзіңізді тексеріңіз.")}</p>
+        <Button className="mt-4 h-auto min-h-11 whitespace-normal py-2" disabled={Boolean(error) || data.activeOpenCount===0} onClick={event=>{practiceTrigger.current=event.currentTarget;setPractice({examTypeId:data.examTypeId,subjectId:data.subjectId,themeId,title:localize(data.themeName,language),available:data.activeOpenCount})}}><Play className="size-4" />{t("Практика по теме", "Тақырып бойынша жаттығу")}</Button>
+        {data.openCount>data.activeOpenCount && <p className="mt-2 text-xs text-muted-foreground">{t("Архивные вопросы не включаются в практику.", "Мұрағаттағы сұрақтар жаттығуға кірмейді.")}</p>}
+      </section>
+      {!lesson && <section className="rounded-xl border border-dashed border-border bg-card p-5" data-no-translate>
+        <h2 className="font-semibold">{t("Урок по теме", "Тақырып бойынша сабақ")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{data.openCount===0 ? t("Сохранённого урока пока нет. Можно перейти к другим темам.", "Сақталған сабақ әлі жоқ. Басқа тақырыптарға өтуге болады.") : t("AI подготовит объяснения, примеры и задания. Генерация использует лимит AI; готовый урок сохранится.", "AI түсіндірмелер, мысалдар мен тапсырмалар дайындайды. Дайындау AI лимитін пайдаланады; дайын сабақ сақталады.")}</p>
+        {data.generationAvailable && data.openCount>0 && <Button variant="outline" className="mt-4 h-auto min-h-11 whitespace-normal py-2" disabled={busy} onClick={()=>void prepare()}>{busy && <Spinner className="size-4" />}{busy ? t("Готовим урок…", "Сабақ дайындалуда…") : t("Подготовить урок", "Сабақты дайындау")}</Button>}
+        {!data.generationAvailable && <p className="mt-3 text-sm text-muted-foreground">{t("AI сейчас недоступен. Практика работает независимо от него.", "AI қазір қолжетімсіз. Жаттығу оған тәуелсіз жұмыс істейді.")}</p>}
+        {failure && <p role="alert" className="mt-3 text-sm text-destructive">{failure}</p>}
+      </section>}
+      {lesson && <>
+        <section className="rounded-xl border border-border bg-muted/30 p-5">
+          <h2 className="text-lg font-semibold" data-no-translate>{t("Что разберём", "Нені талдаймыз")}</h2>
+          <RichText value={lesson.studentGoal} locale={language} as="div" className="mt-2 text-sm leading-relaxed" />
+          <p className="mt-3 text-xs text-muted-foreground" data-no-translate>{t("Материал подготовлен AI и может содержать неточности. Самопроверка в уроке не меняет статистику — для этого завершите тренировку.", "Материалды AI дайындаған, қателіктер болуы мүмкін. Сабақтағы өзін-өзі тексеру статистиканы өзгертпейді — ол үшін жаттығуды аяқтаңыз.")}</p>
+        </section>
+        <FullLessonReader key={`${lesson.lessonId ?? themeId}:${language}`} lesson={lesson} language={language} />
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4" data-no-translate>
+          <p className="text-xs text-muted-foreground">{t("Сохранённый AI-урок", "Сақталған AI сабағы")}</p>
+          <Button variant="outline" disabled={!lesson.lessonId} ref={noteTrigger} onClick={()=>setNoteOpen(true)}><MessageSquare className="size-4" />{t("Сообщить об ошибке", "Қате туралы хабарлау")}</Button>
+          {noteSent && <p role="status" className="w-full text-sm text-muted-foreground">{t("Спасибо. Замечание отправлено на проверку.", "Рақмет. Ескерту тексеруге жіберілді.")}</p>}
+        </footer>
+      </>}
+    </>}
+    {practice && <MistakesPracticeDialog fixedScope={practice} onClose={()=>setPractice(null)} onRestoreFocus={()=>practiceTrigger.current?.focus()} />}
+    <Dialog open={noteOpen} onOpenChange={open=>{if(!sending.current)setNoteOpen(open)}}>
+      <DialogContent showCloseButton={false} data-no-translate onCloseAutoFocus={event=>{event.preventDefault();noteTrigger.current?.focus()}}>
+        <DialogHeader><DialogTitle>{t("Ошибка в уроке", "Сабақтағы қате")}</DialogTitle><DialogDescription>{t("Укажите пример или формулу и опишите неточность. Замечание получит модератор.", "Мысалды немесе формуланы көрсетіп, қатені сипаттаңыз. Ескерту модераторға жіберіледі.")}</DialogDescription></DialogHeader>
+        <form className="space-y-4" onSubmit={event=>{event.preventDefault();void sendNote()}}>
+          <label className="block text-sm">{t("Ваше замечание", "Ескертуіңіз")}<textarea className="mt-2 min-h-32 w-full rounded-lg border border-input bg-background p-3" minLength={12} maxLength={2000} required value={note} disabled={noteBusy} onChange={event=>setNote(event.target.value)} /></label>
+          {noteError && <p role="alert" className="text-sm text-destructive">{noteError}</p>}
+          <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={noteBusy} onClick={()=>setNoteOpen(false)}>{t("Отмена", "Бас тарту")}</Button><Button type="submit" disabled={noteBusy || note.trim().length<12}>{noteBusy && <Spinner className="size-4" />}{t("Отправить", "Жіберу")}</Button></div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  </div>
 }

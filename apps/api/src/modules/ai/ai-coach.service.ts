@@ -230,13 +230,14 @@ export class AiCoachService {
    */
   async getStoredAnalysis(
     userId: string,
-    opts: { examTypeId?: string; subjectId?: string } = {},
+    opts: { examTypeId?: string; subjectId?: string; language?: string } = {},
   ): Promise<WeakZoneAnalysis | null> {
     const row = await this.prisma.aiCoachAnalysis.findFirst({
       where: {
         userId,
         examTypeId: opts.examTypeId ?? null,
         subjectId: opts.subjectId ?? null,
+        ...(opts.language ? { language: opts.language === 'kk' ? 'kk' : 'ru' } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });

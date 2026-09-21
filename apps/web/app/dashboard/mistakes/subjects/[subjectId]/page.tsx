@@ -1,341 +1,97 @@
 "use client"
 
-import { useUiI18n } from "@/lib/i18n/ui"
-
-import { useEffect, useState } from "react"
-import type { ReactNode } from "react"
+import { Suspense, useRef, useState } from "react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
+import { useParams, useSearchParams } from "next/navigation"
 import useSWR from "swr"
-import { toast } from "sonner"
-import {
-  ArrowLeft,
-  BookOpen,
-  BrainCircuit,
-  Crown,
-  Play,
-  Target,
-  Zap,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, ArrowRight, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Spinner } from "@/components/ui/spinner"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { AiMistakesCoach } from "@/components/dashboard/ai-mistakes-coach"
 import { StudyThemes } from "@/components/dashboard/study-themes"
-import { api, ApiError } from "@/lib/api/client"
-import { recordFunnelEvent } from "@/lib/api/analytics"
+import { MistakesPracticeDialog, type FixedPracticeScope } from "@/components/dashboard/mistakes-practice-dialog"
+import { useUiI18n } from "@/lib/i18n/ui"
 import { useAuth } from "@/lib/api/auth-context"
+import { api } from "@/lib/api/client"
 import { localize } from "@/lib/api/i18n"
-import type { MistakesSubjectDetail, TestSession } from "@/lib/api/types"
+import type { MistakesSubjectDetail } from "@/lib/api/types"
+
+const AiMistakesCoach = dynamic(() => import("@/components/dashboard/ai-mistakes-coach").then(module => module.AiMistakesCoach))
+const loading = <Skeleton className="h-48 w-full rounded-xl" />
 
 export default function SubjectMistakesPage() {
-  const router = useRouter()
-  const params = useParams<{ subjectId: string }>()
-  const subjectId = typeof params.subjectId === "string" ? params.subjectId : ""
-  const detailKey = subjectId ? `/tests/mistakes/subjects/${subjectId}` : null
+  return <Suspense fallback={loading}><SubjectRoute /></Suspense>
+}
 
-  const { user, refresh } = useAuth()
+function SubjectRoute() {
+  const { subjectId } = useParams<{subjectId:string}>()
+  const query = useSearchParams()
   const { locale } = useUiI18n()
-  const [language, setLanguage] = useState<"ru" | "kk">("ru")
-  const [limit, setLimit] = useState(15)
-  const [duration, setDuration] = useState(25)
-  const [startingKey, setStartingKey] = useState<string | null>(null)
-
-  const { data: detail, isLoading, error } = useSWR<MistakesSubjectDetail>(detailKey)
-  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
-
-  useEffect(() => {
-    void refresh({ silent: true })
-  }, [refresh])
-
-  useEffect(() => {
-    setLanguage(locale === "kk" ? "kk" : "ru")
-  }, [locale])
-
-  const subjectName = localize(detail?.subjectName, locale, "Предмет")
-  const examName = localize(detail?.examName, locale, "Экзамен")
-  const launch = async (scope: { topicId?: string } = {}) => {
-    if (!detail) return
-    if (!hasPremium) {
-      void recordFunnelEvent("premium_gate", { feature: "mistakes_subject_detail" })
-      router.push("/dashboard/billing?reason=mistakes_subject_detail")
-      return
-    }
-
-    const key = scope.topicId ?? "subject"
-    setStartingKey(key)
-    try {
-      const session = await api<TestSession>("/tests/mistakes/practice", {
-        method: "POST",
-        body: {
-          language,
-          examTypeId: detail.examTypeId,
-          subjectId: detail.subjectId,
-          topicId: scope.topicId,
-          limit,
-          durationMins: duration,
-        },
-      })
-      router.push(`/exam/${session.id}`)
-    } catch (err) {
-      let message = "Не удалось запустить тренировку"
-      if (err instanceof ApiError) {
-        if (err.message === "NO_OPEN_MISTAKES_FOR_TOPIC") {
-          message = "По этой теме нет открытых ошибок"
-        } else if (err.message === "NO_OPEN_MISTAKES_FOR_SUBJECT") {
-          message = "По этому предмету нет открытых ошибок"
-        } else if (err.status === 402 || err.status === 403) {
-          void recordFunnelEvent("premium_gate", { feature: "mistakes_subject_detail" })
-          router.push("/dashboard/billing?reason=mistakes_subject_detail")
-          return
-        } else {
-          message = err.message
-        }
-      }
-      toast.error(message)
-      setStartingKey(null)
-    }
-  }
-
-  const aiDescription =
-    "AI смотрит только ошибки этого предмета: выделяет слабые темы, объясняет корневые пробелы и открывает уроки с формулами, графиками и мини-практикой."
-
-  if (error) {
-    return (
-      <div className="flex flex-col gap-4">
-        <Button asChild variant="ghost" className="w-fit">
-          <Link href="/dashboard/mistakes">
-            <ArrowLeft className="size-4" />
-            Назад
-          </Link>
-        </Button>
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            Не удалось открыть предмет. Возможно, он больше не доступен.
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
-          <Link href="/dashboard/mistakes">
-            <ArrowLeft className="size-4" />
-            Работа над ошибками
-          </Link>
-        </Button>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            {isLoading ? (
-              <>
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="mt-2 h-4 w-40" />
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">{examName}</p>
-                <h1 className="text-3xl font-semibold tracking-tight">{subjectName}</h1>
-              </>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => void launch()}
-              disabled={!detail || detail.activeOpenTotal === 0 || startingKey != null}
-              className="h-10"
-            >
-              {startingKey === "subject" ? <Spinner className="size-4" /> : <Play className="size-4" />}
-              Тренировать предмет
-            </Button>
-            {!hasPremium && (
-              <Button asChild variant="outline" className="h-10">
-                <Link
-                  href="/dashboard/billing?reason=mistakes_subject_detail"
-                  onClick={() =>
-                    void recordFunnelEvent("premium_gate", {
-                      feature: "mistakes_subject_detail",
-                    })
-                  }
-                >
-                  <Crown className="size-4" />
-                  Premium
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <MetricCard
-          loading={isLoading}
-          icon={<Target className="size-4" />}
-          label="Открытых ошибок"
-          value={detail?.openTotal ?? 0}
-          hint="Последний ответ по этим вопросам был неверным"
-        />
-        <MetricCard
-          loading={isLoading}
-          icon={<Zap className="size-4" />}
-          label="Можно тренировать"
-          value={detail?.activeOpenTotal ?? 0}
-          hint="Активные вопросы в текущем банке"
-        />
-      </div>
-
-      {detail ? (
-        <StudyThemes
-          subjectId={detail.subjectId}
-          examTypeId={detail.examTypeId}
-          language={language}
-          hasPremium={hasPremium}
-          limit={limit}
-          duration={duration}
-        />
-      ) : (
-        <Card>
-          <CardContent className="space-y-3 p-6">
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-20 rounded-xl" />
-            <Skeleton className="h-20 rounded-xl" />
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BookOpen className="size-4" />
-            Настройки тренировки
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-5 md:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <Label>Язык</Label>
-            <RadioGroup
-              value={language}
-              onValueChange={(value) => setLanguage(value as "ru" | "kk")}
-              className="flex gap-2"
-            >
-              <Label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2">
-                <RadioGroupItem value="ru" />
-                Русский
-              </Label>
-              <Label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2">
-                <RadioGroupItem value="kk" />
-                Қазақша
-              </Label>
-            </RadioGroup>
-          </div>
-          <RangeControl label="Вопросов" min={5} max={40} step={5} value={limit} onChange={setLimit} />
-          <RangeControl label="Минут" min={5} max={120} step={5} value={duration} onChange={setDuration} />
-        </CardContent>
-      </Card>
-
-      {hasPremium && detail ? (
-        <AiMistakesCoach
-          language={language}
-          examTypeId={detail.examTypeId}
-          subjectId={detail.subjectId}
-          totalOpen={detail.openTotal}
-          title={`AI-разбор: ${subjectName}`}
-          description={aiDescription}
-          onTrainSubject={() => void launch()}
-          onTrainTopic={(topicId) => void launch({ topicId })}
-        />
-      ) : (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="grid gap-4 p-5 text-amber-950 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="flex items-start gap-3">
-              <BrainCircuit className="mt-0.5 size-5 text-amber-700" />
-              <div>
-                <p className="font-semibold">Предметный AI-разбор доступен в Premium</p>
-                <p className="mt-1 text-sm leading-6 text-amber-900">
-                  Здесь появятся причины ошибок, уроки по темам, мини-тесты и персональный план именно по этому предмету.
-                </p>
-              </div>
-            </div>
-            <Button asChild className="bg-amber-700 text-white hover:bg-amber-800">
-              <Link href="/dashboard/billing?reason=ai_subject_mistakes">
-                <Crown className="size-4" />
-                Открыть Premium
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
+  const examId = query.get("examTypeId")
+  return <SubjectContent key={`${subjectId}:${examId}:${locale}`} subjectId={subjectId} examId={examId} language={locale} />
 }
 
-function MetricCard({
-  loading,
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  loading: boolean
-  icon: ReactNode
-  label: string
-  value: number
-  hint: string
-}) {
-  return (
-    <Card>
-      <CardContent className="flex h-full flex-col gap-2 p-4">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          {icon}
-          <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
-        </div>
-        {loading ? (
-          <Skeleton className="h-8 w-16" />
-        ) : (
-          <span className="text-3xl font-semibold tabular-nums">{value}</span>
-        )}
-        <p className="text-xs leading-5 text-muted-foreground">{hint}</p>
-      </CardContent>
-    </Card>
-  )
-}
+function SubjectContent({ subjectId, examId, language }: {subjectId:string; examId:string|null; language:"ru"|"kk"}) {
+  const t = (ru: string, kk: string) => language === "kk" ? kk : ru
+  const { user } = useAuth()
+  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const url = `/tests/mistakes/subjects/${subjectId}${examId ? `?examTypeId=${encodeURIComponent(examId)}` : ""}`
+  const { data, error, isLoading, isValidating, mutate } = useSWR<MistakesSubjectDetail>([url,language], ([path]:[string,string]) => api<MistakesSubjectDetail>(path))
+  const [practice, setPractice] = useState<FixedPracticeScope|null>(null)
+  const [coachOpen, setCoachOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement|null>(null)
+  const name = localize(data?.subjectName, language, t("Предмет", "Пән"))
+  const openPractice = (scope: FixedPracticeScope, button: HTMLButtonElement) => { trigger.current = button; setPractice(scope) }
+  const topics = [...(data?.topics ?? [])].sort((a,b) => b.activeOpenCount - a.activeOpenCount || b.openCount - a.openCount)
+  const recommended = topics.find(topic => topic.activeOpenCount > 0)
+  const scope = (topic?: typeof topics[number]): FixedPracticeScope => ({
+    examTypeId:data!.examTypeId,subjectId,topicId:topic?.topicId,
+    title:topic ? localize(topic.topicName,language) : name,
+    available:topic?.activeOpenCount ?? data!.activeOpenTotal,
+  })
 
-function RangeControl({
-  label,
-  min,
-  max,
-  step,
-  value,
-  onChange,
-}: {
-  label: string
-  min: number
-  max: number
-  step: number
-  value: number
-  onChange: (value: number) => void
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Label>{label}</Label>
-        <span className="text-sm font-semibold tabular-nums">{value}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onInput={(event) => onChange(Number((event.target as HTMLInputElement).value))}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full cursor-pointer accent-black"
-      />
-    </div>
-  )
+  return <div className="flex min-w-0 flex-col gap-6">
+    <header data-no-translate>
+      <Link href="/dashboard/mistakes" className="inline-flex min-h-10 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{t("Все мои ошибки", "Барлық қателерім")}</Link>
+      <p className="mt-3 text-xs text-muted-foreground">{localize(data?.examName,language)}</p>
+      <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight sm:text-3xl">{name}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">{t("Выберите одну тему, разберите её и проверьте себя. Правильный ответ в завершённой тренировке закроет ошибку.", "Бір тақырыпты таңдап, талдаңыз және өзіңізді тексеріңіз. Аяқталған жаттығудағы дұрыс жауап қатені түзетеді.")}</p>
+    </header>
+    {error && <div role="alert" className="rounded-xl border border-border bg-card p-5" data-no-translate><p className="text-sm">{t("Не удалось загрузить предмет. Проверьте ссылку или повторите попытку.", "Пәнді жүктеу мүмкін болмады. Сілтемені тексеріңіз немесе қайталаңыз.")}</p><Button variant="outline" className="mt-3" disabled={isValidating} onClick={() => { void mutate().catch(() => {}) }}>{t("Повторить", "Қайталау")}</Button></div>}
+    {isLoading ? loading : data && <>
+      <section className="overflow-hidden rounded-xl border border-border bg-card" data-no-translate data-testid="subject-next-step">
+        <dl className="grid grid-cols-2 divide-x divide-border border-b border-border bg-muted/30">
+          <div className="p-5"><dt className="text-xs text-muted-foreground">{t("Ошибок в работе", "Түзетілмеген қателер")}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{data.openTotal}</dd></div>
+          <div className="p-5"><dt className="text-xs text-muted-foreground">{t("Доступно для практики", "Жаттығуға қолжетімді")}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{data.activeOpenTotal}</dd></div>
+        </dl>
+        <div className="p-5 sm:p-6">
+          <p className="text-xs font-medium text-muted-foreground">{t("Следующий шаг", "Келесі қадам")}</p>
+          <h2 className="mt-2 break-words text-xl font-semibold">{recommended ? localize(recommended.topicName,language) : data.openTotal === 0 ? t("Ошибки по предмету закрыты", "Пән бойынша қателер түзетілген") : t("Вопросы временно недоступны", "Сұрақтар уақытша қолжетімсіз")}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{recommended ? t("Начните с темы, где больше доступных ошибок. Короткая практика поможет проверить, что вы поняли решение.", "Қолжетімді қатесі көп тақырыптан бастаңыз. Қысқа жаттығу шешімді түсінгеніңізді тексеруге көмектеседі.") : data.openTotal === 0 ? t("Можно перейти к новому пробному или повторить сохранённые уроки.", "Жаңа сынаққа өтуге немесе сақталған сабақтарды қайталауға болады.") : t("Ошибки сохранены, но вопросы исключены из активного банка. Они не попадут в тренировку.", "Қателер сақталған, бірақ сұрақтар белсенді қордан алынған. Олар жаттығуға кірмейді.")}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {paid && recommended && <Button disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-2" onClick={event => openPractice(scope(recommended),event.currentTarget)}><Play className="size-4" />{t("Практика по этой теме", "Осы тақырып бойынша жаттығу")}</Button>}
+            {paid && data.activeOpenTotal > 0 && <Button variant="outline" disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-2" onClick={event => openPractice(scope(),event.currentTarget)}>{t("Весь предмет", "Бүкіл пән")}</Button>}
+            {data.activeOpenTotal === 0 && <Button asChild variant="outline"><Link href="/dashboard/exams">{t("Выбрать пробный", "Сынақты таңдау")}<ArrowRight className="size-4" /></Link></Button>}
+          </div>
+          {data.openTotal > data.activeOpenTotal && <p className="mt-3 text-xs text-muted-foreground">{t("Архивных вопросов", "Мұрағаттағы сұрақтар")}: {data.openTotal-data.activeOpenTotal}. {t("Они учитываются в истории, но не в практике.", "Олар тарихта есепке алынады, бірақ жаттығуда емес.")}</p>}
+        </div>
+      </section>
+      {!paid && data.openTotal > 0 && <section className="rounded-xl border border-border bg-muted/30 p-5" data-no-translate><h2 className="font-semibold">{t("Практика и AI-уроки с Premium", "Premium арқылы жаттығу және AI сабақтары")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Список тем виден бесплатно. Платный доступ добавляет тренировку по вашим вопросам и объяснения.", "Тақырыптар тізімі тегін көрінеді. Ақылы қолжетімділік сұрақтарыңыз бойынша жаттығу мен түсіндірмелерді қосады.")}</p><Button asChild variant="outline" className="mt-4"><Link href="/dashboard/billing?reason=mistakes_subject_detail">{t("Посмотреть тарифы", "Тарифтерді көру")}</Link></Button></section>}
+      <section className="rounded-xl border border-border bg-card p-5" data-no-translate data-testid="subject-topics">
+        <h2 className="font-semibold">{t("Темы программы", "Бағдарлама тақырыптары")}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{t("По реальным вопросам из ваших завершённых тестов. Не зависит от AI.", "Аяқталған тесттеріңіздегі нақты сұрақтар бойынша. AI-ға тәуелді емес.")}</p>
+        <ul className="mt-3 divide-y divide-border">{topics.map(topic => <li key={topic.topicId} className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="min-w-0 flex-1 basis-48"><h3 className="break-words text-sm font-medium">{localize(topic.topicName,language)}</h3><p className="mt-1 text-xs text-muted-foreground">{t("Ошибок", "Қателер")}: {topic.openCount} · {t("Для практики", "Жаттығуға")}: {topic.activeOpenCount}</p></div>
+          {paid && <Button variant="outline" size="sm" disabled={Boolean(error) || topic.activeOpenCount === 0} onClick={event => openPractice(scope(topic),event.currentTarget)}>{t("Тренировать", "Жаттығу")}</Button>}
+        </li>)}</ul>
+        {topics.length === 0 && <p className="mt-4 text-sm text-muted-foreground">{t("Нет тем с открытыми ошибками.", "Ашық қатесі бар тақырыптар жоқ.")}</p>}
+      </section>
+      {paid && <StudyThemes key={language} subjectId={subjectId} examTypeId={data.examTypeId} language={language} onPractice={openPractice} />}
+      {paid && data.openTotal > 0 && <section>
+        <Button variant="outline" className="h-auto min-h-11 whitespace-normal py-2" onClick={() => setCoachOpen(!coachOpen)} aria-expanded={coachOpen} data-no-translate>{coachOpen ? t("Скрыть подробный AI-разбор", "Толық AI талдауын жасыру") : t("Причины ошибок и персональный разбор", "Қате себептері және жеке талдау")}</Button>
+        {coachOpen && <div className="mt-4"><AiMistakesCoach key={language} language={language} examTypeId={data.examTypeId} subjectId={subjectId} totalOpen={data.openTotal} onTrainSubject={() => setPractice(scope())} onTrainTopic={topicId => { const topic=topics.find(item=>item.topicId===topicId); if(topic?.activeOpenCount) setPractice(scope(topic)) }} /></div>}
+      </section>}
+    </>}
+    {practice && <MistakesPracticeDialog fixedScope={practice} onClose={() => setPractice(null)} onRestoreFocus={() => trigger.current?.focus()} />}
+  </div>
 }

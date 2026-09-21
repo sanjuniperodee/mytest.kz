@@ -14,28 +14,39 @@ import type { MistakesSummary, TestSession } from "@/lib/api/types"
 
 const selectClass = "h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 
-export function MistakesPracticeDialog({ summary, initialScope, onClose, onRestoreFocus }: {
-  summary: MistakesSummary
-  initialScope: { examTypeId: string; subjectId?: string }
+export type FixedPracticeScope = {
+  examTypeId: string
+  subjectId: string
+  topicId?: string
+  themeId?: string
+  unclassifiedOnly?: boolean
+  title: string
+  available: number
+}
+
+export function MistakesPracticeDialog({ summary, initialScope, fixedScope, onClose, onRestoreFocus }: {
+  summary?: MistakesSummary
+  initialScope?: { examTypeId: string; subjectId?: string }
+  fixedScope?: FixedPracticeScope
   onClose: () => void
   onRestoreFocus: () => void
 }) {
   const router = useRouter()
   const { locale } = useUiI18n()
   const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
-  const [examId, setExamId] = useState(initialScope.examTypeId)
-  const [subjectId, setSubjectId] = useState(initialScope.subjectId ?? "all")
+  const [examId, setExamId] = useState(fixedScope?.examTypeId ?? initialScope?.examTypeId ?? "")
+  const [subjectId, setSubjectId] = useState(fixedScope?.subjectId ?? initialScope?.subjectId ?? "all")
   const [language, setLanguage] = useState(locale === "kk" ? "kk" : "ru")
   const [limit, setLimit] = useState(15)
   const [duration, setDuration] = useState(25)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState("")
   const inFlight = useRef(false)
-  const subjects = summary.openBySubject.filter(subject => subject.examTypeId === examId)
+  const subjects = summary?.openBySubject.filter(subject => subject.examTypeId === examId) ?? []
   const selectedSubject = subjects.find(subject => subject.subjectId === subjectId)
-  const selectedExam = summary.openByExam.find(exam => exam.examTypeId === examId)
-  const validScope = Boolean(selectedExam && (subjectId === "all" || selectedSubject))
-  const available = subjectId === "all" ? selectedExam?.count ?? 0 : selectedSubject?.count ?? 0
+  const selectedExam = summary?.openByExam.find(exam => exam.examTypeId === examId)
+  const validScope = Boolean(fixedScope || (selectedExam && (subjectId === "all" || selectedSubject)))
+  const available = fixedScope?.available ?? (subjectId === "all" ? selectedExam?.count ?? 0 : selectedSubject?.count ?? 0)
   // The API caps practice at 40 and can exclude archived questions from this total.
   const maxQuestions = Math.max(1, Math.min(40, available))
   const questionLimit = Math.min(limit, maxQuestions)
@@ -48,7 +59,7 @@ export function MistakesPracticeDialog({ summary, initialScope, onClose, onResto
     try {
       const session = await api<TestSession>("/tests/mistakes/practice", {
         method: "POST",
-        body: { language, examTypeId: examId, subjectId: subjectId === "all" ? undefined : subjectId, limit: questionLimit, durationMins: duration },
+        body: { language, examTypeId: examId, subjectId: subjectId === "all" ? undefined : subjectId, topicId: fixedScope?.topicId, themeId: fixedScope?.themeId, unclassifiedOnly: fixedScope?.unclassifiedOnly, limit: questionLimit, durationMins: duration },
       })
       router.push(`/exam/${session.id}`)
     } catch (err) {
@@ -73,10 +84,11 @@ export function MistakesPracticeDialog({ summary, initialScope, onClose, onResto
       </DialogHeader>
       <form className="min-w-0 space-y-5" onSubmit={event => { event.preventDefault(); void launch() }} aria-busy={starting}>
         <fieldset disabled={starting} className="min-w-0 space-y-4 disabled:opacity-60">
+          {fixedScope ? <p className="rounded-lg border border-border bg-muted/40 p-3 text-sm font-medium">{fixedScope.title}</p> : <>
           <div className="flex min-w-0 flex-col gap-2 text-sm font-medium">
             <label htmlFor="practice-exam">{t("Экзамен", "Емтихан")}</label>
             <select id="practice-exam" className={selectClass} value={examId} onChange={event => { setExamId(event.target.value); setSubjectId("all"); setError("") }}>
-              {summary.openByExam.map(exam => <option key={exam.examTypeId} value={exam.examTypeId}>{localize(exam.examName, locale)} ({exam.count})</option>)}
+              {summary?.openByExam.map(exam => <option key={exam.examTypeId} value={exam.examTypeId}>{localize(exam.examName, locale)} ({exam.count})</option>)}
             </select>
           </div>
           <div className="flex min-w-0 flex-col gap-2 text-sm font-medium">
@@ -86,6 +98,7 @@ export function MistakesPracticeDialog({ summary, initialScope, onClose, onResto
               {subjects.map(subject => <option key={subject.subjectId} value={subject.subjectId}>{localize(subject.subjectName, locale)} ({subject.count})</option>)}
             </select>
           </div>
+          </>}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex min-w-0 flex-col gap-2 text-sm font-medium">
               <label htmlFor="practice-language">{t("Язык вопросов", "Сұрақтар тілі")}</label>

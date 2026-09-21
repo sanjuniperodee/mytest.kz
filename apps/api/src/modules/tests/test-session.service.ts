@@ -953,12 +953,16 @@ export class TestSessionService {
       subjectId?: string;
       topicId?: string;
       themeId?: string;
+      unclassifiedOnly?: boolean;
       limit?: number;
       durationMins?: number;
     },
   ) {
     const capped = Math.min(Math.max(options?.limit ?? 15, 1), 40);
     const durationMins = options?.durationMins ?? 45;
+    if (options?.unclassifiedOnly && (options.themeId || options.topicId || !options.subjectId)) {
+      throw new BadRequestException('INVALID_MISTAKES_SCOPE');
+    }
 
     const latest = await this.mistakes.getLatestOutcomes(userId);
     const openRows = latest.filter((r) => !r.isCorrect);
@@ -970,18 +974,34 @@ export class TestSessionService {
     // (themes are AI-derived, not DB topics). Queried directly to avoid a module cycle.
     let themeQuestionIds: Set<string> | null = null;
     if (options?.themeId) {
+      const theme = await this.prisma.subjectStudyTheme.findFirst({
+        where: {
+          id: options.themeId, isActive: true,
+          ...(options.subjectId ? { subjectId: options.subjectId } : {}),
+          ...(options.examTypeId ? { examTypeId: options.examTypeId } : {}),
+        },
+        select: { id: true },
+      });
+      if (!theme) throw new BadRequestException('INVALID_MISTAKES_SCOPE');
       const rows = await this.prisma.questionThemeClassification.findMany({
         where: { themeId: options.themeId },
         select: { questionId: true },
       });
       themeQuestionIds = new Set(rows.map((r) => r.questionId));
     }
+    const assignedIds = options?.unclassifiedOnly
+      ? new Set((await this.prisma.questionThemeClassification.findMany({
+          where: { subjectId: options.subjectId, theme: { isActive: true } },
+          select: { questionId: true },
+        })).map(row => row.questionId))
+      : null;
 
     const scopedOpenRows = openRows.filter((r) => {
       if (options?.examTypeId && r.examTypeId !== options.examTypeId) return false;
       if (options?.subjectId && r.subjectId !== options.subjectId) return false;
       if (options?.topicId && r.topicId !== options.topicId) return false;
       if (themeQuestionIds && !themeQuestionIds.has(r.questionId)) return false;
+      if (assignedIds?.has(r.questionId)) return false;
       return true;
     });
     if (scopedOpenRows.length === 0) {
@@ -1014,12 +1034,11 @@ export class TestSessionService {
     if (themeQuestionIds) {
       questionIdsAll = questionIdsAll.filter((id) => themeQuestionIds!.has(id));
     }
-    this.shuffleInPlace(questionIdsAll);
-    const questionIds = questionIdsAll.slice(0, capped);
+    if (assignedIds) questionIdsAll = questionIdsAll.filter(id => !assignedIds.has(id));
 
     const questionRows = await this.prisma.question.findMany({
       where: {
-        id: { in: questionIds },
+        id: { in: questionIdsAll },
         isActive: true,
         examTypeId: resolvedExamTypeId,
       },
@@ -1030,10 +1049,10 @@ export class TestSessionService {
       },
     });
 
-    const byId = new Map(questionRows.map((q) => [q.id, q]));
-    const ordered = questionIds
-      .map((id) => byId.get(id))
-      .filter((q): q is NonNullable<typeof q> => !!q);
+    // Filter archived questions BEFORE sampling; group selected questions so each
+    // subject appears in exactly one section of the exam player.
+    this.shuffleInPlace(questionRows);
+    const ordered = questionRows.slice(0, capped).sort((a, b) => a.subjectId.localeCompare(b.subjectId));
 
     if (ordered.length === 0) {
       throw new BadRequestException('NO_OPEN_MISTAKES');
@@ -1084,6 +1103,12 @@ export class TestSessionService {
         metadata: {
           kind: 'remediation',
           remediationDurationMins: durationMins,
+          remediationScope: {
+            subjectId: options?.subjectId ?? null,
+            topicId: options?.topicId ?? null,
+            themeId: options?.themeId ?? null,
+            unclassifiedOnly: options?.unclassifiedOnly ?? false,
+          },
           sections: sectionsMeta,
           profileSubjectIds: [],
           questionOrder: ordered.map((q) => q.id),

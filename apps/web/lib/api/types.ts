@@ -206,6 +206,7 @@ export interface SessionMetadata {
   kind?: "remediation"
   entScope?: "mandatory" | "profile" | "full" | "creative"
   remediationDurationMins?: number
+  remediationScope?: { subjectId?: string | null; topicId?: string | null; themeId?: string | null; unclassifiedOnly?: boolean }
   entSessionDurationMins?: number
   sections?: SessionMetadataSection[]
   profileSubjectIds?: string[]
@@ -403,7 +404,7 @@ export interface MistakesSubjectDetail {
 export interface StudyMapTheme {
   themeId: string
   key: string
-  name: string
+  name: LocalizedText
   openCount: number
   activeOpenCount: number
 }
@@ -414,6 +415,7 @@ export interface StudyMap {
   subjectId: string
   subjectName: LocalizedText
   themes: StudyMapTheme[]
+  reviewThemes: Pick<StudyMapTheme, "themeId" | "key" | "name">[]
   /** Open mistakes not (yet) assigned to a theme. */
   otherOpenCount: number
   otherActiveOpenCount: number
@@ -423,6 +425,21 @@ export interface StudyMap {
   unclassifiedCount: number
   /** True while AI is still classifying the rest of the mistakes (re-fetch later). */
   pending: boolean
+  generationAvailable: boolean
+}
+
+export interface MistakesThemeDetail {
+  themeId: string
+  themeName: LocalizedText
+  examTypeId: string
+  examName: LocalizedText
+  subjectId: string
+  subjectName: LocalizedText
+  openCount: number
+  activeOpenCount: number
+  resolvedCount: number
+  generationAvailable: boolean
+  lesson: AiTopicLesson | null
 }
 
 export type EntScoreImpact =
