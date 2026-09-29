@@ -1,8 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { MessageCircle, Users, ArrowUpRight, Globe2 } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { resolveMediaUrl } from "@/lib/api/client";
@@ -43,7 +40,8 @@ export function formatViews(views?: number): string {
 export type Page<T> = { items: T[]; nextCursor: string | null };
 export const personName = (p: Person) =>
   [p.firstName, p.lastName].filter(Boolean).join(" ") || "mytest user";
-export const profileHref = (id: string) => `/dashboard/community/people/${id}`;
+// Everyone, including the current user, has one profile page.
+export const profileHref = (id: string) => `/dashboard/profile/${id}`;
 export function useSocialText() {
   const { locale } = useUiI18n();
   return (ru: string, kk: string) => (locale === "kk" ? kk : ru);
@@ -58,7 +56,7 @@ export function PersonAvatar({
   return (
     <Avatar className={cn("size-10 shrink-0 border border-border", className)}>
       <AvatarImage src={resolveMediaUrl(person.avatarUrl)} alt="" />
-      <AvatarFallback className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
+      <AvatarFallback className="bg-secondary text-xs font-semibold text-foreground">
         {personName(person).slice(0, 2).toUpperCase()}
       </AvatarFallback>
     </Avatar>
@@ -79,99 +77,6 @@ export function Timestamp({ value }: { value: string }) {
         month: "short",
       })}
     </time>
-  );
-}
-export function SocialNav() {
-  const pathname = usePathname();
-  const t = useSocialText();
-  const isActive = (href: string) =>
-    pathname === href ||
-    (href === "/dashboard/community"
-      ? pathname.startsWith(`${href}/post/`) ||
-        pathname.startsWith(`${href}/invite/`)
-      : pathname.startsWith(`${href}/`));
-  return (
-    <nav
-      aria-label={t("Сообщество", "Қауымдастық")}
-      className="mb-4 grid grid-cols-4 gap-1 rounded-xl border border-border/80 bg-background/90 p-1 backdrop-blur-md sm:p-1.5"
-    >
-      {[
-        {
-          href: "/dashboard/global-chat",
-          text: t("Глобальный чат", "Жаһандық чат"),
-          icon: MessageCircle,
-        },
-        {
-          href: "/dashboard/community",
-          text: t("Лента", "Лента"),
-          icon: Globe2,
-        },
-        {
-          href: "/dashboard/community/people",
-          text: t("Люди", "Адамдар"),
-          icon: Users,
-        },
-        {
-          href: "/dashboard/messages",
-          text: t("Сообщения", "Хабарламалар"),
-          icon: MessageCircle,
-        },
-      ].map(({ href, text, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          aria-current={isActive(href) ? "page" : undefined}
-          className={cn(
-            "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-center text-[10px] font-medium leading-tight transition-colors hover:bg-secondary sm:min-h-11 sm:flex-row sm:gap-1.5 sm:px-2 sm:text-sm",
-            isActive(href) &&
-              "bg-foreground text-background shadow-xs hover:bg-foreground/90 font-semibold",
-          )}
-        >
-          <Icon className="size-3.5 shrink-0 sm:size-4" />
-          <span>{text}</span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-export function CommunityFrame({ children }: { children: React.ReactNode }) {
-  const t = useSocialText();
-  return (
-    <div className="mx-auto max-w-5xl" data-no-translate>
-      <SocialNav />
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_240px]">
-        <div className="min-w-0">{children}</div>
-        <aside className="hidden space-y-4 xl:block">
-          <div className="rounded-xl bg-emerald-500/10 p-5">
-            <span className="text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
-              mytest community
-            </span>
-            <h2 className="mt-3 text-xl font-semibold tracking-tight">
-              {t("Вместе ближе к цели", "Мақсатқа бірге жақындайық")}
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {t(
-                "Задавай вопросы, делись маленькими победами и находи своих людей.",
-                "Сұрақ қой, жетістіктеріңмен бөліс және достар тап.",
-              )}
-            </p>
-            <Link
-              href="/dashboard/community/people"
-              className="mt-5 flex items-center gap-2 text-sm font-semibold"
-            >
-              {t("Найти единомышленников", "Пікірлестерді табу")}
-              <ArrowUpRight className="size-4" />
-            </Link>
-          </div>
-          <div className="px-2 text-xs leading-relaxed text-muted-foreground">
-            {t(
-              "Уважай собеседников. Не публикуй чужие личные данные, спам и ответы на действующие экзамены.",
-              "Басқаларды құрметте. Жеке деректерді, спамды және өтіп жатқан емтихан жауаптарын жариялама.",
-            )}
-          </div>
-        </aside>
-      </div>
-    </div>
   );
 }
 export function LoadState({

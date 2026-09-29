@@ -200,7 +200,7 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
       .waitFor();
     assert.equal(new URL(page.url()).pathname, `/dashboard/community/post/${first.id}`);
     await page.goto(
-      `http://localhost:4318/dashboard/community/people/${ids[1]}`,
+      `http://localhost:4318/dashboard/profile/${ids[1]}`,
     );
     await page
       .getByRole("button", { name: "Подписаться", exact: true })
@@ -266,7 +266,7 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
     assert.equal(await page.getByRole('link', { name: 'Назад к чатам', exact: true }).count(), 0);
     await page.screenshot({ path: `${artifacts}/global-chat-mobile.png`, fullPage: true });
     await page.goto(
-      `http://localhost:4318/dashboard/community/people/${ids[0]}`,
+      `http://localhost:4318/dashboard/profile/${ids[0]}`,
     );
     await page.getByRole("tab", { name: "Репосты", exact: true }).click();
     await page.getByText("Сегодня впервые набрал", { exact: false }).waitFor();
@@ -316,12 +316,12 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
       })) }),
     }));
     await page.goto('http://localhost:4318/dashboard/leaderboard');
-    const profileLinks = page.locator(`main a[href="/dashboard/community/people/${ids[1]}"]`);
+    const profileLinks = page.locator(`main a[href="/dashboard/profile/${ids[1]}"]`);
     await profileLinks.last().click();
-    await page.waitForURL(`**/dashboard/community/people/${ids[1]}`);
+    await page.waitForURL(`**/dashboard/profile/${ids[1]}`);
     await page.goto('http://localhost:4318/dashboard/leaderboard');
     await profileLinks.first().click();
-    await page.waitForURL(`**/dashboard/community/people/${ids[1]}`);
+    await page.waitForURL(`**/dashboard/profile/${ids[1]}`);
     console.log(
       "SOCIAL_BROWSER_OK: posts, likes, reposts, nested replies, follows, direct/global messages, profile; widths 320/390/768/1440; no page errors",
     );

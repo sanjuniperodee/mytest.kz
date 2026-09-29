@@ -18,6 +18,7 @@ import { ChatFileStore } from "./infrastructure/chat-file-store";
 import { SocialAdminController } from "./social-admin.controller";
 import { ModerationService } from "./moderation.service";
 import { ChatRepository } from "./infrastructure/chat.repository";
+import { LeaderboardService } from "../leaderboard/leaderboard.service";
 @Module({
   imports: [PrismaModule, RedisModule],
   controllers: [
@@ -40,6 +41,8 @@ import { ChatRepository } from "./infrastructure/chat.repository";
     ChatFileStore,
     ModerationService,
     AdminGuard,
+    // Profiles show the same ENT standing as the leaderboard.
+    LeaderboardService,
   ],
 })
 export class SocialModule {}

@@ -3,22 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { Globe2, MessageCircle, Plus, Search, Users } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/api/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/dashboard/page-header";
 import {
   LoadState,
   PersonAvatar,
   personName,
-  SocialNav,
   useSocialText,
 } from "./common";
 import type { Room } from "./chat-types";
 import { Conversation } from "./conversation";
 import { CreateGroup } from "./groups";
+import { UNREAD_KEY } from "./use-unread";
 
 export function ChatPage() {
   const selected = useSearchParams().get("room");
@@ -51,6 +52,11 @@ export function ChatPage() {
         .includes(search.trim().toLocaleLowerCase()),
   );
   const unread = rooms.reduce((sum, room) => sum + room.unread, 0);
+  // Keep the navigation badge in step with what this inbox shows.
+  const { mutate: mutateGlobal } = useSWRConfig();
+  useEffect(() => {
+    if (data) void mutateGlobal(UNREAD_KEY, { count: unread }, { revalidate: false });
+  }, [data, unread, mutateGlobal]);
   const preview = (room: Room) => {
     const message = room.messages[0];
     if (!message) return t("Пока нет сообщений", "Әзірге хабарлама жоқ");
@@ -65,46 +71,33 @@ export function ChatPage() {
           : t("Вложение", "Тіркеме");
   };
   return (
-    <div
-      className="mx-auto max-w-5xl"
-      data-no-translate
-      data-testid="messages-page"
-    >
-      <div className={selected ? "hidden md:block" : "block"}>
-        <SocialNav />
-      </div>
-      <header
-        className={cn(
-          "mb-5 flex flex-wrap items-start justify-between gap-3",
-          selected && "hidden md:flex",
-        )}
-      >
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("Сообщения", "Хабарламалар")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {unread
-              ? t(`Непрочитанных: ${unread}`, `Оқылмаған: ${unread}`)
-              : t(
-                  "Личные разговоры и учебные группы",
-                  "Жеке әңгімелер мен оқу топтары",
-                )}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <CreateGroup onCreated={() => void mutate()} />
-          <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard/community/people">
-              <Plus className="size-4" />
-              {t("Новый чат", "Жаңа чат")}
-            </Link>
-          </Button>
-        </div>
-      </header>
+    <div className="min-w-0" data-no-translate data-testid="messages-page">
+      <PageHeader
+        className={cn("mb-6", selected && "hidden md:flex")}
+        title={t("Сообщения", "Хабарламалар")}
+        description={
+          unread
+            ? t(`Непрочитанных: ${unread}`, `Оқылмаған: ${unread}`)
+            : t(
+                "Личные разговоры и учебные группы",
+                "Жеке әңгімелер мен оқу топтары",
+              )
+        }
+        actions={
+          <>
+            <CreateGroup onCreated={() => void mutate()} />
+            <Button asChild variant="outline" size="sm">
+              <Link href="/dashboard/community/people">
+                <Plus className="size-4" />
+                {t("Новый чат", "Жаңа чат")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
       <div
         className={cn(
-          "flex overflow-hidden rounded-xl border border-border bg-card md:h-[min(760px,calc(100dvh-13rem))] md:min-h-[440px]",
+          "flex overflow-hidden rounded-xl border border-border bg-card md:h-[min(820px,calc(100dvh-14rem))] md:min-h-[440px]",
           selected ? "h-[calc(100dvh-11rem)] min-h-[360px]" : "min-h-[460px]",
         )}
       >

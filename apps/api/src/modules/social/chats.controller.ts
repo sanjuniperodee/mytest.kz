@@ -31,6 +31,10 @@ export class ChatsController {
   @Get("rooms") rooms(@CurrentUser("id") user: string) {
     return this.service.rooms(user);
   }
+  // Declared before rooms/:id so "unread" is never parsed as a room ID.
+  @Get("rooms/unread") unread(@CurrentUser("id") user: string) {
+    return this.service.unread(user);
+  }
   @Post("rooms/global") global(@CurrentUser("id") user: string) {
     return this.service.openRoom(user);
   }

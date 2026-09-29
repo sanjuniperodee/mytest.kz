@@ -4,7 +4,8 @@ import useSWR from "swr";
 import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/api/auth-context";
 import { Conversation } from "./conversation";
-import { LoadState, SocialNav, useSocialText } from "./common";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { LoadState, useSocialText } from "./common";
 import type { Room } from "./chat-types";
 
 export function GlobalChatPage() {
@@ -36,23 +37,17 @@ export function GlobalChatPage() {
   );
   return (
     <div
-      className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[400px] max-w-5xl flex-col lg:h-[min(900px,calc(100dvh-4rem))]"
+      className="flex h-[calc(100dvh-10rem)] min-h-[400px] min-w-0 flex-col lg:h-[min(900px,calc(100dvh-4rem))]"
       data-no-translate
     >
-      <div className="shrink-0">
-        <SocialNav />
-      </div>
-      <header className="mb-4 shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("Глобальный чат", "Жаһандық чат")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t(
-            "Вопросы по подготовке, полезные находки и общение с участниками.",
-            "Дайындық сұрақтары, пайдалы материалдар және қатысушылармен әңгіме.",
-          )}
-        </p>
-      </header>
+      <PageHeader
+        className="mb-6 shrink-0"
+        title={t("Глобальный чат", "Жаһандық чат")}
+        description={t(
+          "Вопросы по подготовке, полезные находки и общение со всеми участниками.",
+          "Дайындық сұрақтары, пайдалы материалдар және барлық қатысушылармен әңгіме.",
+        )}
+      />
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border/80 bg-background shadow-xs">
         {room ? (
           <Conversation

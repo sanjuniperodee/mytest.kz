@@ -110,6 +110,11 @@ export class ChatsService {
     }));
   }
 
+  async unread(user: string) {
+    const hidden = await this.socialAccess.hidden(user);
+    return { count: await this.repository.unreadTotal(user, hidden) };
+  }
+
   async messages(user: string, id: string, cursor?: string, after?: string) {
     await this.room(user, id);
     if (cursor && after)

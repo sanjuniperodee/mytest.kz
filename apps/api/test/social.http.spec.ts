@@ -1,6 +1,6 @@
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { randomUUID } from "crypto";
 import request from "supertest";
@@ -27,16 +27,22 @@ suite("social HTTP + PostgreSQL", () => {
       throw new Error("Use an isolated local SOCIAL_TEST_DATABASE_URL");
     process.env.DATABASE_URL = url;
     const module = await Test.createTestingModule({
-      imports: [SocialModule],
-      providers: [
-        JwtStrategy,
-        {
-          provide: ConfigService,
-          useValue: new ConfigService({
-            JWT_SECRET: "social-integration-only",
-          }),
-        },
+      imports: [
+        // Global so RedisModule's factory can resolve ConfigService too.
+        ConfigModule.forRoot({
+          isGlobal: true,
+          ignoreEnvFile: true,
+          load: [
+            () => ({
+              JWT_SECRET: "social-integration-only",
+              REDIS_URL:
+                process.env.SOCIAL_TEST_REDIS_URL || "redis://127.0.0.1:6379",
+            }),
+          ],
+        }),
+        SocialModule,
       ],
+      providers: [JwtStrategy],
     }).compile();
     app = module.createNestApplication();
     await app.init();
@@ -160,6 +166,25 @@ suite("social HTTP + PostgreSQL", () => {
       .set(auth(1))
       .expect(400);
   });
+  it("serves one profile with community counters and ENT progress", async () => {
+    const own = await request(app.getHttpServer())
+      .get(`/social/people/${ids[0]}`)
+      .set(auth(0))
+      .expect(200);
+    expect(own.body._count.followers).toBe(1);
+    expect(own.body.learning).toEqual({ entAttempts: 0, entBest: null });
+    expect(own.body).not.toHaveProperty("phone");
+    const other = await request(app.getHttpServer())
+      .get(`/social/people/${ids[0]}`)
+      .set(auth(1))
+      .expect(200);
+    expect(other.body.followers).toEqual([{ followerId: ids[1] }]);
+    expect(other.body.learning.entAttempts).toBe(0);
+    await request(app.getHttpServer())
+      .get(`/social/people/${randomUUID()}`)
+      .set(auth(0))
+      .expect(404);
+  });
   it("deduplicates direct rooms and denies a third user access even with forged admin hint", async () => {
     room = (
       await request(app.getHttpServer())
@@ -206,6 +231,15 @@ suite("social HTTP + PostgreSQL", () => {
     expect(rooms.body.find((r: { id: string }) => r.id === room).unread).toBe(
       1,
     );
+    const unreadFor = async (index: number) =>
+      (
+        await request(app.getHttpServer())
+          .get("/social/rooms/unread")
+          .set(auth(index))
+          .expect(200)
+      ).body.count;
+    expect(await unreadFor(1)).toBe(1);
+    expect(await unreadFor(0)).toBe(0);
     await request(app.getHttpServer())
       .put(`/social/rooms/${room}/read`)
       .set(auth(1))
@@ -218,6 +252,7 @@ suite("social HTTP + PostgreSQL", () => {
     expect(rooms.body.find((r: { id: string }) => r.id === room).unread).toBe(
       0,
     );
+    expect(await unreadFor(1)).toBe(0);
     const global = (
       await request(app.getHttpServer())
         .post("/social/rooms/global")

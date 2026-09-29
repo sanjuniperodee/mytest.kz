@@ -104,7 +104,7 @@ export function Composer({
   return (
     <form
       onSubmit={submit}
-      className="rounded-xl border border-border bg-background p-4 sm:p-5"
+      className="rounded-xl border border-border bg-card p-4 sm:p-5"
     >
       <div className="flex gap-3">
         {user && (
@@ -438,7 +438,7 @@ export function PostCard({
           {post.groupInvite && post.groupInviteToken && (
             <Link
               href={`/dashboard/community/invite/${post.groupInviteToken}`}
-              className="mt-3 block rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3"
+              className="mt-3 block rounded-xl border border-accent/20 bg-accent/10 p-3 transition-colors hover:bg-accent/15"
             >
               <p className="text-xs text-muted-foreground">
                 {t("Приглашение в группу", "Топқа шақыру")}
@@ -594,12 +594,17 @@ export function PostList({
   parentId,
   onChange,
   nested = false,
+  toolbar = !parentId,
+  empty,
 }: {
   query?: string;
   composer?: boolean;
   parentId?: string;
   onChange?: () => void | Promise<unknown>;
   nested?: boolean;
+  /** The manual refresh bar belongs to feeds, not to profile tabs or threads. */
+  toolbar?: boolean;
+  empty?: { title: string; text: string };
 }) {
   const t = useSocialText();
   const { data, error, isLoading, isValidating, mutate, size, setSize } =
@@ -634,13 +639,13 @@ export function PostList({
       )}
       <div
         className={cn(
-          "overflow-hidden bg-background",
+          "overflow-hidden bg-card",
           nested
             ? "rounded-lg border border-border/70"
             : "rounded-xl border border-border",
         )}
       >
-        {!parentId && (
+        {toolbar && (
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
             <p className="text-xs text-muted-foreground">
               {t("Новые публикации — сверху", "Жаңа жазбалар — жоғарыда")}
@@ -675,15 +680,17 @@ export function PostList({
           <div className="px-6 py-14 text-center">
             <MessageCircle className="mx-auto mb-4 size-8 text-muted-foreground/50" />
             <h3 className="font-semibold">
-              {query.includes("tab=following")
+              {empty ? empty.title : query.includes("tab=following")
                 ? t("В подписках пока тихо", "Жазылымдарда әзірге тыныш")
                 : t("Здесь начинается разговор", "Әңгіме осы жерден басталады")}
             </h3>
             <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
-              {t(
-                "Пока публикаций нет. Напиши первым или подпишись на интересных тебе людей.",
-                "Әзірге жарияланым жоқ. Бірінші болып жаз немесе қызықты адамдарға жазыл.",
-              )}
+              {empty
+                ? empty.text
+                : t(
+                    "Пока публикаций нет. Напиши первым или подпишись на интересных тебе людей.",
+                    "Әзірге жарияланым жоқ. Бірінші болып жаз немесе қызықты адамдарға жазыл.",
+                  )}
             </p>
             {query.includes("tab=following") && (
               <Button asChild variant="outline" size="sm" className="mt-4">

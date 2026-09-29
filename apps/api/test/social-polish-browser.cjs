@@ -323,7 +323,7 @@ const post = (id, body, parentId = null) => ({
               .getByRole("link", { name: "Профиль: Данияр Алиев" })
               .last()
               .getAttribute("href"),
-            "/dashboard/community/people/other",
+            "/dashboard/profile/other",
           );
           if (scenario === "global") {
             await expect(

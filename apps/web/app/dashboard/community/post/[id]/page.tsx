@@ -4,12 +4,8 @@ import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api/client";
-import {
-  CommunityFrame,
-  LoadState,
-  Post,
-  useSocialText,
-} from "@/components/social/common";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { LoadState, Post, useSocialText } from "@/components/social/common";
 import { PostCard, PostList } from "@/components/social/posts";
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,17 +20,15 @@ export default function ThreadPage() {
     },
   );
   return (
-    <CommunityFrame>
+    <div className="flex min-w-0 flex-col gap-6" data-no-translate>
       <Link
         href="/dashboard/community"
-        className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground"
+        className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" />
+        <ArrowLeft className="size-4" aria-hidden="true" />
         {t("К ленте", "Лентаға оралу")}
       </Link>
-      <h1 className="mb-4 text-2xl font-semibold">
-        {t("Обсуждение", "Талқылау")}
-      </h1>
+      <PageHeader title={t("Обсуждение", "Талқылау")} />
       <LoadState
         loading={isLoading}
         error={error}
@@ -42,15 +36,29 @@ export default function ThreadPage() {
       />
       {data && !error && (
         <>
-          <div className="mb-5 overflow-hidden rounded-3xl border border-border bg-background">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
             <PostCard post={data} refresh={() => mutate()} />
           </div>
-          <h2 className="mb-3 text-sm font-semibold">
-            {t("Ответы", "Жауаптар")}
-          </h2>
-          <PostList key={id} parentId={id} composer onChange={() => mutate()} />
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold">
+              {t("Ответы", "Жауаптар")}
+            </h2>
+            <PostList
+              key={id}
+              parentId={id}
+              composer
+              onChange={() => mutate()}
+              empty={{
+                title: t("Ответов пока нет", "Әзірге жауап жоқ"),
+                text: t(
+                  "Помогите автору — ответьте первым.",
+                  "Авторға көмектесіңіз — бірінші болып жауап беріңіз.",
+                ),
+              }}
+            />
+          </section>
         </>
       )}
-    </CommunityFrame>
+    </div>
   );
 }

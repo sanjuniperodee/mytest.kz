@@ -1,7 +1,11 @@
-"use client";
-import { useParams } from "next/navigation";
-import { SocialProfile } from "@/components/social/people";
-export default function PersonPage() {
-  const { id } = useParams<{ id: string }>();
-  return <SocialProfile key={id} id={id} />;
+import { redirect } from "next/navigation";
+
+// Profiles moved to /dashboard/profile/:id; keep shared links working.
+export default async function LegacyPersonPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  redirect(`/dashboard/profile/${encodeURIComponent(id)}`);
 }

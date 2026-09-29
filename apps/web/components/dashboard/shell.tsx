@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Trophy,
   UserCircle,
+  Users,
 } from "lucide-react"
 import { useAuth } from "@/lib/api/auth-context"
 import { Spinner } from "@/components/ui/spinner"
@@ -33,6 +34,7 @@ import { localize } from "@/lib/api/i18n"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { WhatsAppFab } from "@/components/common/whatsapp-fab"
+import { useUnreadMessages } from "@/components/social/use-unread"
 import {
   Sheet,
   SheetContent,
@@ -47,7 +49,27 @@ type NavItem = {
   mobileLabel?: string
   icon: React.ElementType
   primary?: boolean
+  /** Custom active-state rule; defaults to a prefix match on `href`. */
+  match?: (pathname: string, userId?: string) => boolean
+  showUnread?: boolean
 }
+
+const isOwnProfile = (pathname: string, userId?: string) =>
+  pathname === "/dashboard/profile" || (!!userId && pathname === `/dashboard/profile/${userId}`)
+const isOtherProfile = (pathname: string, userId?: string) =>
+  pathname.startsWith("/dashboard/profile/") && !isOwnProfile(pathname, userId)
+const isFeed = (pathname: string) =>
+  pathname === "/dashboard/community" ||
+  pathname.startsWith("/dashboard/community/post/") ||
+  pathname.startsWith("/dashboard/community/invite/")
+const isPeople = (pathname: string, userId?: string) =>
+  pathname.startsWith("/dashboard/community/people") || isOtherProfile(pathname, userId)
+/** On mobile the community tab covers the whole social area. */
+const isCommunityArea = (pathname: string, userId?: string) =>
+  isFeed(pathname) ||
+  isPeople(pathname, userId) ||
+  pathname.startsWith("/dashboard/messages") ||
+  pathname === "/dashboard/global-chat"
 
 type NavSection = {
   section: string
@@ -75,8 +97,9 @@ const navSections: NavSection[] = [
   {
     section: "Сообщество",
     items: [
-      { href: "/dashboard/community", label: "Сообщество", mobileLabel: "Лента", icon: Globe2, primary: true },
-      { href: "/dashboard/messages", label: "Сообщения", icon: MessageCircle },
+      { href: "/dashboard/community", label: "Лента", mobileLabel: "Лента", icon: Globe2, primary: true, match: isFeed },
+      { href: "/dashboard/community/people", label: "Люди", icon: Users, match: isPeople },
+      { href: "/dashboard/messages", label: "Сообщения", icon: MessageCircle, showUnread: true },
       { href: "/dashboard/global-chat", label: "Глобальный чат", icon: Radio },
     ],
   },
@@ -84,7 +107,7 @@ const navSections: NavSection[] = [
     section: "Аккаунт",
     items: [
       { href: "/dashboard/billing", label: "Тарифы", icon: Sparkles },
-      { href: "/dashboard/profile", label: "Профиль", icon: UserCircle },
+      { href: "/dashboard/profile", label: "Профиль", icon: UserCircle, match: isOwnProfile },
     ],
   },
 ]
@@ -101,6 +124,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { user, isAuthenticated, isLoading, signOut } = useAuth()
   const [moreOpen, setMoreOpen] = useState(false)
+  const unread = useUnreadMessages(isAuthenticated && user?.isChannelMember !== false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) { rememberInvite(pathname); router.replace("/login") }
@@ -143,9 +167,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const displayName =
     fullNameStr || user?.telegramUsername || user?.username || user?.phone || "U"
   const initials = displayName.toString().slice(0, 2).toUpperCase()
-  const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
-  const isMoreRoute = !primaryNavigation.some((item) => isActive(item.href))
+  const isActive = (item: NavItem) =>
+    item.match
+      ? item.match(pathname, user?.id)
+      : item.href === "/dashboard"
+        ? pathname === "/dashboard"
+        : pathname.startsWith(item.href)
+  const isPrimaryActive = (item: NavItem) =>
+    item.href === "/dashboard/community" ? isCommunityArea(pathname, user?.id) : isActive(item)
+  const isMoreRoute = !primaryNavigation.some(isPrimaryActive)
+  const unreadLabel = unread > 99 ? "99+" : String(unread)
 
   return (
     <div className="min-h-svh bg-secondary/30">
@@ -196,7 +227,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <ul className="flex flex-col gap-0.5">
                     {section.items.map((item) => {
                       const Icon = item.icon
-                      const active = isActive(item.href)
+                      const active = isActive(item)
                       return (
                         <li key={item.href}>
                           <Link
@@ -210,7 +241,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                             )}
                           >
                             <Icon className="size-4 shrink-0" aria-hidden="true" />
-                            {item.label}
+                            <span className="flex-1">{item.label}</span>
+                            {item.showUnread && unread > 0 && (
+                              <UnreadBadge label={unreadLabel} />
+                            )}
                           </Link>
                         </li>
                       )
@@ -268,7 +302,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <ul className="grid grid-cols-5">
           {primaryNavigation.map((item) => {
             const Icon = item.icon
-            const active = isActive(item.href)
+            const active = isPrimaryActive(item)
             return (
               <li key={item.href}>
                 <Link
@@ -281,7 +315,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon className={cn("size-5 transition-transform duration-200", active && "scale-110")} aria-hidden="true" />
+                  <span className="relative">
+                    <Icon className={cn("size-5 transition-transform duration-200", active && "scale-110")} aria-hidden="true" />
+                    {item.href === "/dashboard/community" && unread > 0 && (
+                      <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-accent ring-2 ring-background" aria-label="Непрочитанные сообщения" />
+                    )}
+                  </span>
                   {item.mobileLabel}
                 </Link>
               </li>
@@ -343,7 +382,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   .filter((item) => !primaryNavigation.some((primary) => primary.href === item.href))
                   .map((item) => {
                     const Icon = item.icon
-                    const active = isActive(item.href)
+                    const active = isActive(item)
                     return (
                       <li key={item.href}>
                         <Link
@@ -365,6 +404,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                             <Icon className="size-4" aria-hidden="true" />
                           </span>
                           <span className="flex-1">{item.label}</span>
+                          {item.showUnread && unread > 0 && <UnreadBadge label={unreadLabel} />}
                           <ChevronRight className="size-4 opacity-60" aria-hidden="true" />
                         </Link>
                       </li>
@@ -400,5 +440,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {!pathname.startsWith("/dashboard/messages") && pathname !== "/dashboard/global-chat" && <WhatsAppFab />}
     </div>
+  )
+}
+
+function UnreadBadge({ label }: { label: string }) {
+  return (
+    <span className="min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-accent-foreground tabular-nums">
+      <span className="sr-only">Непрочитанные сообщения: </span>
+      {label}
+    </span>
   )
 }

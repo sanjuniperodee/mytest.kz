@@ -27,4 +27,14 @@ export class ChatRepository {
       GROUP BY m."roomId"`);
     return new Map(rows.map((row) => [row.roomId, Number(row.count)]));
   }
+  /** Unread messages across the inbox (direct and group rooms, not global). */
+  async unreadTotal(userId: string, hidden: string[]) {
+    const [row] = await this.db.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+      SELECT COUNT(*) AS count FROM "ChatMessage" m
+      JOIN "ChatMember" member ON member."roomId" = m."roomId" AND member."userId" = ${userId}::uuid AND member.banned = false
+      JOIN "ChatRoom" room ON room.id = m."roomId" AND room.kind <> 'global'
+      WHERE m."createdAt" > member."readAt" AND m."deletedAt" IS NULL
+      AND m."authorId" NOT IN (${Prisma.join([userId, ...hidden].map((id) => Prisma.sql`${id}::uuid`))})`);
+    return Number(row?.count ?? 0);
+  }
 }

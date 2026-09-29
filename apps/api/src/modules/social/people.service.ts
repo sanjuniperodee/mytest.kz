@@ -1,20 +1,23 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../database/prisma.service";
+import {
+  LeaderboardService,
+  PUBLIC_LEADERBOARD_SIZE,
+} from "../leaderboard/leaderboard.service";
 import { SocialAccessService } from "./social-access.service";
-import { ChatAccessService } from "./chat-access.service";
-import { FeedDto, MessageDto, PeopleDto, PostDto } from "./social.dto";
-import { person, order, page } from "./social-selects";
+import { PeopleDto } from "./social.dto";
+import { person } from "./social-selects";
 @Injectable()
 export class PeopleService {
   constructor(
     private readonly db: PrismaService,
     private readonly socialAccess: SocialAccessService,
+    private readonly leaderboard: LeaderboardService,
   ) {}
   async people(user: string, query: PeopleDto) {
     const hidden = await this.socialAccess.hidden(user);
@@ -64,20 +67,47 @@ export class PeopleService {
       },
     });
     if (!result) throw new NotFoundException();
-    const blocked = !!(await this.db.socialBlock.findUnique({
-      where: { blockerId_blockedId: { blockerId: user, blockedId: id } },
-    }));
+    const [block, hidden] = await Promise.all([
+      this.db.socialBlock.findUnique({
+        where: { blockerId_blockedId: { blockerId: user, blockedId: id } },
+      }),
+      this.socialAccess.hidden(user),
+    ]);
+    const unavailable = hidden.includes(id);
     return {
       ...result,
-      blocked,
-      unavailable: (await this.socialAccess.hidden(user)).includes(id),
+      blocked: !!block,
+      unavailable,
+      learning: unavailable ? null : await this.learning(user, id),
     };
+  }
+  // The profile is one identity across studying and community. Other people
+  // see a best result only when the public leaderboard already shows it.
+  private async learning(user: string, id: string) {
+    const { attempts, best } = await this.leaderboard.getEntStanding(id);
+    const visible =
+      best && (id === user || best.rank <= PUBLIC_LEADERBOARD_SIZE);
+    return {
+      entAttempts: attempts,
+      entBest: visible
+        ? {
+            rank: best.rank,
+            rawScore: best.rawScore,
+            maxScore: best.maxScore,
+            profileSubjects: best.profileSubjects,
+          }
+        : null,
+    };
+  }
+  private async ensureExists(id: string) {
+    if (!(await this.db.user.findUnique({ where: { id }, select: { id: true } })))
+      throw new NotFoundException();
   }
   async follow(user: string, id: string, enabled: boolean) {
     if (id === user)
       throw new BadRequestException("Нельзя подписаться на себя");
     await this.socialAccess.allowed(user, id);
-    await this.profile(user, id);
+    await this.ensureExists(id);
     const data = { followerId: user, followingId: id };
     if (enabled)
       await this.db.socialFollow.upsert({
@@ -90,7 +120,7 @@ export class PeopleService {
   }
   async block(user: string, id: string, enabled: boolean) {
     if (id === user) throw new BadRequestException();
-    await this.profile(user, id);
+    await this.ensureExists(id);
     const data = { blockerId: user, blockedId: id };
     if (enabled)
       await this.db.$transaction([

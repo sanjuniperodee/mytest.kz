@@ -23,6 +23,15 @@ export interface EntLeaderboardResponse {
   me: EntLeaderboardRow | null;
 }
 
+/** The leaderboard never lists more rows than this; these ranks are public. */
+export const PUBLIC_LEADERBOARD_SIZE = 100;
+
+export interface EntStanding {
+  /** Full-format ENT attempts the leaderboard counts. */
+  attempts: number;
+  best: EntLeaderboardRow | null;
+}
+
 type EligibleSession = {
   id: string;
   userId: string;
@@ -61,7 +70,7 @@ export class LeaderboardService {
   constructor(private prisma: PrismaService) {}
 
   async getEntLeaderboard(userId: string, limit = 50): Promise<EntLeaderboardResponse> {
-    const take = Math.min(Math.max(Math.floor(limit) || 50, 1), 100);
+    const take = Math.min(Math.max(Math.floor(limit) || 50, 1), PUBLIC_LEADERBOARD_SIZE);
     let rankedSessions: Array<{ rank: number; session: EligibleSession }>;
 
     if (typeof (this.prisma as { $queryRaw?: unknown }).$queryRaw === 'function') {
@@ -157,13 +166,7 @@ export class LeaderboardService {
       }));
     } else {
       const sessions = await this.prisma.testSession.findMany({
-        where: {
-          status: { in: ['completed', 'timed_out'] },
-          totalQuestions: ENT_CONFIG.totalQuestions,
-          rawScore: { not: null },
-          maxScore: ENT_CONFIG.maxTotalPoints,
-          examType: { slug: 'ent' },
-        },
+        where: this.eligibleSessions(),
         select: {
           id: true,
           userId: true,
@@ -221,6 +224,26 @@ export class LeaderboardService {
     return {
       items: rows.filter((row) => row.rank <= take),
       me: rows.find((row) => row.userId === userId) ?? null,
+    };
+  }
+
+  /** Rank, best attempt and attempt count of one user, consistent with the leaderboard. */
+  async getEntStanding(userId: string): Promise<EntStanding> {
+    const [{ me }, attempts] = await Promise.all([
+      this.getEntLeaderboard(userId, 1),
+      this.prisma.testSession.count({ where: this.eligibleSessions(userId) }),
+    ]);
+    return { attempts, best: me };
+  }
+
+  private eligibleSessions(userId?: string): Prisma.TestSessionWhereInput {
+    return {
+      ...(userId ? { userId } : {}),
+      status: { in: ['completed', 'timed_out'] },
+      totalQuestions: ENT_CONFIG.totalQuestions,
+      rawScore: { not: null },
+      maxScore: ENT_CONFIG.maxTotalPoints,
+      examType: { slug: 'ent' },
     };
   }
 
