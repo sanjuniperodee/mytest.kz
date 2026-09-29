@@ -54,9 +54,12 @@ export function PersonAvatar({
   className?: string;
 }) {
   return (
-    <Avatar className={cn("size-10 shrink-0 border border-border", className)}>
+    <Avatar
+      className={cn("size-10 shrink-0 border border-border text-xs", className)}
+    >
       <AvatarImage src={resolveMediaUrl(person.avatarUrl)} alt="" />
-      <AvatarFallback className="bg-secondary text-xs font-semibold text-foreground">
+      {/* Initials inherit the font size, so larger avatars get larger initials. */}
+      <AvatarFallback className="bg-secondary font-semibold text-foreground">
         {personName(person).slice(0, 2).toUpperCase()}
       </AvatarFallback>
     </Avatar>

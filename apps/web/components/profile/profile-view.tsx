@@ -159,9 +159,10 @@ function ProfileHeader({
           avatarUrl: user.avatarUrl ?? null,
         }
       : profile;
+  // A full date keeps the month in the right case ("с 29 сентября 2026 г.").
   const since = new Date(profile.createdAt).toLocaleDateString(
     locale === "kk" ? "kk-KZ" : "ru-RU",
-    { month: "long", year: "numeric" },
+    { day: "numeric", month: "long", year: "numeric" },
   );
   const paid = Boolean(user?.hasActiveSubscription);
   const contact =
@@ -218,7 +219,7 @@ function ProfileHeader({
           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <CalendarDays className="size-3.5" aria-hidden="true" />
-              {t(`На mytest с ${since}`, `mytest-те ${since} бері`)}
+              {t(`На mytest с ${since}`, `mytest-те ${since} бастап`)}
             </span>
             {isOwn && contact && (
               <span

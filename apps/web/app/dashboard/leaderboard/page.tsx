@@ -307,7 +307,7 @@ function PodiumCard({
       )}
     >
       <CardContent className="p-0">
-        <Link href={profileHref(entry.userId)} className="flex flex-col items-center gap-3 rounded-xl p-5 hover:bg-secondary/50 focus-visible:outline-2 focus-visible:outline-emerald-600">
+        <Link href={profileHref(entry.userId)} className="flex flex-col items-center gap-3 rounded-xl p-5 hover:bg-secondary/50 focus-visible:outline-2 focus-visible:outline-ring">
         <div className="flex items-center gap-2">
           <Icon className={cn("size-5", color)} />
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -345,7 +345,7 @@ function LeaderRow({
     >
       <Link href={profileHref(entry.userId)}
       className={cn(
-        "flex items-center gap-3 border-t border-border px-4 py-3 transition-colors hover:bg-secondary/50 focus-visible:outline-2 focus-visible:outline-emerald-600",
+        "flex items-center gap-3 border-t border-border px-4 py-3 transition-colors hover:bg-secondary/50 focus-visible:outline-2 focus-visible:outline-ring",
         highlight && "bg-secondary",
       )}
     >

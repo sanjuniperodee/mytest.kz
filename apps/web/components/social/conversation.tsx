@@ -95,11 +95,11 @@ export function Conversation({
           </Button>
         )}
         {room?.kind === "group" ? (
-          <span className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 dark:bg-emerald-950/40">
-            <Users className="size-4 sm:size-5 text-emerald-600 dark:text-emerald-400" />
+          <span className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
+            <Users className="size-4 sm:size-5 text-accent" />
           </span>
         ) : room?.key === "global" ? (
-          <span className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+          <span className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
             <Globe2 className="size-4 sm:size-5" />
           </span>
         ) : (
@@ -170,7 +170,7 @@ export function Conversation({
         )}
         {!isLoading && !error && !messages.length && (
           <div className="flex h-full min-h-40 flex-col items-center justify-center text-center">
-            <MessageCircle className="mb-3 size-9 text-emerald-600/60" />
+            <MessageCircle className="mb-3 size-9 text-muted-foreground/60" />
             <p className="font-medium">
               {t("Начни с приветствия", "Сәлемдесуден баста")}
             </p>
@@ -213,7 +213,7 @@ export function Conversation({
                     t("Профиль", "Профиль") + ": " + personName(m.author)
                   }
                   className={cn(
-                    "shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-emerald-600",
+                    "shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-ring",
                     mine && "hidden sm:inline-block",
                   )}
                 >
@@ -233,7 +233,7 @@ export function Conversation({
                   {!mine && (
                     <Link
                       href={profileHref(m.authorId)}
-                      className="mb-1 block text-xs font-semibold text-emerald-600"
+                      className="mb-1 block text-xs font-semibold text-accent"
                     >
                       {personName(m.author)}
                     </Link>

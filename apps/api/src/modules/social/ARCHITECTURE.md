@@ -4,7 +4,8 @@ This is a modular monolith inside the existing Nest API, not another service or 
 
 ## Boundaries
 
-- `posts` owns feed, threads, reactions and reports. `people` owns public profiles, follows and blocks.
+- `posts` owns feed, threads, reactions and reports. `people` owns profiles, follows and blocks.
+- There is one profile per user for the whole platform (web `/dashboard/profile/:id`; own profile at `/dashboard/profile`). `GET /social/people/:id` adds `learning` (full-format ENT attempts and best result/rank from `LeaderboardService.getEntStanding`, so ranks match the leaderboard). Other people see the best result only when it is inside the public top-100 (`PUBLIC_LEADERBOARD_SIZE`); the owner always sees it.
 - `chats` owns conversations, sending, retry deduplication and read markers. `groups` owns membership, invitations and ownership.
 - Controllers validate/route HTTP requests; application services coordinate operations. There is no Prisma or filesystem I/O in controllers.
 - `ChatAccessService` is the common access entry point for reads, sends, group administration and media. `SocialAccessService` handles bilateral user blocks.
@@ -16,7 +17,7 @@ This is a modular monolith inside the existing Nest API, not another service or 
 ## Invariants
 
 - The server chooses author, room membership and privilege; JWT `isAdmin` is not authority.
-- Direct-room identity is the sorted user pair. Global room identity is `global`; group identities and revocable invitation tokens are random UUIDs.
+- Direct-room identity is the sorted user pair. Concurrent opens of the same pair race on `key` (nested create prevents a native upsert); the loser retries and reads the winner's room. Global room identity is `global`; group identities and revocable invitation tokens are random UUIDs.
 - Group role changes and sends lock the same room row. Muted, banned or removed participants cannot send after the restriction commits.
 - Only the owner transfers ownership or closes a group. An owner cannot leave without transferring ownership. Admins cannot promote themselves or manage the owner/other admins.
 - Posts store a snapshot of the invitation token. Rotating it invalidates both copied links and old post invitations.
@@ -24,7 +25,7 @@ This is a modular monolith inside the existing Nest API, not another service or 
 - `(authorId, clientId)` is unique. Reusing it for a different body, room or attachment is rejected.
 - Media download requires active room access (or audited platform-admin access). Unsent uploads are visible only to their uploader. Deleted-message media is hidden from participants.
 - Client components render views; `use-conversation`, `use-group-settings` and `use-chat-media` own network/state/recorder lifecycles. Blob URLs and microphone tracks are released on unmount.
-- `GET /social/rooms/:id` checks access and retrieves that exact room, independently of the 100-room inbox limit. Room previews include attachment metadata; global-room membership remains an idempotent operation.
+- `GET /social/rooms/:id` (ChatsController) checks access and retrieves that exact room, independently of the 100-room inbox limit. Group settings (roles, invite token, full member list) are `GET /social/groups/:id`; never declare the same route in two controllers — Nest silently serves the first one registered. `GET /social/rooms/unread` returns the inbox unread total (direct + group, not global) for the navigation badge. Room previews include attachment metadata; global-room membership remains an idempotent operation.
 - Message pagination uses `(createdAt, id)` keysets. `cursor` retrieves older rows in descending order; `after` retrieves newer rows in ascending order. Both are UUID message IDs scoped to the same room, including tombstones. Mixing directions is rejected. Pages contain at most 30 messages.
 - The web `message-window` helper reconciles newest-window polling with forward catch-up (at most four batches per poll). It keeps the older-history cursor stable and never advances to a locally acknowledged send before catching up. Confirmed delivery and subsequent refresh failures are distinct; retrying an unconfirmed message reuses its client ID while the composer remains mounted.
 - Read acknowledgements are serialized and sent only while the document is visible and the conversation is at the bottom. Failed acknowledgements retry on the next visibility/poll cycle. Feed refresh is manual to avoid shifting content while reading; nested replies remain explicitly expanded by the reader.

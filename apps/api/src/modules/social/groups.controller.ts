@@ -33,7 +33,9 @@ export class GroupsController {
   create(@CurrentUser("id") user: string, @Body() dto: GroupDto) {
     return this.groups.create(user, dto);
   }
-  @Get("rooms/:id") detail(
+  // Group settings (members, roles, invite token). `GET rooms/:id` belongs to
+  // ChatsController; declaring it here too silently lost to that route.
+  @Get("groups/:id") detail(
     @CurrentUser("id") user: string,
     @Param("id", ParseUUIDPipe) id: string,
   ) {

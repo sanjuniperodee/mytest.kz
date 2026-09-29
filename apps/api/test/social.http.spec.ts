@@ -367,10 +367,10 @@ suite("social HTTP + PostgreSQL", () => {
   });
   it('enforces group roles, revocable invitations, bans, ownership and platform moderation', async () => {
     const group = (await request(app.getHttpServer()).post('/social/groups').set(auth(0)).send({ title: 'Study group' }).expect(201)).body.id;
-    let detail = (await request(app.getHttpServer()).get(`/social/rooms/${group}`).set(auth(0)).expect(200)).body;
+    let detail = (await request(app.getHttpServer()).get(`/social/groups/${group}`).set(auth(0)).expect(200)).body;
     expect(detail.myRole).toBe('owner');
     const token = detail.inviteToken;
-    await request(app.getHttpServer()).get(`/social/rooms/${group}`).set(auth(1)).expect(404);
+    await request(app.getHttpServer()).get(`/social/groups/${group}`).set(auth(1)).expect(404);
     await request(app.getHttpServer()).post(`/social/invites/${token}/join`).set(auth(1)).expect(201);
     await request(app.getHttpServer()).post('/social/posts').set(auth(0)).send({ body: 'Join us', groupInviteId: group }).expect(201);
     await request(app.getHttpServer()).post('/social/posts').set(auth(1)).send({ body: 'Join us', groupInviteId: group }).expect(403);
@@ -384,7 +384,7 @@ suite("social HTTP + PostgreSQL", () => {
     await request(app.getHttpServer()).get(`/social/invites/${token}`).set(auth(1)).expect(404);
     await request(app.getHttpServer()).post(`/social/invites/${token}/join`).set(auth(1)).expect(404);
     await request(app.getHttpServer()).patch(`/social/groups/${group}/members/${ids[1]}`).set(auth(0)).send({ action: 'ban' }).expect(200);
-    detail = (await request(app.getHttpServer()).get(`/social/rooms/${group}`).set(auth(0)).expect(200)).body;
+    detail = (await request(app.getHttpServer()).get(`/social/groups/${group}`).set(auth(0)).expect(200)).body;
     await request(app.getHttpServer()).post(`/social/invites/${detail.inviteToken}/join`).set(auth(1)).expect(403);
     await request(app.getHttpServer()).get(`/social/rooms/${group}/messages`).set(auth(1)).expect(404);
     await request(app.getHttpServer()).patch(`/social/groups/${group}/members/${ids[1]}`).set(auth(0)).send({ action: 'unban' }).expect(200);

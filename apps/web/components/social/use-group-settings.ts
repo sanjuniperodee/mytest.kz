@@ -7,7 +7,7 @@ import type { GroupDetail } from './group-types';
 export function useGroupSettings(id: string, open: boolean, onChange: () => void) {
   const [busy, setBusy] = useState(false);
   const { data, error, isLoading, mutate } = useSWR<GroupDetail>(
-    open ? `/social/rooms/${id}` : null,
+    open ? `/social/groups/${id}` : null,
     (path: string) => api<GroupDetail>(path),
   );
   async function action(

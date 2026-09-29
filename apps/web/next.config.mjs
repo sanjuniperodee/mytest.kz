@@ -12,6 +12,17 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async redirects() {
+    return [
+      // Profiles used to live inside the community section; there is now one
+      // profile page for everyone. Keeps shared links and old messages working.
+      {
+        source: "/dashboard/community/people/:id",
+        destination: "/dashboard/profile/:id",
+        permanent: true,
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {

@@ -137,7 +137,7 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
     }
     await page.goto("http://localhost:4318/dashboard/community");
     await page
-      .getByRole("heading", { name: "Свои люди. Общая цель." })
+      .getByRole("heading", { name: "Сообщество", exact: true })
       .waitFor();
     await page.getByText("Сегодня впервые набрал", { exact: false }).waitFor();
     await page.screenshot({
@@ -199,9 +199,14 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
       .getByText("Ответ на ответ из браузера", { exact: true })
       .waitFor();
     assert.equal(new URL(page.url()).pathname, `/dashboard/community/post/${first.id}`);
+    // Old community profile links land on the single profile page.
     await page.goto(
-      `http://localhost:4318/dashboard/profile/${ids[1]}`,
+      `http://localhost:4318/dashboard/community/people/${ids[1]}`,
     );
+    await page.waitForURL(`**/dashboard/profile/${ids[1]}`);
+    await page
+      .getByRole("heading", { name: "Подготовка к ЕНТ", exact: true })
+      .waitFor();
     await page
       .getByRole("button", { name: "Подписаться", exact: true })
       .click();
@@ -262,7 +267,8 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
       .fill("Привет всему сообществу!");
     await page.getByRole("button", { name: "Отправить", exact: true }).click();
     await page.getByText("Привет всему сообществу!", { exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Профиль: Аружан Серик', exact: true }).waitFor();
+    // Own-message avatars are hidden on narrow screens but still link to the profile.
+    await page.locator(`a[href="/dashboard/profile/${ids[0]}"][aria-label="Профиль: Аружан Серик"]`).first().waitFor({ state: 'attached' });
     assert.equal(await page.getByRole('link', { name: 'Назад к чатам', exact: true }).count(), 0);
     await page.screenshot({ path: `${artifacts}/global-chat-mobile.png`, fullPage: true });
     await page.goto(
@@ -275,6 +281,22 @@ const { JwtStrategy } = require("../dist/modules/auth/jwt.strategy");
       path: `${artifacts}/profile-mobile.png`,
       fullPage: true,
     });
+    // Own profile is the same page with the editor instead of follow/message.
+    await page.goto("http://localhost:4318/dashboard/profile");
+    await page
+      .getByRole("heading", { name: "Аружан Серик", exact: true })
+      .waitFor();
+    await page
+      .getByRole("button", { name: "Редактировать профиль", exact: true })
+      .click();
+    await page.getByLabel("Фамилия", { exact: true }).waitFor();
+    await page.keyboard.press("Escape");
+    assert.equal(
+      await page.getByRole("button", { name: "Подписаться", exact: true }).count(),
+      0,
+    );
+    await noOverflow();
+    await page.screenshot({ path: `${artifacts}/own-profile-mobile.png`, fullPage: true });
     await page.goto('http://localhost:4318/dashboard/messages');
     await page.getByRole('button', { name: 'Создать группу', exact: true }).click();
     await page.getByLabel('Название', { exact: true }).fill('Математика — вместе к 140');

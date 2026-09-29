@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { SocialAccessService } from "./social-access.service";
 import { ChatAccessService } from "./chat-access.service";
@@ -31,18 +32,30 @@ export class ChatsService {
         throw new NotFoundException();
     }
     const key = other ? [user, other].sort().join(":") : "global";
-    const room = await this.db.chatRoom.upsert({
-      where: { key },
-      create: {
-        key,
-        kind: other ? "direct" : "global",
-        members: {
-          create: (other ? [user, other] : [user]).map((userId) => ({
-            userId,
-          })),
+    const upsert = () =>
+      this.db.chatRoom.upsert({
+        where: { key },
+        create: {
+          key,
+          kind: other ? "direct" : "global",
+          members: {
+            create: (other ? [user, other] : [user]).map((userId) => ({
+              userId,
+            })),
+          },
         },
-      },
-      update: {},
+        update: {},
+      });
+    // A nested create keeps Prisma from using a native ON CONFLICT upsert, so two
+    // people opening the same conversation at once can race on `key`. The loser
+    // simply reads the room the winner created.
+    const room = await upsert().catch((error: unknown) => {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        return upsert();
+      throw error;
     });
     if (!other)
       await this.db.chatMember.upsert({
