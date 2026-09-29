@@ -84,10 +84,16 @@ export function Timestamp({ value }: { value: string }) {
 export function SocialNav() {
   const pathname = usePathname();
   const t = useSocialText();
+  const isActive = (href: string) =>
+    pathname === href ||
+    (href === "/dashboard/community"
+      ? pathname.startsWith(`${href}/post/`) ||
+        pathname.startsWith(`${href}/invite/`)
+      : pathname.startsWith(`${href}/`));
   return (
     <nav
       aria-label={t("Сообщество", "Қауымдастық")}
-      className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-border/80 bg-background/90 p-1.5 backdrop-blur-md scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none]"
+      className="mb-4 grid grid-cols-4 gap-1 rounded-xl border border-border/80 bg-background/90 p-1 backdrop-blur-md sm:p-1.5"
     >
       {[
         {
@@ -114,10 +120,10 @@ export function SocialNav() {
         <Link
           key={href}
           href={href}
-          aria-current={pathname === href ? "page" : undefined}
+          aria-current={isActive(href) ? "page" : undefined}
           className={cn(
-            "flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition-all duration-200 hover:bg-secondary sm:min-h-11 sm:flex-1 sm:px-2 sm:text-sm",
-            pathname === href &&
+            "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-center text-[10px] font-medium leading-tight transition-colors hover:bg-secondary sm:min-h-11 sm:flex-row sm:gap-1.5 sm:px-2 sm:text-sm",
+            isActive(href) &&
               "bg-foreground text-background shadow-xs hover:bg-foreground/90 font-semibold",
           )}
         >
@@ -205,10 +211,7 @@ export function LoadState({
         className="space-y-3 p-5"
       >
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-20 animate-pulse rounded-xl bg-secondary"
-          />
+          <div key={i} className="h-20 animate-pulse rounded-xl bg-secondary" />
         ))}
       </div>
     );

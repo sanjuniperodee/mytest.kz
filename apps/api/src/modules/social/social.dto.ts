@@ -55,6 +55,10 @@ export class ChatQueryDto {
 export class ReadDto {
   @IsUUID() messageId!: string;
 }
+export class MessagesQueryDto {
+  @IsOptional() @IsUUID() cursor?: string;
+  @IsOptional() @IsUUID() after?: string;
+}
 
 export class ReportDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))

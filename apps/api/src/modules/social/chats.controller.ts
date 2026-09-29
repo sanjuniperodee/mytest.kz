@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -15,14 +14,7 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import {
-  FeedDto,
-  MessageDto,
-  PeopleDto,
-  PostDto,
-  ReportDto,
-  ReadDto,
-} from "./social.dto";
+import { MessageDto, ReadDto, MessagesQueryDto } from "./social.dto";
 
 import { ChatsService } from "./chats.service";
 @Controller("social")
@@ -48,12 +40,18 @@ export class ChatsController {
   ) {
     return this.service.openRoom(user, id);
   }
+  @Get("rooms/:id") room(
+    @CurrentUser("id") user: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.service.detail(user, id);
+  }
   @Get("rooms/:id/messages") messages(
     @CurrentUser("id") user: string,
     @Param("id", ParseUUIDPipe) id: string,
-    @Query() query: FeedDto,
+    @Query() query: MessagesQueryDto,
   ) {
-    return this.service.messages(user, id, query.cursor);
+    return this.service.messages(user, id, query.cursor, query.after);
   }
   @Post("rooms/:id/messages")
   @Throttle({ default: { limit: 30, ttl: 60000 } })

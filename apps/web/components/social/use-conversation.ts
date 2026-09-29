@@ -1,17 +1,22 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import useSWRInfinite from "swr/infinite";
-import { toast } from "sonner";
 import { api } from "@/lib/api/client";
-import { Page, useSocialText } from "./common";
+import { type Page, useSocialText } from "./common";
 import type { Message } from "./chat-types";
 import type { Attachment } from "./media";
+import { refreshMessageWindow } from "./message-window";
 export function useConversation(id: string, onRead: () => void) {
   const t = useSocialText();
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const sendLock = useRef(false);
+  const readLock = useRef(false);
+  const latestWindow = useRef<Page<Message> | undefined>(undefined);
+  const [atBottom, setAtBottom] = useState(true);
   const pending = useRef<{
     body: string;
     clientId: string;
@@ -26,7 +31,16 @@ export function useConversation(id: string, onRead: () => void) {
         index && !prev?.nextCursor
           ? null
           : `/social/rooms/${id}/messages${index ? `?cursor=${prev?.nextCursor}` : ""}`,
-      (path: string) => api<Page<Message>>(path),
+      async (path: string) => {
+        if (path.includes("?cursor=")) return api<Page<Message>>(path);
+        const next = await refreshMessageWindow(
+          latestWindow.current,
+          () => api<Page<Message>>(path),
+          (after) => api<Page<Message>>(`${path}?after=${after}`),
+        );
+        latestWindow.current = next;
+        return next;
+      },
       { refreshInterval: 5000, revalidateAll: false, refreshWhenHidden: false },
     );
   const messages = [
@@ -42,17 +56,19 @@ export function useConversation(id: string, onRead: () => void) {
     if (nearBottom.current)
       scroller.current?.scrollTo({
         top: scroller.current.scrollHeight,
-        behavior: "smooth",
+        behavior: "instant",
       });
   }, [newest]);
   const markRead = useCallback(() => {
     if (
       !newest ||
+      readLock.current ||
       readMessage.current === newest ||
       !nearBottom.current ||
       document.visibilityState !== "visible"
     )
       return;
+    readLock.current = true;
     void api(`/social/rooms/${id}/read`, {
       method: "PUT",
       body: { messageId: newest },
@@ -61,16 +77,31 @@ export function useConversation(id: string, onRead: () => void) {
         readMessage.current = newest;
         onRead();
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        readLock.current = false;
+      });
   }, [id, newest, onRead]);
   useEffect(() => {
     markRead();
+    const retry = window.setInterval(markRead, 5000);
     document.addEventListener("visibilitychange", markRead);
-    return () => document.removeEventListener("visibilitychange", markRead);
+    return () => {
+      window.clearInterval(retry);
+      document.removeEventListener("visibilitychange", markRead);
+    };
   }, [markRead]);
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (sending || mediaBusy || (!draft.trim() && !attachment)) return;
+    if (
+      sendLock.current ||
+      mediaBusy ||
+      error ||
+      (!draft.trim() && !attachment)
+    )
+      return;
+    sendLock.current = true;
+    setSendError("");
     setSending(true);
     if (
       !pending.current ||
@@ -83,7 +114,7 @@ export function useConversation(id: string, onRead: () => void) {
         ...(attachment ? { attachmentId: attachment.id } : {}),
       };
     try {
-      await api(`/social/rooms/${id}/messages`, {
+      await api<Message>(`/social/rooms/${id}/messages`, {
         method: "POST",
         body: pending.current,
       });
@@ -91,20 +122,46 @@ export function useConversation(id: string, onRead: () => void) {
       setDraft("");
       setAttachment(null);
       nearBottom.current = true;
-      await mutate();
-      onRead();
-    } catch (e) {
-      toast.error(
-        e instanceof Error
-          ? e.message
-          : t(
-              "Не удалось отправить. Текст сохранён — попробуй ещё раз.",
-              "Жіберу мүмкін болмады. Мәтін сақталды, қайталап көр.",
-            ),
+      setAtBottom(true);
+      // Delivery is already confirmed: a refresh failure must not invite a duplicate send.
+    } catch {
+      setSendError(
+        t(
+          "Не удалось отправить. Текст сохранён — попробуй ещё раз.",
+          "Жіберу мүмкін болмады. Мәтін сақталды, қайталап көр.",
+        ),
       );
+      return;
     } finally {
       setSending(false);
+      sendLock.current = false;
     }
+    // Keep the server watermark unchanged until missing arrivals are fetched.
+    // Refresh errors are not delivery errors: the acknowledged draft stays cleared.
+    void mutate().catch(() => {});
+    onRead();
+  }
+
+  async function removeMessage(messageId: string) {
+    await api(`/social/rooms/${id}/messages/${messageId}`, {
+      method: "DELETE",
+    });
+    if (latestWindow.current)
+      latestWindow.current = {
+        ...latestWindow.current,
+        items: latestWindow.current.items.filter(
+          (message) => message.id !== messageId,
+        ),
+      };
+    void mutate(
+      (pages) =>
+        pages?.map((page) => ({
+          ...page,
+          items: page.items.filter((message) => message.id !== messageId),
+        })),
+      { revalidate: false },
+    ).catch(() => {});
+    onRead();
   }
 
   return {
@@ -127,5 +184,18 @@ export function useConversation(id: string, onRead: () => void) {
     size,
     setSize,
     send,
+    sendError,
+    removeMessage,
+    atBottom,
+    setAtBottom,
+    jumpToLatest: () => {
+      nearBottom.current = true;
+      setAtBottom(true);
+      scroller.current?.scrollTo({
+        top: scroller.current.scrollHeight,
+        behavior: "smooth",
+      });
+      markRead();
+    },
   };
 }

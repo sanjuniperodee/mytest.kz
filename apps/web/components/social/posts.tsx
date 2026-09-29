@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import type { Room } from './chat-types';
+import type { Room } from "./chat-types";
 import Link from "next/link";
 import useSWRInfinite from "swr/infinite";
 import {
@@ -50,15 +50,22 @@ export function Composer({
   const t = useSocialText();
   const [text, setText] = useState("");
   const [inviteId, setInviteId] = useState("");
-  const { data: rooms } = useSWR<Room[]>(!parentId ? '/social/rooms' : null, (path: string) => api<Room[]>(path));
+  const { data: rooms } = useSWR<Room[]>(
+    !parentId ? "/social/rooms" : null,
+    (path: string) => api<Room[]>(path),
+  );
   useEffect(() => {
     const initial = new URLSearchParams(window.location.search).get("invite");
     if (initial) setInviteId(initial);
   }, []);
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const [publishError, setPublishError] = useState("");
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim() || busy) return;
+    if (!text.trim() || submitting.current) return;
+    submitting.current = true;
+    setPublishError("");
     setBusy(true);
     try {
       await api("/social/posts", {
@@ -71,9 +78,19 @@ export function Composer({
       });
       setText("");
       setInviteId("");
-      await onDone();
+      try {
+        await onDone();
+      } catch {
+        /* Publishing succeeded; don't suggest sending again. */
+      }
       toast.success(t("Опубликовано", "Жарияланды"));
     } catch (e) {
+      setPublishError(
+        t(
+          "Не удалось подтвердить публикацию. Текст сохранён. Обновите ленту перед повторной отправкой.",
+          "Жарияланғанын растау мүмкін болмады. Мәтін сақталды. Қайта жібермес бұрын лентаны жаңартыңыз.",
+        ),
+      );
       toast.error(
         e instanceof Error
           ? e.message
@@ -81,6 +98,7 @@ export function Composer({
       );
     } finally {
       setBusy(false);
+      submitting.current = false;
     }
   }
   return (
@@ -174,6 +192,11 @@ export function Composer({
               <Send className="size-3.5" />
             </Button>
           </div>
+          {publishError && (
+            <p role="alert" className="mt-2 text-xs text-destructive">
+              {publishError}
+            </p>
+          )}
         </div>
       </div>
     </form>
@@ -208,7 +231,9 @@ export function PostCard({
 
   const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
   const [optimisticLikesDelta, setOptimisticLikesDelta] = useState(0);
-  const [optimisticReposted, setOptimisticReposted] = useState<boolean | null>(null);
+  const [optimisticReposted, setOptimisticReposted] = useState<boolean | null>(
+    null,
+  );
   const [optimisticRepostsDelta, setOptimisticRepostsDelta] = useState(0);
   const [replying, setReplying] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
@@ -219,8 +244,12 @@ export function PostCard({
   const liked = optimisticLiked !== null ? optimisticLiked : isLikedServer;
   const likesCount = Math.max(0, post._count.likes + optimisticLikesDelta);
 
-  const reposted = optimisticReposted !== null ? optimisticReposted : isRepostedServer;
-  const repostsCount = Math.max(0, post._count.reposts + optimisticRepostsDelta);
+  const reposted =
+    optimisticReposted !== null ? optimisticReposted : isRepostedServer;
+  const repostsCount = Math.max(
+    0,
+    post._count.reposts + optimisticRepostsDelta,
+  );
 
   useEffect(() => {
     if (optimisticLiked !== null && isLikedServer === optimisticLiked) {
@@ -230,7 +259,10 @@ export function PostCard({
   }, [isLikedServer, optimisticLiked]);
 
   useEffect(() => {
-    if (optimisticReposted !== null && isRepostedServer === optimisticReposted) {
+    if (
+      optimisticReposted !== null &&
+      isRepostedServer === optimisticReposted
+    ) {
       setOptimisticReposted(null);
       setOptimisticRepostsDelta(0);
     }
@@ -451,14 +483,19 @@ export function PostCard({
                 aria-expanded={replying}
                 onClick={() => setReplying((value) => !value)}
               >
-                  <MessageCircle className="size-[18px] transition-transform duration-200 active:scale-75" />
-                  <AnimatedCounter value={post._count.replies} />
-              </Button>
-            ) : (
-              <Button asChild variant="ghost" size="sm" className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95">
-                <Link href={href} aria-label={t("Комментарии", "Пікірлер")}>
                 <MessageCircle className="size-[18px] transition-transform duration-200 active:scale-75" />
                 <AnimatedCounter value={post._count.replies} />
+              </Button>
+            ) : (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="min-h-10 gap-1.5 rounded-full px-2 text-muted-foreground transition-colors duration-150 active:scale-95"
+              >
+                <Link href={href} aria-label={t("Комментарии", "Пікірлер")}>
+                  <MessageCircle className="size-[18px] transition-transform duration-200 active:scale-75" />
+                  <AnimatedCounter value={post._count.replies} />
                 </Link>
               </Button>
             )}
@@ -573,9 +610,9 @@ export function PostList({
           : `/social/posts?${query}${parentId ? `&parentId=${parentId}` : ""}${index ? `&cursor=${previous?.nextCursor}` : ""}`,
       (path: string) => api<Page<Post>>(path),
       {
-        revalidateOnFocus: true,
+        revalidateOnFocus: false,
         revalidateAll: false,
-        refreshInterval: 4000,
+        refreshInterval: 0,
         refreshWhenHidden: false,
       },
     );
@@ -595,20 +632,52 @@ export function PostList({
           }}
         />
       )}
-      <div className={cn("overflow-hidden bg-background", nested ? "rounded-lg border border-border/70" : "rounded-xl border border-border")}>
+      <div
+        className={cn(
+          "overflow-hidden bg-background",
+          nested
+            ? "rounded-lg border border-border/70"
+            : "rounded-xl border border-border",
+        )}
+      >
+        {!parentId && (
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
+            <p className="text-xs text-muted-foreground">
+              {t("Новые публикации — сверху", "Жаңа жазбалар — жоғарыда")}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isValidating}
+              onClick={() => void mutate().catch(() => {})}
+            >
+              {isValidating
+                ? t("Обновляем…", "Жаңартылуда…")
+                : t("Обновить ленту", "Лентаны жаңарту")}
+            </Button>
+          </div>
+        )}
         <LoadState
           loading={isLoading}
           error={error}
-          retry={() => void mutate()}
+          retry={() => void mutate().catch(() => {})}
         />
         {posts.map((post) => (
-          <PostCard key={post.id} post={post} refresh={() => mutate()} nested={nested || Boolean(parentId)} />
+          <PostCard
+            key={post.id}
+            post={post}
+            refresh={() => mutate()}
+            nested={nested || Boolean(parentId)}
+          />
         ))}
         {!isLoading && !error && !posts.length && (
           <div className="px-6 py-14 text-center">
             <MessageCircle className="mx-auto mb-4 size-8 text-muted-foreground/50" />
             <h3 className="font-semibold">
-              {t("Здесь начинается разговор", "Әңгіме осы жерден басталады")}
+              {query.includes("tab=following")
+                ? t("В подписках пока тихо", "Жазылымдарда әзірге тыныш")
+                : t("Здесь начинается разговор", "Әңгіме осы жерден басталады")}
             </h3>
             <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
               {t(
@@ -616,6 +685,13 @@ export function PostList({
                 "Әзірге жарияланым жоқ. Бірінші болып жаз немесе қызықты адамдарға жазыл.",
               )}
             </p>
+            {query.includes("tab=following") && (
+              <Button asChild variant="outline" size="sm" className="mt-4">
+                <Link href="/dashboard/community/people">
+                  {t("Найти людей", "Адамдарды табу")}
+                </Link>
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -624,7 +700,7 @@ export function PostList({
           variant="outline"
           disabled={isValidating}
           className="w-full"
-          onClick={() => void setSize(size + 1)}
+          onClick={() => void setSize(size + 1).catch(() => {})}
         >
           {isValidating
             ? t("Загрузка…", "Жүктелуде…")

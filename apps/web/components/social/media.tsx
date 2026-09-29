@@ -107,7 +107,11 @@ export function MediaComposer({
   disabled: boolean;
 }) {
   const t = useSocialText();
-  const { input, recording, uploading, upload, record } = useChatMedia(roomId, onChange, onBusy);
+  const { input, recording, uploading, upload, record } = useChatMedia(
+    roomId,
+    onChange,
+    onBusy,
+  );
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2">
       <input
@@ -123,6 +127,7 @@ export function MediaComposer({
       />
       <Button
         variant="ghost"
+        type="button"
         size="icon"
         aria-label={t("Прикрепить файл", "Файл тіркеу")}
         disabled={disabled || uploading || recording}
@@ -131,6 +136,7 @@ export function MediaComposer({
         <Paperclip className="size-4" />
       </Button>
       <Button
+        type="button"
         variant={recording ? "destructive" : "ghost"}
         size="icon"
         aria-label={
@@ -157,6 +163,7 @@ export function MediaComposer({
         <span className="flex min-w-0 max-w-full items-center gap-1 rounded-lg bg-secondary px-2 text-xs">
           <span className="truncate">{attachment.name}</span>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="size-8 shrink-0"

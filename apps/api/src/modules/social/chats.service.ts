@@ -1,14 +1,12 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { SocialAccessService } from "./social-access.service";
 import { ChatAccessService } from "./chat-access.service";
-import { FeedDto, MessageDto, PeopleDto, PostDto } from "./social.dto";
+import { MessageDto } from "./social.dto";
 import { ChatRepository } from "./infrastructure/chat.repository";
 import { person, order, page } from "./social-selects";
 @Injectable()
@@ -57,10 +55,17 @@ export class ChatsService {
   private async room(user: string, id: string) {
     return (await this.chatAccess.access(user, id)).room;
   }
-  async rooms(user: string) {
+  async detail(user: string, id: string) {
+    await this.room(user, id);
+    const rooms = await this.rooms(user, id);
+    if (!rooms[0]) throw new NotFoundException("Чат недоступен");
+    return rooms[0];
+  }
+  async rooms(user: string, id?: string) {
     const hidden = await this.socialAccess.hidden(user);
     const rooms = await this.db.chatRoom.findMany({
       where: {
+        ...(id ? { id } : {}),
         members: { some: { userId: user, banned: false } },
         OR: [
           { key: "global" },
@@ -88,7 +93,7 @@ export class ChatsService {
           where: { authorId: { notIn: hidden }, deletedAt: null },
           orderBy: order,
           take: 1,
-          include: { author: { select: person } },
+          include: { author: { select: person }, attachment: true },
         },
       },
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
@@ -105,16 +110,44 @@ export class ChatsService {
     }));
   }
 
-  async messages(user: string, id: string, cursor?: string) {
+  async messages(user: string, id: string, cursor?: string, after?: string) {
     await this.room(user, id);
+    if (cursor && after)
+      throw new BadRequestException("Выберите одно направление истории");
     const hidden = await this.socialAccess.hidden(user);
+    const anchorId = cursor || after;
+    // Tombstones remain valid anchors. Keyset pagination survives deletion and
+    // cannot use a message from another room to move this room's timeline.
+    const anchor = anchorId
+      ? await this.db.chatMessage.findFirst({
+          where: { id: anchorId, roomId: id },
+          select: { id: true, createdAt: true },
+        })
+      : null;
+    if (anchorId && !anchor)
+      throw new BadRequestException("Сообщение истории недоступно");
+    const direction = after ? "gt" : "lt";
     return page(
       await this.db.chatMessage.findMany({
-        where: { roomId: id, authorId: { notIn: hidden }, deletedAt: null },
+        where: {
+          roomId: id,
+          authorId: { notIn: hidden },
+          deletedAt: null,
+          ...(anchor
+            ? {
+                OR: [
+                  { createdAt: { [direction]: anchor.createdAt } },
+                  {
+                    createdAt: anchor.createdAt,
+                    id: { [direction]: anchor.id },
+                  },
+                ],
+              }
+            : {}),
+        },
         include: { author: { select: person }, attachment: true },
-        orderBy: order,
+        orderBy: after ? [{ createdAt: "asc" }, { id: "asc" }] : order,
         take: 31,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       }),
     );
   }

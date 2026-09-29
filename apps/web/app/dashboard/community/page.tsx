@@ -21,10 +21,10 @@ export default function CommunityPage() {
         <PageHeader
           eyebrow="mytest community"
           eyebrowIcon={Globe2}
-          title={t("Свои люди. Общая цель.", "Өз ортаң. Ортақ мақсат.")}
+          title={t("Сообщество", "Қауымдастық")}
           description={t(
-            "Готовиться легче, когда ты не один.",
-            "Бірге дайындалу жеңілірек.",
+            "Задавайте вопросы, обсуждайте подготовку и находите учебную группу.",
+            "Сұрақ қойыңыз, дайындықты талқылаңыз және оқу тобын табыңыз.",
           )}
           actions={
             user ? (
@@ -38,19 +38,14 @@ export default function CommunityPage() {
           }
         />
       </div>
-      <div
-        role="tablist"
-        aria-label={t("Лента", "Лента")}
-        className="mb-4 flex gap-2"
-      >
+      <div aria-label={t("Лента", "Лента")} className="mb-4 flex gap-2">
         {[
           ["all", t("Все публикации", "Барлық жазбалар")],
           ["following", t("Подписки", "Жазылымдар")],
         ].map(([id, label]) => (
           <button
             key={id}
-            role="tab"
-            aria-selected={tab === id}
+            aria-pressed={tab === id}
             onClick={() => setTab(id)}
             className={cn(
               "min-h-11 rounded-lg px-5 text-sm font-medium transition-colors",
@@ -63,7 +58,7 @@ export default function CommunityPage() {
           </button>
         ))}
       </div>
-      <PostList key={tab} query={`tab=${tab}`} composer />
+      <PostList query={`tab=${tab}`} composer />
     </CommunityFrame>
   );
 }
