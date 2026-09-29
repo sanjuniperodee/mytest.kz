@@ -13,7 +13,6 @@ import { SWRConfig } from "swr"
 import { AuthProvider } from "@/lib/api/auth-context"
 import { fetcher } from "@/lib/api/swr-config"
 import { UiLocaleProvider } from "@/lib/i18n/ui"
-import { LocationProvider } from "@/lib/location"
 import { ThemeProvider, useAppTheme } from "@/lib/theme/provider"
 import { fontAssets } from "@/lib/theme/fonts"
 
@@ -79,7 +78,6 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <LocationProvider>
           <AuthProvider>
             <UiLocaleProvider>
               <NavShell>
@@ -87,7 +85,6 @@ export default function RootLayout() {
               </NavShell>
             </UiLocaleProvider>
           </AuthProvider>
-          </LocationProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

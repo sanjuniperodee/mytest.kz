@@ -23,7 +23,8 @@ export function ExamsCatalogView() {
   const { width: winW } = useWindowDimensions()
   const { locale: ui } = useUiLocale()
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale: uiLocale } = useUiLocale()
+  const locale = uiLocale as Locale
   const { data, isLoading } = useSWR<ExamType[]>("/exams/types")
   const items = Array.isArray(data) ? data : []
 

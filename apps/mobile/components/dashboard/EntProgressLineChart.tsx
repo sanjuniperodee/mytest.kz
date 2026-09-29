@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native"
+import { LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from "react-native"
 
 type Point = { attempt: number; score: number }
 
@@ -52,6 +52,8 @@ export function EntProgressLineChart({
   gridColor,
   dotFill,
   yDomainMax,
+  labelColor,
+  unit = "%",
 }: {
   data: Point[]
   height: number
@@ -60,6 +62,10 @@ export function EntProgressLineChart({
   dotFill: string
   /** When set, Y axis spans 0…max (e.g. raw ENT points). Default 100 (percent scale). */
   yDomainMax?: number
+  /** Axis label color; labels are hidden when omitted. */
+  labelColor?: string
+  /** Suffix for Y-axis labels. */
+  unit?: string
 }) {
   const [viewportW, setViewportW] = useState(0)
 
@@ -92,6 +98,7 @@ export function EntProgressLineChart({
     return { x, y }
   })
 
+  // Grid lines sit at 0/25/50/75/100 % of the axis; index 0 is the bottom line.
   const gridYs = [0, 25, 50, 75, 100].map((pct) => padT + innerH * (1 - pct / 100))
 
   const chartInner =
@@ -111,6 +118,29 @@ export function EntProgressLineChart({
               }}
             />
           ))}
+          {labelColor
+            ? gridYs.map((gy, idx) => (
+                <Text
+                  key={`yl-${idx}`}
+                  style={[styles.axis, { left: 0, top: gy - 7, width: padL - 6, color: labelColor }]}
+                >
+                  {Math.round(((ymax * idx) / 4) * 10) / 10}
+                  {unit}
+                </Text>
+              ))
+            : null}
+          {labelColor
+            ? coords.map((c, i) =>
+                data.length <= 12 || i % Math.ceil(data.length / 12) === 0 ? (
+                  <Text
+                    key={`xl-${i}`}
+                    style={[styles.axis, { left: c.x - 14, top: height - padB + 8, width: 28, textAlign: "center", color: labelColor }]}
+                  >
+                    {data[i].attempt}
+                  </Text>
+                ) : null,
+              )
+            : null}
           {coords.map((c, i) => {
             if (i === 0) return null
             const prev = coords[i - 1]
@@ -165,6 +195,7 @@ export function EntProgressLineChart({
 }
 
 const styles = StyleSheet.create({
+  axis: { position: "absolute", fontSize: 10, textAlign: "right" },
   segment: {
     position: "absolute",
     borderRadius: 1,

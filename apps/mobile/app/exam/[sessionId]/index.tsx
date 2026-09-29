@@ -18,14 +18,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Calculator } from "@/components/exam/Calculator"
 import { ExamQuestionContent } from "@/components/exam/ExamQuestionContent"
 import { ExamQuestionGrid } from "@/components/exam/ExamQuestionGrid"
-import { ExamTimer } from "@/components/exam/ExamTimer"
+import { ExamTimer, formatHMS } from "@/components/exam/ExamTimer"
+import { QuestionAppealButton, upsertAppeal } from "@/components/exam/QuestionAppeal"
 import { Button } from "@/components/ui/button"
+import { LogoMark } from "@/components/ui/logo-mark"
 import { Card } from "@/components/ui/card"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import type { Locale } from "@/lib/api/i18n"
 import { flattenSessionQuestions, type FlatSessionQuestion } from "@/lib/api/test-session"
-import type { TestSession } from "@/lib/api/types"
+import type { QuestionAppeal, TestSession } from "@/lib/api/types"
 import {
   EXAM_SIDEBAR_WIDTH,
   EXAM_WIDE_BREAKPOINT,
@@ -36,6 +38,8 @@ import {
   readLastQuestionIndex,
   writeLastQuestionIndex,
 } from "@/lib/exam/session-question-index"
+import { useTr } from "@/lib/i18n/use-tr"
+import { useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
@@ -49,19 +53,6 @@ interface AnswerResponse {
   serverTimeRemaining?: number | null
 }
 
-function ExamLogoMark({ colors }: { colors: ThemeColors }) {
-  return (
-    <View
-      style={[
-        styles.logoMark,
-        { backgroundColor: colors.foreground },
-      ]}
-    >
-      <MaterialCommunityIcons name="chart-timeline-variant" size={16} color={colors.background} />
-    </View>
-  )
-}
-
 export default function ExamSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { colors } = useAppTheme()
@@ -71,7 +62,9 @@ export default function ExamSessionScreen() {
   const navGridInner = Math.max(240, winW - 80)
 
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale: uiLocale } = useUiLocale()
+  const tr = useTr()
+  const locale = uiLocale as Locale
 
   const {
     data: session,
@@ -99,6 +92,10 @@ export default function ExamSessionScreen() {
   const timerEndMsRef = useRef<number | null>(null)
   const syncedServerRemainingRef = useRef<number | null>(null)
   const [timerEpoch, setTimerEpoch] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const [pausedRemaining, setPausedRemaining] = useState<number | null>(null)
+  const [pauseBusy, setPauseBusy] = useState(false)
+  const [appeals, setAppeals] = useState<QuestionAppeal[]>([])
 
   const flat = useMemo<FlatSessionQuestion[]>(() => {
     if (!session) return []
@@ -161,6 +158,7 @@ export default function ExamSessionScreen() {
   useEffect(() => {
     if (!session || session.id !== sessionId) return
     if (session.status !== "in_progress") return
+    if (session.isPaused) return // the clock is frozen while paused
     if (session.timeRemaining == null || session.timeRemaining === undefined) return
     const tr = Math.max(0, Math.floor(Number(session.timeRemaining)))
     if (!Number.isFinite(tr)) return
@@ -208,7 +206,7 @@ export default function ExamSessionScreen() {
     const syncFromServer = () => {
       void revalidateSession().then((data) => {
         const s = data as TestSession | undefined
-        if (s?.status === "in_progress" && s.timeRemaining != null) {
+        if (s?.status === "in_progress" && !s.isPaused && s.timeRemaining != null) {
           armCountdown(Number(s.timeRemaining))
         }
       })
@@ -218,6 +216,64 @@ export default function ExamSessionScreen() {
     })
     return () => sub.remove()
   }, [revalidateSession, armCountdown])
+
+  const freezeClock = useCallback(() => {
+    timerEndMsRef.current = null
+    setTimerEpoch((n) => n + 1)
+  }, [])
+
+  const pauseExam = useCallback(async () => {
+    if (pauseBusy || session?.status !== "in_progress") return
+    setPauseBusy(true)
+    try {
+      const res = await api<TestSession>(`/tests/sessions/${sessionId}/pause`, { method: "POST" })
+      freezeClock()
+      setPaused(true)
+      if (res.timeRemaining != null) setPausedRemaining(Math.max(0, Math.floor(Number(res.timeRemaining))))
+    } catch (err) {
+      if (err instanceof ApiError && err.message === "TIME_EXPIRED") {
+        Alert.alert(tr("Время вышло", "Уақыт аяқталды"), tr("Тест завершён", "Тест аяқталды"))
+        router.replace(`/exam/${sessionId}/review`)
+        return
+      }
+      Alert.alert(tr("Ошибка", "Қате"), err instanceof ApiError ? err.message : tr("Не удалось поставить на паузу", "Кідіртуге болмады"))
+    } finally {
+      setPauseBusy(false)
+    }
+  }, [pauseBusy, session?.status, sessionId, freezeClock, tr])
+
+  const resumeExam = useCallback(async () => {
+    if (pauseBusy) return
+    setPauseBusy(true)
+    try {
+      const res = await api<TestSession>(`/tests/sessions/${sessionId}/resume`, { method: "POST" })
+      setPaused(false)
+      if (res.timeRemaining != null) armCountdown(Number(res.timeRemaining))
+    } catch (err) {
+      if (err instanceof ApiError && err.message === "SESSION_NOT_IN_PROGRESS") {
+        router.replace(`/exam/${sessionId}/review`)
+        return
+      }
+      Alert.alert(tr("Ошибка", "Қате"), err instanceof ApiError ? err.message : tr("Не удалось продолжить тест", "Тестті жалғастыру мүмкін болмады"))
+    } finally {
+      setPauseBusy(false)
+    }
+  }, [pauseBusy, sessionId, armCountdown, tr])
+
+  // The server is the source of truth for pause state: reopening the app keeps the overlay.
+  useEffect(() => {
+    if (!session || session.id !== sessionId) return
+    if (session.status !== "in_progress") {
+      setPaused(false)
+      return
+    }
+    setPaused(Boolean(session.isPaused))
+    setAppeals((prev) => (session.appeals ?? []).reduce((all, a) => upsertAppeal(all, a), prev))
+    if (session.isPaused) {
+      freezeClock()
+      if (session.timeRemaining != null) setPausedRemaining(Math.max(0, Math.floor(Number(session.timeRemaining))))
+    }
+  }, [session, sessionId, freezeClock])
 
   const finish = useCallback(
     async (reason?: "timeout") => {
@@ -365,10 +421,19 @@ export default function ExamSessionScreen() {
           accessibilityRole="button"
           accessibilityLabel="Кабинет"
         >
-          <ExamLogoMark colors={colors} />
+          <LogoMark size={32} />
         </Pressable>
         <View style={styles.headerRight}>
-          <ExamTimer remaining={remaining} />
+          <ExamTimer remaining={paused ? pausedRemaining : remaining} />
+          <Pressable
+            onPress={() => void pauseExam()}
+            disabled={pauseBusy || paused}
+            style={[outlineBtnStyle, (pauseBusy || paused) && { opacity: 0.5 }]}
+            accessibilityRole="button"
+            accessibilityLabel={tr("Пауза", "Кідірту")}
+          >
+            <MaterialCommunityIcons name="pause" size={18} color={colors.foreground} />
+          </Pressable>
           <Pressable
             onPress={() => setShowCalculator(true)}
             style={outlineBtnStyle}
@@ -425,6 +490,14 @@ export default function ExamSessionScreen() {
               colors={examThemeColors}
               onOptionPress={onOptionPress}
             />
+            <View style={styles.appealRow}>
+              <QuestionAppealButton
+                sessionId={sessionId}
+                questionId={current.id}
+                appeal={appeals.find((a) => a.questionId === current.id) ?? null}
+                onSaved={(saved) => setAppeals((all) => upsertAppeal(all, saved))}
+              />
+            </View>
           </ScrollView>
 
           <View
@@ -492,6 +565,31 @@ export default function ExamSessionScreen() {
       </View>
 
       <Calculator open={showCalculator} onClose={() => setShowCalculator(false)} />
+
+      <Modal visible={paused && session.status === "in_progress"} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={[styles.pauseOverlay, { backgroundColor: `${colors.background}F2` }]}>
+          <Card style={styles.pauseCard}>
+            <View style={[styles.pauseIcon, { backgroundColor: colors.secondary }]}>
+              <MaterialCommunityIcons name="pause" size={28} color={colors.foreground} />
+            </View>
+            <Text style={[styles.errTitle, { color: colors.foreground }]}>{tr("Тест на паузе", "Тест кідіртілді")}</Text>
+            <Text style={[styles.errSub, { color: colors.mutedForeground }]}>
+              {tr(
+                "Время остановлено, а вопросы скрыты. Продолжите, когда будете готовы — отсчёт пойдёт дальше с того же места.",
+                "Уақыт тоқтатылды, сұрақтар жасырылды. Дайын болғанда жалғастырыңыз — санақ сол жерден жалғасады.",
+              )}
+            </Text>
+            {pausedRemaining != null ? (
+              <View style={[styles.pauseTime, { borderColor: colors.border, backgroundColor: colors.secondary }]}>
+                <Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi, fontSize: 18 }}>{formatHMS(pausedRemaining)}</Text>
+              </View>
+            ) : null}
+            <Button fullWidth disabled={pauseBusy} onPress={() => void resumeExam()} icon={(c) => <MaterialCommunityIcons name="play" size={18} color={c} />}>
+              {tr("Продолжить тест", "Тестті жалғастыру")}
+            </Button>
+          </Card>
+        </View>
+      </Modal>
 
       <Modal visible={showNav} transparent animationType="slide">
         <View style={styles.modalRoot}>
@@ -588,13 +686,11 @@ export default function ExamSessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  logoMark: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  appealRow: { marginTop: 20 },
+  pauseOverlay: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  pauseCard: { width: "100%", maxWidth: 420, padding: 28, alignItems: "center", gap: 14 },
+  pauseIcon: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  pauseTime: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   header: {
     minHeight: 56,
     flexDirection: "row",

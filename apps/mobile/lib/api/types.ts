@@ -1,7 +1,6 @@
-// Shared API types for mytest-v2. These mirror the current Nest backend contract.
+// API types. These mirror the current Nest backend contract (see apps/web/lib/api/types.ts).
 
 import type { LocalizedText } from "./i18n"
-
 export type AccessReasonCode =
   | "DAILY_LIMIT_REACHED"
   | "TOTAL_LIMIT_EXHAUSTED"
@@ -176,6 +175,10 @@ export interface TestAnswer {
   questionId: string
   selectedIds: string[]
   isCorrect: boolean | null
+  earnedPoints?: number
+  maxPoints?: number
+  errorCount?: number
+  reviewStatus?: "correct" | "partial" | "incorrect" | "unanswered"
   answeredAt?: string | null
   question: Question
 }
@@ -194,10 +197,15 @@ export interface SessionMetadata {
   kind?: "remediation"
   entScope?: "mandatory" | "profile" | "full" | "creative"
   remediationDurationMins?: number
+  remediationScope?: { subjectId?: string | null; topicId?: string | null; themeId?: string | null; unclassifiedOnly?: boolean }
   entSessionDurationMins?: number
   sections?: SessionMetadataSection[]
   profileSubjectIds?: string[]
   questionOrder?: string[]
+  /** ISO timestamp of the current (open) pause, absent while running. */
+  pausedAt?: string | null
+  /** Accumulated paused milliseconds across prior pause/resume cycles. */
+  pausedMs?: number
 }
 
 export interface SessionSectionScore {
@@ -209,6 +217,35 @@ export interface SessionSectionScore {
   score: number
   rawPoints?: number
   maxPoints?: number
+}
+
+export type QuestionAppealReason =
+  | "incorrect_answer"
+  | "ambiguous_wording"
+  | "outdated_content"
+  | "broken_media"
+  | "other"
+
+export type QuestionAppealStatus =
+  | "pending"
+  | "under_review"
+  | "resolved"
+  | "rejected"
+
+export interface QuestionAppeal {
+  id: string
+  userId?: string
+  sessionId: string
+  questionId: string
+  examTypeId?: string
+  subjectId?: string
+  reason: QuestionAppealReason
+  message: string
+  status: QuestionAppealStatus
+  adminNote?: string | null
+  reviewedAt?: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface TestSession {
@@ -227,10 +264,13 @@ export interface TestSession {
   rawScore?: number | null
   maxScore?: number | null
   metadata?: SessionMetadata | null
+  /** True while the session is paused (timer frozen). Set by the API. */
+  isPaused?: boolean
   answers?: TestAnswer[]
   examType?: ExamType
   sectionScores?: SessionSectionScore[]
   sectionsScores?: SessionSectionScore[]
+  appeals?: QuestionAppeal[]
 }
 
 export interface PaginatedResponse<T> {
@@ -326,6 +366,7 @@ export interface MistakesSummary {
     sessionId: string
     recoveredAt: string
   }[]
+  scoreImpact: EntScoreImpact
 }
 
 export interface MistakesSubjectDetail {
@@ -349,10 +390,12 @@ export interface MistakesSubjectDetail {
   }[]
 }
 
+// ─── AI study themes (curriculum-based, independent of DB topics) ───────────────
+
 export interface StudyMapTheme {
   themeId: string
   key: string
-  name: string
+  name: LocalizedText
   openCount: number
   activeOpenCount: number
 }
@@ -363,13 +406,105 @@ export interface StudyMap {
   subjectId: string
   subjectName: LocalizedText
   themes: StudyMapTheme[]
+  reviewThemes: Pick<StudyMapTheme, "themeId" | "key" | "name">[]
+  /** Open mistakes not (yet) assigned to a theme. */
   otherOpenCount: number
   otherActiveOpenCount: number
   openTotal: number
   activeOpenTotal: number
   classifiedCount: number
   unclassifiedCount: number
+  /** True while AI is still classifying the rest of the mistakes (re-fetch later). */
   pending: boolean
+  generationAvailable: boolean
+}
+
+export interface MistakesThemeDetail {
+  themeId: string
+  themeName: LocalizedText
+  examTypeId: string
+  examName: LocalizedText
+  subjectId: string
+  subjectName: LocalizedText
+  openCount: number
+  activeOpenCount: number
+  resolvedCount: number
+  generationAvailable: boolean
+  lesson: AiTopicLesson | null
+}
+
+export type EntScoreImpact =
+  | { available: false }
+  | {
+      available: true
+      lastScore: number
+      maxScore: number
+      lastTakenAt: string | null
+      openCount: number
+      recoverable: number
+      potentialScore: number
+      resolvedCount: number
+      baselineTier: string
+      potentialTier: string
+    }
+
+// ─── AI mistakes coach (DeepSeek) ────────────────────────────────────────────
+
+export type AiSeverity = "high" | "medium" | "low"
+
+export interface AiWeakZone {
+  subjectId: string | null
+  subjectName: string
+  topicId: string | null
+  topicName: string
+  title: string
+  severity: AiSeverity
+  pointsAtStake: number
+  rootCause: string
+  recommendations: string[]
+  examples: {
+    questionId: string
+    topicId: string | null
+    topic: string
+    passage: string
+    question: string
+    imageUrls: string[]
+  }[]
+}
+
+export interface AiStudyPlanStep {
+  order: number
+  focus: string
+  why: string
+  days: number
+}
+
+export interface AiWeakZoneAnalysis {
+  generatedAt: string
+  model: string
+  cached: boolean
+  /** Open-mistake set changed since this analysis was generated → offer a refresh. */
+  stale: boolean
+  /** How many example mistakes from this analysis are now resolved. */
+  resolvedCount: number
+  totalOpen: number
+  overview: string
+  weakZones: AiWeakZone[]
+  studyPlan: AiStudyPlanStep[]
+  motivation: string
+}
+
+export interface AiStoredAnalysisResponse {
+  enabled: boolean
+  analysis: AiWeakZoneAnalysis | null
+}
+
+export interface AiMistakeExplanation {
+  questionId: string
+  diagnosis: string
+  correctApproach: string
+  keyConcept: string
+  tip: string
 }
 
 export interface AiTopicLesson {
@@ -392,8 +527,19 @@ export interface AiTopicLesson {
     title: string
     goal: string
     content: string
-    examples: { title: string; question: string; steps: string[]; answer: string; trap: string }[]
-    practice: { prompt: string; options: string[]; answer: string; explanation: string }[]
+    examples: {
+      title: string
+      question: string
+      steps: string[]
+      answer: string
+      trap: string
+    }[]
+    practice: {
+      prompt: string
+      options: string[]
+      answer: string
+      explanation: string
+    }[]
     checklist: string[]
   }[]
   sections: { title: string; content: string }[]
@@ -405,11 +551,27 @@ export interface AiTopicLesson {
     yLabel: string
     data: { label: string; value: number; secondValue: number | null }[]
   }[]
-  workedExamples: { title: string; question: string; steps: string[]; answer: string; trap: string }[]
-  practice: { prompt: string; options: string[]; answer: string; explanation: string }[]
+  workedExamples: {
+    title: string
+    question: string
+    steps: string[]
+    answer: string
+    trap: string
+  }[]
+  practice: {
+    prompt: string
+    options: string[]
+    answer: string
+    explanation: string
+  }[]
   commonTraps: string[]
   checklist: string[]
-  miniTest: { prompt: string; options: string[]; answer: string; explanation: string }[]
+  miniTest: {
+    prompt: string
+    options: string[]
+    answer: string
+    explanation: string
+  }[]
 }
 
 export interface LeaderboardEntry {
@@ -517,4 +679,39 @@ export interface ChanceUniversity {
   isPass: boolean
   total: number
   gapToCutoff: number | null
+}
+
+// ─── Admission goal (target university/specialty for the dashboard) ─────────────
+
+export interface AdmissionCutoffRow {
+  cycleSlug: string
+  universityCode: number
+  universityName: string
+  universityShortName: string | null
+  programId: string
+  programCode: string
+  programName: string
+  profileVariant: number
+  profileSubjects: string
+  quotaType: "GRANT" | "RURAL"
+  minScore: number | null
+}
+
+export interface AdmissionGoal {
+  cycleSlug: string
+  quotaType: "GRANT" | "RURAL"
+  universityCode: number
+  universityName: string
+  universityShortName: string | null
+  programId: string
+  programCode: string
+  programName: string
+  profileSubjects: string | null
+  /** Required grant cutoff score (null if not published). */
+  requiredScore: number | null
+  maxScore: number
+}
+
+export interface AdmissionGoalResponse {
+  goal: AdmissionGoal | null
 }

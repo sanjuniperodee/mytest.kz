@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { router } from "expo-router"
 import useSWR from "swr"
 import { useMemo, useState } from "react"
 import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native"
@@ -119,7 +120,8 @@ export function LeaderboardView() {
   const { width } = useWindowDimensions()
   const { user } = useAuth()
   const { locale: ui } = useUiLocale()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale: uiLocale } = useUiLocale()
+  const locale = uiLocale as Locale
   const [limit, setLimit] = useState<(typeof LIMITS)[number]>(50)
 
   const { data, isLoading } = useSWR<
@@ -297,6 +299,12 @@ function PodiumCard({
           }
 
   return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={entry.name}
+      onPress={() => router.push(`/dashboard/profile/${entry.userId}` as never)}
+      style={styles.podiumTouch}
+    >
     <Card
       style={[
         styles.podiumCard,
@@ -326,6 +334,7 @@ function PodiumCard({
         </Text>
       ) : null}
     </Card>
+    </Pressable>
   )
 }
 
@@ -335,7 +344,10 @@ function LeaderRow({ entry, highlight, ui }: { entry: NormalizedEntry; highlight
   const uri = resolveMediaUrl(entry.avatarUrl)
 
   return (
-    <View
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={entry.name}
+      onPress={() => router.push(`/dashboard/profile/${entry.userId}` as never)}
       style={[
         styles.row,
         { borderBottomColor: colors.border },
@@ -369,11 +381,12 @@ function LeaderRow({ entry, highlight, ui }: { entry: NormalizedEntry; highlight
         <Text style={[styles.rowPtsVal, { color: colors.foreground }]}>{formatPoints(entry)}</Text>
         <Text style={[styles.rowPtsLbl, { color: colors.mutedForeground }]}>{t("lbPointsShort", ui)}</Text>
       </View>
-    </View>
+    </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
+  podiumTouch: { flex: 1 },
   scroll: { padding: 16, gap: 20, paddingBottom: 120 },
   pill: {
     flexDirection: "row",

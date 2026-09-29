@@ -7,7 +7,7 @@ type LandingRuntimeSettings = { whatsappUrl?: string }
 
 const DEFAULT_WA_DIGITS = "77775932124"
 
-export function WhatsAppFab() {
+export function WhatsAppFab({ bottomOffset = 28 }: { bottomOffset?: number }) {
   const [href, setHref] = useState<string | null>(null)
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export function WhatsAppFab() {
   return (
     <Pressable
       onPress={open}
-      style={[styles.fab, { backgroundColor: "#25D366" }]}
+      style={[styles.fab, { backgroundColor: "#25D366", bottom: bottomOffset }]}
       accessibilityLabel="WhatsApp"
     >
       <View style={styles.iconWrap} pointerEvents="none">

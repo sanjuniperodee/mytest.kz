@@ -7,8 +7,17 @@ import {
   useState,
   type ReactNode,
 } from "react"
+import { mutate as globalMutate } from "swr"
+import { clearChatMediaCache } from "@/lib/social/media"
 import { api } from "./client"
-import { Scope, clearTokens, getAccessToken, hydrateTokens, setTokens } from "./storage"
+import {
+  Scope,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  hydrateTokens,
+  setTokens,
+} from "./storage"
 import type { AuthResponse, User } from "./types"
 
 interface AuthContextValue {
@@ -18,6 +27,7 @@ interface AuthContextValue {
   scope: Scope
   signOut: () => void
   setSession: (data: AuthResponse) => Promise<void>
+  /** Reloads the profile in place; the screen stays mounted. */
   refresh: () => Promise<User | null>
 }
 
@@ -80,19 +90,25 @@ export function AuthProvider({
   )
 
   const signOut = useCallback(async () => {
+    const refreshToken = getRefreshToken(scope)
+    // Revoke the session server-side; signing out locally must not depend on it.
+    if (refreshToken) {
+      void api("/auth/logout", {
+        method: "POST",
+        auth: false,
+        body: { refreshToken },
+        scope,
+      }).catch(() => {})
+    }
     await clearTokens(scope)
+    clearChatMediaCache()
+    // Cached answers belong to the previous account.
+    void globalMutate(() => true, undefined, { revalidate: false })
     setUser(null)
     setLoading(false)
   }, [scope])
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      return await loadCurrentUser()
-    } finally {
-      setLoading(false)
-    }
-  }, [loadCurrentUser])
+  const refresh = useCallback(() => loadCurrentUser(), [loadCurrentUser])
 
   const value = useMemo<AuthContextValue>(
     () => ({

@@ -1,12 +1,16 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { useCallback, useEffect, useState } from "react"
+import { useRef, useState } from "react"
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import useSWR from "swr"
+import { PracticeSheet, type FixedPracticeScope } from "@/components/dashboard/mistakes/PracticeSheet"
 import { Card } from "@/components/ui/card"
 import { RichHtml } from "@/components/exam/RichHtml"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
-import type { AiTopicLesson, TestSession } from "@/lib/api/types"
+import { localize } from "@/lib/api/i18n"
+import type { AiTopicLesson, MistakesThemeDetail } from "@/lib/api/types"
+import { useTr } from "@/lib/i18n/use-tr"
 import { useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
@@ -14,49 +18,38 @@ import { fonts } from "@/lib/theme/fonts"
 export function ThemeLessonView({ themeId }: { themeId: string }) {
   const { colors } = useAppTheme()
   const { locale: ui } = useUiLocale()
+  const tr = useTr()
   const { user, isLoading: authLoading } = useAuth()
-  const language: "ru" | "kk" = user?.preferredLanguage === "kk" ? "kk" : "ru"
+  const language: "ru" | "kk" = ui === "kk" ? "kk" : "ru"
   const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
-  const [lesson, setLesson] = useState<AiTopicLesson | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [training, setTraining] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { data, error: loadError, isLoading, isValidating, mutate } = useSWR<MistakesThemeDetail>(
+    hasPremium ? [`/ai/mistakes/themes/${themeId}`, language] : null,
+    ([path]: [string, string]) => api<MistakesThemeDetail>(path),
+  )
+  const lesson = data?.lesson ?? null
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState("")
+  const [practice, setPractice] = useState<FixedPracticeScope | null>(null)
   const [noteOpen, setNoteOpen] = useState(false)
   const [note, setNote] = useState("")
   const [sending, setSending] = useState(false)
+  const generating = useRef(false)
+  const back = data ? `/dashboard/mistakes/subjects/${data.subjectId}?examTypeId=${data.examTypeId}` : "/dashboard/mistakes"
 
-  const loadLesson = useCallback(async () => {
-    if (!themeId || !hasPremium) return
-    setLoading(true)
-    setError(null)
+  // An AI lesson is generated only when the student asks (it spends the daily AI limit).
+  const prepare = async () => {
+    if (generating.current || !data) return
+    generating.current = true
+    setBusy(true)
+    setFailure("")
     try {
-      setLesson(await api<AiTopicLesson>("/ai/mistakes/theme-lesson", { method: "POST", body: { themeId, language } }))
-    } catch (loadError) {
-      if (loadError instanceof ApiError && (loadError.status === 402 || loadError.status === 403)) {
-        router.replace("/dashboard/billing?reason=theme_lesson" as never)
-        return
-      }
-      setError(lessonError(loadError, ui))
+      const next = await api<AiTopicLesson>("/ai/mistakes/theme-lesson", { method: "POST", body: { themeId, language } })
+      await mutate((current) => (current ? { ...current, lesson: next } : current), { revalidate: false })
+    } catch (err) {
+      setFailure(lessonError(err, ui))
     } finally {
-      setLoading(false)
-    }
-  }, [hasPremium, language, themeId, ui])
-
-  useEffect(() => { if (!authLoading && hasPremium) void loadLesson() }, [authLoading, hasPremium, loadLesson])
-
-  const startPractice = async () => {
-    if (!lesson) return
-    setTraining(true)
-    try {
-      const session = await api<TestSession>("/tests/mistakes/practice", {
-        method: "POST",
-        body: { language, examTypeId: lesson.examTypeId, subjectId: lesson.subjectId, themeId: lesson.topicId, limit: 15, durationMins: 25 },
-      })
-      router.push(`/exam/${session.id}` as never)
-    } catch (practiceError) {
-      Alert.alert(ui === "kk" ? "Қате" : "Ошибка", lessonError(practiceError, ui))
-    } finally {
-      setTraining(false)
+      generating.current = false
+      setBusy(false)
     }
   }
 
@@ -68,43 +61,88 @@ export function ThemeLessonView({ themeId }: { themeId: string }) {
       await api(`/ai/mistakes/theme-lesson/${lesson.lessonId}/note`, { method: "POST", body: { message } })
       setNote("")
       setNoteOpen(false)
-      Alert.alert(ui === "kk" ? "Дайын" : "Готово", ui === "kk" ? "Ескерту әкімшіге жіберілді." : "Замечание отправлено администратору.")
+      Alert.alert(tr("Готово", "Дайын"), tr("Спасибо. Замечание отправлено на проверку.", "Рақмет. Ескерту тексеруге жіберілді."))
     } catch (noteError) {
-      Alert.alert(ui === "kk" ? "Қате" : "Ошибка", lessonError(noteError, ui))
+      Alert.alert(tr("Ошибка", "Қате"), lessonError(noteError, ui))
     } finally {
       setSending(false)
     }
   }
 
-  if (authLoading || loading) return <View style={[styles.center, { backgroundColor: colors.secondary }]}><ActivityIndicator color="#7c3aed" /><Text style={{ color: colors.mutedForeground }}>{ui === "kk" ? "AI толық сабақ дайындауда…" : "AI готовит полный урок…"}</Text></View>
+  if (authLoading || isLoading) return <View style={[styles.center, { backgroundColor: colors.secondary }]}><ActivityIndicator color={colors.foreground} /></View>
 
   if (!hasPremium) return (
     <View style={[styles.center, { backgroundColor: colors.secondary }]}>
-      <Card style={{ backgroundColor: "#fffbeb", borderColor: "#fde68a" }}>
-        <Text style={styles.premiumTitle}>{ui === "kk" ? "Жеке сабақ Premium-де қолжетімді" : "Персональный урок доступен в Premium"}</Text>
-        <Text style={styles.premiumText}>{ui === "kk" ? "Premium AI-сабақтарды, мысалдарды және шағын тестті ашады." : "Premium откроет AI-уроки, примеры и мини-тест."}</Text>
-        <Action label={ui === "kk" ? "Premium ашу" : "Открыть Premium"} onPress={() => router.replace("/dashboard/billing?reason=theme_lesson" as never)} />
+      <Card style={{ gap: 10 }}>
+        <Text style={[styles.h1, { color: colors.foreground, fontSize: 20 }]}>{tr("Уроки по ошибкам с Premium", "Premium арқылы қателер бойынша сабақтар")}</Text>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>{tr("Урок помогает разобраться в теме перед тренировкой.", "Сабақ жаттығу алдында тақырыпты түсінуге көмектеседі.")}</Text>
+        <Action label={tr("Посмотреть тарифы", "Тарифтерді көру")} onPress={() => router.replace("/dashboard/billing?reason=theme_lesson" as never)} />
       </Card>
     </View>
   )
 
-  if (!lesson) return (
+  if (loadError || !data) return (
     <View style={[styles.center, { backgroundColor: colors.secondary }]}>
-      <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>{error ?? (ui === "kk" ? "Сабақты ашу мүмкін болмады." : "Не удалось открыть урок.")}</Text>
-      <Action label={ui === "kk" ? "Қайталау" : "Повторить"} onPress={() => void loadLesson()} />
+      <Text accessibilityRole="alert" style={{ color: colors.mutedForeground, textAlign: "center" }}>{tr("Не удалось открыть тему. Она может быть недоступна для вашего аккаунта.", "Тақырыпты ашу мүмкін болмады. Ол аккаунтыңыз үшін қолжетімсіз болуы мүмкін.")}</Text>
+      <Action label={tr("Повторить", "Қайталау")} disabled={isValidating} onPress={() => void mutate().catch(() => {})} />
     </View>
+  )
+
+  const themeName = localize(data.themeName, language)
+  const summary = (
+    <Card style={{ gap: 10 }}>
+      <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{localize(data.examName, language)} · {localize(data.subjectName, language)}</Text>
+      <Text accessibilityRole="header" style={[styles.h1, { color: colors.foreground }]}>{themeName}</Text>
+      <View style={styles.stats}>
+        {([[tr("Ошибок", "Қателер"), data.openCount], [tr("Для практики", "Жаттығуға"), data.activeOpenCount], [tr("Исправлено", "Түзетілген"), data.resolvedCount]] as const).map(([label, value]) => (
+          <View key={label} style={styles.stat}><Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{label}</Text><Text style={[styles.statValue, { color: colors.foreground }]}>{value}</Text></View>
+        ))}
+      </View>
+      <Text style={[styles.body, { color: colors.mutedForeground }]}>
+        {data.openCount === 0
+          ? tr("Ошибки по этой теме закрыты. Сохранённый урок остаётся доступен для повторения.", "Бұл тақырыптағы қателер түзетілген. Сақталған сабақ қайталау үшін қолжетімді.")
+          : tr("Изучите объяснение, попробуйте задания без подсказок и затем проверьте себя в тренировке.", "Түсіндірмені оқып, тапсырмаларды көмексіз орындап, содан кейін жаттығуда өзіңізді тексеріңіз.")}
+      </Text>
+      <Action
+        disabled={data.activeOpenCount === 0}
+        label={tr("Практика по теме", "Тақырып бойынша жаттығу")}
+        onPress={() => setPractice({ examTypeId: data.examTypeId, subjectId: data.subjectId, themeId, title: themeName, available: data.activeOpenCount })}
+      />
+      {data.openCount > data.activeOpenCount ? <Text style={[styles.meta, { color: colors.mutedForeground, textAlign: "left" }]}>{tr("Архивные вопросы не включаются в практику.", "Мұрағаттағы сұрақтар жаттығуға кірмейді.")}</Text> : null}
+    </Card>
+  )
+
+  if (!lesson) return (
+    <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.secondary }]}>
+      <Pressable onPress={() => router.replace(back as never)} style={styles.back}><MaterialCommunityIcons name="arrow-left" size={18} color={colors.foreground} /><Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{tr("К предмету", "Пәнге оралу")}</Text></Pressable>
+      {summary}
+      <Card style={{ gap: 10, borderStyle: "dashed" }}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{tr("Урок по теме", "Тақырып бойынша сабақ")}</Text>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>
+          {data.openCount === 0
+            ? tr("Сохранённого урока пока нет. Можно перейти к другим темам.", "Сақталған сабақ әлі жоқ. Басқа тақырыптарға өтуге болады.")
+            : tr("AI подготовит объяснения, примеры и задания. Генерация использует лимит AI; готовый урок сохранится.", "AI түсіндірмелер, мысалдар мен тапсырмалар дайындайды. Дайындау AI лимитін пайдаланады; дайын сабақ сақталады.")}
+        </Text>
+        {data.generationAvailable && data.openCount > 0 ? <Action outline disabled={busy} label={busy ? tr("Готовим урок…", "Сабақ дайындалуда…") : tr("Подготовить урок", "Сабақты дайындау")} onPress={() => void prepare()} /> : null}
+        {!data.generationAvailable ? <Text style={[styles.body, { color: colors.mutedForeground }]}>{tr("AI сейчас недоступен. Практика работает независимо от него.", "AI қазір қолжетімсіз. Жаттығу оған тәуелсіз жұмыс істейді.")}</Text> : null}
+        {failure ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.destructive }]}>{failure}</Text> : null}
+      </Card>
+      <PracticeSheet scope={practice} onClose={() => setPractice(null)} />
+    </ScrollView>
   )
 
   return (
     <>
       <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.secondary }]}>
-        <Pressable onPress={() => router.push(`/dashboard/mistakes/subjects/${lesson.subjectId}` as never)} style={styles.back}><MaterialCommunityIcons name="arrow-left" size={18} color={colors.foreground} /><Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{ui === "kk" ? "Пәнге" : "К предмету"}</Text></Pressable>
-        <Card style={{ borderColor: "#a7f3d0" }}>
-          <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{lesson.subjectName} · {lesson.topicName}</Text>
-          <Text style={[styles.h1, { color: colors.foreground }]}>{lesson.title}</Text>
-          <View style={styles.actions}><Action disabled={training} label={training ? "…" : (ui === "kk" ? "Жаттығу" : "Тренировать")} onPress={() => void startPractice()} /><Action outline label={ui === "kk" ? "Ескерту" : "Замечание"} onPress={() => setNoteOpen(true)} /></View>
-          <LessonText title={ui === "kk" ? "Мақсат" : "Цель"} value={lesson.studentGoal} locale={language} />
-          <LessonText title={ui === "kk" ? "ҰБТ үшін маңызы" : "Зачем на ЕНТ"} value={lesson.whyItMatters} locale={language} />
+        <Pressable onPress={() => router.replace(back as never)} style={styles.back}><MaterialCommunityIcons name="arrow-left" size={18} color={colors.foreground} /><Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{tr("К предмету", "Пәнге оралу")}</Text></Pressable>
+        {summary}
+        <Card style={{ gap: 6 }}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{lesson.title}</Text>
+          <LessonText title={tr("Что разберём", "Нені талдаймыз")} value={lesson.studentGoal} locale={language} />
+          <LessonText title={tr("Зачем на ЕНТ", "ҰБТ үшін маңызы")} value={lesson.whyItMatters} locale={language} />
+          <Text style={[styles.meta, { color: colors.mutedForeground, textAlign: "left" }]}>
+            {tr("Материал подготовлен AI и может содержать неточности. Самопроверка в уроке не меняет статистику — для этого завершите тренировку.", "Материалды AI дайындаған, қателіктер болуы мүмкін. Сабақтағы өзін-өзі тексеру статистиканы өзгертпейді — ол үшін жаттығуды аяқтаңыз.")}
+          </Text>
         </Card>
 
         {(lesson.pages?.length ? lesson.pages : []).map((page, pageIndex) => (
@@ -126,7 +164,11 @@ export function ThemeLessonView({ themeId }: { themeId: string }) {
         {lesson.commonTraps.length ? <Card><ListBlock title={ui === "kk" ? "Жиі қателер" : "Типичные ловушки"} items={lesson.commonTraps} /></Card> : null}
         {lesson.checklist.length ? <Card><ListBlock title={ui === "kk" ? "Тексеру тізімі" : "Чек-лист"} items={lesson.checklist} /></Card> : null}
         {lesson.miniTest.length ? <Card><Text style={[styles.sectionTitle, { color: colors.foreground }]}>{ui === "kk" ? "Шағын тест" : "Мини-тест"}</Text>{lesson.miniTest.map((item, index) => <Practice key={index} item={item} locale={language} />)}</Card> : null}
-        <Text style={[styles.meta, { color: colors.mutedForeground }]}>{lesson.cached ? (ui === "kk" ? "Сақталған сабақ" : "Сохранённый урок") : (ui === "kk" ? "Қазір жасалды" : "Сгенерировано сейчас")} · {lesson.model}</Text>
+        <View style={styles.footerRow}>
+          <Text style={[styles.meta, { color: colors.mutedForeground }]}>{tr("Сохранённый AI-урок", "Сақталған AI сабағы")}</Text>
+          <Action outline disabled={!lesson.lessonId} label={tr("Сообщить об ошибке", "Қате туралы хабарлау")} onPress={() => setNoteOpen(true)} />
+        </View>
+        <PracticeSheet scope={practice} onClose={() => setPractice(null)} />
       </ScrollView>
 
       <Modal visible={noteOpen} transparent animationType="slide" onRequestClose={() => setNoteOpen(false)}>
@@ -189,6 +231,10 @@ const styles = StyleSheet.create({
   dataRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
   reveal: { fontSize: 13, fontFamily: fonts.sansSemi, marginTop: 8 },
   meta: { fontSize: 12, textAlign: "center" },
+  stats: { flexDirection: "row", gap: 12, paddingVertical: 10 },
+  stat: { flex: 1, gap: 4 },
+  statValue: { fontSize: 24, fontFamily: fonts.sansSemi },
+  footerRow: { alignItems: "center", gap: 4 },
   premiumTitle: { color: "#78350f", fontSize: 17, fontFamily: fonts.sansSemi },
   premiumText: { color: "#92400e", fontSize: 13, lineHeight: 20, marginTop: 6 },
   modalWrap: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,.4)" },

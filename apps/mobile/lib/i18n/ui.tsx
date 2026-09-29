@@ -8,6 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react"
+import { mutate as globalMutate } from "swr"
+import { api } from "@/lib/api/client"
+import { useAuth } from "@/lib/api/auth-context"
+import { setRequestLocale } from "@/lib/api/locale"
 
 /** Язык интерфейса приложения: только русский и қазақша (английский не предлагаем). */
 export type UiLocale = "ru" | "kk"
@@ -22,7 +26,7 @@ export function normalizeUiLocale(raw: string | null | undefined): UiLocale {
 
 type UiLocaleContextValue = {
   locale: UiLocale
-  setLocale: (l: UiLocale) => void
+  setLocale: (l: UiLocale, options?: { syncProfile?: boolean }) => void
 }
 
 const UiLocaleContext = createContext<UiLocaleContextValue | null>(null)
@@ -610,18 +614,47 @@ export function t(key: string, locale: UiLocale): string {
 }
 
 export function UiLocaleProvider({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated, refresh } = useAuth()
   const [locale, setLoc] = useState<UiLocale>("ru")
+  const [hasStored, setHasStored] = useState<boolean | null>(null)
 
   useEffect(() => {
     void AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      setLoc(normalizeUiLocale(raw))
+      const next = normalizeUiLocale(raw)
+      setRequestLocale(next)
+      setLoc(next)
+      setHasStored(raw === "ru" || raw === "kk")
     })
   }, [])
 
-  const setLocale = useCallback((l: UiLocale) => {
-    setLoc(l)
-    void AsyncStorage.setItem(STORAGE_KEY, l)
-  }, [])
+  // First launch on this device: follow the language saved in the account.
+  useEffect(() => {
+    if (hasStored !== false || !user?.preferredLanguage) return
+    const preferred = normalizeUiLocale(user.preferredLanguage)
+    setRequestLocale(preferred)
+    setLoc(preferred)
+  }, [hasStored, user?.preferredLanguage])
+
+  const setLocale = useCallback(
+    (next: UiLocale, options?: { syncProfile?: boolean }) => {
+      setRequestLocale(next)
+      setLoc(next)
+      setHasStored(true)
+      void AsyncStorage.setItem(STORAGE_KEY, next)
+      // API responses are localized on the server: fetch them again.
+      void globalMutate((key) => typeof key === "string" && key.startsWith("/"), undefined, {
+        revalidate: true,
+      })
+      if (isAuthenticated && options?.syncProfile !== false) {
+        void api("/users/me", { method: "PATCH", body: { preferredLanguage: next } })
+          .then(() => refresh())
+          .catch(() => {
+            // The language switches locally even if the profile update fails.
+          })
+      }
+    },
+    [isAuthenticated, refresh],
+  )
 
   const value = useMemo(() => ({ locale, setLocale }), [locale, setLocale])
 

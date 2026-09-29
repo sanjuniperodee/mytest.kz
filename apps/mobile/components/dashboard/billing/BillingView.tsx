@@ -156,7 +156,8 @@ function BillingViewContent() {
   const canUseKaspi = false
   const canUseAppleIap = store.available
   const { mutate: mutateGlobal } = useSWRConfig()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale: uiLocale } = useUiLocale()
+  const locale = uiLocale as Locale
   const { data, isLoading } = useSWR<BillingPlan[] | { items: BillingPlan[] }>("/billing/plans")
   const { data: ordersData, isLoading: ordersLoading } = useSWR<KaspiOrder[] | { items: KaspiOrder[] }>(
     null,

@@ -1,51 +1,37 @@
 import * as Google from "expo-auth-session/providers/google"
 import * as WebBrowser from "expo-web-browser"
 import { useEffect, useState } from "react"
-import { Alert, Platform, StyleSheet, Text } from "react-native"
+import { Alert, Platform } from "react-native"
 import { Button } from "@/components/ui/button"
-import { useAppTheme } from "@/lib/theme/provider"
-import { fonts } from "@/lib/theme/fonts"
+import { useTr } from "@/lib/i18n/use-tr"
 
 WebBrowser.maybeCompleteAuthSession()
 
-function googleNativeSetupHint(os: "ios" | "android"): string {
-  if (os === "ios") {
-    return (
-      "В Google Cloud Console создайте OAuth-клиент типа «iOS», bundle ID как в app.json " +
-      "(например com.sanjuniperodee.mobile), затем укажите EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID в .env. " +
-      "Только «Веб-клиент» с приложением на телефоне не работает: Google блокирует custom scheme для типа WEB."
-    )
-  }
-  return (
-    "В Google Cloud Console создайте OAuth-клиент типа «Android» с package name из сборки и SHA‑1 " +
-    "ключа подписи, затем EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID в .env."
-  )
+const webClientId = () =>
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID?.trim() || undefined
+const androidClientId = () => process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim() || undefined
+
+/**
+ * Google sign-in is offered on Android only, and only when its OAuth client is configured.
+ * iOS deliberately has none: an app that offers a third-party login must also offer Sign in
+ * with Apple (App Store guideline 4.8); phone and email are the app's own account systems.
+ */
+export function googleSignInAvailable(): boolean {
+  return Platform.OS === "android" && Boolean(androidClientId())
 }
 
-function GoogleSignInInner({
-  webClientId,
-  iosClientId,
-  androidClientId,
-  onIdToken,
-}: {
-  webClientId?: string
-  iosClientId?: string
-  androidClientId?: string
-  onIdToken: (idToken: string) => void
-}) {
+function GoogleSignInInner({ onIdToken }: { onIdToken: (idToken: string) => void }) {
+  const tr = useTr()
   const [busy, setBusy] = useState(false)
-
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: webClientId || undefined,
-    iosClientId: iosClientId || undefined,
-    androidClientId: androidClientId || undefined,
+    webClientId: webClientId(),
+    androidClientId: androidClientId(),
   })
 
   useEffect(() => {
     if (response?.type !== "success") return
     const idToken =
-      ("params" in response && (response.params as { id_token?: string }).id_token) ||
-      response.authentication?.idToken
+      ("params" in response && (response.params as { id_token?: string }).id_token) || response.authentication?.idToken
     if (idToken) onIdToken(idToken)
   }, [response, onIdToken])
 
@@ -58,69 +44,18 @@ function GoogleSignInInner({
         try {
           await promptAsync()
         } catch {
-          Alert.alert("Google", "Не удалось открыть окно входа")
+          Alert.alert("Google", tr("Не удалось открыть окно входа", "Кіру терезесін ашу мүмкін болмады"))
         } finally {
           setBusy(false)
         }
       }}
     >
-      Войти через Google
+      {tr("Войти через Google", "Google арқылы кіру")}
     </Button>
   )
 }
 
 export function GoogleSignInButton({ onIdToken }: { onIdToken: (idToken: string) => void }) {
-  const { colors } = useAppTheme()
-  const webClientId =
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
-    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID?.trim()
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim()
-  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim()
-
-  const hasAnyClient = Boolean(webClientId || iosClientId || androidClientId)
-
-  if (!hasAnyClient) {
-    return (
-      <Text style={[styles.disabled, { color: colors.mutedForeground }]}>
-        Google: задайте EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID или EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID /
-        ANDROID в .env
-      </Text>
-    )
-  }
-
-  if (Platform.OS === "web") {
-    if (!webClientId) {
-      return (
-        <Text style={[styles.disabled, { color: colors.mutedForeground }]}>
-          Google на web: нужен EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (тип «Веб-приложение»).
-        </Text>
-      )
-    }
-    return <GoogleSignInInner webClientId={webClientId} onIdToken={onIdToken} />
-  }
-
-  if (Platform.OS === "ios" && !iosClientId) {
-    return <Text style={[styles.disabled, { color: colors.mutedForeground }]}>{googleNativeSetupHint("ios")}</Text>
-  }
-
-  if (Platform.OS === "android" && !androidClientId) {
-    return (
-      <Text style={[styles.disabled, { color: colors.mutedForeground }]}>
-        {googleNativeSetupHint("android")}
-      </Text>
-    )
-  }
-
-  return (
-    <GoogleSignInInner
-      webClientId={webClientId || undefined}
-      iosClientId={iosClientId || undefined}
-      androidClientId={androidClientId || undefined}
-      onIdToken={onIdToken}
-    />
-  )
+  if (!googleSignInAvailable()) return null
+  return <GoogleSignInInner onIdToken={onIdToken} />
 }
-
-const styles = StyleSheet.create({
-  disabled: { fontSize: 13, fontFamily: fonts.sans },
-})

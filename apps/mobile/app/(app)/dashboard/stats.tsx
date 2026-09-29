@@ -1,5 +1,5 @@
-import { StatsEntView } from "@/components/dashboard/stats/StatsEntView"
+import { StatsView } from "@/components/dashboard/stats/StatsView"
 
 export default function StatsScreen() {
-  return <StatsEntView />
+  return <StatsView />
 }

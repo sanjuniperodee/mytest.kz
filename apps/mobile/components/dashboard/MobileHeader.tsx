@@ -1,18 +1,21 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native"
 import { router } from "expo-router"
+import { LogoMark } from "@/components/ui/logo-mark"
 import { useTopInset } from "@/lib/use-top-inset"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { fonts } from "@/lib/theme/fonts"
+import { useUiLocale } from "@/lib/i18n/ui"
 import { useAppTheme } from "@/lib/theme/provider"
 import { useAuth } from "@/lib/api/auth-context"
 import { resolveMediaUrl } from "@/lib/api/client"
 import { localize, type Locale } from "@/lib/api/i18n"
 
 export function MobileHeader() {
-  const { colors } = useAppTheme()
+  const { colors, resolved, toggle } = useAppTheme()
   const topInset = useTopInset()
   const { user } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale: uiLocale } = useUiLocale()
+  const locale = uiLocale as Locale
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
     localize(user?.fullName, locale) || user?.username || user?.phone || "U"
@@ -39,10 +42,21 @@ export function MobileHeader() {
           onPress={() => router.push("/dashboard")}
           style={styles.brandLockup}
         >
-          <View style={[styles.brandMark, { backgroundColor: colors.foreground }]}>
-            <MaterialCommunityIcons name="star-four-points-small" size={16} color={colors.background} />
-          </View>
+          <LogoMark size={30} />
           <Text style={[styles.title, { color: colors.foreground }]}>mytest</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={resolved === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
+          hitSlop={8}
+          onPress={toggle}
+          style={[styles.avatar, { borderColor: colors.border, backgroundColor: colors.card }]}
+        >
+          <MaterialCommunityIcons
+            name={resolved === "dark" ? "weather-sunny" : "weather-night"}
+            size={18}
+            color={colors.foreground}
+          />
         </Pressable>
         <Pressable
           accessibilityLabel="Открыть профиль"
@@ -81,13 +95,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-  },
-  brandMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
   },
   title: {
     fontSize: 16,

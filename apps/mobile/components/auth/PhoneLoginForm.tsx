@@ -15,6 +15,7 @@ import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
 import type { AuthResponse } from "@/lib/api/types"
 import { getTelegramBotLink, getTelegramBotUsername } from "@/lib/config"
+import { useTr } from "@/lib/i18n/use-tr"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
 
@@ -37,6 +38,7 @@ function isPhoneNotLinkedError(err: unknown) {
 
 export function PhoneLoginForm() {
   const { colors } = useAppTheme()
+  const tr = useTr()
   const { setSession } = useAuth()
   const [step, setStep] = useState<"phone" | "code">("phone")
   const [phone, setPhone] = useState("")
@@ -48,7 +50,7 @@ export function PhoneLoginForm() {
   const sendCode = async () => {
     const formatted = formatPhone(phone)
     if (formatted.length !== 12) {
-      Alert.alert("Телефон", "Введите номер в формате +7XXXXXXXXXX")
+      Alert.alert(tr("Телефон", "Телефон"), tr("Введите номер в формате +7XXXXXXXXXX", "Нөмірді +7XXXXXXXXXX форматында енгізіңіз"))
       return
     }
     setLoading(true)
@@ -60,21 +62,24 @@ export function PhoneLoginForm() {
       })
       setPhone(formatted)
       setStep("code")
-      Alert.alert("Код", "Код отправлен в Telegram")
+      Alert.alert(tr("Код", "Код"), tr("Код отправлен в Telegram", "Код Telegram-ға жіберілді"))
     } catch (err) {
       if (isPhoneNotLinkedError(err)) {
         Alert.alert(
-          "Привязка",
-          `Сначала привяжите номер в @${botUsername} в Telegram, затем вернитесь.`,
+          tr("Привязка", "Байланыстыру"),
+          tr(
+            `Сначала привяжите номер в @${botUsername} в Telegram, затем вернитесь.`,
+            `Алдымен нөмірді Telegram-дағы @${botUsername} ботына байланыстырыңыз, содан кейін оралыңыз.`,
+          ),
           [
-            { text: "Открыть бота", onPress: () => void Linking.openURL(botLink) },
+            { text: tr("Открыть бота", "Ботты ашу"), onPress: () => void Linking.openURL(botLink) },
             { text: "OK" },
           ],
         )
         return
       }
-      const msg = err instanceof ApiError ? err.message : "Не удалось отправить код"
-      Alert.alert("Ошибка", msg)
+      const msg = err instanceof ApiError ? err.message : tr("Не удалось отправить код", "Кодты жіберу мүмкін болмады")
+      Alert.alert(tr("Ошибка", "Қате"), msg)
     } finally {
       setLoading(false)
     }
@@ -92,8 +97,8 @@ export function PhoneLoginForm() {
       await setSession(data)
       router.replace("/dashboard")
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Неверный код"
-      Alert.alert("Ошибка", msg)
+      const msg = err instanceof ApiError ? err.message : tr("Неверный код", "Код қате")
+      Alert.alert(tr("Ошибка", "Қате"), msg)
       setCode("")
     } finally {
       setLoading(false)
@@ -104,7 +109,7 @@ export function PhoneLoginForm() {
     return (
       <View style={styles.block}>
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          Код отправлен в Telegram для {phone}
+          {tr("Код отправлен в Telegram для", "Код Telegram-ға жіберілді:")} {phone}
         </Text>
         <TextInput
           style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
@@ -121,13 +126,13 @@ export function PhoneLoginForm() {
         />
         {loading ? <Spinner /> : null}
         <Text style={[styles.note, { color: colors.mutedForeground }]}>
-          Для входа по телефону сначала привяжите номер в @{botUsername}.
+          {tr("Для входа по телефону сначала привяжите номер в", "Телефонмен кіру үшін алдымен нөмірді байланыстырыңыз:")} @{botUsername}.
         </Text>
         <Pressable onPress={() => void Linking.openURL(botLink)}>
-          <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>Открыть бота</Text>
+          <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>{tr("Открыть бота", "Ботты ашу")}</Text>
         </Pressable>
         <Pressable onPress={() => setStep("phone")}>
-          <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>Изменить номер</Text>
+          <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }}>{tr("Изменить номер", "Нөмірді өзгерту")}</Text>
         </Pressable>
       </View>
     )
@@ -135,7 +140,7 @@ export function PhoneLoginForm() {
 
   return (
     <View style={styles.block}>
-      <Text style={[styles.label, { color: colors.mutedForeground }]}>Телефон</Text>
+      <Text style={[styles.label, { color: colors.mutedForeground }]}>{tr("Телефон", "Телефон")}</Text>
       <TextInput
         style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
         placeholder="+7 700 000 00 00"
@@ -145,8 +150,15 @@ export function PhoneLoginForm() {
         onChangeText={setPhone}
       />
       <Button onPress={() => void sendCode()} disabled={loading}>
-        {loading ? "Отправка..." : "Получить код"}
+        {loading ? tr("Отправка...", "Жіберілуде...") : tr("Получить код", "Код алу")}
       </Button>
+      <Text style={[styles.note, { color: colors.mutedForeground }]}>
+        {tr("Код придёт в Telegram. Если номер ещё не привязан, открой", "Код Telegram-ға келеді. Егер нөмір әлі байланыспаса, ашыңыз:")}{" "}
+        <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi }} onPress={() => void Linking.openURL(botLink)}>
+          @{botUsername}
+        </Text>
+        .
+      </Text>
     </View>
   )
 }

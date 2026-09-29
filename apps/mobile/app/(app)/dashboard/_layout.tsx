@@ -1,12 +1,17 @@
-import { Stack } from "expo-router"
+import { Stack, usePathname } from "expo-router"
 import { StyleSheet, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { MobileHeader } from "@/components/dashboard/MobileHeader"
-import { DashboardBottomNavigation } from "@/components/dashboard/DashboardBottomNavigation"
+import { DashboardBottomNavigation, TAB_BAR_HEIGHT } from "@/components/dashboard/DashboardBottomNavigation"
+import { isImmersiveRoute } from "@/components/dashboard/nav-config"
 import { WhatsAppFab } from "@/components/common/WhatsAppFab"
 import { useAppTheme } from "@/lib/theme/provider"
 
 export default function DashboardLayout() {
   const { colors } = useAppTheme()
+  const pathname = usePathname()
+  const insets = useSafeAreaInsets()
+  const immersive = isImmersiveRoute(pathname)
   return (
     <View style={[styles.root, { backgroundColor: colors.secondary }]}>
       <MobileHeader />
@@ -20,8 +25,12 @@ export default function DashboardLayout() {
           />
         </View>
       </View>
-      <DashboardBottomNavigation />
-      <WhatsAppFab />
+      {immersive ? null : (
+        <>
+          <DashboardBottomNavigation />
+          <WhatsAppFab bottomOffset={TAB_BAR_HEIGHT + Math.max(7, insets.bottom) + 12} />
+        </>
+      )}
     </View>
   )
 }

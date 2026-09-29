@@ -19,7 +19,7 @@ export function HistoryView() {
   const { colors } = useAppTheme()
   const { user } = useAuth()
   const { locale: ui } = useUiLocale()
-  const locale = ((user?.preferredLanguage as Locale) || ui) as Locale
+  const locale = ui as Locale
   const [page, setPage] = useState(1)
   const [examTypeId, setExamTypeId] = useState("all")
   const [pickerOpen, setPickerOpen] = useState(false)

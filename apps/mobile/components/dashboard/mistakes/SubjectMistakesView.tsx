@@ -1,221 +1,275 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { useEffect, useMemo, useState } from "react"
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { useState } from "react"
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native"
 import useSWR from "swr"
-import { StepSlider } from "@/components/ui/step-slider"
+import { PracticeSheet, type FixedPracticeScope } from "@/components/dashboard/mistakes/PracticeSheet"
+import { StudyThemes } from "@/components/dashboard/mistakes/StudyThemes"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { api, ApiError } from "@/lib/api/client"
+import { LoadState } from "@/components/ui/load-state"
+import { Screen } from "@/components/ui/screen"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/api/auth-context"
-import { localize, type Locale } from "@/lib/api/i18n"
-import type { MistakesSubjectDetail, StudyMap, TestSession } from "@/lib/api/types"
+import { api, ApiError } from "@/lib/api/client"
+import { localize } from "@/lib/api/i18n"
+import type { AiStoredAnalysisResponse, AiWeakZoneAnalysis, MistakesSubjectDetail } from "@/lib/api/types"
+import { useTr } from "@/lib/i18n/use-tr"
 import { useUiLocale } from "@/lib/i18n/ui"
-import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
+import { useAppTheme } from "@/lib/theme/provider"
 
-type WeakZoneAnalysis = {
-  overview: string
-  motivation: string
-  weakZones: { title: string; rootCause: string; recommendations: string[]; pointsAtStake: number }[]
-}
-
-export function SubjectMistakesView({ subjectId }: { subjectId: string }) {
+/** One subject: what to study next, topics from real questions, and optional AI help. */
+export function SubjectMistakesView({ subjectId, examTypeId }: { subjectId: string; examTypeId?: string }) {
   const { colors } = useAppTheme()
-  const { locale: ui } = useUiLocale()
-  const { user, refresh } = useAuth()
-  const locale = ((user?.preferredLanguage as Locale) || ui) as Locale
-  const language: "ru" | "kk" = locale === "kk" ? "kk" : "ru"
-  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
-  const [limit, setLimit] = useState(15)
-  const [duration, setDuration] = useState(25)
-  const [starting, setStarting] = useState<string | null>(null)
-  const [analysis, setAnalysis] = useState<WeakZoneAnalysis | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const detailKey = subjectId ? `/tests/mistakes/subjects/${encodeURIComponent(subjectId)}` : null
-  const { data: detail, isLoading, error } = useSWR<MistakesSubjectDetail>(detailKey)
-  const studyMapKey = hasPremium && detail
-    ? `/ai/mistakes/subjects/${encodeURIComponent(detail.subjectId)}/study-map?examTypeId=${encodeURIComponent(detail.examTypeId)}`
-    : null
-  const { data: studyMap, isLoading: mapLoading, error: mapError, mutate: refreshMap } = useSWR<StudyMap>(studyMapKey, {
-    refreshInterval: (latest) => latest?.pending ? 5000 : 0,
+  const tr = useTr()
+  const { locale } = useUiLocale()
+  const { user } = useAuth()
+  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const url = `/tests/mistakes/subjects/${subjectId}${examTypeId ? `?examTypeId=${encodeURIComponent(examTypeId)}` : ""}`
+  const { data, error, isLoading, isValidating, mutate } = useSWR<MistakesSubjectDetail>([url, locale], ([path]: [string, string]) => api<MistakesSubjectDetail>(path))
+  const [practice, setPractice] = useState<FixedPracticeScope | null>(null)
+  const [coachOpen, setCoachOpen] = useState(false)
+  const name = localize(data?.subjectName, locale, tr("Предмет", "Пән"))
+  const topics = [...(data?.topics ?? [])].sort((a, b) => b.activeOpenCount - a.activeOpenCount || b.openCount - a.openCount)
+  const recommended = topics.find((t) => t.activeOpenCount > 0)
+  const scope = (topic?: (typeof topics)[number]): FixedPracticeScope => ({
+    examTypeId: data!.examTypeId,
+    subjectId,
+    topicId: topic?.topicId,
+    title: topic ? localize(topic.topicName, locale) : name,
+    available: topic?.activeOpenCount ?? data!.activeOpenTotal,
   })
 
-  useEffect(() => { void refresh() }, [refresh])
-  useEffect(() => {
-    if (!hasPremium || !detail) return
-    void api<{ analysis: WeakZoneAnalysis | null }>("/ai/mistakes/analysis", {
-      query: { examTypeId: detail.examTypeId, subjectId: detail.subjectId },
-    }).then((result) => setAnalysis(result.analysis)).catch(() => undefined)
-  }, [detail, hasPremium])
-
-  const subjectName = localize(detail?.subjectName, locale, ui === "kk" ? "Пән" : "Предмет")
-  const examName = localize(detail?.examName, locale, ui === "kk" ? "Емтихан" : "Экзамен")
-  const maxThemeCount = useMemo(() => Math.max(1, ...(studyMap?.themes ?? []).map((item) => item.openCount)), [studyMap])
-
-  const launch = async (themeId?: string) => {
-    if (!detail) return
-    if (!hasPremium) {
-      router.push("/dashboard/billing?reason=mistakes_subject_detail" as never)
-      return
-    }
-    const key = themeId ?? "subject"
-    setStarting(key)
-    try {
-      const session = await api<TestSession>("/tests/mistakes/practice", {
-        method: "POST",
-        body: { language, examTypeId: detail.examTypeId, subjectId: detail.subjectId, themeId, limit, durationMins: duration },
-      })
-      router.push(`/exam/${session.id}` as never)
-    } catch (launchError) {
-      const code = launchError instanceof ApiError ? launchError.message : "NETWORK"
-      Alert.alert(ui === "kk" ? "Қате" : "Ошибка", practiceMessage(code, ui))
-    } finally {
-      setStarting(null)
-    }
-  }
-
-  const runAnalysis = async () => {
-    if (!detail) return
-    setAnalyzing(true)
-    try {
-      const result = await api<WeakZoneAnalysis>("/ai/mistakes/analyze", {
-        method: "POST",
-        body: { language, examTypeId: detail.examTypeId, subjectId: detail.subjectId, force: Boolean(analysis) },
-      })
-      setAnalysis(result)
-      await refreshMap()
-    } catch (analysisError) {
-      const code = analysisError instanceof ApiError ? analysisError.message : "NETWORK"
-      Alert.alert(ui === "kk" ? "Қате" : "Ошибка", aiMessage(code, ui))
-    } finally {
-      setAnalyzing(false)
-    }
-  }
-
-  if (isLoading) return <View style={styles.center}><ActivityIndicator color={colors.foreground} /></View>
-
-  if (error || !detail) return (
-    <View style={[styles.center, { backgroundColor: colors.secondary }]}>
-      <Text style={{ color: colors.mutedForeground }}>{ui === "kk" ? "Пәнді ашу мүмкін болмады." : "Не удалось открыть предмет."}</Text>
-      <Action label={ui === "kk" ? "Артқа" : "Назад"} onPress={() => router.back()} />
-    </View>
-  )
-
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.secondary }]}>
-      <Pressable onPress={() => router.push("/dashboard/mistakes")} style={styles.back}>
-        <MaterialCommunityIcons name="arrow-left" size={18} color={colors.foreground} />
-        <Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{ui === "kk" ? "Қателермен жұмыс" : "Работа над ошибками"}</Text>
+    <Screen onRefresh={() => void mutate()} refreshing={false}>
+      <Pressable accessibilityRole="link" onPress={() => (router.canGoBack() ? router.back() : router.replace("/dashboard/mistakes" as never))} style={styles.back}>
+        <MaterialCommunityIcons name="arrow-left" size={18} color={colors.mutedForeground} />
+        <Text style={[styles.small, { color: colors.mutedForeground }]}>{tr("Все мои ошибки", "Барлық қателерім")}</Text>
       </Pressable>
       <View>
-        <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{examName}</Text>
-        <Text style={[styles.h1, { color: colors.foreground }]}>{subjectName}</Text>
-      </View>
-
-      <View style={styles.metrics}>
-        <Metric label={ui === "kk" ? "Ашық қателер" : "Открытых ошибок"} value={detail.openTotal} />
-        <Metric label={ui === "kk" ? "Жаттығуға болады" : "Можно тренировать"} value={detail.activeOpenTotal} />
-      </View>
-
-      {!hasPremium ? (
-        <Card style={{ backgroundColor: "#fffbeb", borderColor: "#fde68a" }}>
-          <Text style={styles.premiumTitle}>{ui === "kk" ? "AI-тақырыптар Premium-де қолжетімді" : "AI-темы доступны в Premium"}</Text>
-          <Text style={styles.premiumText}>{ui === "kk" ? "Premium қателерді тақырыптарға бөледі және жеке сабақтар дайындайды." : "Premium сгруппирует ошибки по темам и подготовит персональные уроки."}</Text>
-          <Action label={ui === "kk" ? "Premium ашу" : "Открыть Premium"} onPress={() => router.push("/dashboard/billing?reason=study_themes" as never)} />
-        </Card>
-      ) : (
-        <Card>
-          <View style={styles.sectionHead}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>{ui === "kk" ? "Оқуға арналған тақырыптар" : "Темы для изучения"}</Text><Text style={styles.aiBadge}>AI</Text></View>
-          {mapLoading ? <ActivityIndicator color={colors.foreground} /> : mapError ? <Text style={{ color: colors.mutedForeground }}>{ui === "kk" ? "Тақырыптар жүктелмеді." : "Не удалось загрузить темы."}</Text> : studyMap?.openTotal === 0 ? <Text style={{ color: colors.mutedForeground }}>{ui === "kk" ? "Бұл пән бойынша ашық қателер жоқ." : "Открытых ошибок по предмету нет."}</Text> : (
-            <View style={styles.themeList}>
-              {studyMap?.pending ? <Text style={{ color: colors.mutedForeground }}>{ui === "kk" ? `AI қателерді бөледі: ${studyMap.classifiedCount}/${studyMap.openTotal}` : `AI распределяет ошибки: ${studyMap.classifiedCount}/${studyMap.openTotal}`}</Text> : null}
-              {(studyMap?.themes ?? []).map((theme) => (
-                <View key={theme.themeId} style={[styles.theme, { borderColor: colors.border }]}>
-                  <View style={styles.themeTop}><Text numberOfLines={2} style={[styles.themeName, { color: colors.foreground }]}>{theme.name}</Text><Text style={[styles.count, { backgroundColor: colors.secondary, color: colors.foreground }]}>{theme.openCount}</Text></View>
-                  <View style={[styles.track, { backgroundColor: colors.secondary }]}><View style={[styles.progress, { backgroundColor: "#7c3aed", width: `${Math.round(theme.openCount / maxThemeCount * 100)}%` }]} /></View>
-                  <View style={styles.actions}>
-                    <Action label={ui === "kk" ? "Тақырыпты оқу" : "Изучить тему"} onPress={() => router.push(`/dashboard/mistakes/themes/${theme.themeId}` as never)} />
-                    <Action outline label={starting === theme.themeId ? "…" : (ui === "kk" ? "Жаттығу" : "Тренировать")} disabled={starting != null || theme.activeOpenCount === 0} onPress={() => void launch(theme.themeId)} />
-                  </View>
-                </View>
-              ))}
-            </View>
+        <Text style={[styles.small, { color: colors.mutedForeground }]}>{localize(data?.examName, locale)}</Text>
+        <Text accessibilityRole="header" style={[styles.h1, { color: colors.foreground }]}>
+          {name}
+        </Text>
+        <Text style={[styles.text, { color: colors.mutedForeground }]}>
+          {tr(
+            "Выберите одну тему, разберите её и проверьте себя. Правильный ответ в завершённой тренировке закроет ошибку.",
+            "Бір тақырыпты таңдап, талдаңыз және өзіңізді тексеріңіз. Аяқталған жаттығудағы дұрыс жауап қатені түзетеді.",
           )}
-        </Card>
-      )}
+        </Text>
+      </View>
 
-      <Card>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{ui === "kk" ? "Жаттығу баптаулары" : "Настройки тренировки"}</Text>
-        <Slider label={ui === "kk" ? "Сұрақтар" : "Вопросов"} value={limit} min={5} max={40} colors={colors} onChange={setLimit} />
-        <Slider label={ui === "kk" ? "Минут" : "Минут"} value={duration} min={5} max={120} colors={colors} onChange={setDuration} />
-        <Action disabled={starting != null || detail.activeOpenTotal === 0} label={starting === "subject" ? "…" : (ui === "kk" ? "Пәнді жаттықтыру" : "Тренировать предмет")} onPress={() => void launch()} />
-      </Card>
+      {error ? <LoadState error={new Error(tr("Не удалось загрузить предмет. Проверьте ссылку или повторите попытку.", "Пәнді жүктеу мүмкін болмады. Сілтемені тексеріңіз немесе қайталаңыз."))} retry={() => void mutate().catch(() => {})} /> : null}
+      {isLoading ? <Skeleton height={190} radius={12} /> : null}
 
-      {hasPremium ? (
-        <Card>
-          <View style={styles.sectionHead}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>{ui === "kk" ? `AI-талдау: ${subjectName}` : `AI-разбор: ${subjectName}`}</Text><MaterialCommunityIcons name="brain" size={22} color="#7c3aed" /></View>
-          {analysis ? <View style={styles.analysis}><Text style={[styles.body, { color: colors.foreground }]}>{analysis.overview}</Text>{analysis.weakZones.map((zone, index) => <View key={`${zone.title}:${index}`} style={[styles.zone, { borderColor: colors.border }]}><Text style={[styles.themeName, { color: colors.foreground }]}>{zone.title}</Text><Text style={[styles.body, { color: colors.mutedForeground }]}>{zone.rootCause}</Text>{zone.recommendations.map((item, itemIndex) => <Text key={itemIndex} style={[styles.body, { color: colors.foreground }]}>• {item}</Text>)}</View>)}<Text style={[styles.body, { color: colors.mutedForeground }]}>{analysis.motivation}</Text></View> : <Text style={[styles.body, { color: colors.mutedForeground }]}>{ui === "kk" ? "AI әлсіз тақырыптарды және нақты ұсыныстарды дайындайды." : "AI определит слабые темы и подготовит конкретный план."}</Text>}
-          <Action disabled={analyzing} label={analyzing ? "…" : analysis ? (ui === "kk" ? "Талдауды жаңарту" : "Обновить разбор") : (ui === "kk" ? "AI-талдау жасау" : "Сделать AI-разбор")} onPress={() => void runAnalysis()} />
-        </Card>
+      {data ? (
+        <>
+          <Card padded={false}>
+            <View style={[styles.metrics, { borderBottomColor: colors.border, backgroundColor: colors.secondary }]}>
+              <View style={[styles.metric, { borderRightColor: colors.border }]}>
+                <Text style={[styles.small, { color: colors.mutedForeground }]}>{tr("Ошибок в работе", "Түзетілмеген қателер")}</Text>
+                <Text style={[styles.big, { color: colors.foreground }]}>{data.openTotal}</Text>
+              </View>
+              <View style={styles.metric}>
+                <Text style={[styles.small, { color: colors.mutedForeground }]}>{tr("Доступно для практики", "Жаттығуға қолжетімді")}</Text>
+                <Text style={[styles.big, { color: colors.foreground }]}>{data.activeOpenTotal}</Text>
+              </View>
+            </View>
+            <View style={styles.next}>
+              <Text style={[styles.small, { color: colors.mutedForeground }]}>{tr("Следующий шаг", "Келесі қадам")}</Text>
+              <Text style={[styles.h2, { color: colors.foreground }]}>
+                {recommended
+                  ? localize(recommended.topicName, locale)
+                  : data.openTotal === 0
+                    ? tr("Ошибки по предмету закрыты", "Пән бойынша қателер түзетілген")
+                    : tr("Вопросы временно недоступны", "Сұрақтар уақытша қолжетімсіз")}
+              </Text>
+              <Text style={[styles.text, { color: colors.mutedForeground }]}>
+                {recommended
+                  ? tr("Начните с темы, где больше доступных ошибок. Короткая практика поможет проверить, что вы поняли решение.", "Қолжетімді қатесі көп тақырыптан бастаңыз. Қысқа жаттығу шешімді түсінгеніңізді тексеруге көмектеседі.")
+                  : data.openTotal === 0
+                    ? tr("Можно перейти к новому пробному или повторить сохранённые уроки.", "Жаңа сынаққа өтуге немесе сақталған сабақтарды қайталауға болады.")
+                    : tr("Ошибки сохранены, но вопросы исключены из активного банка. Они не попадут в тренировку.", "Қателер сақталған, бірақ сұрақтар белсенді қордан алынған. Олар жаттығуға кірмейді.")}
+              </Text>
+              <View style={styles.row}>
+                {paid && recommended ? (
+                  <Button disabled={Boolean(error)} onPress={() => setPractice(scope(recommended))} icon={(c) => <MaterialCommunityIcons name="play" size={16} color={c} />}>
+                    {tr("Практика по этой теме", "Осы тақырып бойынша жаттығу")}
+                  </Button>
+                ) : null}
+                {paid && data.activeOpenTotal > 0 ? (
+                  <Button variant="outline" disabled={Boolean(error)} onPress={() => setPractice(scope())}>
+                    {tr("Весь предмет", "Бүкіл пән")}
+                  </Button>
+                ) : null}
+                {data.activeOpenTotal === 0 ? (
+                  <Button variant="outline" onPress={() => router.push("/dashboard/exams" as never)}>
+                    {tr("Выбрать пробный", "Сынақты таңдау")}
+                  </Button>
+                ) : null}
+              </View>
+              {data.openTotal > data.activeOpenTotal ? (
+                <Text style={[styles.small, { color: colors.mutedForeground }]}>
+                  {tr("Архивных вопросов", "Мұрағаттағы сұрақтар")}: {data.openTotal - data.activeOpenTotal}. {tr("Они учитываются в истории, но не в практике.", "Олар тарихта есепке алынады, бірақ жаттығуда емес.")}
+                </Text>
+              ) : null}
+            </View>
+          </Card>
+
+          {!paid && data.openTotal > 0 ? (
+            <Card style={styles.panel}>
+              <Text style={[styles.h3, { color: colors.foreground }]}>{tr("Практика и AI-уроки с Premium", "Premium арқылы жаттығу және AI сабақтары")}</Text>
+              <Text style={[styles.text, { color: colors.mutedForeground }]}>
+                {tr(
+                  "Список тем виден бесплатно. Платный доступ добавляет тренировку по вашим вопросам и объяснения.",
+                  "Тақырыптар тізімі тегін көрінеді. Ақылы қолжетімділік сұрақтарыңыз бойынша жаттығу мен түсіндірмелерді қосады.",
+                )}
+              </Text>
+              <Button variant="outline" size="sm" onPress={() => router.push("/dashboard/billing?reason=mistakes_subject_detail" as never)}>
+                {tr("Посмотреть тарифы", "Тарифтерді көру")}
+              </Button>
+            </Card>
+          ) : null}
+
+          <Card style={styles.panel}>
+            <Text style={[styles.h3, { color: colors.foreground }]}>{tr("Темы программы", "Бағдарлама тақырыптары")}</Text>
+            <Text style={[styles.small, { color: colors.mutedForeground }]}>
+              {tr("По реальным вопросам из ваших завершённых тестов. Не зависит от AI.", "Аяқталған тесттеріңіздегі нақты сұрақтар бойынша. AI-ға тәуелді емес.")}
+            </Text>
+            {topics.map((topic) => (
+              <View key={topic.topicId} style={[styles.topic, { borderTopColor: colors.border }]}>
+                <View style={styles.flex}>
+                  <Text style={[styles.value, { color: colors.foreground }]}>{localize(topic.topicName, locale)}</Text>
+                  <Text style={[styles.small, { color: colors.mutedForeground }]}>
+                    {tr("Ошибок", "Қателер")}: {topic.openCount} · {tr("Для практики", "Жаттығуға")}: {topic.activeOpenCount}
+                  </Text>
+                </View>
+                {paid ? (
+                  <Button variant="outline" size="sm" disabled={Boolean(error) || topic.activeOpenCount === 0} onPress={() => setPractice(scope(topic))}>
+                    {tr("Тренировать", "Жаттығу")}
+                  </Button>
+                ) : null}
+              </View>
+            ))}
+            {topics.length === 0 ? <Text style={[styles.text, { color: colors.mutedForeground }]}>{tr("Нет тем с открытыми ошибками.", "Ашық қатесі бар тақырыптар жоқ.")}</Text> : null}
+          </Card>
+
+          {paid ? <StudyThemes key={locale} subjectId={subjectId} examTypeId={data.examTypeId} onPractice={setPractice} /> : null}
+
+          {paid && data.openTotal > 0 ? (
+            <View style={styles.gap}>
+              <Button variant="outline" onPress={() => setCoachOpen((v) => !v)}>
+                {coachOpen ? tr("Скрыть подробный AI-разбор", "Толық AI талдауын жасыру") : tr("Причины ошибок и персональный разбор", "Қате себептері және жеке талдау")}
+              </Button>
+              {coachOpen ? <AiAnalysis key={locale} examTypeId={data.examTypeId} subjectId={subjectId} onTrain={() => setPractice(scope())} /> : null}
+            </View>
+          ) : null}
+        </>
       ) : null}
-    </ScrollView>
+
+      <PracticeSheet scope={practice} onClose={() => setPractice(null)} />
+    </Screen>
   )
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+/** Cached weak-zone analysis; a fresh one is generated only on request. */
+function AiAnalysis({ examTypeId, subjectId, onTrain }: { examTypeId: string; subjectId: string; onTrain: () => void }) {
   const { colors } = useAppTheme()
-  return <Card style={styles.metric}><Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{label}</Text><Text style={[styles.metricValue, { color: colors.foreground }]}>{value}</Text></Card>
-}
+  const tr = useTr()
+  const { locale } = useUiLocale()
+  const key = `/ai/mistakes/analysis?examTypeId=${examTypeId}&subjectId=${subjectId}`
+  const { data, isLoading, mutate } = useSWR<AiStoredAnalysisResponse>([key, locale], ([path]: [string, string]) => api<AiStoredAnalysisResponse>(path))
+  const [busy, setBusy] = useState(false)
+  const analysis = data?.analysis ?? null
 
-function Action({ label, onPress, disabled, outline }: { label: string; onPress: () => void; disabled?: boolean; outline?: boolean }) {
-  const { colors } = useAppTheme()
-  return <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.action, { backgroundColor: outline ? colors.card : colors.foreground, borderColor: outline ? colors.border : colors.foreground, opacity: disabled ? .45 : pressed ? .84 : 1 }]}><Text style={{ color: outline ? colors.foreground : colors.background, fontFamily: fonts.sansSemi, textAlign: "center" }}>{label}</Text></Pressable>
-}
+  const run = async () => {
+    setBusy(true)
+    try {
+      const result = await api<AiWeakZoneAnalysis>("/ai/mistakes/analyze", {
+        method: "POST",
+        body: { language: locale === "kk" ? "kk" : "ru", examTypeId, subjectId, force: Boolean(analysis) },
+      })
+      await mutate({ enabled: true, analysis: result }, { revalidate: false })
+    } catch (e) {
+      const code = e instanceof ApiError ? e.message : "NETWORK"
+      Alert.alert(
+        tr("Ошибка", "Қате"),
+        code === "AI_DAILY_LIMIT"
+          ? tr("Дневной лимит AI исчерпан.", "Бүгінгі AI лимиті аяқталды.")
+          : code === "AI_BUSY"
+            ? tr("AI перегружен, попробуйте позже.", "AI бос емес, кейінірек қайталаңыз.")
+            : tr("Не удалось выполнить AI-разбор.", "AI-талдау жасау мүмкін болмады."),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
 
-function Slider({ label, value, min, max, colors, onChange }: { label: string; value: number; min: number; max: number; colors: { foreground: string; secondary: string }; onChange: (value: number) => void }) {
-  return <View style={styles.sliderWrap}><View style={styles.sliderLabel}><Text style={{ color: colors.foreground }}>{label}</Text><Text style={{ color: colors.foreground, fontFamily: fonts.sansSemi }}>{value}</Text></View><StepSlider minimumValue={min} maximumValue={max} step={5} value={value} onValueChange={(next) => onChange(Math.round(next / 5) * 5)} minimumTrackTintColor={colors.foreground} maximumTrackTintColor={colors.secondary} thumbTintColor={colors.foreground} /></View>
-}
-
-function practiceMessage(code: string, ui: "ru" | "kk") {
-  if (ui === "kk") return code === "NO_OPEN_MISTAKES_FOR_THEME" ? "Бұл тақырып бойынша ашық қателер жоқ." : "Жаттығуды бастау мүмкін болмады."
-  if (code === "NO_OPEN_MISTAKES_FOR_THEME") return "По этой теме нет открытых ошибок."
-  if (code === "NO_OPEN_MISTAKES_FOR_SUBJECT") return "По этому предмету нет открытых ошибок."
-  return code === "NETWORK" ? "Проверьте интернет и повторите попытку." : "Не удалось запустить тренировку."
-}
-
-function aiMessage(code: string, ui: "ru" | "kk") {
-  if (ui === "kk") return code === "AI_DAILY_LIMIT" ? "Бүгінгі AI лимиті аяқталды." : "AI-талдау жасау мүмкін болмады."
-  if (code === "AI_DAILY_LIMIT") return "Дневной лимит AI исчерпан."
-  if (code === "AI_BUSY") return "AI перегружен, попробуйте позже."
-  return "Не удалось выполнить AI-разбор."
+  return (
+    <Card style={styles.panel}>
+      <View style={styles.aiHead}>
+        <MaterialCommunityIcons name="brain" size={20} color={colors.accent} />
+        <Text style={[styles.h3, { color: colors.foreground }]}>{tr("AI-разбор", "AI-талдау")}</Text>
+      </View>
+      {isLoading ? <Skeleton height={80} /> : null}
+      {analysis ? (
+        <View style={styles.gap}>
+          <Text style={[styles.text, { color: colors.foreground }]}>{analysis.overview}</Text>
+          {analysis.weakZones.map((zone, i) => (
+            <View key={`${zone.title}:${i}`} style={[styles.zone, { borderColor: colors.border }]}>
+              <Text style={[styles.value, { color: colors.foreground }]}>{zone.title}</Text>
+              <Text style={[styles.text, { color: colors.mutedForeground }]}>{zone.rootCause}</Text>
+              {zone.recommendations.map((r, j) => (
+                <Text key={j} style={[styles.text, { color: colors.foreground }]}>
+                  • {r}
+                </Text>
+              ))}
+            </View>
+          ))}
+          <Text style={[styles.text, { color: colors.mutedForeground }]}>{analysis.motivation}</Text>
+          {analysis.stale ? (
+            <Text style={[styles.small, { color: colors.mutedForeground }]}>
+              {tr("Набор ошибок изменился — обновите разбор.", "Қателер жиынтығы өзгерді — талдауды жаңартыңыз.")}
+            </Text>
+          ) : null}
+        </View>
+      ) : !isLoading ? (
+        <Text style={[styles.text, { color: colors.mutedForeground }]}>
+          {tr("AI определит слабые темы и подготовит конкретный план.", "AI әлсіз тақырыптарды және нақты ұсыныстарды дайындайды.")}
+        </Text>
+      ) : null}
+      <View style={styles.row}>
+        <Button variant="outline" size="sm" disabled={busy} onPress={() => void run()}>
+          {busy ? "…" : analysis ? tr("Обновить разбор", "Талдауды жаңарту") : tr("Сделать AI-разбор", "AI-талдау жасау")}
+        </Button>
+        {analysis ? (
+          <Button size="sm" onPress={onTrain}>
+            {tr("Тренировать предмет", "Пәнді жаттықтыру")}
+          </Button>
+        ) : null}
+      </View>
+    </Card>
+  )
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 120, gap: 16 },
-  center: { flex: 1, minHeight: 320, alignItems: "center", justifyContent: "center", gap: 14, padding: 20 },
-  back: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", minHeight: 40 },
-  eyebrow: { fontSize: 12, textTransform: "uppercase", letterSpacing: .5, fontFamily: fonts.sansSemi },
-  h1: { fontSize: 29, fontFamily: fonts.sansSemi, marginTop: 4 },
-  metrics: { flexDirection: "row", gap: 10 },
-  metric: { flex: 1 },
-  metricValue: { fontSize: 30, fontFamily: fonts.sansSemi, marginTop: 8 },
-  sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  sectionTitle: { fontSize: 17, fontFamily: fonts.sansSemi },
-  aiBadge: { color: "#6d28d9", backgroundColor: "#ede9fe", paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, fontFamily: fonts.sansSemi },
-  themeList: { gap: 10, marginTop: 14 },
-  theme: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, padding: 13, gap: 10 },
-  themeTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  themeName: { flex: 1, fontSize: 14, fontFamily: fonts.sansSemi },
-  count: { overflow: "hidden", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, fontSize: 11 },
-  track: { height: 6, borderRadius: 3, overflow: "hidden" },
-  progress: { height: "100%", borderRadius: 3 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  action: { minHeight: 42, borderRadius: 10, paddingHorizontal: 14, justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, marginTop: 12 },
-  sliderWrap: { marginTop: 14 },
-  sliderLabel: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  premiumTitle: { color: "#78350f", fontSize: 16, fontFamily: fonts.sansSemi },
-  premiumText: { color: "#92400e", fontSize: 13, lineHeight: 20, marginTop: 6 },
-  analysis: { gap: 10, marginTop: 12 },
+  flex: { flex: 1, minWidth: 0, gap: 4 },
+  back: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, alignSelf: "flex-start" },
+  h1: { fontSize: 28, lineHeight: 34, letterSpacing: -0.5, fontFamily: fonts.sansSemi, marginTop: 4, marginBottom: 8 },
+  h2: { fontSize: 20, lineHeight: 26, fontFamily: fonts.sansSemi },
+  h3: { fontSize: 16, fontFamily: fonts.sansSemi },
+  text: { fontSize: 14, lineHeight: 21 },
+  small: { fontSize: 12, lineHeight: 18 },
+  value: { fontSize: 14, fontFamily: fonts.sansSemi },
+  big: { fontSize: 26, letterSpacing: -0.4, fontFamily: fonts.sansSemi },
+  metrics: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
+  metric: { flex: 1, padding: 16, gap: 4, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: "transparent" },
+  next: { padding: 18, gap: 10 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  panel: { padding: 16, gap: 10 },
+  gap: { gap: 10 },
+  topic: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  aiHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   zone: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, gap: 6 },
-  body: { fontSize: 13, lineHeight: 20 },
 })

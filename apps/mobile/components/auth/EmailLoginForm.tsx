@@ -1,7 +1,6 @@
 import { useState } from "react"
 import {
   Alert,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -15,17 +14,16 @@ import { useAuth } from "@/lib/api/auth-context"
 import type { AuthResponse } from "@/lib/api/types"
 import { useAppTheme } from "@/lib/theme/provider"
 import { fonts } from "@/lib/theme/fonts"
+import { useTr } from "@/lib/i18n/use-tr"
 import { t, useUiLocale } from "@/lib/i18n/ui"
 
 export function EmailLoginForm() {
   const { colors } = useAppTheme()
   const { locale: ui } = useUiLocale()
+  const tr = useTr()
   const { setSession } = useAuth()
-  const [mode, setMode] = useState<"login" | "register">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
   const [loading, setLoading] = useState(false)
 
   const submit = async () => {
@@ -41,16 +39,11 @@ export function EmailLoginForm() {
 
     setLoading(true)
     try {
-      const path = mode === "register" ? "/auth/register" : "/auth/login"
-      const body =
-        mode === "register"
-          ? { email: trimmed, password, firstName: firstName.trim() || undefined, lastName: lastName.trim() || undefined }
-          : { email: trimmed, password }
-
-      const data = await api<AuthResponse>(path, {
+      // Registration by email is closed on the server; this form signs in existing accounts.
+      const data = await api<AuthResponse>("/auth/login", {
         method: "POST",
         auth: false,
-        body,
+        body: { email: trimmed, password },
       })
       await setSession(data)
       router.replace("/dashboard")
@@ -64,26 +57,6 @@ export function EmailLoginForm() {
 
   return (
     <View style={styles.block}>
-      {mode === "register" && (
-        <>
-          <TextInput
-            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
-            placeholder={t("emailFirstName", ui)}
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="words"
-            value={firstName}
-            onChangeText={setFirstName}
-          />
-          <TextInput
-            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
-            placeholder={t("emailLastName", ui)}
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="words"
-            value={lastName}
-            onChangeText={setLastName}
-          />
-        </>
-      )}
       <TextInput
         style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
         placeholder="email@example.com"
@@ -103,23 +76,21 @@ export function EmailLoginForm() {
         onChangeText={setPassword}
       />
       <Button onPress={() => void submit()} disabled={loading}>
-        {loading
-          ? t("loading", ui)
-          : mode === "register"
-            ? t("registerBtn", ui)
-            : t("loginBtn", ui)}
+        {loading ? t("loading", ui) : t("loginBtn", ui)}
       </Button>
-      <Pressable onPress={() => setMode(mode === "login" ? "register" : "login")}>
-        <Text style={{ color: colors.accent, fontFamily: fonts.sansSemi, textAlign: "center" }}>
-          {mode === "login" ? t("noAccount", ui) : t("haveAccount", ui)}
-        </Text>
-      </Pressable>
+      <Text style={[styles.note, { color: colors.mutedForeground }]}>
+        {tr(
+          "Вход по email — для уже созданных аккаунтов. Новый аккаунт создаётся по телефону.",
+          "Email арқылы кіру — бұрыннан бар аккаунттар үшін. Жаңа аккаунт телефон арқылы құрылады.",
+        )}
+      </Text>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   block: { gap: 12 },
+  note: { fontSize: 13, lineHeight: 18 },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 10,

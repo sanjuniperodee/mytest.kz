@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { Button } from "@/components/ui/button"
+import { LogoMark } from "@/components/ui/logo-mark"
 import { Card } from "@/components/ui/card"
 import { api } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
@@ -45,9 +46,9 @@ const promoStyles = StyleSheet.create({
 
 function TrustBar({ colors }: { colors: ReturnType<typeof useAppTheme>["colors"] }) {
   const items = [
-    { value: "12 000+", label: "учеников" },
-    { value: "+15 баллов", label: "средний прирост" },
-    { value: "4.9", label: "рейтинг" },
+    { value: "140", label: "вопросов в тесте" },
+    { value: "5", label: "предметов ЕНТ" },
+    { value: "RU · KK", label: "два языка" },
   ]
   return (
     <View style={trustStyles.row}>
@@ -314,13 +315,7 @@ export default function LandingScreen() {
           {/* Footer */}
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <View style={[styles.footerMark, { backgroundColor: colors.foreground }]}>
-                <MaterialCommunityIcons
-                  name="star-four-points-small"
-                  size={14}
-                  color={colors.background}
-                />
-              </View>
+              <LogoMark size={22} />
               <Text style={[styles.footerBrand, { color: colors.foreground }]}>
                 mytest
               </Text>
@@ -408,13 +403,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: "center",
     gap: 8,
-  },
-  footerMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
   },
   footerBrand: {
     fontSize: 16,

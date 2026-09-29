@@ -144,11 +144,12 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
   const { width: winW } = useWindowDimensions()
   const { user } = useAuth()
   const { locale: ui } = useUiLocale()
-  const locale = ((user?.preferredLanguage as Locale) || "ru") as Locale
+  const { locale: uiLocale } = useUiLocale()
+  const locale = uiLocale as Locale
 
   const [selectedTemplate, setSelectedTemplate] = useState<TestTemplate | null>(null)
   const [language, setLanguage] = useState<"ru" | "kk">(
-    user?.preferredLanguage === "kk" ? "kk" : "ru",
+    uiLocale === "kk" ? "kk" : "ru",
   )
   const [entScope, setEntScope] = useState<EntScope>("full")
   const [profileSubjectIds, setProfileSubjectIds] = useState<string[]>([])
@@ -201,13 +202,19 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
     [entScope, mandatorySubjects],
   )
   const entProfilePairs = useMemo(
-    () => buildEntProfilePairOptions(profileSubjects),
-    [profileSubjects],
+    () => buildEntProfilePairOptions(profileSubjects, language),
+    [language, profileSubjects],
   )
   const selectedProfilePairKey = useMemo(
-    () => getSelectedEntProfilePairKey(profileSubjectIds, profileSubjects),
-    [profileSubjectIds, profileSubjects],
+    () => getSelectedEntProfilePairKey(profileSubjectIds, profileSubjects, language),
+    [language, profileSubjectIds, profileSubjects],
   )
+  // Some subject pairs exist only in one language: drop a pair the new language no longer offers.
+  useEffect(() => {
+    if (profileSubjectIds.length > 0 && profileSubjects.length > 0 && !selectedProfilePairKey) {
+      setProfileSubjectIds([])
+    }
+  }, [profileSubjectIds.length, profileSubjects.length, selectedProfilePairKey])
   const entTemplatesSorted = useMemo(
     () => [...(templates || [])].sort((a, b) => b.durationMins - a.durationMins),
     [templates],
@@ -338,7 +345,7 @@ export function ExamTypeDetailView({ examTypeId }: { examTypeId: string }) {
         ) : (
           <View style={styles.subjWrap}>
             {(subjects || []).map((s) => {
-              const closed = isENT && !isEntProfileSubjectAvailable(s)
+              const closed = isENT && !isEntProfileSubjectAvailable(s, language)
               return (
                 <SubjectPill
                   key={s.id}

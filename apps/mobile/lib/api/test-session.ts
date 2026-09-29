@@ -23,6 +23,10 @@ export interface FlatSessionQuestion {
   answerOptions: AnswerOption[]
   selectedIds: string[]
   isCorrect: boolean | null
+  earnedPoints: number
+  maxPoints: number
+  errorCount: number | null
+  reviewStatus: "correct" | "partial" | "incorrect" | "unanswered"
   explanation: unknown
   hasExplanation: boolean
   multiSelect: boolean
@@ -41,6 +45,8 @@ export interface ReviewSectionModel {
   correctCount: number
   totalCount: number
   score?: number
+  rawPoints?: number
+  maxPoints?: number
   questions: FlatSessionQuestion[]
 }
 
@@ -168,9 +174,10 @@ function entProfileMaxSelections(
   session: TestSession,
   section: SessionMetadataSection | null,
   indexInSection: number,
-  answerOptions: AnswerOption[],
 ): number | null {
-  if (session.metadata?.entScope !== "full") return null
+  if (session.metadata?.entScope !== "full" && session.metadata?.entScope !== "profile") {
+    return null
+  }
   if (section?.isMandatory !== false) return null
   const from = section.profileHeavyFrom ?? 31
   const rel0 = indexInSection + 1 - from
@@ -201,7 +208,19 @@ export function flattenSessionQuestions(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
     )
 
-    const maxSelections = entProfileMaxSelections(session, section, indexInSection, options)
+    const maxSelections = entProfileMaxSelections(session, section, indexInSection)
+    const maxPoints = Math.max(0, answer.maxPoints ?? 1)
+    const earnedPoints = Math.max(
+      0,
+      Math.min(maxPoints, answer.earnedPoints ?? (answer.isCorrect === true ? maxPoints : 0)),
+    )
+    const reviewStatus =
+      answer.reviewStatus ??
+      (answer.selectedIds?.length
+        ? answer.isCorrect === true
+          ? "correct"
+          : "incorrect"
+        : "unanswered")
 
     return {
       id: question.id,
@@ -213,6 +232,10 @@ export function flattenSessionQuestions(
       answerOptions: options,
       selectedIds: answer.selectedIds || [],
       isCorrect: answer.isCorrect,
+      earnedPoints,
+      maxPoints,
+      errorCount: answer.errorCount ?? null,
+      reviewStatus,
       explanation: question.explanation,
       hasExplanation: question.explanation != null,
       multiSelect: (maxSelections ?? 0) > 1 || isMultiSelect(question.type, options),
@@ -242,6 +265,8 @@ export function buildReviewSections(
   const scores = session.sectionScores || session.sectionsScores || []
 
   if (sections.length === 0) {
+    const rawPoints = questions.reduce((sum, question) => sum + question.earnedPoints, 0)
+    const maxPoints = questions.reduce((sum, question) => sum + question.maxPoints, 0)
     return [
       {
         id: "all",
@@ -249,6 +274,9 @@ export function buildReviewSections(
         subjectName: "Вопросы",
         correctCount: questions.filter((q) => q.isCorrect === true).length,
         totalCount: questions.length,
+        score: maxPoints > 0 ? Math.round((rawPoints / maxPoints) * 100 * 100) / 100 : undefined,
+        rawPoints,
+        maxPoints,
         questions,
       },
     ]
@@ -260,6 +288,19 @@ export function buildReviewSections(
     const correctCount =
       sectionScore?.correctCount ?? sectionQuestions.filter((q) => q.isCorrect === true).length
     const totalCount = sectionScore?.totalCount ?? sectionQuestions.length
+    const rawPoints =
+      sectionScore?.rawPoints ??
+      sectionQuestions.reduce((sum, question) => sum + question.earnedPoints, 0)
+    const maxPoints =
+      sectionScore?.maxPoints ??
+      sectionQuestions.reduce((sum, question) => sum + question.maxPoints, 0)
+    const score =
+      sectionScore?.score ??
+      (maxPoints > 0
+        ? Math.round((rawPoints / maxPoints) * 100 * 100) / 100
+        : totalCount > 0
+          ? Math.round((correctCount / totalCount) * 100 * 100) / 100
+          : 0)
     const title =
       localize(section.subjectName, locale) || section.subjectSlug || `Раздел ${index + 1}`
 
@@ -270,7 +311,9 @@ export function buildReviewSections(
       subjectSlug: section.subjectSlug,
       correctCount,
       totalCount,
-      score: sectionScore?.score,
+      score,
+      rawPoints,
+      maxPoints,
       questions: sectionQuestions,
     }
   })

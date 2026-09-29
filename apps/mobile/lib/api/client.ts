@@ -1,4 +1,5 @@
 import { requireApiOrigin, getApiOrigin } from "@/lib/config"
+import { getRequestLocale } from "./locale"
 import {
   Scope,
   clearTokens,
@@ -72,13 +73,19 @@ async function refresh(scope: Scope): Promise<boolean> {
   return refreshInFlight
 }
 
+/** Exchanges the stored refresh token for a new access token; false when signed out. */
+export const refreshSession = refresh
+
 export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
   const scope: Scope = opts.scope ?? "user"
   const url = buildUrl(path, opts.query)
   const useAuth = opts.auth ?? Boolean(getAccessToken(scope))
 
   const doFetch = async (): Promise<Response> => {
-    const headers: Record<string, string> = { ...(opts.headers || {}) }
+    const headers: Record<string, string> = {
+      "Accept-Language": getRequestLocale(),
+      ...(opts.headers || {}),
+    }
     let body: BodyInit | undefined
     if (opts.formData) {
       body = opts.formData
