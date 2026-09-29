@@ -1,22 +1,22 @@
 {
-  "name": "MyTest — пробный ЕНТ онлайн",
-  "short_name": "MyTest",
+  "name": "mytest — пробный ЕНТ онлайн",
+  "short_name": "mytest",
   "description": "Пробный ЕНТ онлайн: полный формат 120 вопросов, таймер, аналитика и Premium-разбор ошибок.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#05070d",
-  "theme_color": "#0a0e18",
+  "background_color": "#F7F6F3",
+  "theme_color": "#2A2826",
   "lang": "ru",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/favicon.png",
+      "src": "/icon-maskable-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

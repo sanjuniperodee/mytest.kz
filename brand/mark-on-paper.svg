@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <rect width="64" height="64" rx="15" fill="#F7F6F3"/>
+  <defs>
+    <mask id="m-cut" maskUnits="userSpaceOnUse" x="-32" y="-32" width="128" height="128">
+      <rect x="-32" y="-32" width="128" height="128" fill="#fff"/>
+      <circle cx="47.5" cy="17.5" r="11.6" fill="#000"/>
+    </mask>
+  </defs>
+  <g transform="translate(32 32) scale(1) translate(-32.75 -30)">
+    <path d="M12.5 48V30.5a7.75 7.75 0 0 1 15.5 0V48M28 30.5a7.75 7.75 0 0 1 15.5 0V48" stroke="#2A2826" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" mask="url(#m-cut)"/>
+    <circle cx="47.5" cy="17.5" r="8.6" fill="#E06050"/>
+    <path d="M43.5 17.9l2.9 3 5.4-6.4" stroke="#F7F6F3" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

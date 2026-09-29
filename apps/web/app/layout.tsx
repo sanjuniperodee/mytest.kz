@@ -169,9 +169,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", type: "image/png", sizes: "512x512" },
     ],
-    apple: "/icon.svg",
+    apple: { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
     shortcut: "/favicon.svg",
   },
   openGraph: {
@@ -184,7 +184,7 @@ export const metadata: Metadata = {
       "1 бесплатный пробный ЕНТ без карты. 140 вопросов, реальный формат, разбор ошибок после сдачи. Подготовка к ЕНТ 2027 онлайн.",
     images: [
       {
-        url: "/og-cover.svg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "mytest — подготовка к ЕНТ",
@@ -198,7 +198,7 @@ export const metadata: Metadata = {
       "Сдавай пробные ЕНТ в реальном формате. Мгновенный балл, Premium-разбор ошибок и объяснения к каждому вопросу.",
     site: "@mytestkz",
     creator: "@mytestkz",
-    images: ["/og-cover.svg"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
