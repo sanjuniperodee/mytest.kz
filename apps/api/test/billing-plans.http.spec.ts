@@ -14,10 +14,10 @@ describe('billing plan price contract', () => {
         ]),
       ),
     ).toEqual({
-      starter: { priceKzt: 750, originalPriceKzt: undefined, attemptsLimit: 1 },
-      basic: { priceKzt: 1800, originalPriceKzt: 2250, attemptsLimit: 3 },
-      pro: { priceKzt: 2990, originalPriceKzt: 3750, attemptsLimit: 5 },
-      premium: { priceKzt: 5890, originalPriceKzt: 9000, attemptsLimit: null },
+      starter: { priceKzt: 490, originalPriceKzt: undefined, attemptsLimit: 1 },
+      basic: { priceKzt: 900, originalPriceKzt: 1470, attemptsLimit: 3 },
+      pro: { priceKzt: 1490, originalPriceKzt: 2450, attemptsLimit: 5 },
+      premium: { priceKzt: 2990, originalPriceKzt: 5890, attemptsLimit: null },
     });
   });
 });

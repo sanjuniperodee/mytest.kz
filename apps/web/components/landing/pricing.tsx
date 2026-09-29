@@ -21,7 +21,7 @@ type Plan = {
 const plans: Plan[] = [
   {
     name: "Разовый",
-    price: "750",
+    price: "490",
     period: "7 дней · 1 попытка",
     description: "Один полный пробный ЕНТ с Premium-разбором.",
     features: [
@@ -35,8 +35,8 @@ const plans: Plan[] = [
   },
   {
     name: "3 пробных",
-    oldPrice: "2 250",
-    price: "1 800",
+    oldPrice: "1 470",
+    price: "900",
     period: "30 дней · 3 попытки",
     description: "Три полные попытки ЕНТ с Premium-разбором.",
     features: [
@@ -47,12 +47,12 @@ const plans: Plan[] = [
     ],
     cta: "Взять 3 пробных",
     href: "/login",
-    discount: "−20%",
+    discount: "−39%",
   },
   {
     name: "5 пробных",
-    oldPrice: "3 750",
-    price: "2 990",
+    oldPrice: "2 450",
+    price: "1 490",
     period: "30 дней · 5 попыток",
     description: "Пять полных попыток ЕНТ с Premium-разбором.",
     features: [
@@ -65,13 +65,13 @@ const plans: Plan[] = [
     href: "/login",
     badge: "Выгодно",
     badgeTone: "muted",
-    discount: "−20%",
+    discount: "−39%",
   },
   {
     name: "Месяц без лимита",
-    oldPrice: "9 000",
-    price: "5 890",
-    perDay: "≈ 196 ₸ в день",
+    oldPrice: "5 890",
+    price: "2 990",
+    perDay: "≈ 100 ₸ в день",
     period: "30 дней · безлимит",
     description: "Оптимально, чтобы реально подтянуть слабые темы.",
     features: [
@@ -86,7 +86,7 @@ const plans: Plan[] = [
     highlighted: true,
     badge: "Популярный",
     badgeTone: "accent",
-    discount: "−35%",
+    discount: "−49%",
   },
 ]
 
