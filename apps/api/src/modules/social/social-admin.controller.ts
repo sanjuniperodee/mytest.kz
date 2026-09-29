@@ -67,6 +67,14 @@ export class SocialAdminController {
   @Delete("reports/:id") dismiss(@Param("id", ParseUUIDPipe) id: string) {
     return this.service.dismiss(id);
   }
+  @Get("message-reports") messageReports() {
+    return this.service.messageReports();
+  }
+  @Delete("message-reports/:id") dismissMessageReport(
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.service.dismissMessageReport(id);
+  }
   @Delete("posts/:id") remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.service.remove(id);
   }

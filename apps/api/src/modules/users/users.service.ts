@@ -10,6 +10,10 @@ import { PrismaService } from "../../database/prisma.service";
 import { TelegramBotService } from "../telegram/telegram-bot.service";
 import { BILLING_PLANS, PLAN_BY_ID } from "../billing/billing.config";
 import { ENT_CONFIG } from "@bilimland/shared";
+import {
+  BLOCKED_CONTENT_MESSAGE,
+  containsBlockedContent,
+} from "../social/domain/content-filter";
 import { AccessService } from "../subscriptions/access.service";
 
 type ChannelMembershipStatus =
@@ -484,6 +488,9 @@ export class UsersService {
     if (data.preferredLanguage) {
       updateData.preferredLanguage = data.preferredLanguage;
     }
+    // Names are public in the community: apply the same filter as posts and messages.
+    if (containsBlockedContent(`${data.firstName ?? ""} ${data.lastName ?? ""}`))
+      throw new BadRequestException(BLOCKED_CONTENT_MESSAGE);
     if (data.firstName !== undefined)
       updateData.firstName = data.firstName.trim();
     if (data.lastName !== undefined) updateData.lastName = data.lastName.trim();

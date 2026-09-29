@@ -7,6 +7,10 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { SocialAccessService } from "./social-access.service";
 import { ChatAccessService } from "./chat-access.service";
+import {
+  BLOCKED_CONTENT_MESSAGE,
+  containsBlockedContent,
+} from "./domain/content-filter";
 import { MessageDto } from "./social.dto";
 import { ChatRepository } from "./infrastructure/chat.repository";
 import { person, order, page } from "./social-selects";
@@ -123,6 +127,22 @@ export class ChatsService {
     }));
   }
 
+  async reportMessage(user: string, id: string, messageId: string, reason: string) {
+    await this.chatAccess.access(user, id);
+    const message = await this.db.chatMessage.findFirst({
+      where: { id: messageId, roomId: id, deletedAt: null },
+      select: { id: true, authorId: true },
+    });
+    if (!message) throw new NotFoundException("Сообщение недоступно");
+    if (message.authorId === user)
+      throw new BadRequestException("Нельзя пожаловаться на своё сообщение");
+    await this.db.chatMessageReport.upsert({
+      where: { userId_messageId: { userId: user, messageId } },
+      create: { userId: user, messageId, reason },
+      update: { reason },
+    });
+    return { ok: true };
+  }
   async unread(user: string) {
     const hidden = await this.socialAccess.hidden(user);
     return { count: await this.repository.unreadTotal(user, hidden) };
@@ -173,6 +193,8 @@ export class ChatsService {
     await this.chatAccess.access(user, id, this.db, true);
     if (!data.body && !data.attachmentId)
       throw new BadRequestException("Напишите сообщение или прикрепите файл");
+    if (containsBlockedContent(data.body))
+      throw new BadRequestException(BLOCKED_CONTENT_MESSAGE);
     const existing = await this.db.chatMessage.findUnique({
       where: { authorId_clientId: { authorId: user, clientId: data.clientId } },
     });

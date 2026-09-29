@@ -12,6 +12,10 @@ import { PrismaService } from "../../database/prisma.service";
 import { REDIS_CLIENT } from "../../database/redis.module";
 import { SocialAccessService } from "./social-access.service";
 import { ChatAccessService } from "./chat-access.service";
+import {
+  BLOCKED_CONTENT_MESSAGE,
+  containsBlockedContent,
+} from "./domain/content-filter";
 import { FeedDto, MessageDto, PeopleDto, PostDto } from "./social.dto";
 import { person, order, page } from "./social-selects";
 @Injectable()
@@ -78,6 +82,8 @@ export class PostsService {
     return post;
   }
   async create(user: string, data: PostDto) {
+    if (containsBlockedContent(data.body))
+      throw new BadRequestException(BLOCKED_CONTENT_MESSAGE);
     if (data.parentId) await this.post(user, data.parentId);
     let groupInviteToken: string | undefined;
     if (data.groupInviteId) {

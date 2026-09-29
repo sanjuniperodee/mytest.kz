@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef } from "react";
 import { ArrowLeft, Globe2, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/api/auth-context";
+import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +20,7 @@ import type { Room } from "./chat-types";
 import { useConversation } from "./use-conversation";
 import { GroupSettings } from "./groups";
 import { MediaComposer, MessageMedia } from "./media";
-import { ArrowDown, Trash2, Users } from "lucide-react";
+import { ArrowDown, Flag, Trash2, Users } from "lucide-react";
 export function Conversation({
   id,
   room,
@@ -242,6 +243,32 @@ export function Conversation({
                     {m.body}
                   </p>
                   {m.attachment && <MessageMedia file={m.attachment} />}
+                  {!mine && (
+                    <button
+                      className="mt-1 mr-1 inline-flex min-h-8 min-w-8 items-center justify-center opacity-60 hover:opacity-100"
+                      aria-label={t("Пожаловаться на сообщение", "Хабарламаға шағымдану")}
+                      onClick={async () => {
+                        const reason = window.prompt(
+                          t("Что не так с сообщением?", "Хабарламада не дұрыс емес?"),
+                        );
+                        if (!reason?.trim()) return;
+                        try {
+                          await api(
+                            `/social/rooms/${id}/messages/${m.id}/report`,
+                            {
+                              method: "POST",
+                              body: { reason: reason.trim().slice(0, 500) },
+                            },
+                          );
+                          toast.info(t("Жалоба отправлена", "Шағым жіберілді"));
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Error");
+                        }
+                      }}
+                    >
+                      <Flag className="size-3" />
+                    </button>
+                  )}
                   {(mine || (myMember && myMember.role !== "member")) && (
                     <button
                       className="mt-1 inline-flex min-h-8 min-w-8 items-center justify-center opacity-60 hover:opacity-100"

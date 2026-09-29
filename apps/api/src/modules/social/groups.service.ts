@@ -9,6 +9,10 @@ import { randomUUID } from "crypto";
 import { PrismaService } from "../../database/prisma.service";
 import { ChatAccessService } from "./chat-access.service";
 import { canManageMember, GROUP_MEMBER_LIMIT } from "./domain/chat-policy";
+import {
+  BLOCKED_CONTENT_MESSAGE,
+  containsBlockedContent,
+} from "./domain/content-filter";
 import { GroupDto } from "./social.dto";
 
 export const chatPerson = {
@@ -24,6 +28,8 @@ export class GroupsService {
     private readonly chatAccess: ChatAccessService,
   ) {}
   async create(user: string, dto: GroupDto) {
+    if (containsBlockedContent(`${dto.title} ${dto.description ?? ""}`))
+      throw new BadRequestException(BLOCKED_CONTENT_MESSAGE);
     const room = await this.db.chatRoom.create({
       data: {
         key: `group:${randomUUID()}`,
@@ -100,6 +106,11 @@ export class GroupsService {
     action: "settings" | "rotate" | "archive",
     dto?: GroupDto,
   ) {
+    if (
+      action === "settings" &&
+      containsBlockedContent(`${dto?.title ?? ""} ${dto?.description ?? ""}`)
+    )
+      throw new BadRequestException(BLOCKED_CONTENT_MESSAGE);
     return this.chatAccess.locked(id, async (tx) => {
       const { room, member } = await this.chatAccess.access(user, id, tx);
       if (

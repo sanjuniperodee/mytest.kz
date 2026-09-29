@@ -95,6 +95,7 @@ export class ModerationService {
         where: { id: message, roomId: id },
         data: { body: "", deletedAt: new Date() },
       }),
+      this.db.chatMessageReport.deleteMany({ where: { messageId: message } }),
       this.db.chatModerationAudit.create({
         data: {
           actorId: user,
@@ -142,6 +143,31 @@ export class ModerationService {
         },
       },
     });
+  }
+
+  messageReports() {
+    return this.db.chatMessageReport.findMany({
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 100,
+      include: {
+        message: {
+          select: {
+            id: true,
+            roomId: true,
+            body: true,
+            deletedAt: true,
+            attachment: { select: { name: true, mime: true } },
+            author: { select: { id: true, firstName: true, lastName: true } },
+            room: { select: { id: true, title: true, kind: true } },
+          },
+        },
+      },
+    });
+  }
+
+  async dismissMessageReport(id: string) {
+    await this.db.chatMessageReport.deleteMany({ where: { id } });
+    return { ok: true };
   }
 
   async dismiss(id: string) {
