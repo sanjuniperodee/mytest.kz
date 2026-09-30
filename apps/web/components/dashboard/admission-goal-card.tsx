@@ -191,7 +191,7 @@ function ScoreBar({
         aria-label="Баллы до цели поступления"
       >
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-foreground"
+          className="bar-w absolute inset-y-0 left-0 rounded-full bg-foreground"
           style={{ width: `${currentPct}%` }}
         />
         {extensionWidth > 0 && (

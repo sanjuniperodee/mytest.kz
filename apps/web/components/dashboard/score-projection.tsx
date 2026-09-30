@@ -91,7 +91,7 @@ export function ScoreProjection({ impact }: { impact: EntScoreImpact | undefined
         {/* Bar: baseline (solid) + recoverable gain (striped) + thresholds */}
         <div className="relative h-3 w-full rounded-full bg-secondary">
           <div
-            className="absolute inset-y-0 left-0 rounded-l-full bg-foreground"
+            className="bar-w absolute inset-y-0 left-0 rounded-l-full bg-foreground"
             style={{ width: pct(lastScore) }}
           />
           {recoverable > 0 && (

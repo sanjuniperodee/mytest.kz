@@ -11,6 +11,7 @@ import { formatBestPoints } from "@/lib/dashboard/format"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CountUp } from "@/components/motion/count-up"
 import { AdmissionGoalCard } from "@/components/dashboard/admission-goal-card"
 import { SessionStatusBadge } from "@/components/dashboard/data-display"
 import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
@@ -78,7 +79,7 @@ export default function DashboardHomePage() {
   const today = !access ? "—" : finiteLimits.length === 0 ? t("Без лимита", "Шектеусіз")
     : finiteLimits.some(limit => limit.remaining == null) ? "—" : String(Math.max(0, Math.min(...finiteLimits.map(limit => limit.remaining!))))
 
-  return <div className="flex min-w-0 flex-col gap-6">
+  return <div className="stagger flex min-w-0 flex-col gap-6">
     <header className="flex flex-wrap items-start justify-between gap-3" data-no-translate>
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("Моя подготовка", "Менің дайындығым")}</p>
@@ -112,11 +113,11 @@ export default function DashboardHomePage() {
     </section>
 
     <section aria-label={t("Результаты подготовки", "Дайындық нәтижелері")} className="grid grid-cols-1 divide-y divide-border rounded-xl border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0" data-no-translate>
-      {[
-        [t("Завершено пробных", "Аяқталған сынақтар"), completed ?? "—"],
+      {([
+        [t("Завершено пробных", "Аяқталған сынақтар"), completed != null ? <CountUp value={completed} /> : "—"],
         [t("Лучший результат ЕНТ", "ҰБТ-дағы үздік нәтиже"), entStats ? formatBestPoints(entStats) : "—"],
-        [t("Средний результат всех тестов", "Барлық тесттердің орташа нәтижесі"), completed && stats.data ? `${Math.round(stats.data.averageScore)}%` : "—"],
-      ].map(([label, value]) => <div key={label} className="flex items-center justify-between gap-3 p-4 sm:block sm:p-5"><p className="text-xs text-muted-foreground">{label}</p>{stats.isLoading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="text-xl font-semibold tabular-nums sm:mt-1 sm:text-2xl">{value}</p>}</div>)}
+        [t("Средний результат всех тестов", "Барлық тесттердің орташа нәтижесі"), completed && stats.data ? <CountUp value={stats.data.averageScore} format={n => `${n}%`} /> : "—"],
+      ] as [string, React.ReactNode][]).map(([label, value]) => <div key={label} className="flex items-center justify-between gap-3 p-4 sm:block sm:p-5"><p className="text-xs text-muted-foreground">{label}</p>{stats.isLoading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="text-xl font-semibold tabular-nums sm:mt-1 sm:text-2xl">{value}</p>}</div>)}
     </section>
 
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -146,7 +147,7 @@ export default function DashboardHomePage() {
         {href:"/dashboard/stats",Icon:TrendingUp,title:t("Мой прогресс", "Менің жетістігім"),text:t("Динамика результатов по предметам", "Пәндер бойынша нәтижелер динамикасы")},
         {href:"/dashboard/community",Icon:MessageCircle,title:t("Сообщество", "Қауымдастық"),text:t("Обсуждения и помощь с подготовкой", "Талқылаулар мен дайындыққа көмек")},
         {href:"/dashboard/leaderboard",Icon:Trophy,title:t("Лидерборд", "Көшбасшылар"),text:t("Результаты других участников", "Басқа қатысушылардың нәтижелері")},
-      ].map(({href,Icon,title,text}) => <Link key={href} href={href} className="flex min-w-0 items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/50"><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><p className="text-sm font-medium">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p></div></Link>)}
+      ].map(({href,Icon,title,text}) => <Link key={href} href={href} className="lift flex min-w-0 items-start gap-3 rounded-xl border border-border bg-card p-4 hover:bg-muted/50"><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><p className="text-sm font-medium">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p></div></Link>)}
     </nav>
   </div>
 }

@@ -2,6 +2,7 @@
 
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { useChartAnimation } from "@/lib/motion"
 
 export interface EntProgressPoint {
   attempt: number
@@ -9,6 +10,7 @@ export interface EntProgressPoint {
 }
 
 export function EntProgressLineChart({ data }: { data: EntProgressPoint[] }) {
+  const anim = useChartAnimation()
   return (
     <ChartContainer
       config={{
@@ -44,6 +46,7 @@ export function EntProgressLineChart({ data }: { data: EntProgressPoint[] }) {
           strokeWidth={3}
           dot={{ r: 4 }}
           activeDot={{ r: 5 }}
+          {...anim}
         />
       </LineChart>
     </ChartContainer>

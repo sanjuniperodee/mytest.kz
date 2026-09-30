@@ -42,7 +42,7 @@ function LoginContent() {
 
   return (
     <div className="grid w-full max-w-5xl grid-cols-1 gap-8 md:grid-cols-[0.95fr_1.05fr] md:items-center lg:gap-14">
-      <div className="flex flex-col gap-4 md:pr-4">
+      <div className="stagger flex flex-col gap-4 md:pr-4">
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold text-accent">
           <Gift className="size-3.5" />
           1 полный пробный бесплатно · без карты
@@ -99,7 +99,7 @@ function LoginContent() {
         </ul>
       </div>
 
-      <Card className="w-full overflow-hidden border-border/80 shadow-[0_30px_90px_-45px_oklch(0.18_0.012_60_/_0.4)]">
+      <Card className="enter w-full [--enter-delay:120ms] overflow-hidden border-border/80 shadow-[0_30px_90px_-45px_oklch(0.18_0.012_60_/_0.4)]">
         <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary/45 px-5 py-3 text-xs sm:px-6">
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
             <Sparkles className="size-3.5 text-accent" />

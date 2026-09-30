@@ -1,5 +1,8 @@
 "use client"
 
+import { Reveal } from "@/components/motion/reveal"
+import { CountUp } from "@/components/motion/count-up"
+
 import { useMemo, useRef, useState } from "react"
 import { ArrowRight, Check, Gauge, Sparkles, Target } from "lucide-react"
 import { recordPublicFunnelEvent } from "@/lib/api/analytics"
@@ -93,7 +96,7 @@ export function Diagnostic() {
     <section id="diagnostic" className="border-b border-border/60 bg-foreground text-background">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
-          <div className="lg:sticky lg:top-28">
+          <Reveal className="lg:sticky lg:top-28">
             <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
               <Sparkles className="size-4" />
               Бесплатная диагностика · 60 секунд
@@ -110,18 +113,18 @@ export function Diagnostic() {
             <div className="mt-8 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-background/10 bg-background/[0.06] p-4">
                 <Gauge className="size-5 text-accent" />
-                <div className="mt-3 text-2xl font-semibold tabular-nums">{gap}</div>
+                <div className="mt-3 text-2xl font-semibold tabular-nums"><CountUp value={gap} animateOnMount={false} duration={500} /></div>
                 <div className="mt-1 text-xs text-background/55">баллов до цели</div>
               </div>
               <div className="rounded-2xl border border-background/10 bg-background/[0.06] p-4">
                 <Target className="size-5 text-accent" />
-                <div className="mt-3 text-2xl font-semibold tabular-nums">{targetScore}</div>
+                <div className="mt-3 text-2xl font-semibold tabular-nums"><CountUp value={targetScore} animateOnMount={false} duration={500} /></div>
                 <div className="mt-1 text-xs text-background/55">твоя цель</div>
               </div>
             </div>
-          </div>
+          </Reveal>
 
-          <div className="overflow-hidden rounded-3xl border border-background/12 bg-background text-foreground shadow-[0_40px_100px_-40px_oklch(0_0_0_/_0.65)]">
+          <Reveal delay={90} className="overflow-hidden rounded-3xl border border-background/12 bg-background text-foreground shadow-[0_40px_100px_-40px_oklch(0_0_0_/_0.65)]">
             <div className="border-b border-border px-5 py-4 sm:px-8">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -291,7 +294,7 @@ export function Diagnostic() {
                       aria-valuenow={goalProgress}
                     >
                       <div
-                        className="h-full rounded-full bg-accent transition-[width] duration-300"
+                        className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
                         style={{ width: `${goalProgress}%` }}
                       />
                     </div>
@@ -343,7 +346,7 @@ export function Diagnostic() {
                 </div>
               )}
             </div>
-          </div>
+          </Reveal>
         </div>
       </div>
     </section>

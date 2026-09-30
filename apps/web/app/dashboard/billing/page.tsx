@@ -392,7 +392,7 @@ export default function BillingPage() {
             ) : (
                 <div
                     className={cn(
-                        "grid gap-4 md:grid-cols-2",
+                        "stagger grid gap-4 md:grid-cols-2",
                         sorted.length >= 4 ? "xl:grid-cols-4" : "lg:grid-cols-3",
                     )}
                 >

@@ -158,7 +158,7 @@ export default function LeaderboardPage() {
   const rest = items.slice(3)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="stagger flex flex-col gap-6">
       <PageHeader
         eyebrow="Соревнование"
         eyebrowIcon={Sparkles}
@@ -196,7 +196,7 @@ export default function LeaderboardPage() {
 
       {/* Podium */}
       {!isLoading && podium.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="stagger grid gap-3 sm:grid-cols-3">
           {[1, 0, 2].map((order) => {
             const entry = podium[order]
             if (!entry) return <div key={order} />
@@ -242,7 +242,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
           ) : (
-            <ul className="flex flex-col">
+            <ul className="stagger flex flex-col">
               {rest.map((entry) => (
                 <LeaderRow
                   key={entry.userId}

@@ -117,6 +117,63 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+:root {
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ── Motion system ───────────────────────────────────────────────────────────
+   Small, quick, one-shot animations. Everything here is transform/opacity only
+   (no layout shift) and collapses to nothing under prefers-reduced-motion
+   (see the media query below and components/motion/*). */
+@theme {
+  --animate-rise: rise 420ms var(--ease-out-soft) backwards;
+  --animate-fade: fade 260ms ease-out backwards;
+  --animate-page: fade 220ms ease-out backwards;
+  --animate-pop: pop 320ms var(--ease-spring) backwards;
+  --animate-msg: msg-in 220ms var(--ease-out-soft) backwards;
+  --animate-grow-x: grow-x 900ms var(--ease-out-soft) backwards;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+}
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes grow-w {
+  from {
+    width: 0;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -146,9 +203,31 @@
   }
 }
 
+/* Theme switch: briefly cross-fade colours instead of snapping (added by <ThemeToggle>). */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition:
+      background-color 220ms ease,
+      border-color 220ms ease,
+      color 220ms ease,
+      fill 220ms ease,
+      stroke 220ms ease !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .skeleton-shimmer::after {
+    display: none;
   }
   *,
   *::before,
@@ -161,6 +240,112 @@
 }
 
 @layer utilities {
+  /* Scroll reveal — driven by <Reveal> (components/motion/reveal.tsx). Only elements that
+     start below the fold get data-reveal="hidden", so above-the-fold content and no-JS
+     renders are never hidden. */
+  [data-reveal='hidden'] {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  [data-reveal='shown'] {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 640ms var(--ease-out-soft) var(--reveal-delay, 0ms),
+      transform 640ms var(--ease-out-soft) var(--reveal-delay, 0ms);
+  }
+
+  /* Staggered entrance for the direct children of a list/grid, on mount. Items past the
+     ninth (e.g. paginated feed appends) enter without delay so they never lag behind. */
+  .stagger > * {
+    animation: rise 420ms var(--ease-out-soft) backwards;
+    animation-delay: calc(var(--stagger-base, 0ms) + var(--i, 0) * 55ms);
+  }
+  .stagger > :nth-child(2) { --i: 1; }
+  .stagger > :nth-child(3) { --i: 2; }
+  .stagger > :nth-child(4) { --i: 3; }
+  .stagger > :nth-child(5) { --i: 4; }
+  .stagger > :nth-child(6) { --i: 5; }
+  .stagger > :nth-child(7) { --i: 6; }
+  .stagger > :nth-child(8) { --i: 7; }
+  .stagger > :nth-child(n + 9) { --i: 8; }
+  .stagger > :nth-child(n + 12) { --i: 0; }
+
+  /* Bars that grow when their <Reveal> ancestor scrolls into view. --bar-i staggers siblings. */
+  .bar-x {
+    transform-origin: left;
+  }
+  .bar-y {
+    transform-origin: bottom;
+  }
+  [data-reveal='hidden'] .bar-x {
+    transform: scaleX(0);
+  }
+  [data-reveal='hidden'] .bar-y {
+    transform: scaleY(0);
+  }
+  [data-reveal='shown'] .bar-x,
+  [data-reveal='shown'] .bar-y {
+    transform: none;
+    transition: transform 900ms var(--ease-out-soft)
+      calc(var(--reveal-delay, 0ms) + 250ms + var(--bar-i, 0) * 70ms);
+  }
+
+  /* Hero-style entrance: apply .enter and set --enter-delay (ms) inline or via utility. */
+  .enter {
+    animation: rise 560ms var(--ease-out-soft) backwards;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  /* Interactive surfaces: clickable cards lift slightly, buttons/links press in. */
+  .lift {
+    transition:
+      transform 220ms var(--ease-out-soft),
+      box-shadow 220ms var(--ease-out-soft),
+      background-color 180ms ease,
+      border-color 180ms ease;
+  }
+  @media (hover: hover) {
+    .lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px -18px oklch(0.18 0.012 60 / 0.35);
+    }
+  }
+  .lift:active {
+    transform: translateY(0) scale(0.995);
+  }
+  .press {
+    transition: transform 140ms var(--ease-out-soft);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* Width-driven bars (dashboards): grow in on mount, glide when the value changes. */
+  .bar-w {
+    animation: grow-w 800ms var(--ease-out-soft) backwards;
+    transition: width 600ms var(--ease-out-soft);
+  }
+
+  /* Skeleton shimmer (see components/ui/skeleton.tsx) */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--foreground) 7%, transparent),
+      transparent
+    );
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
   .grain {
     background-image: radial-gradient(
         circle at 1px 1px,

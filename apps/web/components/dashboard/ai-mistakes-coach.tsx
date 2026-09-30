@@ -53,6 +53,7 @@ import { QuestionMedia } from "@/components/exam/question-media"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { cn } from "@/lib/utils"
+import { useChartAnimation } from "@/lib/motion"
 import type {
   AiMistakeExplanation,
   AiSeverity,
@@ -873,7 +874,7 @@ function TopicLessonDialog({
                 <p className="font-medium text-foreground">Прогресс урока</p>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
                   <div
-                    className="h-full rounded-full bg-emerald-600 transition-all"
+                    className="bar-w h-full rounded-full bg-emerald-600"
                     style={{ width: `${Math.max(12, ((tabs.findIndex((tab) => tab.id === currentTab) + 1) / Math.max(tabs.length, 1)) * 100)}%` }}
                   />
                 </div>
@@ -1078,6 +1079,7 @@ function LessonVisualizationView({
 }: {
   visual: AiTopicLesson["visualizations"][number]
 }) {
+  const anim = useChartAnimation()
   if (visual.type === "table") {
     return (
       <div className="overflow-hidden rounded-lg border border-border">
@@ -1129,7 +1131,7 @@ function LessonVisualizationView({
             <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} />
             <YAxis tickLine={false} axisLine={false} width={32} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Line type="monotone" dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot />
+            <Line type="monotone" dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot {...anim} />
           </LineChart>
         ) : (
           <BarChart data={visual.data} margin={{ left: 8, right: 12, top: 12, bottom: 8 }}>
@@ -1137,7 +1139,7 @@ function LessonVisualizationView({
             <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} />
             <YAxis tickLine={false} axisLine={false} width={32} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} {...anim} />
           </BarChart>
         )}
       </ChartContainer>

@@ -80,7 +80,7 @@ export function ProfileView({ id }: { id: string }) {
   const [section, setSection] = useState<Section>("posts");
 
   return (
-    <div className="flex min-w-0 flex-col gap-6" data-no-translate>
+    <div className="stagger flex min-w-0 flex-col gap-6" data-no-translate>
       {!isOwn && (
         <Link
           href="/dashboard/community/people"

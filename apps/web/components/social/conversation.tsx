@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Globe2, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/api/auth-context";
@@ -61,6 +61,13 @@ export function Conversation({
     jumpToLatest,
   } = useConversation(id, onRead);
   const input = useRef<HTMLTextAreaElement>(null);
+  // Only messages that arrive after the history has painted get an entrance animation —
+  // opening a room (or paging older messages in) must not make forty bubbles fly in.
+  const [baseline, setBaseline] = useState<string | null>(null);
+  useEffect(() => {
+    if (baseline === null && !isLoading && data)
+      setBaseline(messages.at(-1)?.createdAt ?? "");
+  }, [baseline, isLoading, data, messages]);
   useLayoutEffect(() => {
     if (!input.current) return;
     input.current.style.height = "auto";
@@ -196,7 +203,15 @@ export function Conversation({
               )
             : null;
           return (
-            <div key={m.id} data-message-id={m.id}>
+            <div
+              key={m.id}
+              data-message-id={m.id}
+              className={
+                baseline !== null && m.createdAt > baseline
+                  ? "animate-msg"
+                  : undefined
+              }
+            >
               {day !== previousDay && (
                 <p className="my-4 text-center text-xs text-muted-foreground">
                   {day}

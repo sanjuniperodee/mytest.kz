@@ -127,7 +127,7 @@ export function ProgressLine({
         aria-valuemax={100}
         aria-label={label}
       >
-        <div className="h-full bg-foreground" style={{ width: `${pct}%` }} />
+        <div className="bar-w h-full bg-foreground" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )

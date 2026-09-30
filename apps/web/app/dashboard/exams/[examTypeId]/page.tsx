@@ -437,7 +437,7 @@ export default function ExamDetailPage({
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="stagger grid gap-4 sm:grid-cols-2">
               {(templates || []).map((t) => {
                 const tName = localize(t.name, locale, "Пробник")
                 const tDescription = localize(t.description, locale)

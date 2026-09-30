@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/motion/reveal"
 import { Bell, BookCheck, Sparkles, Target, Trophy } from "lucide-react"
 import { LiveActivityStrip } from "./live-activity-strip"
 
@@ -5,7 +6,7 @@ export function Features() {
   return (
     <section id="features" className="border-b border-border/60">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="max-w-3xl">
+        <Reveal className="max-w-3xl">
           <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
             Возможности
           </span>
@@ -14,12 +15,12 @@ export function Features() {
             <span className="font-serif italic font-normal">Тренажёр</span>, который
             учит думать как на ЕНТ.
           </h2>
-        </div>
+        </Reveal>
 
         {/* Bento grid */}
         <div className="mt-14 grid gap-4 md:grid-cols-6 md:grid-rows-2">
           {/* Big — analytics dashboard */}
-          <article className="md:col-span-4 md:row-span-1 flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-7">
+          <Reveal as="article" className="md:col-span-4 md:row-span-1 flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-7">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-accent">
               <Target className="h-4 w-4" />
               Аналитика по темам
@@ -38,7 +39,7 @@ export function Features() {
                 { topic: "Векторы в пространстве", percent: 71, tone: "ok" as const },
                 { topic: "Логарифмические уравнения", percent: 38, tone: "weak" as const },
                 { topic: "Стереометрия", percent: 24, tone: "weak" as const },
-              ].map((row) => (
+              ].map((row, i) => (
                 <div key={row.topic} className="flex items-center gap-3">
                   <span className="w-44 truncate text-xs font-medium sm:w-56 sm:text-sm">
                     {row.topic}
@@ -46,14 +47,14 @@ export function Features() {
                   <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-background">
                     <div
                       className={[
-                        "h-full rounded-full",
+                        "bar-x h-full rounded-full",
                         row.tone === "good"
                           ? "bg-foreground"
                           : row.tone === "ok"
                             ? "bg-foreground/60"
                             : "bg-accent",
                       ].join(" ")}
-                      style={{ width: `${row.percent}%` }}
+                      style={{ width: `${row.percent}%`, "--bar-i": i } as React.CSSProperties}
                     />
                   </div>
                   <span className="w-9 text-right text-xs font-semibold tabular-nums">
@@ -62,10 +63,10 @@ export function Features() {
                 </div>
               ))}
             </div>
-          </article>
+          </Reveal>
 
           {/* Tall — score chart */}
-          <article className="md:col-span-2 md:row-span-2 flex flex-col overflow-hidden rounded-2xl bg-foreground p-7 text-background">
+          <Reveal as="article" delay={90} className="md:col-span-2 md:row-span-2 flex flex-col overflow-hidden rounded-2xl bg-foreground p-7 text-background">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-accent">
               <Trophy className="h-4 w-4" />
               Динамика балла
@@ -81,14 +82,16 @@ export function Features() {
             <div className="mt-6 flex-1 rounded-xl bg-background/[0.07] p-5">
               <div className="flex items-end justify-between gap-2 h-40 sm:h-52">
                 {[40, 55, 62, 70, 82, 88, 100].map((h, i) => (
-                  <div key={i} className="flex flex-1 flex-col items-center gap-2">
-                    <div
-                      className={[
-                        "w-full rounded-t-md transition-all",
-                        i === 6 ? "bg-accent" : "bg-background/30",
-                      ].join(" ")}
-                      style={{ height: `${h}%` }}
-                    />
+                  <div key={i} className="flex h-full flex-1 flex-col items-center gap-2">
+                    <div className="flex w-full flex-1 items-end">
+                      <div
+                        className={[
+                          "bar-y w-full rounded-t-md",
+                          i === 6 ? "bg-accent" : "bg-background/30",
+                        ].join(" ")}
+                        style={{ height: `${h}%`, "--bar-i": i } as React.CSSProperties}
+                      />
+                    </div>
                     <span className="text-[10px] text-background/50">П{i + 1}</span>
                   </div>
                 ))}
@@ -105,7 +108,7 @@ export function Features() {
                 </div>
               </div>
             </div>
-          </article>
+          </Reveal>
 
           {/* small cards */}
           <FeatureCard
@@ -113,18 +116,21 @@ export function Features() {
             title="Разбор каждой ошибки"
             text="Не просто «правильный ответ B». Полное решение, формулы, ссылки на теорию."
             className="md:col-span-2"
+            delay={60}
           />
           <FeatureCard
             icon={Sparkles}
             title="Адаптивный режим"
             text="Слабые темы повторяются чаще. Сильные — реже. Готовишься точечно."
             className="md:col-span-1"
+            delay={120}
           />
           <FeatureCard
             icon={Bell}
             title="Расписание подготовки"
             text="План до дня экзамена. Напоминания в Telegram, чтобы не сорваться."
             className="md:col-span-1"
+            delay={180}
           />
         </div>
 
@@ -139,14 +145,18 @@ function FeatureCard({
   title,
   text,
   className,
+  delay,
 }: {
   icon: typeof Bell
   title: string
   text: string
   className?: string
+  delay?: number
 }) {
   return (
-    <article
+    <Reveal
+      as="article"
+      delay={delay}
       className={[
         "flex flex-col rounded-2xl border border-border bg-card p-6",
         className ?? "",
@@ -157,6 +167,6 @@ function FeatureCard({
       </span>
       <h3 className="mt-5 text-lg font-semibold tracking-tight">{title}</h3>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
-    </article>
+    </Reveal>
   )
 }

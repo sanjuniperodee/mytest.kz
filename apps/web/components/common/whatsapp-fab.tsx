@@ -73,7 +73,7 @@ export function WhatsAppFab({ className }: Props) {
       rel="noopener noreferrer"
       aria-label="WhatsApp"
       className={cn(
-        "fixed bottom-20 lg:bottom-6 right-4 lg:right-6 z-50 flex size-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg hover:bg-[#20BD5A] transition-colors",
+        "press animate-pop [animation-delay:1200ms] fixed bottom-20 lg:bottom-6 right-4 lg:right-6 z-50 flex size-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg hover:bg-[#20BD5A] transition-[background-color,transform,box-shadow] hover:-translate-y-0.5 hover:shadow-xl",
         className,
       )}
     >

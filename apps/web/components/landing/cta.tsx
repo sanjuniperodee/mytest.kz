@@ -1,5 +1,7 @@
 "use client"
 
+import { Reveal } from "@/components/motion/reveal"
+
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { ArrowRight, CheckCircle2 } from "lucide-react"
@@ -64,7 +66,7 @@ export function CTA() {
   return (
     <section id="start" className="border-b border-border/60">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="relative overflow-hidden rounded-3xl bg-foreground px-6 py-16 text-background sm:px-12 sm:py-24">
+        <Reveal className="relative overflow-hidden rounded-3xl bg-foreground px-6 py-16 text-background sm:px-12 sm:py-24">
           <div
             className="absolute inset-0 grain opacity-[0.18]"
             aria-hidden="true"
@@ -170,7 +172,7 @@ export function CTA() {
               .
             </p>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   )

@@ -26,6 +26,7 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { RichText } from "@/components/exam/rich-text"
 import { cn } from "@/lib/utils"
+import { useChartAnimation } from "@/lib/motion"
 import type { AiTopicLesson } from "@/lib/api/types"
 
 export const LESSON_SECTIONS = [
@@ -107,7 +108,7 @@ export function FullLessonReader({
             </p>
             <div className="h-2 w-36 overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full rounded-full bg-emerald-600 transition-all"
+                className="bar-w h-full rounded-full bg-emerald-600"
                 style={{ width: `${Math.round(((pageIndex + 1) / pages.length) * 100)}%` }}
               />
             </div>
@@ -383,6 +384,7 @@ function LessonVisualization({
   visual: AiTopicLesson["visualizations"][number]
   language: "ru" | "kk"
 }) {
+  const anim = useChartAnimation()
   if (visual.type === "table") {
     return (
       <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -450,9 +452,9 @@ function LessonVisualization({
             <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} />
             <YAxis tickLine={false} axisLine={false} width={32} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Line type="monotone" dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot />
+            <Line type="monotone" dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot {...anim} />
             {hasSecondValue && (
-              <Line type="monotone" dataKey="secondValue" stroke="var(--color-secondValue)" strokeWidth={2} dot />
+              <Line type="monotone" dataKey="secondValue" stroke="var(--color-secondValue)" strokeWidth={2} dot {...anim} />
             )}
           </LineChart>
         ) : (
@@ -461,8 +463,8 @@ function LessonVisualization({
             <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} />
             <YAxis tickLine={false} axisLine={false} width={32} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
-            {hasSecondValue && <Bar dataKey="secondValue" fill="var(--color-secondValue)" radius={[4, 4, 0, 0]} />}
+            <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} {...anim} />
+            {hasSecondValue && <Bar dataKey="secondValue" fill="var(--color-secondValue)" radius={[4, 4, 0, 0]} {...anim} />}
           </BarChart>
         )}
       </ChartContainer>

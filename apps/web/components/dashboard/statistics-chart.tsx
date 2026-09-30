@@ -11,6 +11,7 @@ import {
 } from "recharts"
 import type { StatisticsAttempt } from "@/lib/api/statistics-types"
 import { localize } from "@/lib/api/i18n"
+import { useChartAnimation } from "@/lib/motion"
 
 export function StatisticsChart({
   attempts,
@@ -19,6 +20,7 @@ export function StatisticsChart({
   attempts: StatisticsAttempt[]
   language: "ru" | "kk"
 }) {
+  const anim = useChartAnimation()
   const date = (value: string) =>
     new Date(value).toLocaleDateString(language === "kk" ? "kk-KZ" : "ru-RU", {
       day: "numeric",
@@ -93,7 +95,7 @@ export function StatisticsChart({
             strokeWidth={2}
             dot={{ r: 3, strokeWidth: 2, fill: "var(--card)" }}
             activeDot={{ r: 5 }}
-            isAnimationActive={false}
+            {...anim}
             connectNulls={false}
           />
         </LineChart>

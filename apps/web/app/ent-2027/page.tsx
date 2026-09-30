@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift } from "lucide-react"
+import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -82,7 +83,7 @@ export default function Ent2027Page() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <main className="min-h-screen bg-background text-foreground">
-        <section className="relative overflow-hidden border-b border-border/60 bg-secondary/30">
+        <Reveal as="section" className="relative overflow-hidden border-b border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
             <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
               Пробный <span className="text-accent">ЕНТ 2027</span> —{" "}
@@ -123,10 +124,10 @@ export default function Ent2027Page() {
               ))}
             </ul>
           </div>
-        </section>
+        </Reveal>
 
         {/* FAQ */}
-        <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
           <h2 className="mb-8 text-2xl font-semibold tracking-tight">
             Вопросы о ЕНТ 2027
           </h2>
@@ -140,10 +141,10 @@ export default function Ent2027Page() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* Subjects grid */}
-        <section className="border-t border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight">
               Пробные ЕНТ по предметам
@@ -171,7 +172,7 @@ export default function Ent2027Page() {
               ))}
             </div>
           </div>
-        </section>
+        </Reveal>
       </main>
     </>
   )

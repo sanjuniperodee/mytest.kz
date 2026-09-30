@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } from "lucide-react"
+import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -114,7 +115,7 @@ export default function ProbnyEntPage() {
       <main className="min-h-screen bg-background text-foreground">
 
         {/* Hero */}
-        <section className="border-b border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-b border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
               Бесплатно · без карты
@@ -158,10 +159,10 @@ export default function ProbnyEntPage() {
               ))}
             </ul>
           </div>
-        </section>
+        </Reveal>
 
         {/* What is it */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Что такое пробный ЕНТ
           </h2>
@@ -191,10 +192,10 @@ export default function ProbnyEntPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* Why practice tests help */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Почему пробные ЕНТ помогают набрать больше баллов
@@ -225,10 +226,10 @@ export default function ProbnyEntPage() {
               ))}
             </ul>
           </div>
-        </section>
+        </Reveal>
 
         {/* Subjects */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Пробные ЕНТ по предметам
           </h2>
@@ -247,10 +248,10 @@ export default function ProbnyEntPage() {
               </Link>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* How it works */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Как сдать пробный ЕНТ на mytest.kz
@@ -272,10 +273,10 @@ export default function ProbnyEntPage() {
               ))}
             </ol>
           </div>
-        </section>
+        </Reveal>
 
         {/* FAQ */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="mb-7 text-2xl font-semibold tracking-tight sm:text-3xl">
             Частые вопросы о пробном ЕНТ
           </h2>
@@ -287,10 +288,10 @@ export default function ProbnyEntPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* CTA */}
-        <section className="border-t border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Начни прямо сейчас — первый пробный ЕНТ бесплатно
@@ -307,7 +308,7 @@ export default function ProbnyEntPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-        </section>
+        </Reveal>
 
       </main>
     </>

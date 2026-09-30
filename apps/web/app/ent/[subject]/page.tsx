@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowRight, BookOpen, CheckCircle2, Gift, Target, TrendingUp } from "lucide-react"
+import { Reveal } from "@/components/motion/reveal"
 
 const SUBJECTS: Record<string, { ru: string; kk: string; maxScore: number; questions: number }> = {
   matematika: { ru: "Математика", kk: "Математика", maxScore: 50, questions: 30 },
@@ -118,7 +119,7 @@ export default async function EntSubjectPage({
       />
       <main className="min-h-screen bg-background text-foreground">
         {/* Hero */}
-        <section className="relative overflow-hidden border-b border-border/60 bg-secondary/30">
+        <Reveal as="section" className="relative overflow-hidden border-b border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
             <div className="flex flex-col gap-6">
               <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
@@ -166,10 +167,10 @@ export default async function EntSubjectPage({
               </ul>
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* Stats strip */}
-        <section className="border-b border-border/60">
+        <Reveal as="section" className="border-b border-border/60">
           <div className="mx-auto grid max-w-4xl grid-cols-3 divide-x divide-border/60 px-4 sm:px-6">
             {[
               { icon: BookOpen, label: "Вопросов", value: info.questions },
@@ -183,10 +184,10 @@ export default async function EntSubjectPage({
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* Tips */}
-        <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
           <h2 className="mb-8 text-2xl font-semibold tracking-tight">
             Как готовиться к ЕНТ по предмету {info.ru}
           </h2>
@@ -200,10 +201,10 @@ export default async function EntSubjectPage({
               </li>
             ))}
           </ul>
-        </section>
+        </Reveal>
 
         {/* Related links — internal SEO */}
-        <section className="border-y border-border/60">
+        <Reveal as="section" className="border-y border-border/60">
           <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
             <p className="mb-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Смотрите также
@@ -224,10 +225,10 @@ export default async function EntSubjectPage({
               </Link>
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* CTA */}
-        <section className="border-t border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Проверь свой уровень прямо сейчас
@@ -244,7 +245,7 @@ export default async function EntSubjectPage({
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-        </section>
+        </Reveal>
       </main>
     </>
   )

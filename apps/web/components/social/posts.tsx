@@ -639,7 +639,7 @@ export function PostList({
       )}
       <div
         className={cn(
-          "overflow-hidden bg-card",
+          "stagger overflow-hidden bg-card",
           nested
             ? "rounded-lg border border-border/70"
             : "rounded-xl border border-border",

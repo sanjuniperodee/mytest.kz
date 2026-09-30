@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Calendar, TrendingUp, AlertCircle } from "lucide-react"
+import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -121,7 +122,7 @@ export default function PodgotovkaKEntPage() {
       <main className="min-h-screen bg-background text-foreground">
 
         {/* Hero */}
-        <section className="border-b border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-b border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
               ЕНТ 2027 · Подготовка
@@ -164,10 +165,10 @@ export default function PodgotovkaKEntPage() {
               ))}
             </ul>
           </div>
-        </section>
+        </Reveal>
 
         {/* Structure */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Структура ЕНТ 2027
           </h2>
@@ -213,10 +214,10 @@ export default function PodgotovkaKEntPage() {
               специальности.
             </span>
           </div>
-        </section>
+        </Reveal>
 
         {/* Timeline */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Как выстроить подготовку к ЕНТ
@@ -237,10 +238,10 @@ export default function PodgotovkaKEntPage() {
               ))}
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* Subjects */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Подготовка к ЕНТ по предметам
           </h2>
@@ -264,10 +265,10 @@ export default function PodgotovkaKEntPage() {
               </Link>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* Tips */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               7 советов для подготовки к ЕНТ
@@ -292,10 +293,10 @@ export default function PodgotovkaKEntPage() {
               ))}
             </ol>
           </div>
-        </section>
+        </Reveal>
 
         {/* FAQ */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="mb-7 text-2xl font-semibold tracking-tight sm:text-3xl">
             Частые вопросы о подготовке к ЕНТ
           </h2>
@@ -307,10 +308,10 @@ export default function PodgotovkaKEntPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* CTA */}
-        <section className="border-t border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Узнай свой уровень прямо сейчас
@@ -337,7 +338,7 @@ export default function PodgotovkaKEntPage() {
               </Link>
             </div>
           </div>
-        </section>
+        </Reveal>
 
       </main>
     </>

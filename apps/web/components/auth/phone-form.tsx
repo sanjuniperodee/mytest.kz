@@ -99,7 +99,7 @@ export function PhoneForm() {
 
   if (step === "code") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex animate-rise flex-col gap-5">
         <div>
           <p className="text-sm text-muted-foreground">
             Мы отправили код в Telegram для номера{" "}

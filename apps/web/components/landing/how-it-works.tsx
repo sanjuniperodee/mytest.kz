@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/motion/reveal"
 import { BookOpen, ClipboardList, LineChart } from "lucide-react"
 
 const steps = [
@@ -25,7 +26,7 @@ export function HowItWorks() {
   return (
     <section id="how" className="border-b border-border/60">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="max-w-3xl">
+        <Reveal className="max-w-3xl">
           <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
             Как это работает
           </span>
@@ -33,9 +34,9 @@ export function HowItWorks() {
             Три шага между «боюсь экзамена» и{" "}
             <span className="font-serif italic font-normal">«знаю свой балл»</span>.
           </h2>
-        </div>
+        </Reveal>
 
-        <ol className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-3">
+        <Reveal as="ol" delay={80} className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-3">
           {steps.map((s) => (
             <li key={s.n} className="bg-background p-7 sm:p-9">
               <div className="flex items-center justify-between">
@@ -52,7 +53,7 @@ export function HowItWorks() {
               </p>
             </li>
           ))}
-        </ol>
+        </Reveal>
       </div>
     </section>
   )

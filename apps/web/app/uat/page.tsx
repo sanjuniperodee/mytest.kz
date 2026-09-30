@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } from "lucide-react"
+import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -125,7 +126,7 @@ export default function UatPage() {
       <main className="min-h-screen bg-background text-foreground">
 
         {/* Hero */}
-        <section className="border-b border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-b border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
@@ -179,10 +180,10 @@ export default function UatPage() {
               ))}
             </ul>
           </div>
-        </section>
+        </Reveal>
 
         {/* Stats */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             ҰБТ туралы негізгі сандар
           </h2>
@@ -200,10 +201,10 @@ export default function UatPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* Score breakdown */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               ҰБТ пәндері бойынша балл бөлінісі
@@ -243,10 +244,10 @@ export default function UatPage() {
               </table>
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* Why practice tests */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Неліктен сынақ тесттері ҰБТ баллын арттырады
           </h2>
@@ -275,10 +276,10 @@ export default function UatPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Reveal>
 
         {/* Subjects */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Пәндер бойынша ҰБТ сынақтары
@@ -299,10 +300,10 @@ export default function UatPage() {
               ))}
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* FAQ */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="mb-7 text-2xl font-semibold tracking-tight sm:text-3xl">
             ҰБТ туралы жиі қойылатын сұрақтар
           </h2>
@@ -314,10 +315,10 @@ export default function UatPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* How to start */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               mytest.kz-де ҰБТ сынағын қалай тапсыруға болады
@@ -339,10 +340,10 @@ export default function UatPage() {
               ))}
             </ol>
           </div>
-        </section>
+        </Reveal>
 
         {/* CTA */}
-        <section className="border-t border-border/60">
+        <Reveal as="section" className="border-t border-border/60">
           <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Қазір бастаңыз — бірінші ҰБТ сынағы тегін
@@ -367,7 +368,7 @@ export default function UatPage() {
               </Link>
             </div>
           </div>
-        </section>
+        </Reveal>
 
       </main>
     </>

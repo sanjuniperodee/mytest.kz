@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/motion/reveal"
 import { Check, Flame, Gift } from "lucide-react"
 import { ConversionLink } from "./conversion-link"
 
@@ -94,7 +95,7 @@ export function Pricing() {
   return (
     <section id="pricing" className="border-b border-border/60 bg-secondary/40">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="mx-auto max-w-3xl text-center">
+        <Reveal className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
             <Flame className="h-3.5 w-3.5" aria-hidden="true" />
             Новые выгодные тарифы
@@ -108,10 +109,10 @@ export function Pricing() {
           <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground">
             Первый пробный ЕНТ — бесплатно и без карты. Понравится — выбирай тариф и готовься дальше.
           </p>
-        </div>
+        </Reveal>
 
         {/* Free tier highlight */}
-        <div className="mt-10 rounded-2xl border-2 border-accent/30 bg-accent/5 p-5 sm:p-6">
+        <Reveal delay={60} className="mt-10 rounded-2xl border-2 border-accent/30 bg-accent/5 p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/15">
@@ -133,12 +134,14 @@ export function Pricing() {
               Получить бесплатно
             </ConversionLink>
           </div>
-        </div>
+        </Reveal>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {plans.filter((p) => !p.free).map((plan) => (
-            <article
+          {plans.filter((p) => !p.free).map((plan, index) => (
+            <Reveal
+              as="article"
               key={plan.name}
+              delay={index * 80}
               className={[
                 "relative flex flex-col rounded-2xl border p-6 sm:p-7",
                 plan.highlighted
@@ -245,7 +248,7 @@ export function Pricing() {
                 href={plan.href}
                 placement={`pricing_${plan.name.toLowerCase()}`}
                 className={[
-                  "mt-7 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all",
+                  "press mt-7 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-[opacity,transform]",
                   plan.highlighted
                     ? "bg-accent text-accent-foreground hover:opacity-90"
                     : "bg-foreground text-background hover:opacity-90",
@@ -253,7 +256,7 @@ export function Pricing() {
               >
                 {plan.cta}
               </ConversionLink>
-            </article>
+            </Reveal>
           ))}
         </div>
 

@@ -318,7 +318,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <span className="relative">
                     <Icon className={cn("size-5 transition-transform duration-200", active && "scale-110")} aria-hidden="true" />
                     {item.href === "/dashboard/community" && unread > 0 && (
-                      <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-accent ring-2 ring-background" aria-label="Непрочитанные сообщения" />
+                      <span className="absolute -right-1 -top-0.5 size-2 animate-pop rounded-full bg-accent ring-2 ring-background" aria-label="Непрочитанные сообщения" />
                     )}
                   </span>
                   {item.mobileLabel}
@@ -377,7 +377,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             <nav aria-label="Дополнительные разделы">
-              <ul className="flex flex-col gap-1">
+              <ul className="stagger flex flex-col gap-1">
                 {secondaryNavigation
                   .filter((item) => !primaryNavigation.some((primary) => primary.href === item.href))
                   .map((item) => {
@@ -445,7 +445,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
 function UnreadBadge({ label }: { label: string }) {
   return (
-    <span className="min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-accent-foreground tabular-nums">
+    <span className="animate-pop min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-accent-foreground tabular-nums">
       <span className="sr-only">Непрочитанные сообщения: </span>
       {label}
     </span>

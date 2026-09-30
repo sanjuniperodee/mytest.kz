@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { resolveMediaUrl } from "@/lib/api/client";
 import { useUiI18n } from "@/lib/i18n/ui";
 import { cn } from "@/lib/utils";
@@ -119,7 +120,7 @@ export function LoadState({
         className="space-y-3 p-5"
       >
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-20 animate-pulse rounded-xl bg-secondary" />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
     );

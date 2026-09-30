@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/motion/reveal"
 const subjects = [
   { letter: "М", name: "Математика", count: "1 240 заданий" },
   { letter: "Ф", name: "Физика", count: "980 заданий" },
@@ -17,7 +18,7 @@ export function Subjects() {
   return (
     <section id="subjects" className="border-b border-border/60 bg-secondary/40">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <Reveal className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
               Предметы
@@ -31,14 +32,14 @@ export function Subjects() {
             База обновляется каждый месяц по официальной программе МОН РК. Без устаревших
             заданий 2018-го, как у репетиторов за «недорого».
           </p>
-        </div>
+        </Reveal>
 
         <ul className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {subjects.map((s) => (
-            <li key={s.name}>
+          {subjects.map((s, i) => (
+            <Reveal as="li" key={s.name} delay={(i % 4) * 60}>
               <a
                 href="#start"
-                className="group flex items-center gap-3 rounded-xl border border-border bg-background p-4 transition-all hover:border-foreground/40 hover:shadow-[0_8px_30px_-12px_oklch(0.18_0.012_60_/_0.25)]"
+                className="lift group flex items-center gap-3 rounded-xl border border-border bg-background p-4 hover:border-foreground/40"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-foreground text-lg font-semibold text-background transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
                   {s.letter}
@@ -48,7 +49,7 @@ export function Subjects() {
                   <div className="text-xs text-muted-foreground">{s.count}</div>
                 </div>
               </a>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </div>

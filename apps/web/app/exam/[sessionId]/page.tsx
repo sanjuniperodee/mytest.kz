@@ -577,7 +577,7 @@ export default function ExamSessionPage({
         {/* progress bar */}
         <div className="h-0.5 w-full bg-border">
           <div
-            className="h-full bg-foreground transition-all"
+            className="bar-w h-full bg-foreground"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -606,7 +606,7 @@ export default function ExamSessionPage({
             )}
           </div>
 
-          <Card>
+          <Card key={current.id} className="animate-[fade_180ms_ease-out_backwards]">
             <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
               {(() => {
                 const qSubject = localize(current.subjectName, locale)
@@ -646,7 +646,7 @@ export default function ExamSessionPage({
                       type="button"
                       onClick={() => onSelect(current, opt.id)}
                       className={cn(
-                        "flex items-start gap-3 rounded-md border px-4 py-3 text-left transition-colors",
+                        "flex items-start gap-3 rounded-md border px-4 py-3 text-left transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.99]",
                         checked
                           ? "border-foreground bg-foreground text-background"
                           : "border-border bg-card hover:border-foreground/40 hover:bg-secondary/40",
@@ -1131,7 +1131,7 @@ function QuestionGrid({
                     type="button"
                     onClick={() => onSelect(idx)}
                     className={cn(
-                      "flex h-9 w-full items-center justify-center rounded-md border text-xs font-semibold tabular-nums transition-colors",
+                      "press flex h-9 w-full items-center justify-center rounded-md border text-xs font-semibold tabular-nums transition-colors",
                       isActive
                         ? "border-foreground bg-foreground text-background"
                         : isAnswered

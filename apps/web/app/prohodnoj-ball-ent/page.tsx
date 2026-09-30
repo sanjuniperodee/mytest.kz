@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, TrendingUp, AlertCircle, Calculator } from "lucide-react"
+import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -114,7 +115,7 @@ export default function ProhodnoiBallEntPage() {
       <main className="min-h-screen bg-background text-foreground">
 
         {/* Hero */}
-        <section className="border-b border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-b border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
               ЕНТ 2027 · Проходные баллы
@@ -157,10 +158,10 @@ export default function ProhodnoiBallEntPage() {
               ))}
             </ul>
           </div>
-        </section>
+        </Reveal>
 
         {/* Minimum thresholds */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Пороговые баллы ЕНТ — что они означают
           </h2>
@@ -214,10 +215,10 @@ export default function ProhodnoiBallEntPage() {
               </Link>.
             </span>
           </div>
-        </section>
+        </Reveal>
 
         {/* Table by specialty */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Проходные баллы ЕНТ по специальностям
@@ -263,10 +264,10 @@ export default function ProhodnoiBallEntPage() {
               </Link>
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* How to prepare */}
-        <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Как набрать нужный балл для гранта
           </h2>
@@ -305,10 +306,10 @@ export default function ProhodnoiBallEntPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Reveal>
 
         {/* FAQ */}
-        <section className="border-y border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
             <h2 className="mb-7 text-2xl font-semibold tracking-tight sm:text-3xl">
               Частые вопросы о проходных баллах ЕНТ
@@ -322,10 +323,10 @@ export default function ProhodnoiBallEntPage() {
               ))}
             </div>
           </div>
-        </section>
+        </Reveal>
 
         {/* Internal links */}
-        <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Смотрите также</p>
           <div className="flex flex-wrap gap-3">
             <Link href="/probnyy-ent" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
@@ -342,10 +343,10 @@ export default function ProhodnoiBallEntPage() {
               ЕНТ 2027
             </Link>
           </div>
-        </section>
+        </Reveal>
 
         {/* CTA */}
-        <section className="border-t border-border/60 bg-secondary/30">
+        <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Узнай свои шансы на грант
@@ -372,7 +373,7 @@ export default function ProhodnoiBallEntPage() {
               </Link>
             </div>
           </div>
-        </section>
+        </Reveal>
 
       </main>
     </>

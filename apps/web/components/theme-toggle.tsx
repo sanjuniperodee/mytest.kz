@@ -41,18 +41,24 @@ export function ThemeToggle({
       variant="outline"
       size={showLabel ? "sm" : "icon-sm"}
       className={cn(
-        "h-9 rounded-xl transition-all duration-200 active:scale-95",
+        "h-9 rounded-xl",
         showLabel ? "gap-2 px-3" : "size-9",
         className
       )}
       aria-label={isDark ? "Включить светлую тему" : "Включить тёмную тему"}
       title={isDark ? "Светлая тема" : "Тёмная тема"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => {
+        // Let colours cross-fade instead of snapping (see .theme-switching in globals.css).
+        const root = document.documentElement
+        root.classList.add("theme-switching")
+        window.setTimeout(() => root.classList.remove("theme-switching"), 260)
+        setTheme(isDark ? "light" : "dark")
+      }}
     >
       {isDark ? (
-        <Sun className="size-4 text-amber-400 transition-transform duration-300 rotate-0 scale-100" />
+        <Sun key="sun" className="size-4 animate-pop text-amber-400" />
       ) : (
-        <Moon className="size-4 text-foreground/80 transition-transform duration-300 rotate-0 scale-100" />
+        <Moon key="moon" className="size-4 animate-pop text-foreground/80" />
       )}
       {showLabel && (
         <span className="text-xs font-medium">{isDark ? "Светлая" : "Тёмная"}</span>

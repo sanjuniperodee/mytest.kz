@@ -59,7 +59,7 @@ export default function ExamHistoryPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="stagger flex flex-col gap-6">
       <Button asChild variant="ghost" size="sm" className="w-fit">
         <Link href="/dashboard">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -94,7 +94,7 @@ export default function ExamHistoryPage() {
           ) : sessions.length === 0 ? (
             <EmptyHistory />
           ) : (
-            <div className="divide-y divide-border">
+            <div className="stagger divide-y divide-border">
               {sessions.map((session) => (
                 <SessionRow key={session.id} session={session} locale={locale} />
               ))}

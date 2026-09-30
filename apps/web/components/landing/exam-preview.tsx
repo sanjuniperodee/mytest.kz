@@ -4,7 +4,7 @@ export function ExamPreview() {
   return (
     <div className="relative">
       {/* Floating score card */}
-      <div className="absolute -left-4 -top-4 z-20 hidden rounded-2xl border border-border bg-card p-4 shadow-[0_20px_60px_-20px_oklch(0.18_0.012_60_/_0.25)] sm:left-auto sm:right-[-1.5rem] sm:top-[-1.5rem] sm:block">
+      <div className="animate-pop [animation-delay:650ms] absolute -left-4 -top-4 z-20 hidden rounded-2xl border border-border bg-card p-4 shadow-[0_20px_60px_-20px_oklch(0.18_0.012_60_/_0.25)] sm:left-auto sm:right-[-1.5rem] sm:top-[-1.5rem] sm:block">
         <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Результат
         </div>
@@ -19,7 +19,7 @@ export function ExamPreview() {
       </div>
 
       {/* Floating subject chip */}
-      <div className="absolute -bottom-3 left-2 z-20 hidden rounded-xl border border-border bg-card px-3 py-2 shadow-[0_20px_40px_-20px_oklch(0.18_0.012_60_/_0.25)] sm:block">
+      <div className="animate-pop [animation-delay:800ms] absolute -bottom-3 left-2 z-20 hidden rounded-xl border border-border bg-card px-3 py-2 shadow-[0_20px_40px_-20px_oklch(0.18_0.012_60_/_0.25)] sm:block">
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-sm font-semibold text-accent">
             М
@@ -68,7 +68,7 @@ export function ExamPreview() {
             <span className="font-mono">[0; 5]</span>.
           </h3>
 
-          <ul className="mt-5 space-y-2.5">
+          <ul className="stagger mt-5 space-y-2.5 [--stagger-base:420ms]">
             {[
               { label: "A", text: "2", state: "correct" as const },
               { label: "B", text: "3", state: "selected" as const },
@@ -118,8 +118,8 @@ export function ExamPreview() {
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full rounded-full bg-accent"
-                style={{ width: "35%" }}
+                className="h-full w-full origin-left animate-grow-x rounded-full bg-accent [animation-delay:600ms]"
+                style={{ transform: "scaleX(0.35)" }}
                 aria-hidden="true"
               />
             </div>

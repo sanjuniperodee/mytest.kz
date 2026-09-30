@@ -264,7 +264,7 @@ function ActivityPanel({
                 <span className="text-2xl font-semibold tabular-nums">{completionPct}%</span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
-                <div className="h-full bg-foreground" style={{ width: `${completionPct}%` }} />
+                <div className="bar-w h-full bg-foreground" style={{ width: `${completionPct}%` }} />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">

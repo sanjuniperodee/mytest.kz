@@ -10,6 +10,8 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
+    // Skip decorative motion so assertions never race an entrance animation.
+    reducedMotion: 'reduce',
   },
   webServer: process.env.PW_NO_WEB_SERVER
     ? undefined

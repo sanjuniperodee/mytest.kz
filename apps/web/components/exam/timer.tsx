@@ -94,7 +94,7 @@ export function ExamTimer({
         className,
       )}
     >
-      <Clock className={cn("size-3.5", paused && "opacity-60")} />
+      <Clock className={cn("size-3.5", paused && "opacity-60", isCritical && "animate-pulse")} />
       <span>{formatHMS(secs)}</span>
     </div>
   )

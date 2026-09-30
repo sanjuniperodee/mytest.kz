@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/motion/reveal"
 import {
   Accordion,
   AccordionContent,
@@ -40,7 +41,7 @@ export function FAQ() {
   return (
     <section id="faq" className="border-b border-border/60">
       <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="text-center">
+        <Reveal className="text-center">
           <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
             Вопросы
           </span>
@@ -48,12 +49,13 @@ export function FAQ() {
             Что обычно{" "}
             <span className="font-serif italic font-normal">спрашивают</span>.
           </h2>
-        </div>
+        </Reveal>
 
+        <Reveal delay={80} className="mt-12">
         <Accordion
           type="single"
           collapsible
-          className="mt-12 divide-y divide-border border-y border-border"
+          className="divide-y divide-border border-y border-border"
         >
           {faqs.map((item, i) => (
             <AccordionItem
@@ -70,6 +72,7 @@ export function FAQ() {
             </AccordionItem>
           ))}
         </Accordion>
+        </Reveal>
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
           Есть ещё вопросы?{" "}

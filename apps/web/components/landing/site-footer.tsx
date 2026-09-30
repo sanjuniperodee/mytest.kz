@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
 import { SUPPORT_EMAIL } from "@/lib/legal-content"
+import { Logo } from "./logo"
 import { SocialLinks } from "./social-links"
 
 const groups = [
@@ -41,12 +42,7 @@ export function SiteFooter() {
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">
-                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-                  <path d="M4 6h16M4 12h10M4 18h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                  <circle cx="18" cy="12" r="2" fill="oklch(0.65 0.18 35)" />
-                </svg>
-              </span>
+              <Logo />
               <span className="text-lg font-semibold tracking-tight lowercase">mytest</span>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">

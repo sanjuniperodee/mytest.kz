@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/motion/reveal"
 import { ArrowRight, HeartHandshake, School, UserRound } from "lucide-react"
 import { ConversionLink } from "./conversion-link"
 
@@ -38,7 +39,7 @@ export function Testimonials() {
   return (
     <section id="reviews" className="border-b border-border/60 bg-secondary/40">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <Reveal className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-3xl">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
               Для кого mytest
@@ -51,12 +52,14 @@ export function Testimonials() {
           <p className="max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
             Вместо громких обещаний — конкретно, что меняется после первой попытки.
           </p>
-        </div>
+        </Reveal>
 
         <div className="mt-12 grid gap-4 lg:grid-cols-3">
           {audiences.map((audience, index) => (
-            <article
+            <Reveal
+              as="article"
               key={audience.eyebrow}
+              delay={index * 90}
               className={[
                 "flex min-h-[28rem] flex-col rounded-3xl border p-6 sm:p-8",
                 index === 0
@@ -108,7 +111,7 @@ export function Testimonials() {
                 {audience.cta}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </ConversionLink>
-            </article>
+            </Reveal>
           ))}
         </div>
       </div>

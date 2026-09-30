@@ -469,7 +469,7 @@ function StatisticsContent({
                             </div>
                             <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                               <div
-                                className="h-full rounded-full bg-foreground/70"
+                                className="bar-w h-full rounded-full bg-foreground/70"
                                 style={{
                                   width: `${Math.max(0, Math.min(100, subject.accuracy))}%`,
                                 }}

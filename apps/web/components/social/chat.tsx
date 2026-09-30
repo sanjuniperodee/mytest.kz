@@ -148,7 +148,7 @@ export function ChatPage() {
             </div>
           </div>
           <div
-            className="min-h-0 flex-1 overflow-y-auto"
+            className="stagger min-h-0 flex-1 overflow-y-auto"
             data-testid="room-list"
           >
             <LoadState
