@@ -188,7 +188,9 @@ export default function AdmissionPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const subjectNames = profileSubjectNames(profileSubjects)
+  // localized label of the chosen pair ("Математика - Физика" in ru / kk)
+  const subjectsLabel = profileOpts?.find((o) => o.value === profileSubjects)?.label ?? profileSubjects
+  const subjectNames = profileSubjectNames(subjectsLabel)
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-12">

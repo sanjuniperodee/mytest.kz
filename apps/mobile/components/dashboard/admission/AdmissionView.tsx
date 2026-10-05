@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { useLocalSearchParams } from "expo-router"
 import useSWR from "swr"
 import { useEffect, useMemo, useState } from "react"
 import {
@@ -25,7 +26,10 @@ import { useAppTheme } from "@/lib/theme/provider"
 import type { ThemeColors } from "@/lib/theme/colors"
 import { fonts } from "@/lib/theme/fonts"
 import { t, useUiLocale } from "@/lib/i18n/ui"
+import { useTr } from "@/lib/i18n/use-tr"
+import { accentPalette } from "@/lib/theme/accents"
 import { ENT_MAX, ENT_TOTAL_MAX, totalEntScore } from "@bilimland/shared"
+import { ChanceBadge, ChanceLegend, CutoffTrend, grantsLabel } from "@/components/admission/chance"
 
 type QuotaType = "GRANT" | "RURAL"
 type Tab = "programs" | "universities"
@@ -58,6 +62,19 @@ const SCORE_FIELD_DEFS: {
 ]
 
 const LG = 1024
+const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" })
+
+/** "Математика - Физика" -> ["Математика", "Физика"]; creative exams get numbered. */
+function profileSubjectNames(label: string): [string, string] | null {
+  const parts = label.split(/\s+-\s+/).map((p) => p.trim()).filter(Boolean)
+  if (parts.length !== 2) return null
+  if (parts[0] === parts[1]) return [`${parts[0]} 1`, `${parts[1]} 2`]
+  return [parts[0], parts[1]]
+}
+
+function firstParam(v: string | string[] | undefined) {
+  return Array.isArray(v) ? v[0] : v
+}
 
 export function AdmissionView() {
   const { colors } = useAppTheme()
@@ -78,6 +95,50 @@ export function AdmissionView() {
   })
   const [tab, setTab] = useState<Tab>("programs")
   const [search, setSearch] = useState("")
+  const [programId, setProgramId] = useState("")
+  const [highlightUniversity, setHighlightUniversity] = useState<number | null>(null)
+  const tr = useTr()
+
+  // Deep link from the dashboard goal: ?profileSubjects&programId&uni&quota&tab&total
+  const params = useLocalSearchParams<{
+    profileSubjects?: string
+    programId?: string
+    uni?: string
+    quota?: string
+    tab?: string
+    total?: string
+  }>()
+  useEffect(() => {
+    const subjects = firstParam(params.profileSubjects)
+    if (subjects) {
+      setProfileSubjects(subjects)
+      setStep(2)
+    }
+    const program = firstParam(params.programId)
+    if (program) setProgramId(program)
+    if (firstParam(params.quota) === "RURAL") setQuotaType("RURAL")
+    if (firstParam(params.tab) === "universities") setTab("universities")
+    const uni = Number(firstParam(params.uni))
+    if (Number.isFinite(uni) && uni > 0) setHighlightUniversity(uni)
+    const known = Number(firstParam(params.total))
+    if (Number.isFinite(known) && known > 0) {
+      const target = Math.min(ENT_TOTAL_MAX, Math.round(known))
+      const ratio = target / ENT_TOTAL_MAX
+      const next: Scores = {
+        mathLit: Math.round(ENT_MAX.mathLit * ratio),
+        readingLit: Math.round(ENT_MAX.readingLit * ratio),
+        history: Math.round(ENT_MAX.history * ratio),
+        profile1: Math.round(ENT_MAX.profile1 * ratio),
+        profile2: 0,
+      }
+      next.profile2 = Math.max(
+        0,
+        Math.min(ENT_MAX.profile2, target - next.mathLit - next.readingLit - next.history - next.profile1),
+      )
+      setScores(next)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.profileSubjects, params.programId, params.uni, params.quota, params.tab, params.total])
 
   const scoreFields = useMemo(
     () =>
@@ -91,6 +152,7 @@ export function AdmissionView() {
   const total = totalEntScore(scores)
 
   const { data: cycles } = useSWR<AdmissionCycle[]>("/admission/cycles")
+  const cycleYear = cycles?.find((c) => c.slug === cycleSlug)?.admissionYear ?? null
   useEffect(() => {
     if (!cycleSlug && cycles && cycles.length > 0) {
       const sorted = [...cycles].sort((a, b) => b.sortOrder - a.sortOrder)
@@ -124,25 +186,28 @@ export function AdmissionView() {
   }, [cycleSlug, quotaType, profileSubjects, scores])
 
   const programsKey = chanceQuery ? `/admission/chance/programs?${chanceQuery}` : null
-  const { data: programs, isLoading: progLoading } = useSWR<ChanceProgram[]>(programsKey)
+  const { data: programs, isLoading: progLoading } = useSWR<ChanceProgram[]>(programsKey, {
+    keepPreviousData: true,
+  })
 
+  // server order = best chance first; the search box filters programs on this tab only
   const filteredPrograms = useMemo(() => {
     if (!programs) return []
     const q = search.trim().toLowerCase()
-    let list = programs
-    if (q) {
-      list = programs.filter(
-        (p) =>
-          p.programName.toLowerCase().includes(q) || p.programCode.toLowerCase().includes(q),
-      )
-    }
-    return [...list].sort((a, b) => {
-      if (a.isPass !== b.isPass) return a.isPass ? -1 : 1
-      const ga = a.gapToCutoff ?? Number.NEGATIVE_INFINITY
-      const gb = b.gapToCutoff ?? Number.NEGATIVE_INFINITY
-      return gb - ga
-    })
-  }, [programs, search])
+    if (!q || tab !== "programs") return programs
+    return programs.filter(
+      (p) => p.programName.toLowerCase().includes(q) || p.programCode.toLowerCase().includes(q),
+    )
+  }, [programs, search, tab])
+
+  const subjectsLabel = profileOpts?.find((o) => o.value === profileSubjects)?.label ?? profileSubjects
+  const subjectNames = profileSubjectNames(subjectsLabel)
+
+  const openProgram = (id: string) => {
+    setProgramId(id)
+    setSearch("")
+    setTab("universities")
+  }
 
   const hero = (
     <View style={{ marginBottom: 16 }}>
@@ -205,6 +270,17 @@ export function AdmissionView() {
           </Pressable>
         ))}
       </View>
+      <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: 6 }]}>
+        {quotaType === "RURAL"
+          ? tr(
+              "Для выпускников сельских школ. Ты участвуешь и в общем конкурсе, поэтому показываем меньший из двух проходных баллов.",
+              "Ауыл мектептерінің түлектері үшін. Жалпы конкурсқа да қатысасыз, сондықтан екі өту балының төменін көрсетеміз.",
+            )
+          : tr(
+              "Общий конкурс — для всех. Если ты окончил сельскую школу, выбери «Сельская»: шансы обычно выше.",
+              "Жалпы конкурс — барлығына. Ауыл мектебін бітірсеңіз, «Ауыл» таңдаңыз: мүмкіндік әдетте жоғары.",
+            )}
+      </Text>
 
       <View style={{ marginTop: 16 }}>
         <View style={styles.stepRow}>
@@ -225,6 +301,7 @@ export function AdmissionView() {
                 key={o.value}
                 onPress={() => {
                   setProfileSubjects(o.value)
+                  setProgramId("")
                   setStep(2)
                 }}
                 style={[
@@ -258,7 +335,7 @@ export function AdmissionView() {
           <View style={styles.scoreMeta}>
             <Text style={[styles.hint, { color: colors.mutedForeground, flex: 1 }]}>
               {t("admSelectedPrefix", ui)}
-              {profileSubjects}
+              {subjectsLabel}
             </Text>
             <View
               style={[
@@ -284,7 +361,12 @@ export function AdmissionView() {
             {scoreFields.map((field) => (
               <View key={field.key} style={{ gap: 6 }}>
                 <Text style={[styles.inputLbl, { color: colors.mutedForeground }]}>
-                  {field.short} ({field.max})
+                  {field.key === "profile1" && subjectNames
+                    ? subjectNames[0]
+                    : field.key === "profile2" && subjectNames
+                      ? subjectNames[1]
+                      : field.short}{" "}
+                  ({field.max})
                 </Text>
                 <TextInput
                   keyboardType="number-pad"
@@ -324,7 +406,10 @@ export function AdmissionView() {
       <View style={[styles.resultsToolbar, !isWide && styles.resultsToolbarCol]}>
         <View style={[styles.tabBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <Pressable
-            onPress={() => setTab("programs")}
+            onPress={() => {
+              setTab("programs")
+              setSearch("")
+            }}
             style={[
               styles.tabBtn,
               tab === "programs" && { backgroundColor: colors.foreground },
@@ -347,7 +432,10 @@ export function AdmissionView() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setTab("universities")}
+            onPress={() => {
+              setTab("universities")
+              setSearch("")
+            }}
             style={[
               styles.tabBtn,
               tab === "universities" && { backgroundColor: colors.foreground },
@@ -374,7 +462,9 @@ export function AdmissionView() {
         <View style={[styles.searchWrap, { borderColor: colors.border }]}>
           <MaterialCommunityIcons name="magnify" size={18} color={colors.mutedForeground} />
           <TextInput
-            placeholder={t("admSearchPh", ui)}
+            placeholder={
+              tab === "programs" ? tr("Поиск специальности…", "Мамандықты іздеу…") : tr("Поиск вуза…", "ЖОО іздеу…")
+            }
             placeholderTextColor={colors.mutedForeground}
             value={search}
             onChangeText={setSearch}
@@ -391,14 +481,30 @@ export function AdmissionView() {
         </Card>
       ) : tab === "programs" ? (
         <ProgramsPanel
-          loading={progLoading}
+          loading={progLoading && !programs}
           programs={filteredPrograms}
           total={total}
           hasParams={Boolean(programsKey)}
+          cycleYear={cycleYear}
+          onOpen={openProgram}
           colors={colors}
         />
       ) : (
-        <UniversitiesPanel cycleSlug={cycleSlug} quotaType={quotaType} scores={scores} search={search} colors={colors} />
+        <UniversitiesPanel
+          cycleSlug={cycleSlug}
+          cycleYear={cycleYear}
+          quotaType={quotaType}
+          scores={scores}
+          total={total}
+          search={search}
+          programs={programs ?? []}
+          programsLoading={progLoading && !programs}
+          programId={programId}
+          onProgramChange={setProgramId}
+          onBack={() => setTab("programs")}
+          highlightUniversity={highlightUniversity}
+          colors={colors}
+        />
       )}
     </View>
   )
@@ -421,20 +527,56 @@ export function AdmissionView() {
   )
 }
 
+function ResultsSummary({ total, cycleYear, title }: { total: number; cycleYear: number | null; title: string }) {
+  const { colors } = useAppTheme()
+  const tr = useTr()
+  const [showLegend, setShowLegend] = useState(false)
+  return (
+    <Card style={{ paddingVertical: 12, gap: 8 }}>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.passTitle, { color: colors.foreground }]}>{title}</Text>
+          <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: 4 }]}>
+            {tr("Твой балл", "Сіздің балыңыз")}:{" "}
+            <Text style={{ fontFamily: fonts.sansSemi, color: colors.foreground }}>{total}</Text>
+            {" · "}
+            {cycleYear
+              ? tr(`проходные баллы конкурса ${cycleYear} года`, `${cycleYear} жылғы конкурстың өту балдары`)
+              : tr("проходные баллы прошлых лет", "өткен жылдардың өту балдары")}
+          </Text>
+        </View>
+        <Pressable onPress={() => setShowLegend((v) => !v)} hitSlop={8} accessibilityRole="button">
+          <MaterialCommunityIcons name="information-outline" size={20} color={colors.mutedForeground} />
+        </Pressable>
+      </View>
+      {showLegend ? (
+        <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 10 }}>
+          <ChanceLegend />
+        </View>
+      ) : null}
+    </Card>
+  )
+}
+
 function ProgramsPanel({
   loading,
   programs,
   total,
   hasParams,
+  cycleYear,
+  onOpen,
   colors,
 }: {
   loading: boolean
   programs: ChanceProgram[]
   total: number
   hasParams: boolean
+  cycleYear: number | null
+  onOpen: (programId: string) => void
   colors: ThemeColors
 }) {
   const { locale: ui } = useUiLocale()
+  const tr = useTr()
   if (!hasParams) {
     return (
       <Card>
@@ -463,111 +605,68 @@ function ProgramsPanel({
     )
   }
 
-  const passing = programs.filter((p) => p.isPass).length
+  const reachable = programs.filter((p) => (p.passingUniversityCount ?? (p.isPass ? 1 : 0)) > 0).length
 
   return (
     <View style={{ gap: 12 }}>
-      <Card style={{ paddingVertical: 12 }}>
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          <View style={[styles.passIcon, { backgroundColor: colors.foreground }]}>
-            <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.background} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.passTitle, { color: colors.foreground }]}>
-              {passing}
-              {t("admPassingOf", ui)}
-              {programs.length}
-              {t("admPassingSummary", ui)}
-            </Text>
-            <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: 4 }]}>
-              {t("admYourScore", ui)}{" "}
-              <Text style={{ fontFamily: fonts.sansSemi, color: colors.foreground }}>{total}</Text>
-              {" · "}
-              {t("admCompareCutoffs", ui)}
-            </Text>
-          </View>
-        </View>
-      </Card>
+      <ResultsSummary
+        total={total}
+        cycleYear={cycleYear}
+        title={tr(
+          `Проходишь хотя бы в один вуз по ${reachable} из ${programs.length} специальностей`,
+          `${programs.length} мамандықтың ${reachable}-і бойынша кем дегенде бір ЖОО-ға өтесіз`,
+        )}
+      />
       {programs.map((p) => (
-        <ProgramRow key={`${p.programId}-${p.profileSubjects}`} program={p} colors={colors} />
+        <ProgramRow key={`${p.programId}-${p.profileSubjects}`} program={p} colors={colors} onOpen={onOpen} />
       ))}
     </View>
   )
 }
 
-function ProgramRow({ program: p, colors }: { program: ChanceProgram; colors: ThemeColors }) {
-  const { locale: ui } = useUiLocale()
-  const isPass = p.isPass
-  const gap = p.gapToCutoff
+function ProgramRow({
+  program: p,
+  colors,
+  onOpen,
+}: {
+  program: ChanceProgram
+  colors: ThemeColors
+  onOpen: (programId: string) => void
+}) {
+  const tr = useTr()
+  const passing = p.passingUniversityCount ?? (p.isPass ? 1 : 0)
+  const min = p.displayedMinScore
+  const max = p.maxDisplayedMinScore ?? min
   return (
-    <Card
-      style={{
-        borderColor: isPass ? "#A7F3D0" : colors.border,
-      }}
-    >
-      <View style={{ gap: 12 }}>
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-          <View
-            style={[
-              styles.rowIcon,
-              { backgroundColor: isPass ? "#D1FAE5" : "#FFE4E6" },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={isPass ? "check-circle" : "close-circle"}
-              size={22}
-              color={isPass ? "#065F46" : "#BE123C"}
-            />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-              <Badge variant="outline">
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontFamily: Platform.select({
-                      ios: "Menlo",
-                      android: "monospace",
-                      default: "monospace",
-                    }),
-                  }}
-                >
-                  {p.programCode}
+    <Pressable accessibilityRole="button" onPress={() => onOpen(p.programId)}>
+      {({ pressed }) => (
+        <Card style={{ opacity: pressed ? 0.85 : 1 }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <Badge variant="outline">
+                  <Text style={{ fontSize: 11, fontFamily: MONO }}>{p.programCode}</Text>
+                </Badge>
+                <Text style={[styles.progName, { color: colors.foreground }]}>{p.programName}</Text>
+              </View>
+              {p.chance ? <ChanceBadge level={p.chance} passesEntThresholds={p.passesEntThresholds} /> : null}
+              <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+                <Text style={{ fontFamily: fonts.sansSemi, color: passing > 0 ? colors.foreground : colors.mutedForeground }}>
+                  {tr(
+                    `Проходишь в ${passing} из ${p.universityCount} вузов`,
+                    `${p.universityCount} ЖОО-ның ${passing}-іне өтесіз`,
+                  )}
                 </Text>
-              </Badge>
-              <Text style={[styles.progName, { color: colors.foreground }]}>{p.programName}</Text>
+                {" · "}
+                {tr("проходной", "өту балы")} {min != null && max != null && max !== min ? `${min}–${max}` : (min ?? "—")}
+                {p.totalGrantCount ? ` · ${grantsLabel(p.totalGrantCount, tr)}` : ""}
+              </Text>
             </View>
-            <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: 6 }]}>
-              {t("admProfileLabel", ui)}
-              {p.profileSubjects}
-              {p.universityCount > 0 ? ` · ${p.universityCount}${t("admUniCount", ui)}` : ""}
-              {p.totalGrantCount ? ` · ${p.totalGrantCount}${t("admGrantCount", ui)}` : ""}
-            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.mutedForeground} />
           </View>
-        </View>
-        <View style={[styles.progMetrics, { borderTopColor: colors.border }]}>
-          <View style={{ alignItems: "flex-start" }}>
-            <Text style={[styles.metricLbl, { color: colors.mutedForeground }]}>{t("admThreshold", ui)}</Text>
-            <Text style={[styles.metricNum, { color: colors.foreground }]}>
-              {p.displayedMinScore ?? "—"}
-            </Text>
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={[styles.metricLbl, { color: colors.mutedForeground }]}>
-              {isPass ? t("admSurplus", ui) : t("admShortage", ui)}
-            </Text>
-            <Text
-              style={[
-                styles.metricNum,
-                { color: isPass ? "#047857" : "#BE123C" },
-              ]}
-            >
-              {gap == null ? "—" : `${isPass ? "+" : ""}${gap}`}
-            </Text>
-          </View>
-        </View>
-      </View>
-    </Card>
+        </Card>
+      )}
+    </Pressable>
   )
 }
 
@@ -650,49 +749,48 @@ function ProgramPickerModal({
 
 function UniversitiesPanel({
   cycleSlug,
+  cycleYear,
   quotaType,
   scores,
+  total,
   search,
+  programs,
+  programsLoading,
+  programId,
+  onProgramChange,
+  onBack,
+  highlightUniversity,
   colors,
 }: {
   cycleSlug: string
+  cycleYear: number | null
   quotaType: QuotaType
   scores: Scores
+  total: number
   search: string
+  programs: ChanceProgram[]
+  programsLoading: boolean
+  programId: string
+  onProgramChange: (programId: string) => void
+  onBack: () => void
+  highlightUniversity: number | null
   colors: ThemeColors
 }) {
   const { locale: ui } = useUiLocale()
-  const [programId, setProgramId] = useState("")
+  const tr = useTr()
   const [programPickerOpen, setProgramPickerOpen] = useState(false)
 
-  const { data: catalogPrograms, isLoading: progLoading } = useSWR<
-    { id: string; code: string; name: string }[]
-  >(`/admission/programs?take=200`)
-
-  const filteredPrograms = useMemo(() => {
-    if (!catalogPrograms) return []
-    const q = search.trim().toLowerCase()
-    if (!q) return catalogPrograms.slice(0, 200)
-    return catalogPrograms.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q),
-    )
-  }, [catalogPrograms, search])
-
+  // Only the programs reachable with the chosen profile subjects (from /chance/programs).
   useEffect(() => {
-    if (filteredPrograms.length === 0) {
-      setProgramId("")
-      return
-    }
-    if (!programId || !filteredPrograms.some((p) => p.id === programId)) {
-      setProgramId(filteredPrograms[0].id)
-    }
-  }, [filteredPrograms, programId])
+    if (programsLoading || programs.length === 0) return
+    if (!programId || !programs.some((p) => p.programId === programId)) onProgramChange(programs[0].programId)
+  }, [programs, programId, programsLoading, onProgramChange])
 
-  const selectedProgram =
-    programId && catalogPrograms
-      ? catalogPrograms.find((p) => p.id === programId) ??
-        filteredPrograms.find((p) => p.id === programId)
-      : undefined
+  const pickerItems = useMemo(
+    () => programs.map((p) => ({ id: p.programId, code: p.programCode, name: p.programName })),
+    [programs],
+  )
+  const selectedProgram = programs.find((p) => p.programId === programId)
 
   const uniKey =
     cycleSlug && programId
@@ -708,51 +806,63 @@ function UniversitiesPanel({
         }).toString()}`
       : null
 
-  const { data: unis, isLoading: uniLoading } = useSWR<ChanceUniversity[]>(uniKey)
+  const { data: unis, isLoading: uniLoading } = useSWR<ChanceUniversity[]>(uniKey, { keepPreviousData: true })
 
-  const sortedUnis = useMemo(() => {
+  // server order (best chance first); the goal university is pinned on top; search filters universities
+  const shownUnis = useMemo(() => {
     if (!unis) return []
-    return [...unis].sort((a, b) => {
-      if (a.isPass !== b.isPass) return a.isPass ? -1 : 1
-      return (a.displayedMinScore ?? 0) - (b.displayedMinScore ?? 0)
-    })
-  }, [unis])
+    const q = search.trim().toLowerCase()
+    if (q) {
+      return unis.filter(
+        (u) =>
+          u.universityName.toLowerCase().includes(q) ||
+          (u.universityShortName ?? "").toLowerCase().includes(q) ||
+          String(u.universityCode) === q,
+      )
+    }
+    const goal = unis.find((u) => u.universityCode === highlightUniversity)
+    return goal ? [goal, ...unis.filter((u) => u !== goal)] : unis
+  }, [unis, search, highlightUniversity])
+
+  const passing = (unis ?? []).filter((u) => u.isPass).length
 
   return (
-    <>
-      <View style={{ gap: 12 }}>
+    <View style={{ gap: 12 }}>
+      <Pressable onPress={onBack} style={{ flexDirection: "row", alignItems: "center", gap: 4 }} hitSlop={6}>
+        <MaterialCommunityIcons name="arrow-left" size={16} color={colors.mutedForeground} />
+        <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: fonts.sansSemi }}>
+          {tr("Все специальности", "Барлық мамандықтар")}
+        </Text>
+      </Pressable>
       <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{t("admSpecialty", ui)}</Text>
-      {progLoading ? (
+      {programsLoading ? (
         <Spinner />
       ) : (
         <>
           <Pressable
-            onPress={() => filteredPrograms.length > 0 && setProgramPickerOpen(true)}
-            disabled={filteredPrograms.length === 0}
+            onPress={() => pickerItems.length > 0 && setProgramPickerOpen(true)}
+            disabled={pickerItems.length === 0}
             style={[
               styles.programSelectTrigger,
               {
                 borderColor: colors.border,
                 backgroundColor: colors.card,
-                opacity: filteredPrograms.length === 0 ? 0.45 : 1,
+                opacity: pickerItems.length === 0 ? 0.45 : 1,
               },
             ]}
           >
-            <Text
-              style={[styles.programSelectValue, { color: colors.foreground }]}
-              numberOfLines={2}
-            >
+            <Text style={[styles.programSelectValue, { color: colors.foreground }]} numberOfLines={2}>
               {selectedProgram
-                ? `${selectedProgram.code} · ${selectedProgram.name}`
+                ? `${selectedProgram.programCode} · ${selectedProgram.programName}`
                 : t("admPickSpecialty", ui)}
             </Text>
             <MaterialCommunityIcons name="chevron-down" size={22} color={colors.mutedForeground} />
           </Pressable>
           <ProgramPickerModal
             visible={programPickerOpen}
-            programs={filteredPrograms}
+            programs={pickerItems}
             selectedId={programId}
-            onSelect={setProgramId}
+            onSelect={onProgramChange}
             onClose={() => setProgramPickerOpen(false)}
             colors={colors}
           />
@@ -765,64 +875,120 @@ function UniversitiesPanel({
             {t("admEmptyPickProgram", ui)}
           </Text>
         </Card>
-      ) : uniLoading ? (
+      ) : uniLoading && !unis ? (
         <View style={{ gap: 8 }}>
           {Array.from({ length: 5 }).map((_, i) => (
             <View key={i} style={[styles.skelLine, { backgroundColor: colors.secondary }]} />
           ))}
         </View>
-      ) : sortedUnis.length === 0 ? (
+      ) : (unis ?? []).length === 0 ? (
         <Card>
           <Text style={[styles.emptyTxt, { color: colors.mutedForeground }]}>
             {t("admEmptyUniData", ui)}
           </Text>
         </Card>
       ) : (
-        sortedUnis.map((u) => (
-          <Card key={String(u.universityCode)} style={{ borderColor: u.isPass ? "#A7F3D0" : colors.border }}>
-            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              <View
-                style={[
-                  styles.rowIcon,
-                  { backgroundColor: u.isPass ? "#D1FAE5" : "#FFE4E6" },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={u.isPass ? "check-circle" : "close-circle"}
-                  size={22}
-                  color={u.isPass ? "#065F46" : "#BE123C"}
-                />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.progName, { color: colors.foreground }]} numberOfLines={2}>
-                  {u.universityName}
-                </Text>
-                <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: 4 }]}>
-                  {t("admCodePrefix", ui)}
-                  {u.universityCode} · {t("admThresholdLabel", ui)}
-                  {u.displayedMinScore ?? "—"}
-                  {u.grantCount ? ` · ${u.grantCount}${t("admGrantCount", ui)}` : ""}
-                </Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.metricLbl, { color: colors.mutedForeground }]}>
-                  {u.isPass ? t("admSurplus", ui) : t("admShortage", ui)}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricNum,
-                    { color: u.isPass ? "#047857" : "#BE123C" },
-                  ]}
-                >
-                  {u.gapToCutoff == null ? "—" : `${u.isPass ? "+" : ""}${u.gapToCutoff}`}
-                </Text>
-              </View>
-            </View>
-          </Card>
-        ))
+        <>
+          <ResultsSummary
+            total={total}
+            cycleYear={cycleYear}
+            title={tr(
+              `Проходишь в ${passing} из ${(unis ?? []).length} вузов`,
+              `${(unis ?? []).length} ЖОО-ның ${passing}-іне өтесіз`,
+            )}
+          />
+          {shownUnis.length === 0 ? (
+            <Card>
+              <Text style={[styles.emptyTxt, { color: colors.mutedForeground }]}>{tr("Вуз не найден", "ЖОО табылмады")}</Text>
+            </Card>
+          ) : (
+            shownUnis.map((u) => (
+              <UniversityRow
+                key={String(u.universityCode)}
+                university={u}
+                cycleYear={cycleYear}
+                isGoal={u.universityCode === highlightUniversity}
+                colors={colors}
+              />
+            ))
+          )}
+        </>
       )}
+    </View>
+  )
+}
+
+function UniversityRow({
+  university: u,
+  cycleYear,
+  isGoal,
+  colors,
+}: {
+  university: ChanceUniversity
+  cycleYear: number | null
+  isGoal: boolean
+  colors: ThemeColors
+}) {
+  const tr = useTr()
+  const { resolved } = useAppTheme()
+  const palette = accentPalette(resolved)
+  const gap = u.gapToCutoff
+  return (
+    <Card style={isGoal ? { borderColor: palette.emerald.fg, borderWidth: 1.5 } : undefined}>
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+          <Text style={[styles.progName, { color: colors.foreground }]} numberOfLines={2}>
+            {u.universityShortName || u.universityName}
+          </Text>
+          {u.universityShortName ? (
+            <Text style={[styles.hint, { color: colors.mutedForeground }]} numberOfLines={2}>
+              {u.universityName}
+            </Text>
+          ) : null}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+            {u.chance ? <ChanceBadge level={u.chance} passesEntThresholds={u.passesEntThresholds} /> : null}
+            {isGoal ? (
+              <View style={[styles.goalTag, { borderColor: colors.border }]}>
+                <Text style={{ fontSize: 11, color: colors.foreground, fontFamily: fonts.sansSemi }}>
+                  {tr("Твоя цель", "Сіздің мақсатыңыз")}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 10, rowGap: 2, alignItems: "center" }}>
+            <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+              {tr("Проходной", "Өту балы")}
+              {cycleYear ? ` ${cycleYear}` : ""}:{" "}
+              <Text style={{ fontFamily: fonts.sansSemi, color: colors.foreground }}>{u.displayedMinScore ?? "—"}</Text>
+            </Text>
+            {u.displayedMinScore != null ? (
+              <CutoffTrend current={u.displayedMinScore} previous={u.previousMinScore} previousYear={u.previousAdmissionYear} />
+            ) : null}
+            {u.avgScore != null ? (
+              <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+                {tr("средний", "орташа")} {Math.round(u.avgScore)}
+              </Text>
+            ) : null}
+            {u.grantCount ? (
+              <Text style={[styles.hint, { color: colors.mutedForeground }]}>{grantsLabel(u.grantCount, tr)}</Text>
+            ) : null}
+          </View>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text style={[styles.metricLbl, { color: colors.mutedForeground }]}>
+            {gap != null && gap >= 0 ? tr("Запас", "Қор") : tr("Не хватает", "Жетпейді")}
+          </Text>
+          <Text
+            style={[
+              styles.metricNum,
+              { color: gap == null ? colors.foreground : gap >= 0 ? palette.emerald.fg : palette.rose.fg },
+            ]}
+          >
+            {gap == null ? "—" : gap > 0 ? `+${gap}` : gap}
+          </Text>
+        </View>
       </View>
-    </>
+    </Card>
   )
 }
 
@@ -846,6 +1012,7 @@ function chipText(active: boolean, colors: ThemeColors) {
 }
 
 const styles = StyleSheet.create({
+  goalTag: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   pad: { padding: 16, paddingBottom: 120 },
   heroTitle: { fontSize: 30, fontFamily: fonts.sansSemi, letterSpacing: -0.45, marginBottom: 10 },
   heroLead: { fontSize: 15, lineHeight: 22 },

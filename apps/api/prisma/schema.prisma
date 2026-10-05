@@ -881,6 +881,7 @@ model QuestionAppeal {
 model University {
   code      Int     @id @map("code")
   name      String  @db.Text
+  nameKk    String? @map("name_kk") @db.Text
   shortName String? @map("short_name") @db.VarChar(200)
 
   cutoffs GrantCutoff[]
@@ -894,7 +895,9 @@ model EntEducationalProgram {
   code              String  @db.VarChar(20)
   profileVariant    Int     @default(0) @map("profile_variant")
   name              String  @db.Text
+  nameKk            String? @map("name_kk") @db.Text
   profileSubjects   String  @map("profile_subjects") @db.Text
+  profileSubjectsKk String? @map("profile_subjects_kk") @db.Text
   profileShortLabel String? @map("profile_short_label") @db.VarChar(100)
 
   cutoffs GrantCutoff[]

@@ -26,7 +26,7 @@ export class AdmissionRepository {
         cutoffs: { some: { minScore: { not: null }, ...(cycleId ? { cycleId } : {}) } },
       },
       orderBy: { code: 'asc' },
-      select: { code: true, name: true, shortName: true },
+      select: { code: true, name: true, nameKk: true, shortName: true },
     });
   }
 
@@ -43,7 +43,9 @@ export class AdmissionRepository {
         code: true,
         profileVariant: true,
         name: true,
+        nameKk: true,
         profileSubjects: true,
+        profileSubjectsKk: true,
         profileShortLabel: true,
       },
     });
@@ -54,9 +56,16 @@ export class AdmissionRepository {
       where,
       take: 8000,
       include: {
-        university: { select: { name: true, shortName: true } },
+        university: { select: { name: true, nameKk: true, shortName: true } },
         program: {
-          select: { code: true, name: true, profileSubjects: true, profileVariant: true },
+          select: {
+            code: true,
+            name: true,
+            nameKk: true,
+            profileSubjects: true,
+            profileSubjectsKk: true,
+            profileVariant: true,
+          },
         },
       },
       orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],
@@ -77,9 +86,16 @@ export class AdmissionRepository {
     return this.prisma.grantCutoff.findMany({
       where: this.buildChanceCutoffWhere(input),
       include: {
-        university: { select: { name: true, shortName: true } },
+        university: { select: { name: true, nameKk: true, shortName: true } },
         program: {
-          select: { code: true, name: true, profileSubjects: true, profileVariant: true },
+          select: {
+            code: true,
+            name: true,
+            nameKk: true,
+            profileSubjects: true,
+            profileSubjectsKk: true,
+            profileVariant: true,
+          },
         },
       },
       orderBy: [{ universityCode: 'asc' }, { programId: 'asc' }, { quotaType: 'asc' }],

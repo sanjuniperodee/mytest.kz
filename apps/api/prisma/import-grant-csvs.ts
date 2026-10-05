@@ -55,9 +55,13 @@ type ProgramRow = {
   name: string;
   profileSubjects: string;
   profileShortLabel: string | null;
+  nameKk?: string | null;
+  profileSubjectsKk?: string | null;
 };
 
-type UniRow = { code: number; name: string; shortName: string | null };
+type UniRow = { code: number; name: string; shortName: string | null; nameKk?: string | null };
+
+type KkNameRow = { kind: 'university' | 'program'; code: string; nameRu: string; nameKk: string; source: string };
 
 type ResultRow = {
   year: string;
@@ -213,9 +217,40 @@ export function buildCycleCutoffs(
   return { cutoffs, unknownPrograms };
 }
 
+/**
+ * Kazakh names (reference/kk-names.csv, reference/kk-profile-subjects.csv). Programs match by
+ * (code, Russian name) first — variants of one code can have different names (B037 каз./рус.
+ * филология) — then by code. Missing translations stay null and the API falls back to Russian.
+ */
+function applyKazakhNames(universities: UniRow[], programs: ProgramRow[]) {
+  const names = readCsvObjects<KkNameRow>('reference/kk-names.csv');
+  const subjects = readCsvObjects<{ profileSubjects: string; profileSubjectsKk: string }>(
+    'reference/kk-profile-subjects.csv',
+  );
+  const uniKk = new Map(names.filter((n) => n.kind === 'university').map((n) => [Number(n.code), n.nameKk]));
+  const programKkByName = new Map<string, string>();
+  const programKkByCode = new Map<string, string>();
+  for (const n of names.filter((x) => x.kind === 'program')) {
+    if (n.nameRu) programKkByName.set(`${n.code}\t${n.nameRu}`, n.nameKk);
+    if (!programKkByCode.has(n.code)) programKkByCode.set(n.code, n.nameKk);
+  }
+  const subjectsKk = new Map(subjects.map((s) => [s.profileSubjects, s.profileSubjectsKk]));
+
+  for (const u of universities) u.nameKk = uniKk.get(u.code) ?? null;
+  for (const p of programs) {
+    p.nameKk = programKkByName.get(`${p.code}\t${p.name}`) ?? programKkByCode.get(p.code) ?? null;
+    p.profileSubjectsKk = subjectsKk.get(p.profileSubjects) ?? null;
+  }
+  return {
+    universitiesWithoutKk: universities.filter((u) => !u.nameKk).length,
+    programsWithoutKk: programs.filter((p) => !p.nameKk).map((p) => p.code),
+  };
+}
+
 function main() {
   const universities = parseUniversities(readCsvRows('universities.csv'));
   const programs = parsePrograms(readCsvRows('programs.csv'));
+  const kk = applyKazakhNames(universities, programs);
   const programsByCode = new Map<string, ProgramRow[]>();
   for (const p of programs) {
     const list = programsByCode.get(p.code) ?? [];
@@ -263,9 +298,14 @@ function main() {
 
   fs.writeFileSync(OUT_JSON, `${JSON.stringify(payload, null, 1)}\n`, 'utf8');
   // eslint-disable-next-line no-console
+  const usedUnis = new Set(cutoffs.map((c) => c.universityCode));
+  const usedUnisWithoutKk = universities.filter((u) => usedUnis.has(u.code) && !u.nameKk).map((u) => u.code);
   console.log(
     `Wrote ${OUT_JSON}: ${universities.length} universities, ${programs.length} programs, ${cutoffs.length} cutoffs.\n  ` +
-      stats.join('\n  '),
+      stats.join('\n  ') +
+      `\n  kk names: ${universities.length - kk.universitiesWithoutKk}/${universities.length} universities` +
+      ` (missing for universities with cutoffs: ${usedUnisWithoutKk.join(', ') || 'none'}),` +
+      ` programs missing: ${kk.programsWithoutKk.join(', ') || 'none'}`,
   );
 }
 

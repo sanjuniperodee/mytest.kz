@@ -8,6 +8,7 @@ import { AdmissionService } from '../src/modules/admission/admission.service';
 import { AdmissionRepository } from '../src/modules/admission/infrastructure/admission.repository';
 import { PrismaService } from '../src/database/prisma.service';
 import { REDIS_CLIENT } from '../src/database/redis.module';
+import { I18nInterceptor } from '../src/common/interceptors/i18n.interceptor';
 
 describe('Admission HTTP (mocked Prisma)', () => {
   let app: INestApplication;
@@ -70,6 +71,7 @@ describe('Admission HTTP (mocked Prisma)', () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.useGlobalInterceptors(new I18nInterceptor());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -410,5 +412,48 @@ describe('Admission HTTP (mocked Prisma)', () => {
       [2025, 98, 'GRANT'],
       [2026, 90, 'RURAL'],
     ]);
+  });
+
+  it('names follow Accept-Language (kk) and fall back to Russian', async () => {
+    prismaMock.grantCutoff.findMany.mockResolvedValue([
+      {
+        ...makeCutoffRow({ universityCode: 13, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'GRANT', minScore: 110 }),
+        university: { name: 'Евразийский национальный университет', nameKk: 'Еуразия ұлттық университеті', shortName: 'ЕНУ' },
+        program: {
+          code: 'B057',
+          name: 'Информационные технологии',
+          nameKk: 'Ақпараттық технологиялар',
+          profileSubjects: 'Математика - Информатика',
+          profileSubjectsKk: 'Математика - Информатика',
+          profileVariant: 0,
+        },
+      },
+    ]);
+    const query = {
+      cycleSlug: '2025-2026',
+      quotaType: 'GRANT',
+      programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      mathLit: 8,
+      readingLit: 8,
+      history: 16,
+      profile1: 40,
+      profile2: 40,
+    };
+    const kk = await request(app.getHttpServer())
+      .get('/api/v1/admission/chance/universities')
+      .set('Accept-Language', 'kk')
+      .query(query)
+      .expect(200);
+    expect(kk.body[0]).toMatchObject({
+      universityName: 'Еуразия ұлттық университеті',
+      programName: 'Ақпараттық технологиялар',
+      profileSubjects: 'Математика - Информатика',
+    });
+    const ru = await request(app.getHttpServer())
+      .get('/api/v1/admission/chance/universities')
+      .set('Accept-Language', 'ru')
+      .query(query)
+      .expect(200);
+    expect(ru.body[0].universityName).toBe('Евразийский национальный университет');
   });
 });

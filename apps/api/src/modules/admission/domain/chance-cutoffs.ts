@@ -1,5 +1,15 @@
 import { GrantQuotaType } from '@prisma/client';
 
+/**
+ * A name with an optional Kazakh translation. Sent as { ru, kk } so the global I18nInterceptor
+ * resolves it to the request language (Accept-Language / profile); a plain string otherwise.
+ */
+export type LocalizedName = string | { ru: string; kk: string };
+
+export function localizedName(ru: string, kk: string | null | undefined): LocalizedName {
+  return kk && kk.trim() && kk !== ru ? { ru, kk } : ru;
+}
+
 export type CutoffStats = {
   minScore: number | null;
   maxScore?: number | null;
@@ -10,11 +20,13 @@ export type CutoffStats = {
 export type ChanceCutoffRow = CutoffStats & {
   universityCode: number;
   quotaType: GrantQuotaType;
-  university: { name: string; shortName: string | null };
+  university: { name: string; nameKk?: string | null; shortName: string | null };
   program: {
     code: string;
     name: string;
+    nameKk?: string | null;
     profileSubjects: string;
+    profileSubjectsKk?: string | null;
     profileVariant: number;
   };
   programId: string;
@@ -22,12 +34,14 @@ export type ChanceCutoffRow = CutoffStats & {
 
 export type ResolvedChanceRow = {
   universityCode: number;
-  universityName: string;
+  universityName: LocalizedName;
   universityShortName: string | null;
   programId: string;
   programCode: string;
-  programName: string;
+  programName: LocalizedName;
+  /** Russian value — used as the filter key. */
   profileSubjects: string;
+  profileSubjectsLabel: LocalizedName;
   profileVariant: number;
   displayedQuotaType: GrantQuotaType;
   displayedMinScore: number;
@@ -105,12 +119,13 @@ export function resolveChanceRows(
     const base = groupRows[0];
     resolved.push({
       universityCode: base.universityCode,
-      universityName: base.university.name,
+      universityName: localizedName(base.university.name, base.university.nameKk),
       universityShortName: base.university.shortName,
       programId: base.programId,
       programCode: base.program.code,
-      programName: base.program.name,
+      programName: localizedName(base.program.name, base.program.nameKk),
       profileSubjects: base.program.profileSubjects,
+      profileSubjectsLabel: localizedName(base.program.profileSubjects, base.program.profileSubjectsKk),
       profileVariant: base.program.profileVariant,
       ...resolvedCutoff,
     });

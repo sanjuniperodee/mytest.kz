@@ -650,6 +650,7 @@ export interface AdmissionCutoffRow {
   programName: string
   profileVariant: number
   profileSubjects: string
+  profileSubjectsLabel?: string
   quotaType: "GRANT" | "RURAL"
   minScore: number | null
   maxScore?: number | null
@@ -667,6 +668,7 @@ export interface AdmissionGoal {
   programCode: string
   programName: string
   profileSubjects: string | null
+  profileSubjectsLabel?: string | null
   /** Required cutoff score (null if not published). */
   requiredScore: number | null
   /** Competition the required score comes from (rural applicants get the lower of the two). */

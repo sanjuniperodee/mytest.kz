@@ -620,6 +620,8 @@ export interface LeaderboardEntry {
   [key: string]: unknown
 }
 
+export type AdmissionChanceLevel = "HIGH" | "MEDIUM" | "LOW" | "NONE"
+
 export interface AdmissionCycle {
   id: string
   slug: string
@@ -662,6 +664,11 @@ export interface ChanceProgram {
   displayedMinScore: number | null
   universityCount: number
   totalGrantCount?: number | null
+  passingUniversityCount?: number
+  maxDisplayedMinScore?: number | null
+  chance?: AdmissionChanceLevel
+  profileSubjectsLabel?: string
+  passesEntThresholds?: boolean
   isPass: boolean
   total: number
   gapToCutoff: number | null
@@ -680,6 +687,13 @@ export interface ChanceUniversity {
   displayedQuotaType: "GRANT" | "RURAL"
   displayedMinScore: number | null
   grantCount?: number | null
+  avgScore?: number | null
+  maxScore?: number | null
+  chance?: AdmissionChanceLevel
+  previousMinScore?: number | null
+  previousAdmissionYear?: number | null
+  cutoffSource?: "GRANT" | "RURAL" | "GRANT_FALLBACK"
+  passesEntThresholds?: boolean
   isPass: boolean
   total: number
   gapToCutoff: number | null
@@ -697,8 +711,10 @@ export interface AdmissionCutoffRow {
   programName: string
   profileVariant: number
   profileSubjects: string
+  profileSubjectsLabel?: string
   quotaType: "GRANT" | "RURAL"
   minScore: number | null
+  grantCount?: number | null
 }
 
 export interface AdmissionGoal {
@@ -711,9 +727,25 @@ export interface AdmissionGoal {
   programCode: string
   programName: string
   profileSubjects: string | null
-  /** Required grant cutoff score (null if not published). */
+  profileSubjectsLabel?: string | null
+  /** Required cutoff score (null if not published). */
   requiredScore: number | null
+  requiredScoreQuotaType?: "GRANT" | "RURAL" | null
+  grantCount?: number | null
+  avgScore?: number | null
+  admissionYear?: number | null
+  history?: AdmissionHistoryPoint[]
   maxScore: number
+}
+
+export interface AdmissionHistoryPoint {
+  cycleSlug: string
+  admissionYear: number | null
+  displayedQuotaType: "GRANT" | "RURAL"
+  minScore: number
+  maxScore: number | null
+  avgScore: number | null
+  grantCount: number | null
 }
 
 export interface AdmissionGoalResponse {

@@ -274,7 +274,11 @@ export function DashboardHomeView() {
         )}
       </Card>
 
-      <AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} />
+      <AdmissionGoalCard
+        currentScore={impact?.available ? impact.lastScore : null}
+        potentialScore={impact?.available ? impact.potentialScore : null}
+        maxScore={impact?.available ? impact.maxScore : undefined}
+      />
 
       <View style={styles.links}>
         {links.map((l) => (

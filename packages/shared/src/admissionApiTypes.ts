@@ -42,6 +42,8 @@ export type ChanceProgramDto = {
   programCode: string;
   programName: string;
   profileSubjects: string;
+  /** profileSubjects in the request language (profileSubjects itself stays the Russian filter key). */
+  profileSubjectsLabel?: string;
   profileVariant?: number;
   displayedQuotaType: 'GRANT' | 'RURAL';
   cutoffSource: 'GRANT' | 'RURAL' | 'GRANT_FALLBACK';
@@ -70,6 +72,8 @@ export type ChanceUniversityDto = {
   programCode: string;
   programName: string;
   profileSubjects: string;
+  /** profileSubjects in the request language (profileSubjects itself stays the Russian filter key). */
+  profileSubjectsLabel?: string;
   profileVariant?: number;
   displayedQuotaType: 'GRANT' | 'RURAL';
   cutoffSource: 'GRANT' | 'RURAL' | 'GRANT_FALLBACK';

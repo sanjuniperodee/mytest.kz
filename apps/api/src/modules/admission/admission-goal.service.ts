@@ -3,18 +3,20 @@ import { GrantQuotaType } from '@prisma/client';
 import { ENT_TOTAL_MAX, type AdmissionHistoryPointDto } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { AdmissionService } from './admission.service';
-import { resolveDisplayedCutoff } from './domain/chance-cutoffs';
+import { resolveDisplayedCutoff, type LocalizedName } from './domain/chance-cutoffs';
 
 export interface ResolvedAdmissionGoal {
   cycleSlug: string;
   quotaType: GrantQuotaType;
   universityCode: number;
-  universityName: string;
+  /** { ru, kk } or a plain string — resolved to the request language by the I18nInterceptor. */
+  universityName: LocalizedName;
   universityShortName: string | null;
   programId: string;
   programCode: string;
-  programName: string;
+  programName: LocalizedName;
   profileSubjects: string | null;
+  profileSubjectsLabel: LocalizedName | null;
   /** Cutoff for this target (null if not published for the cycle). */
   requiredScore: number | null;
   /** Which competition `requiredScore` comes from (a rural applicant gets the lower of the two). */
@@ -137,6 +139,7 @@ export class AdmissionGoalService {
       programCode: row.programCode,
       programName: row.programName,
       profileSubjects: row.profileSubjects ?? null,
+      profileSubjectsLabel: row.profileSubjectsLabel ?? null,
       requiredScore: displayed?.displayedMinScore ?? null,
       requiredScoreQuotaType: displayed?.displayedQuotaType ?? null,
       grantCount: displayed?.grantCount ?? null,

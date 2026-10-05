@@ -162,7 +162,7 @@ function GoalContent({
           {goal.programCode} · {goal.programName}
         </p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
-          {[goal.profileSubjects, quotaLabel].filter(Boolean).join(" · ")}
+          {[goal.profileSubjectsLabel ?? goal.profileSubjects, quotaLabel].filter(Boolean).join(" · ")}
         </p>
       </div>
 
@@ -634,7 +634,10 @@ function GoalPickerDialog({
                           {base.programCode} {base.programName}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
-                          {[base.profileSubjects, cutoff?.grantCount ? grantsLabel(cutoff.grantCount, t) : null]
+                          {[
+                            base.profileSubjectsLabel ?? base.profileSubjects,
+                            cutoff?.grantCount ? grantsLabel(cutoff.grantCount, t) : null,
+                          ]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>

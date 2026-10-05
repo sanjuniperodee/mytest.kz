@@ -7,7 +7,7 @@ import {
   type AdmissionHistoryPointDto,
   type EntScores,
 } from '@bilimland/shared';
-import { resolveChanceRows, resolveDisplayedCutoff } from './domain/chance-cutoffs';
+import { localizedName, resolveChanceRows, resolveDisplayedCutoff } from './domain/chance-cutoffs';
 import type { ResolvedChanceRow } from './domain/chance-cutoffs';
 import { AdmissionRepository } from './infrastructure/admission.repository';
 import { REDIS_CLIENT } from '../../database/redis.module';
@@ -49,7 +49,8 @@ export class AdmissionService {
   }): Promise<ResolvedChanceRow[]> {
     const version = (await this.redis.get(this.admissionCacheVersionKey(input.cycleSlug))) || '0';
     // "rows2": resolved rows carry grant statistics and the rural = min(rural, general) rule
-    const cacheKey = `admission-chance-rows2:v${version}:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
+    // "rows3": names are { ru, kk } (resolved per request by the I18nInterceptor)
+    const cacheKey = `admission-chance-rows3:v${version}:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as ResolvedChanceRow[];
@@ -75,7 +76,8 @@ export class AdmissionService {
 
   async listUniversities(input: { cycleSlug?: string } = {}) {
     const cycleId = input.cycleSlug ? (await this.getCycleOrThrow(input.cycleSlug)).id : undefined;
-    return this.admissionRepository.listUniversities(cycleId);
+    const rows = await this.admissionRepository.listUniversities(cycleId);
+    return rows.map(({ nameKk, ...u }) => ({ ...u, name: localizedName(u.name, nameKk) }));
   }
 
   async listPrograms(input: { code?: string; q?: string; take?: number }) {
@@ -90,10 +92,12 @@ export class AdmissionService {
         { profileSubjects: { contains: input.q.trim(), mode: 'insensitive' } },
       ];
     }
-    return this.admissionRepository.listPrograms({
-      where,
-      take,
-    });
+    const rows = await this.admissionRepository.listPrograms({ where, take });
+    return rows.map(({ nameKk, profileSubjectsKk, ...p }) => ({
+      ...p,
+      name: localizedName(p.name, nameKk),
+      profileSubjectsLabel: localizedName(p.profileSubjects, profileSubjectsKk),
+    }));
   }
 
   async listCutoffs(input: {
@@ -118,13 +122,14 @@ export class AdmissionService {
     return rows.map((r) => ({
       cycleSlug: input.cycleSlug,
       universityCode: r.universityCode,
-      universityName: r.university.name,
+      universityName: localizedName(r.university.name, r.university.nameKk),
       universityShortName: r.university.shortName,
       programId: r.programId,
       programCode: r.program.code,
-      programName: r.program.name,
+      programName: localizedName(r.program.name, r.program.nameKk),
       profileVariant: r.program.profileVariant,
       profileSubjects: r.program.profileSubjects,
+      profileSubjectsLabel: localizedName(r.program.profileSubjects, r.program.profileSubjectsKk),
       quotaType: r.quotaType,
       minScore: r.minScore,
       maxScore: r.maxScore ?? null,
@@ -167,10 +172,11 @@ export class AdmissionService {
       quotaType: input.quotaType,
       universityCode: input.universityCode,
     });
-    const uniq = new Set(rows.map((r) => r.profileSubjects));
-    return [...uniq]
+    const labels = new Map<string, ResolvedChanceRow['profileSubjectsLabel']>();
+    for (const r of rows) if (!labels.has(r.profileSubjects)) labels.set(r.profileSubjects, r.profileSubjectsLabel);
+    return [...labels.keys()]
       .sort((a, b) => a.localeCompare(b, 'ru'))
-      .map((value) => ({ value, label: value }));
+      .map((value) => ({ value, label: labels.get(value) ?? value }));
   }
 
   async listChancePrograms(input: {
@@ -221,6 +227,7 @@ export class AdmissionService {
         programCode: minRow.programCode,
         programName: minRow.programName,
         profileSubjects: minRow.profileSubjects,
+        profileSubjectsLabel: minRow.profileSubjectsLabel,
         profileVariant: minRow.profileVariant,
         displayedQuotaType: minRow.displayedQuotaType,
         cutoffSource:
@@ -290,6 +297,7 @@ export class AdmissionService {
           programCode: row.programCode,
           programName: row.programName,
           profileSubjects: row.profileSubjects,
+          profileSubjectsLabel: row.profileSubjectsLabel,
           profileVariant: row.profileVariant,
           displayedQuotaType: row.displayedQuotaType,
           cutoffSource:

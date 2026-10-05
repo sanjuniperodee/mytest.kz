@@ -10,13 +10,15 @@ import Redis from 'ioredis';
 const JSON_PATH = path.join(__dirname, 'data', 'grant-admission', 'grant-admission-seed-data.json');
 
 type SeedJson = {
-  universities: { code: number; name: string; shortName: string | null }[];
+  universities: { code: number; name: string; shortName: string | null; nameKk?: string | null }[];
   programs: {
     code: string;
     profileVariant: number;
     name: string;
     profileSubjects: string;
     profileShortLabel: string | null;
+    nameKk?: string | null;
+    profileSubjectsKk?: string | null;
   }[];
   cycles: { slug: string; sortOrder: number; admissionYear?: number | null }[];
   cutoffs: {
@@ -68,8 +70,8 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
   for (const u of data.universities) {
     await prisma.university.upsert({
       where: { code: u.code },
-      create: { code: u.code, name: u.name, shortName: u.shortName },
-      update: { name: u.name, shortName: u.shortName },
+      create: { code: u.code, name: u.name, nameKk: u.nameKk ?? null, shortName: u.shortName },
+      update: { name: u.name, nameKk: u.nameKk ?? null, shortName: u.shortName },
     });
   }
 
@@ -82,11 +84,15 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
         name: p.name,
         profileSubjects: p.profileSubjects,
         profileShortLabel: p.profileShortLabel,
+        nameKk: p.nameKk ?? null,
+        profileSubjectsKk: p.profileSubjectsKk ?? null,
       },
       update: {
         name: p.name,
         profileSubjects: p.profileSubjects,
         profileShortLabel: p.profileShortLabel,
+        nameKk: p.nameKk ?? null,
+        profileSubjectsKk: p.profileSubjectsKk ?? null,
       },
     });
   }
