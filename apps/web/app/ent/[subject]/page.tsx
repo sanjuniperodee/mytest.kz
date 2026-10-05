@@ -1,28 +1,15 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowRight, BookOpen, CheckCircle2, Gift, Target, TrendingUp } from "lucide-react"
+import { AlertTriangle, ArrowRight, BookOpen, CheckCircle2, Gift, Target, TrendingUp } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
+import { ENT_SUBJECTS, ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
 import { Reveal } from "@/components/motion/reveal"
 
-const SUBJECTS: Record<string, { ru: string; kk: string; maxScore: number; questions: number }> = {
-  matematika: { ru: "Математика", kk: "Математика", maxScore: 50, questions: 30 },
-  "matematicheskaya-gramotnost": { ru: "Математическая грамотность", kk: "Математикалық сауаттылық", maxScore: 10, questions: 10 },
-  "istoriya-kazahstana": { ru: "История Казахстана", kk: "Қазақстан тарихы", maxScore: 20, questions: 20 },
-  geografiya: { ru: "География", kk: "География", maxScore: 50, questions: 30 },
-  biologiya: { ru: "Биология", kk: "Биология", maxScore: 50, questions: 30 },
-  himiya: { ru: "Химия", kk: "Химия", maxScore: 50, questions: 30 },
-  fizika: { ru: "Физика", kk: "Физика", maxScore: 50, questions: 30 },
-  informatika: { ru: "Информатика", kk: "Информатика", maxScore: 50, questions: 30 },
-  "anglijskij-yazyk": { ru: "Английский язык", kk: "Ағылшын тілі", maxScore: 50, questions: 30 },
-  "kazahskij-yazyk": { ru: "Казахский язык", kk: "Қазақ тілі", maxScore: 50, questions: 30 },
-  "russkij-yazyk": { ru: "Русский язык", kk: "Орыс тілі", maxScore: 50, questions: 30 },
-  "vsemirnaya-istoriya": { ru: "Всемирная история", kk: "Дүниежүзі тарихы", maxScore: 50, questions: 30 },
-  pravo: { ru: "Основы права", kk: "Құқық негіздері", maxScore: 50, questions: 30 },
-}
+const SUBJECTS = ENT_SUBJECTS
 
 export async function generateStaticParams() {
-  return Object.keys(SUBJECTS).map((subject) => ({ subject }))
+  return ENT_SUBJECT_SLUGS.map((subject) => ({ subject }))
 }
 
 export async function generateMetadata({
@@ -36,7 +23,7 @@ export async function generateMetadata({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
   return {
     title: `Пробный ЕНТ по предмету ${info.ru} 2027 — онлайн бесплатно`,
-    description: `Готовься к ЕНТ 2027 по предмету ${info.ru} онлайн. Пройди бесплатный пробный тест в реальном формате, получи разбор ошибок и объяснения. mytest.kz — ${info.questions} вопросов, максимум ${info.maxScore} баллов.`,
+    description: `Готовься к ЕНТ 2027 по предмету ${info.ru} онлайн. Пройди бесплатный пробный тест в реальном формате, получи разбор ошибок и объяснения. my-test.kz — ${info.questions} вопросов, максимум ${info.maxScore} баллов.`,
     keywords: [
       `ЕНТ ${info.ru}`,
       `пробный ЕНТ ${info.ru}`,
@@ -68,24 +55,6 @@ export default async function EntSubjectPage({
   const info = SUBJECTS[subject]
   if (!info) notFound()
 
-  const tips: Record<string, string[]> = {
-    matematika: [
-      "Решай задачи по алгебре и геометрии ежедневно — мышечная память важна",
-      "Начинай с лёгких задач, чтобы не тратить время на сложные",
-      "Знай формулы наизусть: площади, объёмы, прогрессии",
-    ],
-    "istoriya-kazahstana": [
-      "Учи даты по блокам: древность, средневековье, новое время, современность",
-      "Делай ассоциации: событие + дата + причина + итог",
-      "Уделяй внимание вопросам о независимости Казахстана — их всегда много",
-    ],
-  }
-  const subjectTips = tips[subject] ?? [
-    "Регулярные пробники лучше разовой зубрёжки — решай хотя бы 10 вопросов в день",
-    "Разбирай каждую ошибку: не просто смотри правильный ответ, а понимай почему",
-    "Следи за таймером — на ЕНТ скорость не менее важна, чем знания",
-  ]
-
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -113,9 +82,22 @@ export default async function EntSubjectPage({
     },
   }
 
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: info.faq.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
+  }
+
+  const otherSubjects = ENT_SUBJECT_SLUGS.filter((slug) => slug !== subject)
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -134,10 +116,7 @@ export default async function EntSubjectPage({
                 — онлайн, бесплатно
               </h1>
               <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
-                Сдай пробный тест в реальном формате ЕНТ: {info.questions} вопросов,
-                максимум {info.maxScore} баллов. Получи разбор ошибок и объяснения
-                сразу после сдачи — без карты.
-              </p>
+                {info.lead}</p>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/login"
@@ -189,21 +168,68 @@ export default async function EntSubjectPage({
           </div>
         </Reveal>
 
-        {/* Tips */}
+        {/* Topics */}
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 pt-16 sm:px-6">
+          <h2 className="mb-6 text-2xl font-semibold tracking-tight">
+            Что входит в ЕНТ по предмету {info.ru}
+          </h2>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {info.topics.map((topic) => (
+              <li key={topic} className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                <span className="leading-relaxed">{topic}</span>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        {/* Mistakes */}
+        <Reveal as="section" className="mx-auto max-w-4xl px-4 pt-16 sm:px-6">
+          <h2 className="mb-6 text-2xl font-semibold tracking-tight">
+            Где чаще всего теряют баллы по предмету {info.ru}
+          </h2>
+          <ul className="space-y-3">
+            {info.mistakes.map((mistake) => (
+              <li key={mistake} className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                <span className="leading-relaxed">{mistake}</span>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        {/* Plan */}
         <Reveal as="section" className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
           <h2 className="mb-8 text-2xl font-semibold tracking-tight">
             Как готовиться к ЕНТ по предмету {info.ru}
           </h2>
-          <ul className="space-y-4">
-            {subjectTips.map((tip, i) => (
-              <li key={i} className="flex items-start gap-4 rounded-xl border border-border bg-card p-5">
+          <ol className="space-y-4">
+            {info.plan.map((step, i) => (
+              <li key={step} className="flex items-start gap-4 rounded-xl border border-border bg-card p-5">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
                   {i + 1}
                 </span>
-                <p className="leading-relaxed text-foreground">{tip}</p>
+                <p className="leading-relaxed text-foreground">{step}</p>
               </li>
             ))}
-          </ul>
+          </ol>
+        </Reveal>
+
+        {/* FAQ */}
+        <Reveal as="section" className="border-t border-border/60">
+          <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+            <h2 className="mb-8 text-2xl font-semibold tracking-tight">
+              Частые вопросы: {info.ru} на ЕНТ
+            </h2>
+            <dl className="space-y-6">
+              {info.faq.map((item) => (
+                <div key={item.q}>
+                  <dt className="font-semibold">{item.q}</dt>
+                  <dd className="mt-2 leading-relaxed text-muted-foreground">{item.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </Reveal>
 
         {/* Related links — internal SEO */}
@@ -226,6 +252,20 @@ export default async function EntSubjectPage({
               <Link href="/admission" className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
                 Шансы на грант →
               </Link>
+            </div>
+            <p className="mb-4 mt-8 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Другие предметы ЕНТ
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {otherSubjects.map((slug) => (
+                <Link
+                  key={slug}
+                  href={`/ent/${slug}`}
+                  className="rounded-full border border-border bg-card px-3 py-1.5 text-sm transition-colors hover:bg-secondary"
+                >
+                  {ENT_SUBJECTS[slug].ru}
+                </Link>
+              ))}
             </div>
           </div>
         </Reveal>
