@@ -6,6 +6,7 @@ import type {
   AdmissionCycleDto,
   ChanceProgramDto,
   ChanceUniversityDto,
+  AdmissionHistoryPointDto,
   EntProgramDto,
   UniversityDto,
 } from "@bilimland/shared"
@@ -635,6 +636,7 @@ export type AdmissionProgram = EntProgramDto
 export type CompareResult = AdmissionCompareResult
 export type ChanceProgram = ChanceProgramDto
 export type ChanceUniversity = ChanceUniversityDto
+export type AdmissionHistoryPoint = AdmissionHistoryPointDto
 
 // ─── Admission goal (target university/specialty for the dashboard) ─────────────
 
@@ -671,6 +673,12 @@ export interface AdmissionGoal {
   requiredScoreQuotaType?: "GRANT" | "RURAL" | null
   /** Grants awarded for this target in that competition. */
   grantCount?: number | null
+  /** Average / best score of that year's grant holders. */
+  avgScore?: number | null
+  topScore?: number | null
+  admissionYear?: number | null
+  /** The same target in every admission year, oldest first. */
+  history?: AdmissionHistoryPoint[]
   maxScore: number
 }
 

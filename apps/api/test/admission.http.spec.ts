@@ -2,6 +2,7 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
+import { admissionChance } from '@bilimland/shared';
 import { AdmissionController } from '../src/modules/admission/admission.controller';
 import { AdmissionService } from '../src/modules/admission/admission.service';
 import { AdmissionRepository } from '../src/modules/admission/infrastructure/admission.repository';
@@ -347,5 +348,67 @@ describe('Admission HTTP (mocked Prisma)', () => {
       })
       .expect(200);
     expect(res.body[0]).toMatchObject({ displayedMinScore: 91, maxScore: 101, avgScore: 96, grantCount: 25 });
+  });
+
+  it('admissionChance: HIGH at/above the average, MEDIUM between min and avg, LOW within 5 points', () => {
+    expect(admissionChance(110, true, 100, 108)).toBe('HIGH');
+    expect(admissionChance(104, true, 100, 108)).toBe('MEDIUM');
+    expect(admissionChance(100, true, 100, 108)).toBe('MEDIUM');
+    expect(admissionChance(96, true, 100, 108)).toBe('LOW');
+    expect(admissionChance(94, true, 100, 108)).toBe('NONE');
+    expect(admissionChance(130, false, 100, 108)).toBe('NONE');
+    expect(admissionChance(105, true, 100, null)).toBe('HIGH');
+  });
+
+  it('GET /api/v1/admission/chance/programs reports passing universities and the best chance', async () => {
+    prismaMock.grantCutoff.findMany.mockResolvedValue([
+      makeCutoffRow({ universityCode: 7, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'GRANT', minScore: 60 }),
+      makeCutoffRow({ universityCode: 8, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'GRANT', minScore: 120 }),
+    ]);
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/admission/chance/programs')
+      .query({
+        cycleSlug: '2025-2026',
+        quotaType: 'GRANT',
+        profileSubjects: 'Физика-Математика',
+        mathLit: 5,
+        readingLit: 5,
+        history: 10,
+        profile1: 25,
+        profile2: 25,
+      })
+      .expect(200);
+    // total 70: passes uni 7 (min 60, avg 65 -> HIGH), not uni 8 (min 120)
+    expect(res.body[0]).toMatchObject({
+      passingUniversityCount: 1,
+      universityCount: 2,
+      displayedMinScore: 60,
+      maxDisplayedMinScore: 120,
+      chance: 'HIGH',
+    });
+  });
+
+  it('GET /api/v1/admission/history returns every year oldest first', async () => {
+    prismaMock.grantAdmissionCycle.findMany.mockResolvedValue([
+      { id: 'c2', slug: '2026-2027', sortOrder: 1, admissionYear: 2026 },
+      { id: 'c1', slug: '2025-2026', sortOrder: 0, admissionYear: 2025 },
+    ]);
+    prismaMock.grantCutoff.findMany.mockResolvedValue([
+      { cycleId: 'c1', quotaType: 'GRANT', minScore: 98, avgScore: 105, maxScore: 120, grantCount: 30 },
+      { cycleId: 'c2', quotaType: 'GRANT', minScore: 101, avgScore: 107, maxScore: 125, grantCount: 28 },
+      { cycleId: 'c2', quotaType: 'RURAL', minScore: 90, avgScore: 93, maxScore: 99, grantCount: 9 },
+    ]);
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/admission/history')
+      .query({ universityCode: 7, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'RURAL' })
+      .expect(200);
+    expect(res.body.map((p: { admissionYear: number; minScore: number; displayedQuotaType: string }) => [
+      p.admissionYear,
+      p.minScore,
+      p.displayedQuotaType,
+    ])).toEqual([
+      [2025, 98, 'GRANT'],
+      [2026, 90, 'RURAL'],
+    ]);
   });
 });

@@ -2,15 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import {
-  Building2,
-  Calculator,
-  CheckCircle2,
-  GraduationCap,
-  Search,
-  Sparkles,
-  XCircle,
-} from "lucide-react"
+import { ArrowLeft, Building2, Calculator, ChevronRight, GraduationCap, Info, Search, Sparkles } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,11 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 import { ENT_MAX, ENT_TOTAL_MAX, totalEntScore } from "@bilimland/shared"
-import type {
-  AdmissionCycle,
-  ChanceProgram,
-  ChanceUniversity,
-} from "@/lib/api/types"
+import type { AdmissionCycle, ChanceProgram, ChanceUniversity } from "@/lib/api/types"
+import { ChanceBadge, ChanceLegend, CutoffTrend, grantsLabel, useT } from "@/components/admission/chance"
 
 type QuotaType = "GRANT" | "RURAL"
 type Tab = "programs" | "universities"
@@ -74,11 +63,29 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced
 }
 
-function isGrantFallback(cutoffSource?: ChanceProgram["cutoffSource"] | ChanceUniversity["cutoffSource"]) {
-  return cutoffSource === "GRANT_FALLBACK"
+/** "Математика - Физика" -> ["Математика", "Физика"]; creative exams get numbered. */
+function profileSubjectNames(profileSubjects: string): [string, string] | null {
+  const parts = profileSubjects.split(/\s+-\s+/).map((p) => p.trim()).filter(Boolean)
+  if (parts.length !== 2) return null
+  if (parts[0] === parts[1]) return [`${parts[0]} 1`, `${parts[1]} 2`]
+  return [parts[0], parts[1]]
+}
+
+function scoreQuery(cycleSlug: string, quotaType: QuotaType, scores: Scores, extra: Record<string, string>) {
+  return new URLSearchParams({
+    cycleSlug,
+    quotaType,
+    ...extra,
+    mathLit: String(scores.mathLit),
+    readingLit: String(scores.readingLit),
+    history: String(scores.history),
+    profile1: String(scores.profile1),
+    profile2: String(scores.profile2),
+  }).toString()
 }
 
 export default function AdmissionPage() {
+  const t = useT()
   const [cycleSlug, setCycleSlug] = useState<string>("")
   const [quotaType, setQuotaType] = useState<QuotaType>("GRANT")
   const [profileSubjects, setProfileSubjects] = useState<string>("")
@@ -91,77 +98,97 @@ export default function AdmissionPage() {
     profile2: 35,
   })
   const [tab, setTab] = useState<Tab>("programs")
+  const [programId, setProgramId] = useState<string>("")
   const [search, setSearch] = useState("")
+  const [highlightUniversity, setHighlightUniversity] = useState<number | null>(null)
 
   const total = useMemo(() => totalEntScore(scores), [scores])
   const debouncedScores = useDebouncedValue(scores, 250)
 
+  // Deep link from the dashboard goal: ?profileSubjects=…&programId=…&quota=RURAL&tab=universities
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const subjects = params.get("profileSubjects")
+    if (subjects) {
+      setProfileSubjects(subjects)
+      setStep(2)
+    }
+    const program = params.get("programId")
+    if (program) setProgramId(program)
+    if (params.get("quota") === "RURAL") setQuotaType("RURAL")
+    if (params.get("tab") === "universities") setTab("universities")
+    const goalUni = Number(params.get("uni"))
+    if (Number.isFinite(goalUni) && goalUni > 0) setHighlightUniversity(goalUni)
+    const knownTotal = Number(params.get("total"))
+    if (Number.isFinite(knownTotal) && knownTotal > 0) {
+      // spread a known total over the subjects proportionally — a starting point the user can edit
+      const target = Math.min(ENT_TOTAL_MAX, Math.round(knownTotal))
+      const ratio = target / ENT_TOTAL_MAX
+      const next: Scores = {
+        mathLit: Math.round(ENT_MAX.mathLit * ratio),
+        readingLit: Math.round(ENT_MAX.readingLit * ratio),
+        history: Math.round(ENT_MAX.history * ratio),
+        profile1: Math.round(ENT_MAX.profile1 * ratio),
+        profile2: 0,
+      }
+      // the last subject takes the rounding remainder so the total matches exactly
+      next.profile2 = Math.max(
+        0,
+        Math.min(ENT_MAX.profile2, target - next.mathLit - next.readingLit - next.history - next.profile1),
+      )
+      setScores(next)
+    }
+  }, [])
+
   // Cycles
   const { data: cycles } = useSWR<AdmissionCycle[]>("/admission/cycles")
+  const sortedCycles = useMemo(
+    () => [...(cycles ?? [])].sort((a, b) => b.sortOrder - a.sortOrder),
+    [cycles],
+  )
   useEffect(() => {
-    if (!cycleSlug && cycles && cycles.length > 0) {
-      const sorted = [...cycles].sort((a, b) => b.sortOrder - a.sortOrder)
-      setCycleSlug(sorted[0].slug)
-    }
-  }, [cycles, cycleSlug])
+    if (!cycleSlug && sortedCycles.length > 0) setCycleSlug(sortedCycles[0].slug)
+  }, [sortedCycles, cycleSlug])
+  const cycleYear = sortedCycles.find((c) => c.slug === cycleSlug)?.admissionYear ?? null
 
   // Profile subject options
   const profileOptionsKey =
     cycleSlug && quotaType
-      ? `/admission/chance/profile-subjects?cycleSlug=${encodeURIComponent(
-          cycleSlug,
-        )}&quotaType=${quotaType}`
+      ? `/admission/chance/profile-subjects?cycleSlug=${encodeURIComponent(cycleSlug)}&quotaType=${quotaType}`
       : null
-  const { data: profileOpts, isLoading: profileLoading } = useSWR<ProfileSubjectOption[]>(
-    profileOptionsKey,
-  )
+  const { data: profileOpts, isLoading: profileLoading } = useSWR<ProfileSubjectOption[]>(profileOptionsKey)
 
   const handleProfileSelect = (value: string) => {
     setProfileSubjects(value)
+    setProgramId("")
     setStep(2)
   }
 
-  const handleBackToStep1 = () => {
-    setStep(1)
-  }
-
-  // Build chance programs query
-  const chanceQuery = useMemo(() => {
-    if (step !== 2 || !cycleSlug || !profileSubjects) return null
-    const params = new URLSearchParams({
-      cycleSlug,
-      quotaType,
-      profileSubjects,
-      mathLit: String(debouncedScores.mathLit),
-      readingLit: String(debouncedScores.readingLit),
-      history: String(debouncedScores.history),
-      profile1: String(debouncedScores.profile1),
-      profile2: String(debouncedScores.profile2),
-    })
-    return params.toString()
-  }, [cycleSlug, quotaType, profileSubjects, debouncedScores, step])
-
-  const programsKey = chanceQuery ? `/admission/chance/programs?${chanceQuery}` : null
-  const { data: programs, isLoading: progLoading } = useSWR<ChanceProgram[]>(programsKey)
+  const programsKey =
+    step === 2 && cycleSlug && profileSubjects
+      ? `/admission/chance/programs?${scoreQuery(cycleSlug, quotaType, debouncedScores, { profileSubjects })}`
+      : null
+  const { data: programs, isLoading: progLoading } = useSWR<ChanceProgram[]>(programsKey, {
+    keepPreviousData: true,
+  })
 
   const filteredPrograms = useMemo(() => {
     if (!programs) return []
     const q = search.trim().toLowerCase()
-    let list = programs
-    if (q) {
-      list = programs.filter(
-        (p) =>
-          p.programName.toLowerCase().includes(q) ||
-          p.programCode.toLowerCase().includes(q),
-      )
-    }
-    return [...list].sort((a, b) => {
-      if (a.isPass !== b.isPass) return a.isPass ? -1 : 1
-      const ga = a.gapToCutoff ?? Number.NEGATIVE_INFINITY
-      const gb = b.gapToCutoff ?? Number.NEGATIVE_INFINITY
-      return gb - ga
-    })
-  }, [programs, search])
+    if (!q || tab !== "programs") return programs
+    return programs.filter(
+      (p) => p.programName.toLowerCase().includes(q) || p.programCode.toLowerCase().includes(q),
+    )
+  }, [programs, search, tab])
+
+  const openProgram = (id: string) => {
+    setProgramId(id)
+    setSearch("")
+    setTab("universities")
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const subjectNames = profileSubjectNames(profileSubjects)
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-12">
@@ -172,9 +199,11 @@ export default function AdmissionPage() {
         <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
           Куда пройдёшь с твоими баллами ЕНТ?
         </h1>
-        <p className="max-w-2xl text-pretty text-muted-foreground">
-          Введи баллы — посмотри, в какие вузы и на какие специальности ты проходишь по
-          грантовым и сельским квотам прошлых лет.
+        <p className="max-w-2xl text-pretty text-muted-foreground" data-no-translate>
+          {t(
+            "Сравниваем твой балл с проходными баллами — самым низким баллом, с которым дали грант в каждом вузе. Данные из официальных списков обладателей грантов МНВО РК.",
+            "Балыңызды өту балдарымен — әр ЖОО-да грант берілген ең төменгі балмен салыстырамыз. Деректер ҒЖБМ ресми грант иегерлерінің тізімдерінен алынған.",
+          )}
         </p>
       </div>
 
@@ -195,14 +224,14 @@ export default function AdmissionPage() {
                   <SelectValue placeholder="Загружаем..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {(cycles || [])
-                    .slice()
-                    .sort((a, b) => b.sortOrder - a.sortOrder)
-                    .map((c) => (
-                      <SelectItem key={c.id} value={c.slug}>
+                  {sortedCycles.map((c, i) => (
+                    <SelectItem key={c.id} value={c.slug}>
+                      <span data-no-translate>
                         {c.admissionYear ?? c.slug}
-                      </SelectItem>
-                    ))}
+                        {i === 0 ? t(" — последний конкурс", " — соңғы конкурс") : ""}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -228,6 +257,17 @@ export default function AdmissionPage() {
                   Сельская
                 </ToggleGroupItem>
               </ToggleGroup>
+              <p className="text-xs leading-relaxed text-muted-foreground" data-no-translate>
+                {quotaType === "RURAL"
+                  ? t(
+                      "Для выпускников сельских школ. Ты участвуешь и в общем конкурсе, поэтому показываем меньший из двух проходных баллов.",
+                      "Ауыл мектептерінің түлектері үшін. Жалпы конкурсқа да қатысасыз, сондықтан екі өту балының төменін көрсетеміз.",
+                    )
+                  : t(
+                      "Общий конкурс — для всех. Если ты окончил сельскую школу, выбери «Сельская»: шансы обычно выше.",
+                      "Жалпы конкурс — барлығына. Ауыл мектебін бітірсеңіз, «Ауыл» таңдаңыз: мүмкіндік әдетте жоғары.",
+                    )}
+              </p>
             </div>
 
             {/* Step 1: Profile subjects */}
@@ -238,9 +278,6 @@ export default function AdmissionPage() {
                 </span>
                 <Label>Профильные предметы</Label>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Сначала выберите пару профильных предметов
-              </p>
               {profileLoading ? (
                 <Skeleton className="h-10" />
               ) : (
@@ -261,44 +298,37 @@ export default function AdmissionPage() {
 
             {/* Step 2: ENT scores — only shown after profileSubjects selected */}
             {step === 2 && (
-              <>
-                <div className="border-t border-border pt-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="flex size-6 items-center justify-center rounded-full bg-foreground text-background text-xs font-semibold">
-                      2
-                    </span>
-                    <Label>Баллы ЕНТ</Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto h-auto p-0 text-xs text-muted-foreground"
-                      onClick={handleBackToStep1}
-                    >
-                      Изменить
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Выбрано: {profileSubjects}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
-                        total >= 100
-                          ? "bg-emerald-100 text-emerald-900"
-                          : total >= 70
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-secondary text-muted-foreground",
-                      )}
-                    >
-                      {total}/{ENT_TOTAL_MAX}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {SCORE_FIELDS.map((f) => (
-                      <div key={f.key} className="flex flex-col gap-1">
-                        <Label className="text-xs text-muted-foreground" htmlFor={f.key}>
-                          {f.short} ({f.max})
+              <div className="border-t border-border pt-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-foreground text-background text-xs font-semibold">
+                    2
+                  </span>
+                  <Label>Баллы ЕНТ</Label>
+                  <span
+                    className={cn(
+                      "ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
+                      total >= 100
+                        ? "bg-emerald-100 text-emerald-900"
+                        : total >= 70
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-secondary text-muted-foreground",
+                    )}
+                  >
+                    {total}/{ENT_TOTAL_MAX}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {SCORE_FIELDS.map((f) => {
+                    const label =
+                      f.key === "profile1" && subjectNames
+                        ? subjectNames[0]
+                        : f.key === "profile2" && subjectNames
+                          ? subjectNames[1]
+                          : f.short
+                    return (
+                      <div key={f.key} className="flex min-w-0 flex-col gap-1">
+                        <Label className="truncate text-xs text-muted-foreground" htmlFor={f.key}>
+                          {label} ({f.max})
                         </Label>
                         <Input
                           id={f.key}
@@ -309,36 +339,37 @@ export default function AdmissionPage() {
                           value={scores[f.key]}
                           onChange={(e) => {
                             const v = Number(e.target.value)
-                            const clamped = Number.isFinite(v)
-                              ? Math.max(0, Math.min(f.max, v))
-                              : 0
+                            const clamped = Number.isFinite(v) ? Math.max(0, Math.min(f.max, v)) : 0
                             setScores((s) => ({ ...s, [f.key]: clamped }))
                           }}
                           className="h-10 tabular-nums"
                         />
                       </div>
-                    ))}
-                  </div>
+                    )
+                  })}
                 </div>
-              </>
+              </div>
             )}
 
             {step === 1 && (
               <div className="rounded-md border border-dashed border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
-                <Sparkles className="mb-1 inline size-3.5" />{" "}
-                Шаг 1 из 2: выберите пару профильных предметов
+                <Sparkles className="mb-1 inline size-3.5" /> Шаг 1 из 2: выберите пару профильных предметов
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Results */}
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <ToggleGroup
               type="single"
               value={tab}
-              onValueChange={(v) => v && setTab(v as Tab)}
+              onValueChange={(v) => {
+                if (!v) return
+                setTab(v as Tab)
+                setSearch("")
+              }}
               className="self-start rounded-md border border-border bg-card p-0.5"
             >
               <ToggleGroupItem
@@ -346,24 +377,29 @@ export default function AdmissionPage() {
                 className="h-9 flex-none px-3 data-[state=on]:bg-foreground data-[state=on]:text-background"
               >
                 <GraduationCap className="size-4" />
-                <span className="hidden sm:inline ml-1">Специальности</span>
+                <span className="ml-1">Специальности</span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="universities"
                 className="h-9 flex-none px-3 data-[state=on]:bg-foreground data-[state=on]:text-background"
               >
                 <Building2 className="size-4" />
-                <span className="hidden sm:inline ml-1">Вузы</span>
+                <span className="ml-1">Вузы</span>
               </ToggleGroupItem>
             </ToggleGroup>
 
             <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Поиск..."
+                placeholder={
+                  tab === "programs"
+                    ? t("Поиск специальности…", "Мамандықты іздеу…")
+                    : t("Поиск вуза…", "ЖОО іздеу…")
+                }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
+                data-no-translate
               />
             </div>
           </div>
@@ -376,19 +412,26 @@ export default function AdmissionPage() {
             </Card>
           ) : tab === "programs" ? (
             <ProgramsList
-              loading={progLoading}
+              loading={progLoading && !programs}
               programs={filteredPrograms}
               total={total}
-              hasParams={!!programsKey}
+              cycleYear={cycleYear}
+              onOpen={openProgram}
             />
           ) : (
             <UniversitiesList
               cycleSlug={cycleSlug}
+              cycleYear={cycleYear}
               quotaType={quotaType}
               scores={debouncedScores}
+              total={total}
               search={search}
               programs={programs ?? []}
-              programsLoading={progLoading}
+              programsLoading={progLoading && !programs}
+              programId={programId}
+              highlightUniversity={highlightUniversity}
+              onProgramChange={setProgramId}
+              onBack={() => setTab("programs")}
             />
           )}
         </div>
@@ -397,26 +440,70 @@ export default function AdmissionPage() {
   )
 }
 
+function ResultsSummary({
+  total,
+  cycleYear,
+  children,
+}: {
+  total: number
+  cycleYear: number | null
+  children: React.ReactNode
+}) {
+  const t = useT()
+  const [showLegend, setShowLegend] = useState(false)
+  return (
+    <div className="rounded-md border border-border bg-card px-4 py-3 text-sm" data-no-translate>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="font-medium">{children}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("Твой балл", "Сіздің балыңыз")}: <span className="font-semibold tabular-nums">{total}</span>
+            {" · "}
+            {cycleYear
+              ? t(`проходные баллы конкурса ${cycleYear} года`, `${cycleYear} жылғы конкурстың өту балдары`)
+              : t("проходные баллы прошлых лет", "өткен жылдардың өту балдары")}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 shrink-0 gap-1 px-2 text-xs text-muted-foreground"
+          onClick={() => setShowLegend((v) => !v)}
+          aria-expanded={showLegend}
+        >
+          <Info className="size-3.5" aria-hidden="true" />
+          {t("Как считаем", "Қалай есептейміз")}
+        </Button>
+      </div>
+      {showLegend && (
+        <div className="mt-3 space-y-2 border-t border-border pt-3">
+          <ChanceLegend />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {t(
+              "Проходной балл каждый год меняется на несколько баллов, поэтому это ориентир, а не гарантия. Грант даётся по группе программ: внутри неё конкурс общий по стране.",
+              "Өту балы жыл сайын бірнеше балға өзгереді, сондықтан бұл кепілдік емес, бағдар. Грант бағдарламалар тобы бойынша беріледі: конкурс бүкіл ел бойынша ортақ.",
+            )}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ProgramsList({
   loading,
   programs,
   total,
-  hasParams,
+  cycleYear,
+  onOpen,
 }: {
   loading: boolean
   programs: ChanceProgram[]
   total: number
-  hasParams: boolean
+  cycleYear: number | null
+  onOpen: (programId: string) => void
 }) {
-  if (!hasParams) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          Выберите параметры слева, чтобы увидеть подходящие специальности
-        </CardContent>
-      </Card>
-    )
-  }
+  const t = useT()
   if (loading) {
     return (
       <div className="flex flex-col gap-2">
@@ -436,181 +523,156 @@ function ProgramsList({
     )
   }
 
-  const passing = programs.filter((p) => p.isPass).length
+  const reachable = programs.filter((p) => (p.passingUniversityCount ?? (p.isPass ? 1 : 0)) > 0).length
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm">
-        <div className="flex size-9 items-center justify-center rounded-full bg-foreground text-background">
-          <CheckCircle2 className="size-4" />
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <p className="font-medium">
-            {passing} из {programs.length} специальностей подходят
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Ваш балл: <span className="font-semibold tabular-nums">{total}</span> · Сравниваем с
-            пороговыми баллами прошлых лет
-          </p>
-        </div>
-      </div>
+      <ResultsSummary total={total} cycleYear={cycleYear}>
+        {t(
+          `Проходишь хотя бы в один вуз по ${reachable} из ${programs.length} специальностей`,
+          `${programs.length} мамандықтың ${reachable}-і бойынша кем дегенде бір ЖОО-ға өтесіз`,
+        )}
+      </ResultsSummary>
       <ul className="flex flex-col gap-2">
         {programs.map((p) => (
-          <ProgramRow key={`${p.programId}-${p.profileSubjects}`} program={p} />
+          <ProgramRow key={`${p.programId}-${p.profileSubjects}`} program={p} onOpen={onOpen} />
         ))}
       </ul>
     </div>
   )
 }
 
-function ProgramRow({ program }: { program: ChanceProgram }) {
-  const isPass = program.isPass
-  const gap = program.gapToCutoff
+function ProgramRow({ program, onOpen }: { program: ChanceProgram; onOpen: (programId: string) => void }) {
+  const t = useT()
+  const passing = program.passingUniversityCount ?? (program.isPass ? 1 : 0)
+  const max = program.maxDisplayedMinScore ?? program.displayedMinScore
+  const min = program.displayedMinScore
   return (
     <li>
-      <Card className={cn("transition-colors", isPass ? "border-emerald-200" : "border-border")}>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3 min-w-0">
-            <div
-              className={cn(
-                "flex size-10 shrink-0 items-center justify-center rounded-md",
-                isPass ? "bg-emerald-100 text-emerald-900" : "bg-rose-50 text-rose-900",
-              )}
-            >
-              {isPass ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
+      <button
+        type="button"
+        onClick={() => onOpen(program.programId)}
+        className="w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Card className="py-0 transition-colors hover:bg-muted/40">
+          <CardContent className="flex items-center gap-3 p-4" data-no-translate>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="font-mono text-xs">
                   {program.programCode}
                 </Badge>
                 <p className="font-medium leading-tight">{program.programName}</p>
+                {program.chance && (
+                  <ChanceBadge level={program.chance} passesEntThresholds={program.passesEntThresholds} />
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Профиль: {program.profileSubjects}
-                {program.universityCount > 0 && (
-                  <span className="ml-2">· {program.universityCount} вузов</span>
-                )}
-                {program.totalGrantCount != null && program.totalGrantCount > 0 && (
-                  <span className="ml-1">
-                    · {program.totalGrantCount} <span>грантов</span>
-                  </span>
-                )}
+                <span className={cn("font-medium", passing > 0 ? "text-foreground" : "")}>
+                  {t(
+                    `Проходишь в ${passing} из ${program.universityCount} вузов`,
+                    `${program.universityCount} ЖОО-ның ${passing}-іне өтесіз`,
+                  )}
+                </span>
+                {" · "}
+                {t("проходной", "өту балы")}{" "}
+                <span className="tabular-nums">{min != null && max != null && max !== min ? `${min}–${max}` : (min ?? "—")}</span>
+                {program.totalGrantCount ? (
+                  <>
+                    {" · "}
+                    {grantsLabel(program.totalGrantCount, t)}
+                  </>
+                ) : null}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-1">
-            <div className="flex flex-col items-end">
-              <span className="text-xs text-muted-foreground">Порог</span>
-              <div className="flex flex-wrap justify-end gap-1">
-                <span className="font-semibold tabular-nums">
-                  {program.displayedMinScore ?? "—"}
-                </span>
-                {isGrantFallback(program.cutoffSource) && (
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
-                    общий грант
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="text-xs text-muted-foreground">
-                {isPass ? "Запас" : "Не хватает"}
-              </span>
-              <span
-                className={cn(
-                  "font-semibold tabular-nums",
-                  isPass ? "text-emerald-700" : "text-rose-700",
-                )}
-              >
-                {gap == null ? "—" : `${isPass ? "+" : ""}${gap}`}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </CardContent>
+        </Card>
+      </button>
     </li>
   )
 }
 
 function UniversitiesList({
   cycleSlug,
+  cycleYear,
   quotaType,
   scores,
+  total,
   search,
   programs,
   programsLoading,
+  programId,
+  highlightUniversity,
+  onProgramChange,
+  onBack,
 }: {
   cycleSlug: string
+  cycleYear: number | null
   quotaType: QuotaType
   scores: Scores
+  total: number
   search: string
   programs: ChanceProgram[]
   programsLoading: boolean
+  programId: string
+  highlightUniversity: number | null
+  onProgramChange: (programId: string) => void
+  onBack: () => void
 }) {
-  const [programId, setProgramId] = useState<string>("")
-
-  const filteredPrograms = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return programs
-    return programs.filter(
-      (p) =>
-        p.programName.toLowerCase().includes(q) ||
-        p.programCode.toLowerCase().includes(q),
-    )
-  }, [programs, search])
+  const t = useT()
 
   useEffect(() => {
-    if (programId && filteredPrograms.some((program) => program.programId === programId)) {
-      return
+    if (programsLoading || programs.length === 0) return
+    if (!programId || !programs.some((p) => p.programId === programId)) {
+      onProgramChange(programs[0].programId)
     }
-    if (filteredPrograms.length > 0) {
-      setProgramId(filteredPrograms[0].programId)
-      return
-    }
-    if (programId) setProgramId("")
-  }, [filteredPrograms, programId])
+  }, [programs, programId, programsLoading, onProgramChange])
 
   const uniKey =
     cycleSlug && programId
-      ? `/admission/chance/universities?${new URLSearchParams({
-          cycleSlug,
-          quotaType,
-          programId,
-          mathLit: String(scores.mathLit),
-          readingLit: String(scores.readingLit),
-          history: String(scores.history),
-          profile1: String(scores.profile1),
-          profile2: String(scores.profile2),
-        }).toString()}`
+      ? `/admission/chance/universities?${scoreQuery(cycleSlug, quotaType, scores, { programId })}`
       : null
-  const { data: unis, isLoading: uniLoading } = useSWR<ChanceUniversity[]>(uniKey)
+  const { data: unis, isLoading: uniLoading } = useSWR<ChanceUniversity[]>(uniKey, { keepPreviousData: true })
 
-  const sortedUnis = useMemo(() => {
+  const filteredUnis = useMemo(() => {
+    const q = search.trim().toLowerCase()
     if (!unis) return []
-    return [...unis].sort((a, b) => {
-      if (a.isPass !== b.isPass) return a.isPass ? -1 : 1
-      return (a.displayedMinScore ?? 0) - (b.displayedMinScore ?? 0)
-    })
-  }, [unis])
+    if (!q) {
+      // the student's goal university goes first
+      const goal = unis.find((u) => u.universityCode === highlightUniversity)
+      return goal ? [goal, ...unis.filter((u) => u !== goal)] : unis
+    }
+    return unis.filter(
+      (u) =>
+        u.universityName.toLowerCase().includes(q) ||
+        (u.universityShortName ?? "").toLowerCase().includes(q) ||
+        String(u.universityCode) === q,
+    )
+  }, [unis, search, highlightUniversity])
+
+  const selected = programs.find((p) => p.programId === programId)
+  const passing = (unis ?? []).filter((u) => u.isPass).length
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
-        <Label>Специальность</Label>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={onBack}>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            <span data-no-translate>{t("Все специальности", "Барлық мамандықтар")}</span>
+          </Button>
+        </div>
         {programsLoading ? (
           <Skeleton className="h-10" />
         ) : (
-          <Select value={programId} onValueChange={setProgramId}>
+          <Select value={programId} onValueChange={onProgramChange}>
             <SelectTrigger>
               <SelectValue placeholder="Выберите специальность" />
             </SelectTrigger>
             <SelectContent className="max-h-80">
-              {filteredPrograms.map((p) => (
+              {programs.map((p) => (
                 <SelectItem key={p.programId} value={p.programId}>
-                  <span className="font-mono text-xs text-muted-foreground mr-2">
-                    {p.programCode}
-                  </span>
+                  <span className="mr-2 font-mono text-xs text-muted-foreground">{p.programCode}</span>
                   {p.programName}
                 </SelectItem>
               ))}
@@ -625,77 +687,118 @@ function UniversitiesList({
             Выберите специальность, чтобы увидеть список вузов
           </CardContent>
         </Card>
-      ) : uniLoading ? (
+      ) : uniLoading && !unis ? (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16" />
+            <Skeleton key={i} className="h-20" />
           ))}
         </div>
-      ) : sortedUnis.length === 0 ? (
+      ) : (unis ?? []).length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Нет данных по этой специальности
-          </CardContent>
+          <CardContent className="py-12 text-center text-muted-foreground">Нет данных по этой специальности</CardContent>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {sortedUnis.map((u) => (
-            <li key={u.universityCode}>
-              <Card
-                className={cn(
-                  "transition-colors",
-                  u.isPass ? "border-emerald-200" : "border-border",
-                )}
-              >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <div
-                    className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-md",
-                      u.isPass ? "bg-emerald-100 text-emerald-900" : "bg-rose-50 text-rose-900",
-                    )}
-                  >
-                    {u.isPass ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1 min-w-0">
-                    <p className="truncate font-medium">{u.universityName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Код {u.universityCode} · Порог {u.displayedMinScore ?? "—"}
-                      {u.grantCount != null && u.grantCount > 0 && (
-                        <span>
-                          {" "}· {u.grantCount} <span>грантов</span>
-                        </span>
-                      )}
-                      {isGrantFallback(u.cutoffSource) && (
-                        <Badge
-                          variant="secondary"
-                          className="ml-2 h-5 px-1.5 align-middle text-[10px] font-medium"
-                        >
-                          общий грант
-                        </Badge>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs text-muted-foreground">
-                      {u.isPass ? "Запас" : "Не хватает"}
-                    </span>
-                    <span
-                      className={cn(
-                        "font-semibold tabular-nums",
-                        u.isPass ? "text-emerald-700" : "text-rose-700",
-                      )}
-                    >
-                      {u.gapToCutoff == null
-                        ? "—"
-                        : `${u.isPass ? "+" : ""}${u.gapToCutoff}`}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ResultsSummary total={total} cycleYear={cycleYear}>
+            {selected ? `${selected.programCode} ${selected.programName}: ` : ""}
+            {t(
+              `проходишь в ${passing} из ${(unis ?? []).length} вузов`,
+              `${(unis ?? []).length} ЖОО-ның ${passing}-іне өтесіз`,
+            )}
+          </ResultsSummary>
+          {filteredUnis.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground" data-no-translate>
+                {t("Вуз не найден", "ЖОО табылмады")}
+              </CardContent>
+            </Card>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {filteredUnis.map((u) => (
+                <UniversityRow
+                  key={u.universityCode}
+                  university={u}
+                  cycleYear={cycleYear}
+                  isGoal={u.universityCode === highlightUniversity}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
+  )
+}
+
+function UniversityRow({
+  university: u,
+  cycleYear,
+  isGoal,
+}: {
+  university: ChanceUniversity
+  cycleYear: number | null
+  isGoal?: boolean
+}) {
+  const t = useT()
+  const gap = u.gapToCutoff
+  return (
+    <li>
+      <Card className={cn("py-0", isGoal && "ring-2 ring-emerald-500/60")}>
+        <CardContent className="flex items-start gap-3 p-4" data-no-translate>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium leading-tight">{u.universityShortName || u.universityName}</p>
+              {u.chance && <ChanceBadge level={u.chance} passesEntThresholds={u.passesEntThresholds} />}
+              {isGoal && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
+                  {t("Твоя цель", "Сіздің мақсатыңыз")}
+                </Badge>
+              )}
+              {u.cutoffSource === "GRANT_FALLBACK" && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
+                  {t("через общий конкурс", "жалпы конкурс арқылы")}
+                </Badge>
+              )}
+            </div>
+            {u.universityShortName && (
+              <p className="truncate text-xs text-muted-foreground">{u.universityName}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                {t("Проходной", "Өту балы")}
+                {cycleYear ? ` ${cycleYear}` : ""}:{" "}
+                <span className="font-semibold text-foreground tabular-nums">{u.displayedMinScore ?? "—"}</span>
+              </span>
+              {u.displayedMinScore != null && (
+                <CutoffTrend
+                  current={u.displayedMinScore}
+                  previous={u.previousMinScore}
+                  previousYear={u.previousAdmissionYear}
+                />
+              )}
+              {u.avgScore != null && (
+                <span>
+                  {t("средний", "орташа")} <span className="tabular-nums">{Math.round(u.avgScore)}</span>
+                </span>
+              )}
+              {u.grantCount ? <span>{grantsLabel(u.grantCount, t)}</span> : null}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-end">
+            <span className="text-xs text-muted-foreground">
+              {gap != null && gap >= 0 ? t("Запас", "Қор") : t("Не хватает", "Жетпейді")}
+            </span>
+            <span
+              className={cn(
+                "text-lg font-semibold tabular-nums",
+                gap == null ? "" : gap >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300",
+              )}
+            >
+              {gap == null ? "—" : gap > 0 ? `+${gap}` : gap}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </li>
   )
 }

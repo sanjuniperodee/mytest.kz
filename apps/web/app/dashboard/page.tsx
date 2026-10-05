@@ -139,7 +139,7 @@ export default function DashboardHomePage() {
           })}</ul>}
         </CardContent>
       </Card>
-      <div className="min-w-0"><AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={null} /></div>
+      <div className="min-w-0"><AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={impact?.available ? impact.potentialScore : null} maxScore={impact?.available ? impact.maxScore : undefined} /></div>
     </div>
 
     <nav className="grid gap-3 sm:grid-cols-3" aria-label={t("Другие разделы", "Басқа бөлімдер")} data-no-translate>

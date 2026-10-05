@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType } from '@prisma/client';
-import { ENT_TOTAL_MAX } from '@bilimland/shared';
+import { ENT_TOTAL_MAX, type AdmissionHistoryPointDto } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { AdmissionService } from './admission.service';
 import { resolveDisplayedCutoff } from './domain/chance-cutoffs';
@@ -21,6 +21,12 @@ export interface ResolvedAdmissionGoal {
   requiredScoreQuotaType: GrantQuotaType | null;
   /** Grants awarded in that competition at this university. */
   grantCount: number | null;
+  /** Average / best score of last year's grant holders (for the chance estimate). */
+  avgScore: number | null;
+  topScore: number | null;
+  admissionYear: number | null;
+  /** The same target in every admission year, oldest first. */
+  history: AdmissionHistoryPointDto[];
   maxScore: number; // ЕНТ total
 }
 
@@ -120,6 +126,7 @@ export class AdmissionGoalService {
     const row = rows.find((r) => r.quotaType === GrantQuotaType.GRANT) ?? rows[0];
     if (!row) return null;
     const displayed = resolveDisplayedCutoff(quotaType, rows);
+    const history = await this.admission.history({ universityCode, programId, quotaType });
     return {
       cycleSlug,
       quotaType,
@@ -133,6 +140,10 @@ export class AdmissionGoalService {
       requiredScore: displayed?.displayedMinScore ?? null,
       requiredScoreQuotaType: displayed?.displayedQuotaType ?? null,
       grantCount: displayed?.grantCount ?? null,
+      avgScore: displayed?.avgScore ?? null,
+      topScore: displayed?.maxScore ?? null,
+      admissionYear: history.find((h) => h.cycleSlug === cycleSlug)?.admissionYear ?? null,
+      history,
       maxScore: ENT_TOTAL_MAX,
     };
   }

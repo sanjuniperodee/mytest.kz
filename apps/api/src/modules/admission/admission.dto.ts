@@ -25,6 +25,19 @@ export class AdmissionUniversitiesQueryDto {
   cycleSlug?: string;
 }
 
+export class AdmissionHistoryQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  universityCode!: number;
+
+  @IsUUID()
+  programId!: string;
+
+  @IsOptional()
+  @IsIn(['GRANT', 'RURAL'])
+  quotaType?: 'GRANT' | 'RURAL';
+}
+
 export class AdmissionCutoffsQueryDto {
   @IsString()
   cycleSlug!: string;

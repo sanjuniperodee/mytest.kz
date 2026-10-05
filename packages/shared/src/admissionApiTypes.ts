@@ -1,3 +1,5 @@
+import type { AdmissionChanceLevel } from './admissionCompare';
+
 export type AdmissionCycleDto = {
   id: string;
   /** Academic year the grants are for, e.g. "2026-2027". */
@@ -47,7 +49,14 @@ export type ChanceProgramDto = {
   universityCount: number;
   /** Grants awarded for this program across all listed universities. */
   totalGrantCount?: number | null;
+  /** Universities where the score reaches the cutoff, and the hardest cutoff among them. */
+  passingUniversityCount?: number;
+  maxDisplayedMinScore?: number | null;
+  /** Best chance across universities. */
+  chance?: AdmissionChanceLevel;
   isPass: boolean;
+  /** Per-subject ЕНТ thresholds and the 50-point minimum are met. */
+  passesEntThresholds?: boolean;
   total: number;
   gapToCutoff: number | null;
 };
@@ -69,7 +78,24 @@ export type ChanceUniversityDto = {
   avgScore?: number | null;
   /** Grants awarded at this university in the displayed competition. */
   grantCount?: number | null;
+  chance?: AdmissionChanceLevel;
+  /** Same cutoff in the previous admission year (for the trend). */
+  previousMinScore?: number | null;
+  previousAdmissionYear?: number | null;
   isPass: boolean;
+  /** Per-subject ЕНТ thresholds and the 50-point minimum are met. */
+  passesEntThresholds?: boolean;
   total: number;
   gapToCutoff: number | null;
+};
+
+/** One admission year of a university × program target. */
+export type AdmissionHistoryPointDto = {
+  cycleSlug: string;
+  admissionYear: number | null;
+  displayedQuotaType: 'GRANT' | 'RURAL';
+  minScore: number;
+  maxScore: number | null;
+  avgScore: number | null;
+  grantCount: number | null;
 };

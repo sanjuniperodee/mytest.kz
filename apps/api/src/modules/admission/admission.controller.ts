@@ -6,6 +6,7 @@ import {
   AdmissionChanceUniversitiesQueryDto,
   AdmissionCompareQueryDto,
   AdmissionCutoffsQueryDto,
+  AdmissionHistoryQueryDto,
   AdmissionProfileSubjectsQueryDto,
   AdmissionProgramsQueryDto,
   AdmissionUniversitiesQueryDto,
@@ -41,6 +42,15 @@ export class AdmissionController {
       universityCode: query.universityCode,
       programId: query.programId,
       quotaType: query.quotaType as GrantQuotaType | undefined,
+    });
+  }
+
+  @Get('history')
+  history(@Query() query: AdmissionHistoryQueryDto) {
+    return this.admissionService.history({
+      universityCode: query.universityCode,
+      programId: query.programId,
+      quotaType: (query.quotaType ?? 'GRANT') as GrantQuotaType,
     });
   }
 

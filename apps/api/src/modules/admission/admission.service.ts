@@ -1,6 +1,12 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType, Prisma } from '@prisma/client';
-import { compareEntToCutoff, type EntScores } from '@bilimland/shared';
+import {
+  admissionChance,
+  compareEntToCutoff,
+  type AdmissionChanceLevel,
+  type AdmissionHistoryPointDto,
+  type EntScores,
+} from '@bilimland/shared';
 import { resolveChanceRows, resolveDisplayedCutoff } from './domain/chance-cutoffs';
 import type { ResolvedChanceRow } from './domain/chance-cutoffs';
 import { AdmissionRepository } from './infrastructure/admission.repository';
@@ -9,6 +15,12 @@ import Redis from 'ioredis';
 
 function isPassing(comparison: ReturnType<typeof compareEntToCutoff>): boolean {
   return comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0;
+}
+
+const CHANCE_RANK: Record<AdmissionChanceLevel, number> = { HIGH: 0, MEDIUM: 1, LOW: 2, NONE: 3 };
+
+function chanceFor(comparison: ReturnType<typeof compareEntToCutoff>, row: ResolvedChanceRow) {
+  return admissionChance(comparison.total, comparison.passesEntThresholds, row.displayedMinScore, row.avgScore);
 }
 
 @Injectable()
@@ -192,6 +204,14 @@ export class AdmissionService {
         cur.displayedMinScore < acc.displayedMinScore ? cur : acc,
       );
       const comparison = compareEntToCutoff(input.scores, minRow.displayedMinScore);
+      let passingUniversityCount = 0;
+      let chance: AdmissionChanceLevel = 'NONE';
+      for (const row of groupRows) {
+        const c = compareEntToCutoff(input.scores, row.displayedMinScore);
+        if (isPassing(c)) passingUniversityCount++;
+        const level = chanceFor(c, row);
+        if (CHANCE_RANK[level] < CHANCE_RANK[chance]) chance = level;
+      }
       const totalGrantCount = groupRows.some((r) => r.grantCount != null)
         ? groupRows.reduce((sum, r) => sum + (r.grantCount ?? 0), 0)
         : null;
@@ -208,9 +228,12 @@ export class AdmissionService {
             ? input.quotaType
             : 'GRANT_FALLBACK',
         displayedMinScore: minRow.displayedMinScore,
+        maxDisplayedMinScore: Math.max(...groupRows.map((r) => r.displayedMinScore)),
         universityCount: groupRows.length,
+        passingUniversityCount,
         /** Grants awarded across all universities of this program (in the displayed competitions). */
         totalGrantCount,
+        chance,
         isPass: isPassing(comparison),
         total: comparison.total,
         passesEntThresholds: comparison.passesEntThresholds,
@@ -219,7 +242,10 @@ export class AdmissionService {
     });
 
     return result.sort((a, b) => {
-      if (a.isPass !== b.isPass) return a.isPass ? -1 : 1;
+      if (a.chance !== b.chance) return CHANCE_RANK[a.chance] - CHANCE_RANK[b.chance];
+      if (a.passingUniversityCount !== b.passingUniversityCount) {
+        return b.passingUniversityCount - a.passingUniversityCount;
+      }
       if (a.displayedMinScore !== b.displayedMinScore) return a.displayedMinScore - b.displayedMinScore;
       return a.programCode.localeCompare(b.programCode, 'en');
     });
@@ -238,6 +264,20 @@ export class AdmissionService {
       programId: input.programId,
       universityCode: input.universityCode,
     });
+
+    // Previous admission year of the same program, for the trend ("2025: 98 → 2026: 100").
+    const previousCycle = await this.findPreviousCycle(input.cycleSlug);
+    const previousByUni = new Map<number, number>();
+    if (previousCycle) {
+      const prevRows = await this.listResolvedChanceRows({
+        cycleSlug: previousCycle.slug,
+        quotaType: input.quotaType,
+        programId: input.programId,
+        universityCode: input.universityCode,
+      });
+      for (const r of prevRows) previousByUni.set(r.universityCode, r.displayedMinScore);
+    }
+
     return rows
       .map((row) => {
         const comparison = compareEntToCutoff(input.scores, row.displayedMinScore);
@@ -260,6 +300,9 @@ export class AdmissionService {
           maxScore: row.maxScore,
           avgScore: row.avgScore,
           grantCount: row.grantCount,
+          chance: chanceFor(comparison, row),
+          previousMinScore: previousByUni.get(row.universityCode) ?? null,
+          previousAdmissionYear: previousCycle?.admissionYear ?? null,
           isPass: isPassing(comparison),
           total: comparison.total,
           passesEntThresholds: comparison.passesEntThresholds,
@@ -267,9 +310,56 @@ export class AdmissionService {
         };
       })
       .sort((a, b) => {
-        if (a.isPass !== b.isPass) return a.isPass ? -1 : 1;
-        if (a.displayedMinScore !== b.displayedMinScore) return a.displayedMinScore - b.displayedMinScore;
+        if (a.chance !== b.chance) return CHANCE_RANK[a.chance] - CHANCE_RANK[b.chance];
+        // reachable: the most competitive first; out of reach: the closest first
+        if (a.displayedMinScore !== b.displayedMinScore) {
+          return a.isPass ? b.displayedMinScore - a.displayedMinScore : a.displayedMinScore - b.displayedMinScore;
+        }
         return a.universityCode - b.universityCode;
       });
+  }
+
+  private async findPreviousCycle(cycleSlug: string) {
+    const cycles = await this.admissionRepository.listCycles();
+    const current = cycles.find((c) => c.slug === cycleSlug);
+    if (!current) return null;
+    return (
+      cycles
+        .filter((c) => c.sortOrder < current.sortOrder)
+        .sort((a, b) => b.sortOrder - a.sortOrder)[0] ?? null
+    );
+  }
+
+  /** Cutoff of one university × program in every admission year (oldest first). */
+  async history(input: {
+    universityCode: number;
+    programId: string;
+    quotaType: GrantQuotaType;
+  }): Promise<AdmissionHistoryPointDto[]> {
+    const [cycles, cutoffs] = await Promise.all([
+      this.admissionRepository.listCycles(),
+      this.admissionRepository.findCutoffs({
+        universityCode: input.universityCode,
+        programId: input.programId,
+      }),
+    ]);
+    const points: AdmissionHistoryPointDto[] = [];
+    for (const cycle of [...cycles].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      const displayed = resolveDisplayedCutoff(
+        input.quotaType,
+        cutoffs.filter((c) => c.cycleId === cycle.id),
+      );
+      if (!displayed) continue;
+      points.push({
+        cycleSlug: cycle.slug,
+        admissionYear: cycle.admissionYear ?? null,
+        displayedQuotaType: displayed.displayedQuotaType,
+        minScore: displayed.displayedMinScore,
+        maxScore: displayed.maxScore,
+        avgScore: displayed.avgScore,
+        grantCount: displayed.grantCount,
+      });
+    }
+    return points;
   }
 }
