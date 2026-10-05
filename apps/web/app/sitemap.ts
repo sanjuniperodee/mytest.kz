@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next"
+import { ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -15,23 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ]
 
   // SEO landing pages for ENT subject preparation — high-volume search queries
-  const subjectSlugs = [
-    "matematika",
-    "matematicheskaya-gramotnost",
-    "istoriya-kazahstana",
-    "geografiya",
-    "biologiya",
-    "himiya",
-    "fizika",
-    "informatika",
-    "anglijskij-yazyk",
-    "kazahskij-yazyk",
-    "russkij-yazyk",
-    "vsemirnaya-istoriya",
-    "pravo",
-  ]
-
-  const subjectRoutes: MetadataRoute.Sitemap = subjectSlugs.map((slug) => ({
+  const subjectRoutes: MetadataRoute.Sitemap = ENT_SUBJECT_SLUGS.map((slug) => ({
     url: `${baseUrl}/ent/${slug}`,
     lastModified: now,
     changeFrequency: "weekly" as const,
