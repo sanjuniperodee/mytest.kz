@@ -1,11 +1,15 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType, Prisma } from '@prisma/client';
 import { compareEntToCutoff, type EntScores } from '@bilimland/shared';
-import { resolveChanceRows } from './domain/chance-cutoffs';
+import { resolveChanceRows, resolveDisplayedCutoff } from './domain/chance-cutoffs';
 import type { ResolvedChanceRow } from './domain/chance-cutoffs';
 import { AdmissionRepository } from './infrastructure/admission.repository';
 import { REDIS_CLIENT } from '../../database/redis.module';
 import Redis from 'ioredis';
+
+function isPassing(comparison: ReturnType<typeof compareEntToCutoff>): boolean {
+  return comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0;
+}
 
 @Injectable()
 export class AdmissionService {
@@ -32,7 +36,8 @@ export class AdmissionService {
     programId?: string;
   }): Promise<ResolvedChanceRow[]> {
     const version = (await this.redis.get(this.admissionCacheVersionKey(input.cycleSlug))) || '0';
-    const cacheKey = `admission-chance-rows:v${version}:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
+    // "rows2": resolved rows carry grant statistics and the rural = min(rural, general) rule
+    const cacheKey = `admission-chance-rows2:v${version}:${input.cycleSlug}:${input.quotaType}:${input.universityCode || 'all'}:${input.profileSubjects || 'all'}:${input.programId || 'all'}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as ResolvedChanceRow[];
@@ -56,8 +61,9 @@ export class AdmissionService {
     return this.admissionRepository.listCycles();
   }
 
-  listUniversities() {
-    return this.admissionRepository.listUniversities();
+  async listUniversities(input: { cycleSlug?: string } = {}) {
+    const cycleId = input.cycleSlug ? (await this.getCycleOrThrow(input.cycleSlug)).id : undefined;
+    return this.admissionRepository.listUniversities(cycleId);
   }
 
   async listPrograms(input: { code?: string; q?: string; take?: number }) {
@@ -109,6 +115,9 @@ export class AdmissionService {
       profileSubjects: r.program.profileSubjects,
       quotaType: r.quotaType,
       minScore: r.minScore,
+      maxScore: r.maxScore ?? null,
+      avgScore: r.avgScore ?? null,
+      grantCount: r.grantCount ?? null,
     }));
   }
 
@@ -121,15 +130,19 @@ export class AdmissionService {
   }) {
     const cycle = await this.getCycleOrThrow(input.cycleSlug);
 
-    const cutoff = await this.admissionRepository.findCutoff({
+    // Same resolution as the chance endpoints: a rural applicant is compared with the lower of the
+    // rural-quota and general-competition cutoffs.
+    const cutoffs = await this.admissionRepository.findCutoffs({
       cycleId: cycle.id,
       universityCode: input.universityCode,
       programId: input.programId,
-      quotaType: input.quotaType,
     });
-
-    const minScore = cutoff?.minScore ?? null;
-    return compareEntToCutoff(input.scores, minScore);
+    const displayed = resolveDisplayedCutoff(input.quotaType, cutoffs);
+    return {
+      ...compareEntToCutoff(input.scores, displayed?.displayedMinScore ?? null),
+      displayedQuotaType: displayed?.displayedQuotaType ?? null,
+      grantCount: displayed?.grantCount ?? null,
+    };
   }
 
   async listChanceProfileSubjects(input: {
@@ -179,6 +192,9 @@ export class AdmissionService {
         cur.displayedMinScore < acc.displayedMinScore ? cur : acc,
       );
       const comparison = compareEntToCutoff(input.scores, minRow.displayedMinScore);
+      const totalGrantCount = groupRows.some((r) => r.grantCount != null)
+        ? groupRows.reduce((sum, r) => sum + (r.grantCount ?? 0), 0)
+        : null;
       return {
         cycleSlug: input.cycleSlug,
         programId: minRow.programId,
@@ -193,7 +209,9 @@ export class AdmissionService {
             : 'GRANT_FALLBACK',
         displayedMinScore: minRow.displayedMinScore,
         universityCount: groupRows.length,
-        isPass: comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0,
+        /** Grants awarded across all universities of this program (in the displayed competitions). */
+        totalGrantCount,
+        isPass: isPassing(comparison),
         total: comparison.total,
         passesEntThresholds: comparison.passesEntThresholds,
         gapToCutoff: comparison.gapToCutoff,
@@ -239,7 +257,10 @@ export class AdmissionService {
               ? input.quotaType
               : 'GRANT_FALLBACK',
           displayedMinScore: row.displayedMinScore,
-          isPass: comparison.passesEntThresholds && comparison.gapToCutoff != null && comparison.gapToCutoff >= 0,
+          maxScore: row.maxScore,
+          avgScore: row.avgScore,
+          grantCount: row.grantCount,
+          isPass: isPassing(comparison),
           total: comparison.total,
           passesEntThresholds: comparison.passesEntThresholds,
           gapToCutoff: comparison.gapToCutoff,

@@ -17,11 +17,15 @@ describe('Admission HTTP (mocked Prisma)', () => {
     quotaType: 'GRANT' | 'RURAL';
     minScore: number | null;
     profileSubjects?: string;
+    grantCount?: number | null;
   }) => ({
     universityCode: input.universityCode,
     programId: input.programId,
     quotaType: input.quotaType,
     minScore: input.minScore,
+    maxScore: input.minScore == null ? null : input.minScore + 10,
+    avgScore: input.minScore == null ? null : input.minScore + 5,
+    grantCount: input.grantCount ?? null,
     university: { name: `University ${input.universityCode}`, shortName: `U${input.universityCode}` },
     program: {
       code: 'B009',
@@ -44,7 +48,6 @@ describe('Admission HTTP (mocked Prisma)', () => {
     },
     grantCutoff: {
       findMany: jest.fn().mockResolvedValue([]),
-      findFirst: jest.fn().mockResolvedValue(null),
     },
   };
   const redisMock = {
@@ -95,7 +98,6 @@ describe('Admission HTTP (mocked Prisma)', () => {
     ]);
     prismaMock.entEducationalProgram.findMany.mockResolvedValue([]);
     prismaMock.grantCutoff.findMany.mockResolvedValue([]);
-    prismaMock.grantCutoff.findFirst.mockResolvedValue(null);
   });
 
   it('GET /api/v1/admission/cycles', async () => {
@@ -182,6 +184,16 @@ describe('Admission HTTP (mocked Prisma)', () => {
       quotaType: 'GRANT',
       rows: [makeCutoffRow({ universityCode: 7, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'RURAL', minScore: 70 })],
       expectedCount: 0,
+    },
+    {
+      name: 'RURAL chosen, general competition lower than rural quota => show grant (rural applicants compete in both)',
+      quotaType: 'RURAL',
+      rows: [
+        makeCutoffRow({ universityCode: 7, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'RURAL', minScore: 95 }),
+        makeCutoffRow({ universityCode: 7, programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', quotaType: 'GRANT', minScore: 90 }),
+      ],
+      expectedCount: 1,
+      expectedQuota: 'GRANT',
     },
     {
       name: 'RURAL chosen, both rural and grant exist => show rural',
@@ -271,5 +283,69 @@ describe('Admission HTTP (mocked Prisma)', () => {
         }),
       }),
     );
+  });
+
+  it('GET /api/v1/admission/universities?cycleSlug= filters by cycle cutoffs', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/admission/universities')
+      .query({ cycleSlug: '2025-2026' })
+      .expect(200);
+    expect(prismaMock.university.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { cutoffs: { some: { minScore: { not: null }, cycleId: 'c1' } } },
+      }),
+    );
+  });
+
+  it('GET /api/v1/admission/compare RURAL uses the lower of rural / general cutoffs', async () => {
+    const programId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+    prismaMock.grantCutoff.findMany.mockResolvedValue([
+      { quotaType: 'RURAL', minScore: 100, grantCount: 3 },
+      { quotaType: 'GRANT', minScore: 92, grantCount: 40 },
+    ]);
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/admission/compare')
+      .query({
+        cycleSlug: '2025-2026',
+        universityCode: 7,
+        programId,
+        quotaType: 'RURAL',
+        mathLit: 8,
+        readingLit: 8,
+        history: 16,
+        profile1: 30,
+        profile2: 30,
+      })
+      .expect(200);
+    expect(res.body.cutoff).toBe(92);
+    expect(res.body.displayedQuotaType).toBe('GRANT');
+    expect(res.body.grantCount).toBe(40);
+    expect(res.body.gapToCutoff).toBe(0);
+  });
+
+  it('GET /api/v1/admission/chance/universities exposes grant statistics', async () => {
+    prismaMock.grantCutoff.findMany.mockResolvedValue([
+      makeCutoffRow({
+        universityCode: 7,
+        programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        quotaType: 'GRANT',
+        minScore: 91,
+        grantCount: 25,
+      }),
+    ]);
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/admission/chance/universities')
+      .query({
+        cycleSlug: '2025-2026',
+        quotaType: 'GRANT',
+        programId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        mathLit: 5,
+        readingLit: 5,
+        history: 10,
+        profile1: 25,
+        profile2: 25,
+      })
+      .expect(200);
+    expect(res.body[0]).toMatchObject({ displayedMinScore: 91, maxScore: 101, avgScore: 96, grantCount: 25 });
   });
 });

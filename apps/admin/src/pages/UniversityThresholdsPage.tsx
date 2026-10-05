@@ -16,6 +16,9 @@ type Row = {
   programName: string;
   profileSubjects: string;
   minScore: number | null;
+  maxScore: number | null;
+  avgScore: number | null;
+  grantCount: number | null;
 };
 
 export function UniversityThresholdsPage() {
@@ -58,6 +61,9 @@ export function UniversityThresholdsPage() {
           programName: c.programName,
           profileSubjects: c.profileSubjects,
           minScore: c.minScore,
+          maxScore: c.maxScore ?? null,
+          avgScore: c.avgScore ?? null,
+          grantCount: c.grantCount ?? null,
         });
       }
     }
@@ -76,6 +82,30 @@ export function UniversityThresholdsPage() {
       align: 'right',
       render: (v: number | null) => (v == null ? '—' : v),
     },
+    {
+      title: 'Макс.',
+      dataIndex: 'maxScore',
+      key: 'maxScore',
+      width: 80,
+      align: 'right',
+      render: (v: number | null) => (v == null ? '—' : v),
+    },
+    {
+      title: 'Средний',
+      dataIndex: 'avgScore',
+      key: 'avgScore',
+      width: 90,
+      align: 'right',
+      render: (v: number | null) => (v == null ? '—' : v),
+    },
+    {
+      title: 'Грантов',
+      dataIndex: 'grantCount',
+      key: 'grantCount',
+      width: 90,
+      align: 'right',
+      render: (v: number | null) => (v == null ? '—' : v),
+    },
   ];
 
   return (
@@ -83,7 +113,7 @@ export function UniversityThresholdsPage() {
       <div className="pg-ex__hero" style={{ marginBottom: 20 }}>
         <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Пороги вузов</h2>
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'rgba(60,60,67,0.85)', maxWidth: '38rem' }}>
-          Минимальные проходные баллы по программам из выгрузки приёма. Выберите цикл, вуз и тип квоты — таблица
+          Проходные баллы (мин. / макс. / средний) и число грантов по программам — из официальных списков обладателей грантов МНВО. Выберите цикл, вуз и тип квоты — таблица
           пересчитается.
         </p>
       </div>
@@ -103,7 +133,10 @@ export function UniversityThresholdsPage() {
                 style={{ width: '100%' }}
                 value={cycleSlug}
                 onChange={setCycleSlug}
-                options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
+                options={cyclesQ.data?.map((c) => ({
+                  value: c.slug,
+                  label: c.admissionYear ? `${c.admissionYear} (${c.slug})` : c.slug,
+                }))}
               />
             </div>
             <div className="pg-th__field">

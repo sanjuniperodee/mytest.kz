@@ -189,7 +189,7 @@ export default function AdmissionPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
-              <Label>Цикл поступления</Label>
+              <Label>Год поступления</Label>
               <Select value={cycleSlug} onValueChange={setCycleSlug}>
                 <SelectTrigger>
                   <SelectValue placeholder="Загружаем..." />
@@ -200,7 +200,7 @@ export default function AdmissionPage() {
                     .sort((a, b) => b.sortOrder - a.sortOrder)
                     .map((c) => (
                       <SelectItem key={c.id} value={c.slug}>
-                        {c.slug}
+                        {c.admissionYear ?? c.slug}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -491,6 +491,11 @@ function ProgramRow({ program }: { program: ChanceProgram }) {
                 {program.universityCount > 0 && (
                   <span className="ml-2">· {program.universityCount} вузов</span>
                 )}
+                {program.totalGrantCount != null && program.totalGrantCount > 0 && (
+                  <span className="ml-1">
+                    · {program.totalGrantCount} <span>грантов</span>
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -655,6 +660,11 @@ function UniversitiesList({
                     <p className="truncate font-medium">{u.universityName}</p>
                     <p className="text-xs text-muted-foreground">
                       Код {u.universityCode} · Порог {u.displayedMinScore ?? "—"}
+                      {u.grantCount != null && u.grantCount > 0 && (
+                        <span>
+                          {" "}· {u.grantCount} <span>грантов</span>
+                        </span>
+                      )}
                       {isGrantFallback(u.cutoffSource) && (
                         <Badge
                           variant="secondary"

@@ -1,9 +1,15 @@
 import { GrantQuotaType } from '@prisma/client';
 
-export type ChanceCutoffRow = {
+export type CutoffStats = {
+  minScore: number | null;
+  maxScore?: number | null;
+  avgScore?: number | null;
+  grantCount?: number | null;
+};
+
+export type ChanceCutoffRow = CutoffStats & {
   universityCode: number;
   quotaType: GrantQuotaType;
-  minScore: number | null;
   university: { name: string; shortName: string | null };
   program: {
     code: string;
@@ -25,25 +31,54 @@ export type ResolvedChanceRow = {
   profileVariant: number;
   displayedQuotaType: GrantQuotaType;
   displayedMinScore: number;
+  /** Grants awarded in the competition the displayed cutoff comes from (null for legacy data). */
+  grantCount: number | null;
+  maxScore: number | null;
+  avgScore: number | null;
 };
 
+export type DisplayedCutoff = {
+  displayedQuotaType: GrantQuotaType;
+  displayedMinScore: number;
+  grantCount: number | null;
+  maxScore: number | null;
+  avgScore: number | null;
+};
+
+function toDisplayed(quotaType: GrantQuotaType, row: CutoffStats & { minScore: number }): DisplayedCutoff {
+  return {
+    displayedQuotaType: quotaType,
+    displayedMinScore: row.minScore,
+    grantCount: row.grantCount ?? null,
+    maxScore: row.maxScore ?? null,
+    avgScore: row.avgScore ?? null,
+  };
+}
+
+/**
+ * Which cutoff an applicant of the given quota type has to beat.
+ *
+ * GRANT: only the general-competition cutoff.
+ * RURAL: by the grant rules 65% of a program's grants are awarded in the general competition (open to
+ * everyone, rural applicants included) and 35% only among rural youth — so a rural applicant competes in
+ * both pools and the effective cutoff is the LOWER of the two. If only one of them exists, that one.
+ */
 export function resolveDisplayedCutoff(
   quotaType: GrantQuotaType,
-  rows: { quotaType: GrantQuotaType; minScore: number | null }[],
-): { displayedQuotaType: GrantQuotaType; displayedMinScore: number } | null {
-  const grant = rows.find((r) => r.quotaType === 'GRANT');
-  const rural = rows.find((r) => r.quotaType === 'RURAL');
+  rows: (CutoffStats & { quotaType: GrantQuotaType })[],
+): DisplayedCutoff | null {
+  const grant = rows.find((r) => r.quotaType === 'GRANT' && r.minScore != null);
+  const rural = rows.find((r) => r.quotaType === 'RURAL' && r.minScore != null);
 
   if (quotaType === 'GRANT') {
-    if (grant?.minScore == null) return null;
-    return { displayedQuotaType: 'GRANT', displayedMinScore: grant.minScore };
+    return grant ? toDisplayed('GRANT', grant as CutoffStats & { minScore: number }) : null;
   }
 
-  if (rural?.minScore != null) {
-    return { displayedQuotaType: 'RURAL', displayedMinScore: rural.minScore };
+  if (rural && (!grant || rural.minScore! <= grant.minScore!)) {
+    return toDisplayed('RURAL', rural as CutoffStats & { minScore: number });
   }
-  if (grant?.minScore != null) {
-    return { displayedQuotaType: 'GRANT', displayedMinScore: grant.minScore };
+  if (grant) {
+    return toDisplayed('GRANT', grant as CutoffStats & { minScore: number });
   }
   return null;
 }
@@ -77,8 +112,7 @@ export function resolveChanceRows(
       programName: base.program.name,
       profileSubjects: base.program.profileSubjects,
       profileVariant: base.program.profileVariant,
-      displayedQuotaType: resolvedCutoff.displayedQuotaType,
-      displayedMinScore: resolvedCutoff.displayedMinScore,
+      ...resolvedCutoff,
     });
   }
 

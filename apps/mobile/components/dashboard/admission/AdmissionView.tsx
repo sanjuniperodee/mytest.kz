@@ -174,7 +174,7 @@ export function AdmissionView() {
           .sort((a, b) => b.sortOrder - a.sortOrder)
           .map((c) => (
             <Pressable key={c.id} onPress={() => setCycleSlug(c.slug)} style={chipStyle(cycleSlug === c.slug, colors)}>
-              <Text style={chipText(cycleSlug === c.slug, colors)}>{c.slug}</Text>
+              <Text style={chipText(cycleSlug === c.slug, colors)}>{c.admissionYear ?? c.slug}</Text>
             </Pressable>
           ))}
       </View>
@@ -541,6 +541,7 @@ function ProgramRow({ program: p, colors }: { program: ChanceProgram; colors: Th
               {t("admProfileLabel", ui)}
               {p.profileSubjects}
               {p.universityCount > 0 ? ` · ${p.universityCount}${t("admUniCount", ui)}` : ""}
+              {p.totalGrantCount ? ` · ${p.totalGrantCount}${t("admGrantCount", ui)}` : ""}
             </Text>
           </View>
         </View>
@@ -800,6 +801,7 @@ function UniversitiesPanel({
                   {t("admCodePrefix", ui)}
                   {u.universityCode} · {t("admThresholdLabel", ui)}
                   {u.displayedMinScore ?? "—"}
+                  {u.grantCount ? ` · ${u.grantCount}${t("admGrantCount", ui)}` : ""}
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>

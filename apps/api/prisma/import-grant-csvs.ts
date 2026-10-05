@@ -1,5 +1,11 @@
 /**
- * Reads CSV sources under prisma/data/grant-admission/ and writes grant-admission-seed-data.json.
+ * Builds prisma/data/grant-admission/grant-admission-seed-data.json from:
+ *   - universities.csv            — university reference (code, official name, short name)
+ *   - programs.csv                — program groups (ГОП) × profile-subject combinations
+ *   - results/grant-results-YYYY.csv — per (university × ГОП × quota) aggregates of the official
+ *     MNVO grant-holder list, produced by prisma/scripts/parse_grant_holders_pdf.py
+ * See prisma/data/grant-admission/README.md for the full pipeline.
+ *
  * Run: npm run import:grant-admission -w @bilimland/api
  */
 import * as fs from 'fs';
@@ -8,6 +14,40 @@ import { parse } from 'csv-parse/sync';
 
 const DATA_DIR = path.join(__dirname, 'data', 'grant-admission');
 const OUT_JSON = path.join(DATA_DIR, 'grant-admission-seed-data.json');
+
+/**
+ * Admission cycles. `slug` is the academic year the grant is for (kept for backwards compatibility
+ * with stored user goals), `admissionYear` is the year of the ЕНТ / grant competition.
+ */
+const CYCLES: { slug: string; admissionYear: number; resultsFile: string }[] = [
+  { slug: '2023-2024', admissionYear: 2023, resultsFile: 'results/grant-results-2023.csv' },
+  { slug: '2024-2025', admissionYear: 2024, resultsFile: 'results/grant-results-2024.csv' },
+  { slug: '2025-2026', admissionYear: 2025, resultsFile: 'results/grant-results-2025.csv' },
+  { slug: '2026-2027', admissionYear: 2026, resultsFile: 'results/grant-results-2026.csv' },
+];
+
+/**
+ * Sections of the grant-holder list that form a university's "проходной балл".
+ * Everything here is an open, nationwide competition for full-time study at that university:
+ *   GENERAL                   — общий конкурс (state order by program group)
+ *   HEALTH_MINISTRY           — госзаказ Минздрава (medical programs)
+ *   UNIVERSITY_PEDAGOGICAL /  — госзаказ, размещённый напрямую в вузе (pedagogical /
+ *   UNIVERSITY_TECHNICAL        technical & agricultural groups)
+ *   FOREIGN_BRANCH            — only standalone foreign institutions with their own code (e.g. "DE-537");
+ *                               joint programs hosted by a domestic university ("KZ-US-045") are a separate
+ *                               competition and are excluded.
+ * Excluded: social quotas (orphans, disability, large families…), western-region / relocation
+ * programs (restricted by residence), short-form (college graduates), out-of-competition grants.
+ */
+const INCLUDED_SECTIONS = new Set([
+  'GENERAL',
+  'HEALTH_MINISTRY',
+  'UNIVERSITY_PEDAGOGICAL',
+  'UNIVERSITY_TECHNICAL',
+  'FOREIGN_BRANCH',
+]);
+const STANDALONE_FOREIGN_TAG_RE = /^[A-Z]{2}-\d{3}$/;
+const QUOTA_MAP: Record<string, 'GRANT' | 'RURAL' | undefined> = { GENERAL: 'GRANT', RURAL: 'RURAL' };
 
 type ProgramRow = {
   code: string;
@@ -19,41 +59,46 @@ type ProgramRow = {
 
 type UniRow = { code: number; name: string; shortName: string | null };
 
-type CutoffRow = {
+type ResultRow = {
+  year: string;
+  section: string;
+  form: string;
+  programCode: string;
+  programTag: string;
+  programName: string;
+  universityCode: string;
+  quota: string;
+  minScore: string;
+  maxScore: string;
+  avgScore: string;
+  grantCount: string;
+};
+
+export type CutoffRow = {
   cycleSlug: string;
   universityCode: number;
   programKey: string;
   quotaType: 'GRANT' | 'RURAL';
-  minScore: number | null;
+  minScore: number;
+  maxScore: number;
+  avgScore: number;
+  grantCount: number;
 };
 
 const PROGRAM_CODE_RE = /^BM?\d+$/i;
-const MATRIX_PROGRAM_LABEL_RE = /^(BM?\d+)\s*[-–]\s*(.+)$/i;
 
 function normalizeProgramCode(value: string): string {
   return value.replace(/\s+/g, '').trim().toUpperCase();
 }
 
-function dedupeCutoffsJson(rows: CutoffRow[]): { cutoffs: CutoffRow[]; removed: number } {
-  const map = new Map<string, CutoffRow>();
-  for (const c of rows) {
-    const key = `${c.cycleSlug}\t${c.universityCode}\t${c.programKey}\t${c.quotaType}`;
-    const prev = map.get(key);
-    const minScore =
-      c.minScore != null ? c.minScore : prev != null && prev.minScore != null ? prev.minScore : null;
-    map.set(key, { ...c, minScore });
-  }
-  const out = [...map.values()];
-  return { cutoffs: out, removed: rows.length - out.length };
+function readCsvRows(file: string): string[][] {
+  const buf = fs.readFileSync(path.join(DATA_DIR, file), 'utf8');
+  return parse(buf, { relax_column_count: true, skip_empty_lines: false, bom: true }) as string[][];
 }
 
-function readCsv(file: string): string[][] {
+function readCsvObjects<T>(file: string): T[] {
   const buf = fs.readFileSync(path.join(DATA_DIR, file), 'utf8');
-  return parse(buf, {
-    relax_column_count: true,
-    skip_empty_lines: false,
-    bom: true,
-  }) as string[][];
+  return parse(buf, { columns: true, skip_empty_lines: true, bom: true }) as T[];
 }
 
 function parseUniversities(rows: string[][]): UniRow[] {
@@ -62,9 +107,8 @@ function parseUniversities(rows: string[][]): UniRow[] {
     const c1 = (row[1] ?? '').trim();
     const c2 = (row[2] ?? '').trim();
     if (!/^\d+$/.test(c1) || !c2) continue;
-    const code = parseInt(c1, 10);
-    const shortName = (row[3] ?? '').trim() || null;
-    out.push({ code, name: c2, shortName });
+    const shortName = (row[3] ?? '').trim();
+    out.push({ code: parseInt(c1, 10), name: c2, shortName: shortName && shortName !== '-' ? shortName : null });
   }
   return out;
 }
@@ -77,26 +121,18 @@ function parsePrograms(rows: string[][]): ProgramRow[] {
   for (const row of rows) {
     const c0 = (row[0] ?? '').trim();
     if (!started) {
-      if (c0 === 'КОД' || c0.includes('КОД')) started = true;
+      if (c0.includes('КОД')) started = true;
       continue;
     }
-    if (!c0) continue;
-    const codeRaw = normalizeProgramCode(c0);
-    if (!PROGRAM_CODE_RE.test(codeRaw)) continue;
-    const code = codeRaw;
-    const name = (row[1] ?? '').replace(/\r?\n/g, ' ').trim();
-    const profileSubjects = (row[2] ?? '').replace(/\r?\n/g, ' ').trim();
+    const code = normalizeProgramCode(c0);
+    if (!PROGRAM_CODE_RE.test(code)) continue;
+    const name = (row[1] ?? '').replace(/\s+/g, ' ').trim();
+    const profileSubjects = (row[2] ?? '').replace(/\s+/g, ' ').trim();
     const profileShortLabel = (row[3] ?? '').trim() || null;
     if (!name) continue;
     const v = counts.get(code) ?? 0;
     counts.set(code, v + 1);
-    out.push({
-      code,
-      profileVariant: v,
-      name,
-      profileSubjects,
-      profileShortLabel,
-    });
+    out.push({ code, profileVariant: v, name, profileSubjects, profileShortLabel });
   }
   return out;
 }
@@ -105,191 +141,134 @@ function programKey(p: ProgramRow): string {
   return `${p.code}:${p.profileVariant}`;
 }
 
+function isIncluded(r: ResultRow): boolean {
+  if (r.form !== 'FULL' || !INCLUDED_SECTIONS.has(r.section) || !QUOTA_MAP[r.quota]) return false;
+  if (r.section === 'FOREIGN_BRANCH') return STANDALONE_FOREIGN_TAG_RE.test(r.programTag);
+  // inside the regular sections a tagged program (joint / double-degree) is a separate competition
+  return r.programTag === '';
+}
+
 /**
- * Сопоставляет строку-заголовок матрицы (например "B037 - Филология(Казахский/Русский...)")
- * с программами из programs.csv.
- *
- * Возвращает ВСЕ профильные варианты этого кода: в матрице каждый код встречается ровно
- * одним (объединённым) блоком с единым набором проходных баллов, поэтому этот балл относится
- * ко всем профильным вариантам кода (напр. B037 Каз и B037 Рус — обе филологии получают
- * один и тот же проходной балл). Раньше fuzzy-выбор брал только один вариант, и у второго
- * (например «Филология. Русский язык») проходные баллы пропадали полностью.
- *
- * Если кода нет в programs.csv — создаём fallback-программу из подписи матрицы.
+ * Collapses the included result rows of one cycle into one cutoff per (university, ГОП, quota):
+ * min / max over all included sections, grant-weighted average, total number of grants.
+ * A ГОП's cutoff applies to every profile-subject variant of that code (grants are awarded per ГОП).
  */
-function matchPrograms(programs: ProgramRow[], matrixCol0: string): ProgramRow[] {
-  const t = matrixCol0.replace(/\s+/g, ' ').trim();
-  const m = t.match(MATRIX_PROGRAM_LABEL_RE);
-  if (!m) return [];
-  const code = normalizeProgramCode(m[1]);
-  const tail = m[2].trim();
-  const prospects = programs.filter((p) => p.code === code);
-  if (prospects.length === 0) {
-    const profileSubjects = tail.match(/\(([^)]*)\)\s*$/)?.[1]?.trim() ?? '';
-    const name = tail.replace(/\s*\([^)]*\)\s*$/, '').trim() || tail;
-    const fallback: ProgramRow = {
-      code,
-      profileVariant: 0,
-      name,
-      profileSubjects,
-      profileShortLabel: null,
-    };
-    programs.push(fallback);
-    return [fallback];
-  }
-  return prospects;
-}
-
-function parseCellScore(cell: string | undefined): number | null {
-  if (cell == null) return null;
-  const s = String(cell).trim();
-  if (s === '' || s === '-' || s === '—') return null;
-  const n = parseInt(s, 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function findMatrixHeaderRow(rows: string[][]): number {
-  for (let i = 0; i < rows.length; i++) {
-    const c0 = (rows[i][0] ?? '').trim();
-    if (c0 === 'Название' || c0.startsWith('Название')) {
-      const nums = rows[i]
-        .slice(1)
-        .map((x) => parseInt(String(x ?? '').trim(), 10))
-        .filter((n) => Number.isFinite(n) && n > 0);
-      if (nums.length >= 10) return i;
-    }
-  }
-  throw new Error('Matrix header row not found');
-}
-
-function parseMatrix(
-  rows: string[][],
+export function buildCycleCutoffs(
   cycleSlug: string,
-  programs: ProgramRow[],
-): { cutoffs: CutoffRow[]; unknownProgramLabels: string[] } {
+  results: ResultRow[],
+  programsByCode: Map<string, ProgramRow[]>,
+): { cutoffs: CutoffRow[]; unknownPrograms: Set<string> } {
+  type Acc = { min: number; max: number; sum: number; count: number };
+  const acc = new Map<string, Acc>();
+  for (const r of results) {
+    if (!isIncluded(r)) continue;
+    const quotaType = QUOTA_MAP[r.quota]!;
+    const key = `${r.universityCode}\t${normalizeProgramCode(r.programCode)}\t${quotaType}`;
+    const min = Number(r.minScore);
+    const max = Number(r.maxScore);
+    const count = Number(r.grantCount);
+    const avg = Number(r.avgScore);
+    if (![min, max, count, avg].every(Number.isFinite) || count <= 0) {
+      throw new Error(`Bad numbers in results row: ${JSON.stringify(r)}`);
+    }
+    const prev = acc.get(key);
+    if (prev) {
+      prev.min = Math.min(prev.min, min);
+      prev.max = Math.max(prev.max, max);
+      prev.sum += avg * count;
+      prev.count += count;
+    } else {
+      acc.set(key, { min, max, sum: avg * count, count });
+    }
+  }
+
   const cutoffs: CutoffRow[] = [];
-  const unknownProgramLabels: string[] = [];
-  const hi = findMatrixHeaderRow(rows);
-  const header = rows[hi].map((c) => String(c ?? '').trim());
-  const uniCodes = header
-    .slice(1)
-    .map((x) => parseInt(x, 10))
-    .filter((n) => Number.isFinite(n) && n > 0);
-
-  let currentLabel: string | null = null;
-  let currentPrograms: ProgramRow[] = [];
-
-  const emitCutoffs = (row: string[], quotaType: 'GRANT' | 'RURAL') => {
-    if (!currentPrograms.length || !currentLabel) return;
-    uniCodes.forEach((uniCode, idx) => {
-      const minScore = parseCellScore(row[idx + 1]);
-      for (const prog of currentPrograms) {
-        cutoffs.push({
-          cycleSlug,
-          universityCode: uniCode,
-          programKey: programKey(prog),
-          quotaType,
-          minScore,
-        });
-      }
-    });
-  };
-
-  for (let i = hi + 1; i < rows.length; i++) {
-    const row = rows[i].map((c) => String(c ?? ''));
-    const c0 = row[0]?.trim() ?? '';
-    const rowEmpty = row.every((c) => !String(c).trim());
-
-    if (rowEmpty) continue;
-
-    if (c0.toLowerCase() === 'грант') {
-      emitCutoffs(row, 'GRANT');
+  const unknownPrograms = new Set<string>();
+  for (const [key, a] of acc) {
+    const [uni, code, quotaType] = key.split('\t');
+    const variants = programsByCode.get(code);
+    if (!variants?.length) {
+      unknownPrograms.add(code);
       continue;
     }
-
-    if (c0.toLowerCase().startsWith('сельск')) {
-      emitCutoffs(row, 'RURAL');
-      continue;
-    }
-
-    if (MATRIX_PROGRAM_LABEL_RE.test(c0)) {
-      currentLabel = c0;
-      currentPrograms = matchPrograms(programs, c0);
-      if (!currentPrograms.length) unknownProgramLabels.push(c0);
-      continue;
+    for (const p of variants) {
+      cutoffs.push({
+        cycleSlug,
+        universityCode: Number(uni),
+        programKey: programKey(p),
+        quotaType: quotaType as 'GRANT' | 'RURAL',
+        minScore: a.min,
+        maxScore: a.max,
+        avgScore: Math.round((a.sum / a.count) * 10) / 10,
+        grantCount: a.count,
+      });
     }
   }
-
-  return { cutoffs, unknownProgramLabels };
-}
-
-function ensureUniversitiesForMatrix(unis: UniRow[], cutoffs: CutoffRow[]): UniRow[] {
-  const byCode = new Map(unis.map((u) => [u.code, u]));
-  for (const c of cutoffs) {
-    if (!byCode.has(c.universityCode)) {
-      const stub: UniRow = {
-        code: c.universityCode,
-        name: `Вуз (код ${c.universityCode}, из матрицы; уточните в справочнике)`,
-        shortName: null,
-      };
-      byCode.set(c.universityCode, stub);
-    }
-  }
-  return [...byCode.values()].sort((a, b) => a.code - b.code);
+  cutoffs.sort(
+    (x, y) =>
+      x.universityCode - y.universityCode ||
+      x.programKey.localeCompare(y.programKey) ||
+      x.quotaType.localeCompare(y.quotaType),
+  );
+  return { cutoffs, unknownPrograms };
 }
 
 function main() {
-  const uniRows = readCsv('universities.csv');
-  const progRows = readCsv('programs.csv');
-  const matrix2324 = readCsv('matrix-2023-2024.csv');
-  const matrix2526 = readCsv('matrix-2025-2026.csv');
+  const universities = parseUniversities(readCsvRows('universities.csv'));
+  const programs = parsePrograms(readCsvRows('programs.csv'));
+  const programsByCode = new Map<string, ProgramRow[]>();
+  for (const p of programs) {
+    const list = programsByCode.get(p.code) ?? [];
+    list.push(p);
+    programsByCode.set(p.code, list);
+  }
 
-  let universities = parseUniversities(uniRows);
-  const programs = parsePrograms(progRows);
+  const cutoffs: CutoffRow[] = [];
+  const unknownPrograms = new Set<string>();
+  const stats: string[] = [];
+  for (const cycle of CYCLES) {
+    const results = readCsvObjects<ResultRow>(cycle.resultsFile);
+    const badYear = results.find((r) => Number(r.year) !== cycle.admissionYear);
+    if (badYear) throw new Error(`${cycle.resultsFile}: row for year ${badYear.year}, expected ${cycle.admissionYear}`);
+    const built = buildCycleCutoffs(cycle.slug, results, programsByCode);
+    built.unknownPrograms.forEach((c) => unknownPrograms.add(c));
+    cutoffs.push(...built.cutoffs);
+    const unis = new Set(built.cutoffs.map((c) => c.universityCode));
+    stats.push(`${cycle.slug} (ЕНТ ${cycle.admissionYear}): ${built.cutoffs.length} cutoffs, ${unis.size} universities`);
+  }
 
-  const r1 = parseMatrix(matrix2324, '2023-2024', programs);
-  const r2 = parseMatrix(matrix2526, '2025-2026', programs);
-
-  const unknownProgramLabels = [...new Set([...r1.unknownProgramLabels, ...r2.unknownProgramLabels])];
-  if (unknownProgramLabels.length > 0) {
+  if (unknownPrograms.size > 0) {
     throw new Error(
-      `Unknown matrix program label(s): ${unknownProgramLabels.slice(0, 20).join(', ')}`,
+      `Program code(s) missing from programs.csv: ${[...unknownPrograms].sort().join(', ')}. ` +
+        'Add them (see prisma/scripts/build_admission_reference.py).',
     );
   }
-
-  const mergedCutoffs = [...r1.cutoffs, ...r2.cutoffs];
-  const { cutoffs, removed: deduped } = dedupeCutoffsJson(mergedCutoffs);
-  if (deduped > 0) {
-    // eslint-disable-next-line no-console
-    console.warn(`Removed ${deduped} duplicate cutoff cell(s) (same cycle / university / program / quota).`);
+  const uniCodes = new Set(universities.map((u) => u.code));
+  const unknownUnis = [...new Set(cutoffs.map((c) => c.universityCode))].filter((c) => !uniCodes.has(c));
+  if (unknownUnis.length > 0) {
+    throw new Error(`University code(s) missing from universities.csv: ${unknownUnis.sort((a, b) => a - b).join(', ')}`);
   }
-  universities = ensureUniversitiesForMatrix(universities, cutoffs);
-
-  const cycles = [
-    { slug: '2023-2024', sortOrder: 0 },
-    { slug: '2025-2026', sortOrder: 1 },
-  ];
 
   const payload = {
-    meta: { generatedAt: new Date().toISOString(), generator: 'import-grant-csvs' },
+    meta: {
+      generatedAt: new Date().toISOString(),
+      generator: 'import-grant-csvs',
+      source: 'MNVO RK grant-holder lists (бакалавриат), see data/grant-admission/README.md',
+    },
     universities,
     programs,
-    cycles,
+    cycles: CYCLES.map((c, i) => ({ slug: c.slug, sortOrder: i, admissionYear: c.admissionYear })),
     cutoffs,
-    warnings: {
-      unknownMatrixProgramLabels: unknownProgramLabels,
-    },
   };
 
-  fs.writeFileSync(OUT_JSON, JSON.stringify(payload, null, 2), 'utf8');
+  fs.writeFileSync(OUT_JSON, `${JSON.stringify(payload, null, 1)}\n`, 'utf8');
   // eslint-disable-next-line no-console
   console.log(
-    `Wrote ${OUT_JSON}: ${universities.length} universities, ${programs.length} programs, ${cutoffs.length} cutoff cells.`,
+    `Wrote ${OUT_JSON}: ${universities.length} universities, ${programs.length} programs, ${cutoffs.length} cutoffs.\n  ` +
+      stats.join('\n  '),
   );
-  if (payload.warnings.unknownMatrixProgramLabels.length) {
-    // eslint-disable-next-line no-console
-    console.warn('Unknown program labels (sample):', payload.warnings.unknownMatrixProgramLabels.slice(0, 15));
-  }
 }
 
-main();
+if (require.main === module) {
+  main();
+}

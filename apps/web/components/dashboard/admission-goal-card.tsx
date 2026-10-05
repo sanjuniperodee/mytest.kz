@@ -235,11 +235,13 @@ function GoalPickerDialog({
   const [search, setSearch] = React.useState("")
   const [savingProgramId, setSavingProgramId] = React.useState<string | null>(null)
   const [removing, setRemoving] = React.useState(false)
-  const { data: universities, isLoading: universitiesLoading } =
-    useSWR<University[]>(open ? "/admission/universities" : null)
   const { data: cycles } = useSWR<AdmissionCycle[]>(open ? "/admission/cycles" : null)
   const latestCycle = React.useMemo(() => pickLatestCycle(cycles), [cycles])
   const cycleSlug = latestCycle?.slug
+  const { data: universities, isLoading: universitiesLoading } =
+    useSWR<University[]>(
+      open && cycleSlug ? `/admission/universities?cycleSlug=${encodeURIComponent(cycleSlug)}` : null,
+    )
   const universityCode = selectedUniversity?.code
   const cutoffKey =
     open && step === "program" && cycleSlug && universityCode != null
@@ -381,7 +383,7 @@ function GoalPickerDialog({
                 {selectedUniversity?.shortName || selectedUniversity?.name}
               </p>
               <p className="text-xs text-muted-foreground">
-                Цикл: {cycleSlug ?? "—"}
+                Год поступления: {latestCycle?.admissionYear ?? cycleSlug ?? "—"}
               </p>
             </div>
             <div className="max-h-72 overflow-y-auto rounded-lg border">

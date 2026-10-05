@@ -18,6 +18,13 @@ export class AdmissionProgramsQueryDto {
   take?: number;
 }
 
+export class AdmissionUniversitiesQueryDto {
+  /** Only universities that have published cutoffs in this cycle. */
+  @IsOptional()
+  @IsString()
+  cycleSlug?: string;
+}
+
 export class AdmissionCutoffsQueryDto {
   @IsString()
   cycleSlug!: string;

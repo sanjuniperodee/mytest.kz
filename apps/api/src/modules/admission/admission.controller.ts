@@ -8,6 +8,7 @@ import {
   AdmissionCutoffsQueryDto,
   AdmissionProfileSubjectsQueryDto,
   AdmissionProgramsQueryDto,
+  AdmissionUniversitiesQueryDto,
 } from './admission.dto';
 
 @Controller('admission')
@@ -20,8 +21,8 @@ export class AdmissionController {
   }
 
   @Get('universities')
-  listUniversities() {
-    return this.admissionService.listUniversities();
+  listUniversities(@Query() query: AdmissionUniversitiesQueryDto) {
+    return this.admissionService.listUniversities({ cycleSlug: query.cycleSlug });
   }
 
   @Get('programs')

@@ -67,7 +67,7 @@ npm run db:seed                   # cd apps/api && npx prisma db seed
 - **API proxy**: `app/api/v1/[...path]/route.ts` forwards browser requests to the Nest API (thin proxy to avoid CORS).
 - **Media proxy**: `app/api/media/[...path]/route.ts` resolves uploaded media from the API origin.
 - **Auth client**: `lib/api/client.ts` (fetch + `ApiError` + token refresh) and `lib/api/storage.ts` manage JWT tokens and silent refresh calls.
-- **Admission/Chance**: Interactive grant estimator UI under `app/admission/page.tsx` hitting `/admission/*`.
+- **Admission/Chance**: Interactive grant estimator UI under `app/admission/page.tsx` hitting `/admission/*`. Cutoff data (cycles 2023–2026) comes from the official МНВО grant-holder lists — see `apps/api/prisma/data/grant-admission/README.md`.
 
 ### apps/api — Backend
 

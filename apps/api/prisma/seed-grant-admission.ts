@@ -18,13 +18,16 @@ type SeedJson = {
     profileSubjects: string;
     profileShortLabel: string | null;
   }[];
-  cycles: { slug: string; sortOrder: number }[];
+  cycles: { slug: string; sortOrder: number; admissionYear?: number | null }[];
   cutoffs: {
     cycleSlug: string;
     universityCode: number;
     programKey: string;
     quotaType: 'GRANT' | 'RURAL';
     minScore: number | null;
+    maxScore?: number | null;
+    avgScore?: number | null;
+    grantCount?: number | null;
   }[];
 };
 
@@ -34,6 +37,9 @@ type CutoffRow = {
   programId: string;
   quotaType: GrantQuotaType;
   minScore: number | null;
+  maxScore: number | null;
+  avgScore: number | null;
+  grantCount: number | null;
 };
 
 /** Одна строка на (cycle, вуз, программа, квота): в исходной матрице бывают повторы блоков. */
@@ -94,20 +100,16 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
   }
 
   for (const c of data.cycles) {
+    const admissionYear = c.admissionYear ?? null;
     await prisma.grantAdmissionCycle.upsert({
       where: { slug: c.slug },
-      create: { slug: c.slug, sortOrder: c.sortOrder },
-      update: { sortOrder: c.sortOrder },
+      create: { slug: c.slug, sortOrder: c.sortOrder, admissionYear },
+      update: { sortOrder: c.sortOrder, admissionYear },
     });
   }
 
   const cyclesDb = await prisma.grantAdmissionCycle.findMany({ select: { id: true, slug: true } });
   const cycleIdBySlug = new Map(cyclesDb.map((x) => [x.slug, x.id]));
-
-  for (const slug of cycleIdBySlug.keys()) {
-    const id = cycleIdBySlug.get(slug)!;
-    await prisma.grantCutoff.deleteMany({ where: { cycleId: id } });
-  }
 
   const CHUNK = 800;
   let skipped = 0;
@@ -129,6 +131,9 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
         programId,
         quotaType: row.quotaType as GrantQuotaType,
         minScore: row.minScore,
+        maxScore: row.maxScore ?? null,
+        avgScore: row.avgScore ?? null,
+        grantCount: row.grantCount ?? null,
       });
     }
     const uniqueRows = dedupeGrantCutoffs(prismaRows);
@@ -138,17 +143,36 @@ export async function seedGrantAdmission(prisma: PrismaClient): Promise<void> {
         `seed-grant-admission: deduped ${prismaRows.length - uniqueRows.length} duplicate cutoff(s) for cycle ${slug}`,
       );
     }
-    for (let i = 0; i < uniqueRows.length; i += CHUNK) {
-      await prisma.grantCutoff.createMany({
-        data: uniqueRows.slice(i, i + CHUNK),
-        skipDuplicates: true,
-      });
-    }
+    // Replace the cycle's cutoffs atomically so the API never serves a half-seeded cycle.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.grantCutoff.deleteMany({ where: { cycleId } });
+        for (let i = 0; i < uniqueRows.length; i += CHUNK) {
+          await tx.grantCutoff.createMany({
+            data: uniqueRows.slice(i, i + CHUNK),
+            skipDuplicates: true,
+          });
+        }
+      },
+      { timeout: 120_000 },
+    );
+    // eslint-disable-next-line no-console
+    console.log(`seed-grant-admission: ${slug}: ${uniqueRows.length} cutoffs`);
   }
 
   if (skipped > 0) {
     // eslint-disable-next-line no-console
     console.warn(`seed-grant-admission: skipped ${skipped} cutoff rows (missing program or cycle).`);
+  }
+
+  // Placeholder universities created by the old matrix importer for codes missing from the reference
+  // ("Вуз (код 159, из матрицы; …)"). Drop them once nothing references them anymore.
+  const removed = await prisma.university.deleteMany({
+    where: { name: { startsWith: 'Вуз (код ' }, cutoffs: { none: {} } },
+  });
+  if (removed.count > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`seed-grant-admission: removed ${removed.count} placeholder universit(y/ies)`);
   }
 
   await bumpAdmissionCacheVersions(data.cycles.map((c) => c.slug));

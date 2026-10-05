@@ -361,7 +361,7 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
     kk: "Балл енгіз — өткен жылдардағы грант және ауыл квоталары бойынша қай ЖОО мен мамандыққа түсетініңді көр.",
   },
   admParams: { ru: "Параметры", kk: "Параметрлер" },
-  admCycle: { ru: "Цикл поступления", kk: "Түсу циклі" },
+  admCycle: { ru: "Год поступления", kk: "Түсу жылы" },
   admQuotaType: { ru: "Тип квоты", kk: "Квота түрі" },
   admQuotaGrant: { ru: "Грант", kk: "Грант" },
   admQuotaRural: { ru: "Сельская", kk: "Ауылдық" },
@@ -404,6 +404,7 @@ const STRINGS: Record<string, { ru: string; kk: string }> = {
   admShortage: { ru: "Не хватает", kk: "Жетіспейді" },
   admProfileLabel: { ru: "Профиль:", kk: "Профиль:" },
   admUniCount: { ru: " вузов", kk: " ЖОО" },
+  admGrantCount: { ru: " грантов", kk: " грант" },
   admSpecialty: { ru: "Специальность", kk: "Мамандық" },
   admPickSpecialty: {
     ru: "Выберите специальность",

@@ -15,12 +15,16 @@ export class AdmissionRepository {
   listCycles() {
     return this.prisma.grantAdmissionCycle.findMany({
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, slug: true, sortOrder: true },
+      select: { id: true, slug: true, sortOrder: true, admissionYear: true },
     });
   }
 
-  listUniversities() {
+  /** Universities with at least one published cutoff (optionally within one cycle). */
+  listUniversities(cycleId?: string) {
     return this.prisma.university.findMany({
+      where: {
+        cutoffs: { some: { minScore: { not: null }, ...(cycleId ? { cycleId } : {}) } },
+      },
       orderBy: { code: 'asc' },
       select: { code: true, name: true, shortName: true },
     });
@@ -59,8 +63,8 @@ export class AdmissionRepository {
     });
   }
 
-  findCutoff(where: Prisma.GrantCutoffWhereInput) {
-    return this.prisma.grantCutoff.findFirst({ where });
+  findCutoffs(where: Prisma.GrantCutoffWhereInput) {
+    return this.prisma.grantCutoff.findMany({ where });
   }
 
   listChanceCutoffs(input: {

@@ -1,6 +1,6 @@
 import { api } from './client';
 
-export type AdmissionCycle = { id: string; slug: string; sortOrder: number };
+export type AdmissionCycle = { id: string; slug: string; sortOrder: number; admissionYear?: number | null };
 export type AdmissionUniversity = { code: number; name: string; shortName: string | null };
 export type AdmissionProgram = {
   id: string;
@@ -23,6 +23,9 @@ export type AdmissionCutoffRow = {
   profileSubjects: string;
   quotaType: 'GRANT' | 'RURAL';
   minScore: number | null;
+  maxScore?: number | null;
+  avgScore?: number | null;
+  grantCount?: number | null;
 };
 
 export type AdmissionCompareResponse = {

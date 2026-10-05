@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { GrantQuotaType } from '@prisma/client';
+import { ENT_TOTAL_MAX } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { AdmissionService } from './admission.service';
+import { resolveDisplayedCutoff } from './domain/chance-cutoffs';
 
 export interface ResolvedAdmissionGoal {
   cycleSlug: string;
@@ -13,12 +15,14 @@ export interface ResolvedAdmissionGoal {
   programCode: string;
   programName: string;
   profileSubjects: string | null;
-  /** Grant cutoff for this target (null if not published for the cycle). */
+  /** Cutoff for this target (null if not published for the cycle). */
   requiredScore: number | null;
+  /** Which competition `requiredScore` comes from (a rural applicant gets the lower of the two). */
+  requiredScoreQuotaType: GrantQuotaType | null;
+  /** Grants awarded in that competition at this university. */
+  grantCount: number | null;
   maxScore: number; // ЕНТ total
 }
-
-const ENT_TOTAL_MAX = 140;
 
 @Injectable()
 export class AdmissionGoalService {
@@ -30,12 +34,13 @@ export class AdmissionGoalService {
   async getGoal(userId: string): Promise<{ goal: ResolvedAdmissionGoal | null }> {
     const row = await this.prisma.userAdmissionGoal.findUnique({ where: { userId } });
     if (!row) return { goal: null };
-    const resolved = await this.resolve(
-      row.cycleSlug,
-      row.universityCode,
-      row.programId,
-      row.quotaType,
-    );
+    // Show the freshest cutoff: a goal saved last year should follow the newest admission data.
+    const latest = await this.latestCycleSlug();
+    let resolved =
+      latest && latest !== row.cycleSlug
+        ? await this.resolve(latest, row.universityCode, row.programId, row.quotaType)
+        : null;
+    resolved ??= await this.resolve(row.cycleSlug, row.universityCode, row.programId, row.quotaType);
     return { goal: resolved };
   }
 
@@ -107,19 +112,14 @@ export class AdmissionGoalService {
   ): Promise<ResolvedAdmissionGoal | null> {
     let rows: Awaited<ReturnType<AdmissionService['listCutoffs']>> = [];
     try {
-      rows = await this.admission.listCutoffs({
-        cycleSlug,
-        universityCode,
-        programId,
-        quotaType,
-      });
+      rows = await this.admission.listCutoffs({ cycleSlug, universityCode, programId });
     } catch {
       return null; // unknown cycle, etc.
     }
-    const row = rows.find(
-      (r) => r.universityCode === universityCode && r.programId === programId,
-    );
+    rows = rows.filter((r) => r.universityCode === universityCode && r.programId === programId);
+    const row = rows.find((r) => r.quotaType === GrantQuotaType.GRANT) ?? rows[0];
     if (!row) return null;
+    const displayed = resolveDisplayedCutoff(quotaType, rows);
     return {
       cycleSlug,
       quotaType,
@@ -130,7 +130,9 @@ export class AdmissionGoalService {
       programCode: row.programCode,
       programName: row.programName,
       profileSubjects: row.profileSubjects ?? null,
-      requiredScore: row.minScore ?? null,
+      requiredScore: displayed?.displayedMinScore ?? null,
+      requiredScoreQuotaType: displayed?.displayedQuotaType ?? null,
+      grantCount: displayed?.grantCount ?? null,
       maxScore: ENT_TOTAL_MAX,
     };
   }

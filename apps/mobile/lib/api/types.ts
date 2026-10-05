@@ -624,6 +624,8 @@ export interface AdmissionCycle {
   id: string
   slug: string
   sortOrder: number
+  /** Year of the ЕНТ / grant competition (e.g. 2026). */
+  admissionYear?: number | null
 }
 
 export interface University {
@@ -659,6 +661,7 @@ export interface ChanceProgram {
   displayedQuotaType: "GRANT" | "RURAL"
   displayedMinScore: number | null
   universityCount: number
+  totalGrantCount?: number | null
   isPass: boolean
   total: number
   gapToCutoff: number | null
@@ -676,6 +679,7 @@ export interface ChanceUniversity {
   profileVariant?: number
   displayedQuotaType: "GRANT" | "RURAL"
   displayedMinScore: number | null
+  grantCount?: number | null
   isPass: boolean
   total: number
   gapToCutoff: number | null

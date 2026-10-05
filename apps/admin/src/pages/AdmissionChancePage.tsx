@@ -178,7 +178,10 @@ export function AdmissionChancePage() {
               <Select
                 style={{ width: '100%' }}
                 value={cycleSlug || undefined}
-                options={cyclesQ.data?.map((c) => ({ value: c.slug, label: c.slug }))}
+                options={cyclesQ.data?.map((c) => ({
+                  value: c.slug,
+                  label: c.admissionYear ? `${c.admissionYear} (${c.slug})` : c.slug,
+                }))}
                 onChange={(v) => setCycleSlug(v)}
               />
             </div>

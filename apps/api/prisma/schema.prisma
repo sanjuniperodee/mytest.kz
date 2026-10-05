@@ -905,12 +905,13 @@ model EntEducationalProgram {
   @@map("ent_educational_programs")
 }
 
-/// Цикл приёма (например 2023-2024).
+/// Цикл приёма: slug — учебный год ("2026-2027"), admissionYear — год ЕНТ/конкурса (2026).
 model GrantAdmissionCycle {
-  id        String   @id @default(uuid()) @db.Uuid
-  slug      String   @unique @db.VarChar(32)
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique @db.VarChar(32)
+  sortOrder     Int      @default(0) @map("sort_order")
+  admissionYear Int?     @map("admission_year")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   cutoffs GrantCutoff[]
 
@@ -922,7 +923,8 @@ enum GrantQuotaType {
   RURAL
 }
 
-/// Минимальный конкурсный балл по данным матрицы (грант / сельская квота).
+/// Проходной балл (минимальный балл среди обладателей гранта) по вузу × ГОП × квоте,
+/// вычисленный из официального списка обладателей грантов МНВО РК.
 model GrantCutoff {
   id             String         @id @default(uuid()) @db.Uuid
   cycleId        String         @map("cycle_id") @db.Uuid
@@ -930,6 +932,10 @@ model GrantCutoff {
   programId      String         @map("program_id") @db.Uuid
   quotaType      GrantQuotaType @map("quota_type")
   minScore       Int?           @map("min_score")
+  maxScore       Int?           @map("max_score")
+  avgScore       Float?         @map("avg_score")
+  /// Сколько грантов присуждено (общий конкурс или сельская квота — по quotaType).
+  grantCount     Int?           @map("grant_count")
 
   cycle      GrantAdmissionCycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   university University            @relation(fields: [universityCode], references: [code], onDelete: Cascade)
