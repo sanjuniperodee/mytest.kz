@@ -23,7 +23,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }))
 
-  const yearRoutes: MetadataRoute.Sitemap = ["2026", "2027"].map((year) => ({
+  // Only years with a real route under app/ent-<year>. /ent-2026 is a
+  // permanent redirect to /ent-2027 (next.config.mjs), so it is not listed.
+  const yearRoutes: MetadataRoute.Sitemap = ["2027"].map((year) => ({
     url: `${baseUrl}/ent-${year}`,
     lastModified: now,
     changeFrequency: "weekly" as const,

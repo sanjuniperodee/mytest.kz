@@ -21,6 +21,13 @@ const nextConfig = {
         destination: "/dashboard/profile/:id",
         permanent: true,
       },
+      // There is no /ent-2026 page; send that still-searched URL
+      // (and any backlinks) to the current ENT landing instead of a 404.
+      {
+        source: "/ent-2026",
+        destination: "/ent-2027",
+        permanent: true,
+      },
     ]
   },
   images: {
