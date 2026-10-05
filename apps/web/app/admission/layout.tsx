@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { getSiteUrl } from "@/lib/site"
 import { Logo } from "@/components/landing/logo"
 import { Button } from "@/components/ui/button"
 import { SiteFooter } from "@/components/landing/site-footer"
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://mytest.kz"}/admission`,
+    canonical: `${getSiteUrl()}/admission`,
   },
 }
 

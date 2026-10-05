@@ -30,14 +30,6 @@ const websiteSchema = {
   name: "mytest",
   url: siteUrl,
   description: "Пробные ЕНТ онлайн с разбором ошибок",
-  potentialAction: {
-    "@type": "SearchAction",
-    target: {
-      "@type": "EntryPoint",
-      urlTemplate: `${siteUrl}/search?q={search_term_string}`,
-    },
-    "query-input": "required name=search_term_string",
-  },
 }
 
 const organizationSchema = {
@@ -73,61 +65,6 @@ const organizationSchema = {
       { "@type": "Offer", name: "Месяц без лимита", price: "2990", priceCurrency: "KZT" },
     ],
   },
-}
-
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Задания совпадают с настоящим ЕНТ?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Формат — 1:1 с экзаменом: 140 заданий, 240 минут, такая же структура и баллы. Сами задания мы пишем с действующими преподавателями по программе МОН РК, обновляем базу каждый месяц.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Можно ли проходить с телефона?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Да. Талапкер работает на любом устройстве: телефон, планшет, ноутбук. Прогресс синхронизируется автоматически — можно начать в автобусе и закончить дома.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Что если я уже зарегистрировался, но не понравилось?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "В течение 14 дней после оплаты — полный возврат денег без вопросов. Просто напиши в чат поддержки.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Подходит для подготовки на грант?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Да. Ты заранее видишь, какой балл стабильно показываешь, и можешь сравнить с пороговым для нужного вуза и специальности. Все профили ЕНТ (включая творческие комбинации) поддерживаются.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "А если я учусь в казахской школе?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Все задания доступны на двух языках — қазақ тілі и русском. Переключение в один клик, прогресс общий.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Как часто обновляются задания?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Каждый месяц мы добавляем 200–400 новых заданий и убираем устаревшие. Ты не будешь видеть один и тот же тест дважды.",
-      },
-    },
-  ],
 }
 
 export const metadata: Metadata = {
@@ -211,12 +148,9 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  alternates: {
-    canonical: siteUrl,
-    languages: {
-      ru: siteUrl,
-      kk: `${siteUrl}?lang=kk`,
-    },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    yandex: process.env.NEXT_PUBLIC_YANDEX_VERIFICATION,
   },
 }
 
@@ -246,10 +180,6 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
         />
       </head>
       <body className="font-sans antialiased">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, TrendingUp, AlertCircle, Calculator } from "lucide-react"
+import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -29,6 +30,8 @@ export const metadata: Metadata = {
     title: "Проходной балл ЕНТ 2027 для гранта — mytest.kz",
     description: "Пороговые баллы ЕНТ по специальностям и вузам. Калькулятор шансов на грант.",
     url: `${siteUrl}/prohodnoj-ball-ent`,
+    siteName: "mytest",
+    images: OG_IMAGES,
   },
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift } from "lucide-react"
+import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -23,6 +24,8 @@ export const metadata: Metadata = {
     title: "Пробный ЕНТ 2027 — онлайн бесплатно",
     description: "1 бесплатный пробный ЕНТ 2027 без карты. Реальный формат, разбор ошибок.",
     url: `${siteUrl}/ent-2027`,
+    siteName: "mytest",
+    images: OG_IMAGES,
   },
 }
 

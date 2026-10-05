@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } from "lucide-react"
+import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -32,6 +33,7 @@ export const metadata: Metadata = {
     languages: {
       ru: `${siteUrl}/probnyy-ent`,
       kk: `${siteUrl}/uat`,
+      "x-default": `${siteUrl}/probnyy-ent`,
     },
   },
   openGraph: {
@@ -39,6 +41,8 @@ export const metadata: Metadata = {
     description: "Бірінші ҰБТ сынағы тегін. 140 сұрақ, нақты формат, қателерді талдау.",
     url: `${siteUrl}/uat`,
     locale: "kk_KZ",
+    siteName: "mytest",
+    images: OG_IMAGES,
   },
 }
 
