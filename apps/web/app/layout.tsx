@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from "next"
-import Script from "next/script"
 import { Manrope, Instrument_Serif } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
 import { Providers } from "@/components/providers"
-import "katex/dist/katex.min.css"
 import "./globals.css"
 
 const manrope = Manrope({
@@ -17,10 +15,14 @@ const instrumentSerif = Instrument_Serif({
   // @ts-ignore
   subsets: ["latin"],
   weight: "400",
-  style: ["normal", "italic"],
+  style: ["italic"],
   variable: "--font-instrument-serif",
   display: "swap",
 })
+
+// Telegram's SDK is only needed inside the Mini App; regular browser visits skip the extra request.
+// The sessionStorage keys are the ones telegram-web-app.js itself persists across reloads.
+const telegramLoader = `(function(){try{var c=location.search+"&"+location.hash;if(/tgWebApp(Data|Version|Platform)=/i.test(c)||/telegram/i.test(navigator.userAgent)||sessionStorage.getItem("__telegram__initParams")){var s=document.createElement("script");s.src="https://telegram.org/js/telegram-web-app.js";document.head.appendChild(s)}}catch(e){}})();`
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -172,7 +174,7 @@ export default function RootLayout({
       className={`${manrope.variable} ${instrumentSerif.variable} bg-background`}
     >
       <head>
-        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" />
+        <script dangerouslySetInnerHTML={{ __html: telegramLoader }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
