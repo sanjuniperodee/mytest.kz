@@ -1,6 +1,11 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { CheckCircle2, CreditCard, XCircle } from "lucide-react"
 import { LegalShell } from "@/components/legal/legal-shell"
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 type SearchParamsShape = {
   payment?: string

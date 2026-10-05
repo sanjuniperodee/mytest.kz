@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } from "lucide-react"
+import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -23,11 +24,20 @@ export const metadata: Metadata = {
     "пробное ент тестирование",
     "ент пробник бесплатно",
   ],
-  alternates: { canonical: `${siteUrl}/probnyy-ent` },
+  alternates: {
+    canonical: `${siteUrl}/probnyy-ent`,
+    languages: {
+      ru: `${siteUrl}/probnyy-ent`,
+      kk: `${siteUrl}/uat`,
+      "x-default": `${siteUrl}/probnyy-ent`,
+    },
+  },
   openGraph: {
     title: "Пробный ЕНТ онлайн бесплатно — mytest.kz",
     description: "Первый пробный ЕНТ бесплатно. 140 вопросов, реальный формат, разбор ошибок.",
     url: `${siteUrl}/probnyy-ent`,
+    siteName: "mytest",
+    images: OG_IMAGES,
   },
 }
 

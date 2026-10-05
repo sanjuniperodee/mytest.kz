@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowRight, BookOpen, CheckCircle2, Gift, Target, TrendingUp } from "lucide-react"
+import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 
 const SUBJECTS: Record<string, { ru: string; kk: string; maxScore: number; questions: number }> = {
@@ -52,6 +53,8 @@ export async function generateMetadata({
       title: `Пробный ЕНТ по предмету ${info.ru} 2027`,
       description: `Бесплатный пробный тест по ${info.ru} в формате ЕНТ. Разбор ошибок после сдачи.`,
       url: `${siteUrl}/ent/${subject}`,
+      siteName: "mytest",
+      images: OG_IMAGES,
     },
   }
 }

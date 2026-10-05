@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { PromoBar } from "@/components/landing/promo-bar"
 import { SiteHeader } from "@/components/landing/site-header"
 import { Hero } from "@/components/landing/hero"
@@ -7,15 +8,36 @@ import { Subjects } from "@/components/landing/subjects"
 import { Features } from "@/components/landing/features"
 import { Testimonials } from "@/components/landing/testimonials"
 import { Pricing } from "@/components/landing/pricing"
-import { FAQ } from "@/components/landing/faq"
+import { FAQ, faqs } from "@/components/landing/faq"
 import { CTA } from "@/components/landing/cta"
 import { SiteFooter } from "@/components/landing/site-footer"
 import { Diagnostic } from "@/components/landing/diagnostic"
 import { MobileStickyCta } from "@/components/landing/mobile-sticky-cta"
 
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+    languages: { ru: "/", kk: "/uat", "x-default": "/" },
+  },
+}
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+}
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <PromoBar />
       <SiteHeader />
       <Hero />
