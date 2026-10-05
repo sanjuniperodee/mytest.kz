@@ -56,7 +56,7 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
         ? leadNotifyFromEnv.trim()
         : DEFAULT_LEAD_NOTIFY_USER_ID;
     const raw =
-      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://mytest.kz/login';
+      config.get<string>('TELEGRAM_WEB_APP_URL') || 'https://my-test.kz/login';
     this.webAppUrl = raw.replace(/\/+$/, '');
   }
 

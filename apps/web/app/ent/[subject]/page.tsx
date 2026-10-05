@@ -23,7 +23,7 @@ export async function generateMetadata({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
   return {
     title: `Пробный ЕНТ по предмету ${info.ru} 2027 — онлайн бесплатно`,
-    description: `Готовься к ЕНТ 2027 по предмету ${info.ru} онлайн. Пройди бесплатный пробный тест в реальном формате, получи разбор ошибок и объяснения. mytest.kz — ${info.questions} вопросов, максимум ${info.maxScore} баллов.`,
+    description: `Готовься к ЕНТ 2027 по предмету ${info.ru} онлайн. Пройди бесплатный пробный тест в реальном формате, получи разбор ошибок и объяснения. my-test.kz — ${info.questions} вопросов, максимум ${info.maxScore} баллов.`,
     keywords: [
       `ЕНТ ${info.ru}`,
       `пробный ЕНТ ${info.ru}`,
