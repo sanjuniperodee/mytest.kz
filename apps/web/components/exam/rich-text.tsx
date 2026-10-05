@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import katex from "katex"
+import "katex/dist/katex.min.css"
 import { resolveMediaUrl } from "@/lib/api/client"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import { cn } from "@/lib/utils"
