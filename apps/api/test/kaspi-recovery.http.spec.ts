@@ -1,4 +1,5 @@
 import { BillingService } from '../src/modules/billing/billing.service';
+import { staticMonetization } from './helpers/monetization';
 
 /**
  * Verifies late Kaspi payment recovery: an order we locally marked `failed` (the QR/invoice
@@ -90,7 +91,7 @@ function makeService(opts: {
   const analytics: any = { recordEvent: jest.fn().mockResolvedValue(undefined) };
   const config: any = { get: jest.fn(() => undefined) };
 
-  const service = new BillingService(prisma, config, accessService, kaspiPosService, analytics);
+  const service = new BillingService(prisma, config, accessService, kaspiPosService, analytics, staticMonetization());
   return { service, store, subscriptionCreate, accessService, kaspiPosService };
 }
 

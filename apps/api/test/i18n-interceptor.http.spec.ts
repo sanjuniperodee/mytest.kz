@@ -34,17 +34,23 @@ describe('API response language', () => {
 
 describe('billing presentation localization', () => {
   const { localizeBillingFields } = require('../src/common/billing-localization');
-  const { BILLING_PLANS } = require('../src/modules/billing/billing.config');
-  it('translates all catalog names, descriptions and features without changing prices or IDs', () => {
-    for (const plan of BILLING_PLANS) {
-      const translated = localizeBillingFields(plan, 'kk');
-      expect(translated.name).not.toBe(plan.name);
-      expect(translated.description).not.toBe(plan.description);
-      expect(translated.features.every((f: string, i: number) => f !== plan.features[i])).toBe(true);
-      expect(translated.priceKzt).toBe(plan.priceKzt);
-      expect(translated.id).toBe(plan.id);
-      expect(localizeBillingFields(plan, 'ru')).toEqual(plan);
+  const { DEFAULT_MONETIZATION_PLANS, toBillingPlanDto } = require('@bilimland/shared');
+  it('ships Kazakh texts for every default plan without changing prices or IDs', () => {
+    for (const plan of DEFAULT_MONETIZATION_PLANS) {
+      const ru = toBillingPlanDto(plan, 'ru');
+      const kk = toBillingPlanDto(plan, 'kk');
+      expect(kk.name).not.toBe(ru.name);
+      expect(kk.description).not.toBe(ru.description);
+      expect(kk.features.every((f: string, i: number) => f !== ru.features[i])).toBe(true);
+      expect(kk.priceKzt).toBe(ru.priceKzt);
+      expect(kk.id).toBe(ru.id);
+      // Already-localized Kazakh text passes the legacy dictionary untouched.
+      expect(localizeBillingFields(kk, 'kk')).toEqual(kk);
     }
+  });
+  it('translates the free daily tariff card', () => {
+    expect(localizeBillingFields({ name: 'Бесплатный доступ', description: '1 бесплатный пробный ЕНТ в день' }, 'kk'))
+      .toEqual({ name: 'Тегін қолжетімділік', description: 'Күніне 1 тегін ҰБТ сынағы' });
   });
   it('supports legacy subscription titles and preserves custom text and machine fields', () => {
     const value = { name: 'Подписка на 5 пробных на 30 дней', description: 'Подписка на год', code: 'Подписка на год', customer: 'Подписка на год' };

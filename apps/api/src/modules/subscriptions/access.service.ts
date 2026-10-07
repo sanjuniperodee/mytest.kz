@@ -6,14 +6,22 @@ import {
   EntitlementTier,
   Prisma,
 } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../database/prisma.service';
-import { ENT_TRIAL_LIMIT, PLAN_BY_ID } from '../billing/billing.config';
+import { MonetizationService } from './monetization.service';
 
 export type AccessReasonCode =
   | 'DAILY_LIMIT_REACHED'
   | 'TOTAL_LIMIT_EXHAUSTED'
   | 'NO_ENTITLEMENT';
+
+/** Бесплатная дневная квота ЕНТ на сегодня (по часовому поясу пользователя). */
+export interface FreeDailyStatus {
+  dailyLimit: number;
+  usedToday: number;
+  remainingToday: number;
+  /** Когда квота обновится — ближайшая полночь по часовому поясу пользователя. */
+  nextResetAt: string;
+}
 
 export interface AccessExamStatus {
   examTypeId: string;
@@ -22,6 +30,7 @@ export interface AccessExamStatus {
   reasonCode: AccessReasonCode | null;
   nextAllowedAt: string | null;
   hasPaidTier: boolean;
+  /** Платные/выданные попытки (без бесплатной дневной квоты). */
   total: {
     used: number;
     limit: number | null;
@@ -35,6 +44,17 @@ export interface AccessExamStatus {
     isUnlimited: boolean;
     nextResetAt: string | null;
   };
+  /** null — у экзамена нет бесплатной квоты (не ЕНТ или выключено в админке). */
+  free: FreeDailyStatus | null;
+}
+
+/** Результат предварительной проверки перед сборкой теста. */
+export interface AttemptAccessCheck {
+  allowed: boolean;
+  /** Какая попытка будет списана: free → детерминированный тест дня, paid → случайный. */
+  tier: 'free' | 'paid' | null;
+  reasonCode: AccessReasonCode | null;
+  nextAllowedAt: string | null;
 }
 
 type DecisionCandidate = {
@@ -61,28 +81,58 @@ type AccessDecision = {
   candidate: DecisionCandidate | null;
 };
 
-const DEFAULT_FREE_SIGNUP_CUTOFF_AT = '2026-05-17T18:07:37.000Z';
+type SubscriptionLike = { planType: string; planSnapshot?: unknown };
+
 type SubscriptionEngineMode = 'LEGACY' | 'DUAL' | 'V2';
 
+const ENT_SLUG = 'ent';
+const DEFAULT_TIMEZONE = 'Asia/Almaty';
+
+/**
+ * Отказ в попытке. В теле — код (как раньше в `message`, на него завязаны клиенты)
+ * и время, когда откроется следующая бесплатная попытка, чтобы клиент показал
+ * «подожди до …» без отдельного запроса.
+ */
+export function accessDeniedError(
+  reasonCode: AccessReasonCode,
+  nextAllowedAt: Date | string | null = null,
+): BadRequestException {
+  return new BadRequestException({
+    statusCode: 400,
+    error: 'Bad Request',
+    message: reasonCode,
+    code: reasonCode,
+    nextAllowedAt:
+      nextAllowedAt instanceof Date ? nextAllowedAt.toISOString() : (nextAllowedAt ?? null),
+  });
+}
+
+/**
+ * Доступ к попыткам экзаменов.
+ *
+ * Источники доступа (UserExamEntitlement):
+ *  - `free_daily` — бесплатные N ЕНТ в день всем пользователям (N — в админке,
+ *    «Тарифы и доступ»); сбрасывается в полночь по часовому поясу пользователя;
+ *  - подписки (купленные тарифы, ручные выдачи) и шаблоны админки.
+ *
+ * Порядок списания: сначала платные/выданные попытки, бесплатная — когда их нет.
+ * Так платный тест всегда случайный и со свежими вопросами, а бесплатный — «тест
+ * дня», одинаковый для всех (защита от абуза мультиаккаунтами).
+ *
+ * Бесплатная квота работает во всех режимах SUBSCRIPTION_ENGINE_MODE: в LEGACY
+ * она списывается после проверки подписок, в DUAL/V2 участвует в общем выборе.
+ */
 @Injectable()
 export class AccessService {
-  private readonly signupPlanTemplateCode: string;
-  private readonly freeSignupCutoffAt: Date;
   private readonly subscriptionEngineMode: SubscriptionEngineMode;
   private readonly timezoneCooldownDays: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly monetization: MonetizationService,
   ) {
     this.subscriptionEngineMode = this.resolveSubscriptionEngineMode();
-    this.signupPlanTemplateCode =
-      this.config.get<string>('SIGNUP_PLAN_TEMPLATE_CODE')?.trim() ||
-      'free_ent_trial';
-    this.freeSignupCutoffAt = this.parseDate(
-      this.config.get<string>('FREE_ENT_SIGNUP_CUTOFF_AT'),
-      DEFAULT_FREE_SIGNUP_CUTOFF_AT,
-    );
     const cooldownRaw = Number(
       this.config.get<string>('USER_TIMEZONE_COOLDOWN_DAYS', '30'),
     );
@@ -102,19 +152,15 @@ export class AccessService {
     return this.subscriptionEngineMode === 'DUAL';
   }
 
-  private get dualWriteLegacyEnabled(): boolean {
-    return this.subscriptionEngineMode === 'DUAL';
-  }
-
-  getSignupFreeAttemptLimit(createdAt: Date | string | null | undefined): number {
-    return this.isEligibleForSignupFreeAccess(createdAt) ? ENT_TRIAL_LIMIT : 0;
-  }
-
-  async ensureSignupEntitlementsForUser(userId: string): Promise<void> {
-    if (!this.v2Enabled) return;
-
+  /** Заводит/обновляет бесплатную дневную квоту ЕНТ под текущую настройку админки. */
+  async ensureFreeEntitlementsForUser(userId: string): Promise<void> {
+    await this.monetization.getConfig();
     await this.prisma.$transaction(async (tx) => {
-      await this.ensureSignupEntitlementsTx(tx, userId, new Date());
+      const exam = await tx.examType.findUnique({
+        where: { slug: ENT_SLUG },
+        select: { id: true, slug: true },
+      });
+      if (exam) await this.ensureFreeDailyEntitlementTx(tx, userId, exam, new Date());
     });
   }
 
@@ -139,6 +185,7 @@ export class AccessService {
     examTypeId: string,
     sessionId?: string,
   ): Promise<void> {
+    await this.monetization.getConfig();
     if (!this.v2Enabled) {
       await this.consumeLegacyAttemptTx(tx, userId, examTypeId, sessionId);
       return;
@@ -151,15 +198,11 @@ export class AccessService {
     });
     if (!exam) throw new BadRequestException('EXAM_NOT_FOUND');
 
-    await this.ensureSignupEntitlementsTx(tx, userId, now);
-    await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
-    await this.expireEndedEntitlements(tx, userId, exam.id, now);
+    await this.reconcileEntitlementsTx(tx, userId, exam, now);
 
     const decision = await this.getAccessDecisionTx(tx, userId, exam.id, now);
     if (!decision.allowed || !decision.candidate) {
-      throw new BadRequestException(
-        decision.reasonCode ?? 'NO_ENTITLEMENT',
-      );
+      throw accessDeniedError(decision.reasonCode ?? 'NO_ENTITLEMENT', decision.nextAllowedAt);
     }
 
     const chosen = decision.candidate;
@@ -172,17 +215,8 @@ export class AccessService {
         chosen.localDay,
         chosen.entitlement.timezone,
         chosen.entitlement.dailyAttemptsLimit!,
+        chosen.nextResetAt ?? this.getNextLocalMidnightUtc(now, chosen.entitlement.timezone),
       );
-    }
-
-    if (
-      this.dualWriteLegacyEnabled &&
-      chosen.entitlement.sourceType === EntitlementSourceType.legacy_free_trial
-    ) {
-      await tx.user.updateMany({
-        where: { id: userId, entTrialUsed: { lt: ENT_TRIAL_LIMIT } },
-        data: { entTrialUsed: { increment: 1 } },
-      });
     }
 
     const updateRes = await tx.userExamEntitlement.updateMany({
@@ -203,7 +237,7 @@ export class AccessService {
       },
     });
     if (updateRes.count === 0) {
-      throw new BadRequestException('TOTAL_LIMIT_EXHAUSTED');
+      throw accessDeniedError('TOTAL_LIMIT_EXHAUSTED');
     }
 
     const updated = await tx.userExamEntitlement.findUnique({
@@ -242,113 +276,52 @@ export class AccessService {
   }
 
   /**
-   * Read-only peek at the tier of the entitlement the NEXT attempt would consume,
-   * without consuming it. Mirrors the same candidate-selection logic used by
-   * assertAndConsume (V2) / consumeLegacyAttempt (LEGACY).
-   *
-   * Used so a FREE attempt can be generated deterministically (same test for every
-   * account) while paid attempts stay randomized. Never throws — on any error or
-   * ambiguity it returns null, so a failed peek simply falls back to a random test.
+   * Предварительная проверка без списания: можно ли начать попытку и какая будет
+   * списана. Нужна, чтобы (1) не собирать тест, если попыток нет, и (2) собрать
+   * бесплатный тест детерминированно. Ничего не выбрасывает: при сбое разрешает
+   * (`tier: null`) — окончательную проверку всё равно делает списание.
    */
-  async peekNextAttemptTier(
-    userId: string,
-    examTypeId: string,
-  ): Promise<'free' | 'paid' | null> {
+  async checkAttemptAccess(userId: string, examTypeId: string): Promise<AttemptAccessCheck> {
+    const fallback: AttemptAccessCheck = {
+      allowed: true,
+      tier: null,
+      reasonCode: null,
+      nextAllowedAt: null,
+    };
     try {
-      if (!this.v2Enabled) {
-        return await this.peekLegacyAttemptTier(userId, examTypeId);
-      }
+      await this.monetization.getConfig();
+      if (!this.v2Enabled) return await this.checkLegacyAttemptAccess(userId, examTypeId);
       return await this.prisma.$transaction(async (tx) => {
         const now = new Date();
         const exam = await tx.examType.findUnique({
           where: { id: examTypeId },
           select: { id: true, slug: true },
         });
-        if (!exam) return null;
-
-        // Idempotent grants/syncs so brand-new accounts correctly resolve to their
-        // free signup entitlement (the exact abuse vector we're hardening).
-        await this.ensureSignupEntitlementsTx(tx, userId, now);
-        await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
-        await this.expireEndedEntitlements(tx, userId, exam.id, now);
-
+        if (!exam) return fallback;
+        await this.reconcileEntitlementsTx(tx, userId, exam, now);
         const decision = await this.getAccessDecisionTx(tx, userId, exam.id, now);
-        if (!decision.allowed || !decision.candidate) return null;
-        return decision.candidate.entitlement.tier === EntitlementTier.free
-          ? 'free'
-          : 'paid';
+        if (!decision.allowed || !decision.candidate) {
+          return {
+            allowed: false,
+            tier: null,
+            reasonCode: decision.reasonCode ?? 'NO_ENTITLEMENT',
+            nextAllowedAt: decision.nextAllowedAt?.toISOString() ?? null,
+          };
+        }
+        return {
+          allowed: true,
+          tier: decision.candidate.entitlement.tier === EntitlementTier.free ? 'free' : 'paid',
+          reasonCode: null,
+          nextAllowedAt: null,
+        };
       });
     } catch {
-      return null;
+      return fallback;
     }
-  }
-
-  private async peekLegacyAttemptTier(
-    userId: string,
-    examTypeId: string,
-  ): Promise<'free' | 'paid' | null> {
-    const exam = await this.prisma.examType.findUnique({
-      where: { id: examTypeId },
-      select: { slug: true },
-    });
-    if (!exam) return null;
-    // Non-ENT exams are unlimited in legacy mode → treat as paid (randomized).
-    if (exam.slug !== 'ent') return 'paid';
-
-    const now = new Date();
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { entTrialUsed: true, createdAt: true },
-    });
-    if (!user) return null;
-
-    const activeSubscriptions = await this.prisma.subscription.findMany({
-      where: {
-        userId,
-        isActive: true,
-        startsAt: { lte: now },
-        expiresAt: { gt: now },
-      },
-      select: { planType: true, startsAt: true, expiresAt: true },
-    });
-
-    // Unlimited paid subscription wins first (same precedence as consume).
-    if (
-      activeSubscriptions.some(
-        (s) =>
-          this.subscriptionTotalAttemptsLimit(s.planType) == null &&
-          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
-      )
-    ) {
-      return 'paid';
-    }
-
-    // Limited subscription with attempts remaining.
-    for (const sub of activeSubscriptions.filter(
-      (s) => this.subscriptionTotalAttemptsLimit(s.planType) != null,
-    )) {
-      const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
-      const used = await this.prisma.testSession.count({
-        where: {
-          userId,
-          examTypeId,
-          startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
-        },
-      });
-      if (used < limit) {
-        return this.subscriptionEntitlementTier(sub.planType) === EntitlementTier.paid
-          ? 'paid'
-          : 'free';
-      }
-    }
-
-    // Falls back to the signup free trial.
-    const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
-    if (user.entTrialUsed < legacyFreeLimit) return 'free';
-    return null;
   }
 
   async getUserAccessByExam(userId: string): Promise<AccessExamStatus[]> {
+    await this.monetization.getConfig();
     const now = new Date();
     if (!this.v2Enabled) {
       return this.getLegacyAccessByExam(userId, now);
@@ -365,10 +338,8 @@ export class AccessService {
         select: { id: true, slug: true },
       });
       const result: AccessExamStatus[] = [];
-      await this.ensureSignupEntitlementsTx(tx, user.id, now);
       for (const exam of exams) {
-        await this.maybeSyncLegacyEntitlements(tx, user.id, exam, now);
-        await this.expireEndedEntitlements(tx, user.id, exam.id, now);
+        await this.reconcileEntitlementsTx(tx, user.id, exam, now);
         result.push(
           await this.buildExamSummaryTx(tx, user.id, exam.id, exam.slug, now),
         );
@@ -442,7 +413,8 @@ export class AccessService {
   }
 
   async syncSubscriptionEntitlements(subscriptionId: string): Promise<void> {
-    if (!this.v2Enabled && !this.dualWriteLegacyEnabled) return;
+    if (!this.v2Enabled) return;
+    await this.monetization.getConfig();
     await this.prisma.$transaction(async (tx) => {
       const sub = await tx.subscription.findUnique({
         where: { id: subscriptionId },
@@ -450,6 +422,7 @@ export class AccessService {
           id: true,
           userId: true,
           planType: true,
+          planSnapshot: true,
           examTypeId: true,
           startsAt: true,
           expiresAt: true,
@@ -458,8 +431,7 @@ export class AccessService {
       });
       if (!sub) return;
 
-      const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
-      const dailyLimit = this.subscriptionDailyAttemptsLimit(sub.planType);
+      const { attemptsLimit: totalLimit, dailyLimit } = this.subscriptionLimits(sub);
       const examScope =
         sub.examTypeId != null
           ? await tx.examType.findMany({
@@ -468,7 +440,7 @@ export class AccessService {
             })
           : totalLimit != null
             ? await tx.examType.findMany({
-                where: { slug: 'ent' },
+                where: { slug: ENT_SLUG },
                 select: { id: true },
               })
             : await tx.examType.findMany({
@@ -521,20 +493,213 @@ export class AccessService {
     });
   }
 
-  private async getLegacyAccessByExam(
+  async recordDeniedAttemptForError(
+    error: unknown,
+    userId: string,
+    examTypeId: string,
+  ): Promise<void> {
+    const reasonCode = this.extractAccessReasonCode(error);
+    if (reasonCode) {
+      await this.recordDeniedAttempt(userId, examTypeId, reasonCode);
+    }
+  }
+
+  // ─── Бесплатная дневная квота ────────────────────────────────────────────
+
+  private freeDailySourceRef(userId: string, examTypeId: string) {
+    return `free_daily:${userId}:exam:${examTypeId}`;
+  }
+
+  /**
+   * Держит строку `free_daily` в соответствии с настройкой: создаёт при первом
+   * обращении, обновляет лимит, отзывает при выключении бесплатного доступа.
+   * Только для ЕНТ. Создание — `ON CONFLICT DO NOTHING`, параллельные запросы
+   * не роняют транзакцию.
+   */
+  private async ensureFreeDailyEntitlementTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    exam: { id: string; slug: string },
+    now: Date,
+  ): Promise<void> {
+    if (exam.slug !== ENT_SLUG) return;
+    const limit = this.monetization.freeDailyEntAttempts();
+    const sourceRef = this.freeDailySourceRef(userId, exam.id);
+    const existing = await tx.userExamEntitlement.findUnique({
+      where: {
+        sourceType_sourceRef: { sourceType: EntitlementSourceType.free_daily, sourceRef },
+      },
+      select: { id: true, status: true, dailyAttemptsLimit: true },
+    });
+
+    if (limit <= 0) {
+      if (existing?.status === EntitlementStatus.active) {
+        await tx.userExamEntitlement.update({
+          where: { id: existing.id },
+          data: { status: EntitlementStatus.revoked, revokedAt: now },
+        });
+      }
+      return;
+    }
+
+    if (existing) {
+      if (existing.status !== EntitlementStatus.active || existing.dailyAttemptsLimit !== limit) {
+        await tx.userExamEntitlement.update({
+          where: { id: existing.id },
+          data: {
+            status: EntitlementStatus.active,
+            dailyAttemptsLimit: limit,
+            revokedAt: null,
+            exhaustedAt: null,
+          },
+        });
+      }
+      return;
+    }
+
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true, createdAt: true },
+    });
+    if (!user) return;
+    await tx.userExamEntitlement.createMany({
+      data: [
+        {
+          userId,
+          examTypeId: exam.id,
+          tier: EntitlementTier.free,
+          status: EntitlementStatus.active,
+          sourceType: EntitlementSourceType.free_daily,
+          sourceRef,
+          totalAttemptsLimit: null,
+          dailyAttemptsLimit: limit,
+          timezone: user.timezone || DEFAULT_TIMEZONE,
+          windowStartsAt: user.createdAt && user.createdAt <= now ? user.createdAt : now,
+          windowEndsAt: null,
+          metadata: { autoGranted: 'free_daily' },
+        },
+      ],
+      skipDuplicates: true,
+    });
+  }
+
+  /** Состояние бесплатной квоты на сегодня; null — у экзамена её нет. */
+  private async getFreeDailyStatus(
+    db: Prisma.TransactionClient | PrismaService,
+    userId: string,
+    exam: { id: string; slug: string },
+    fallbackTimezone: string,
+    now: Date,
+  ): Promise<FreeDailyStatus | null> {
+    if (exam.slug !== ENT_SLUG) return null;
+    const limit = this.monetization.freeDailyEntAttempts();
+    if (limit <= 0) return null;
+    const entitlement = await db.userExamEntitlement.findUnique({
+      where: {
+        sourceType_sourceRef: {
+          sourceType: EntitlementSourceType.free_daily,
+          sourceRef: this.freeDailySourceRef(userId, exam.id),
+        },
+      },
+      select: { id: true, timezone: true },
+    });
+    const timezone = entitlement?.timezone || fallbackTimezone || DEFAULT_TIMEZONE;
+    const usage = entitlement
+      ? await db.userExamDailyUsage.findUnique({
+          where: {
+            entitlementId_localDay: {
+              entitlementId: entitlement.id,
+              localDay: this.getLocalDayKey(now, timezone),
+            },
+          },
+          select: { attemptsUsed: true },
+        })
+      : null;
+    return this.toFreeDailyStatus(limit, usage?.attemptsUsed ?? 0, timezone, now);
+  }
+
+  private toFreeDailyStatus(
+    limit: number,
+    usedToday: number,
+    timezone: string,
+    now: Date,
+  ): FreeDailyStatus {
+    return {
+      dailyLimit: limit,
+      usedToday,
+      remainingToday: Math.max(0, limit - usedToday),
+      nextResetAt: this.getNextLocalMidnightUtc(now, timezone).toISOString(),
+    };
+  }
+
+  /** LEGACY: списывает бесплатную попытку дня. false — на сегодня попытки кончились. */
+  private async consumeFreeDailyTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    exam: { id: string; slug: string },
+    now: Date,
+    sessionId?: string,
+  ): Promise<boolean> {
+    await this.ensureFreeDailyEntitlementTx(tx, userId, exam, now);
+    if (this.monetization.freeDailyEntAttempts() <= 0) return false;
+    const entitlement = await tx.userExamEntitlement.findUnique({
+      where: {
+        sourceType_sourceRef: {
+          sourceType: EntitlementSourceType.free_daily,
+          sourceRef: this.freeDailySourceRef(userId, exam.id),
+        },
+      },
+      select: { id: true, status: true, timezone: true, dailyAttemptsLimit: true },
+    });
+    if (
+      !entitlement ||
+      entitlement.status !== EntitlementStatus.active ||
+      entitlement.dailyAttemptsLimit == null
+    ) {
+      return false;
+    }
+    const localDay = this.getLocalDayKey(now, entitlement.timezone);
+    const consumed = await this.tryIncrementDailyUsageTx(
+      tx,
+      userId,
+      exam.id,
+      entitlement.id,
+      localDay,
+      entitlement.timezone,
+      entitlement.dailyAttemptsLimit,
+    );
+    if (!consumed) return false;
+
+    await tx.userExamEntitlement.update({
+      where: { id: entitlement.id },
+      data: { usedAttemptsTotal: { increment: 1 }, lastAttemptAt: now },
+    });
+    await tx.attemptUsageLedger.create({
+      data: {
+        userId,
+        examTypeId: exam.id,
+        entitlementId: entitlement.id,
+        sessionId: sessionId ?? null,
+        action: 'attempt_consumed',
+        attemptsDelta: 1,
+        localDay,
+      },
+    });
+    return true;
+  }
+
+  // ─── LEGACY-режим ────────────────────────────────────────────────────────
+
+  private async loadLegacyEntContext(
+    db: Prisma.TransactionClient | PrismaService,
     userId: string,
     now: Date,
-  ): Promise<AccessExamStatus[]> {
-    const exams = await this.prisma.examType.findMany({
-      where: { isActive: true },
-      select: { id: true, slug: true },
-    });
-    const user = await this.prisma.user.findUnique({
+  ) {
+    const user = await db.user.findUnique({
       where: { id: userId },
-      select: { entTrialUsed: true, createdAt: true },
+      select: { id: true, timezone: true },
     });
-    if (!user) return [];
-    const activeSubscriptions = await this.prisma.subscription.findMany({
+    const activeSubscriptions = await db.subscription.findMany({
       where: {
         userId,
         isActive: true,
@@ -544,15 +709,103 @@ export class AccessService {
       select: {
         id: true,
         planType: true,
+        planSnapshot: true,
         startsAt: true,
         expiresAt: true,
-        examTypeId: true,
       },
     });
+    return { user, activeSubscriptions };
+  }
+
+  private hasUnlimitedPaid(subs: SubscriptionLike[]): boolean {
+    return subs.some(
+      (s) =>
+        this.subscriptionLimits(s).attemptsLimit == null &&
+        this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
+    );
+  }
+
+  /** Подписка с лимитом попыток, в которой ещё остались попытки (LEGACY считает по сессиям). */
+  private async findLegacyLimitedSubWithAttempts(
+    db: Prisma.TransactionClient | PrismaService,
+    userId: string,
+    examTypeId: string,
+    subs: Array<SubscriptionLike & { startsAt: Date; expiresAt: Date }>,
+    excludeSessionId?: string,
+  ) {
+    for (const sub of subs) {
+      const limit = this.subscriptionLimits(sub).attemptsLimit;
+      if (limit == null) continue;
+      const used = await db.testSession.count({
+        where: {
+          userId,
+          examTypeId,
+          startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
+          ...(excludeSessionId ? { NOT: { id: excludeSessionId } } : {}),
+        },
+      });
+      if (used < limit) return sub;
+    }
+    return null;
+  }
+
+  private async checkLegacyAttemptAccess(
+    userId: string,
+    examTypeId: string,
+  ): Promise<AttemptAccessCheck> {
+    const exam = await this.prisma.examType.findUnique({
+      where: { id: examTypeId },
+      select: { id: true, slug: true },
+    });
+    // Не-ЕНТ экзамены в LEGACY безлимитны → как платная (случайная) попытка.
+    if (!exam || exam.slug !== ENT_SLUG) {
+      return { allowed: true, tier: 'paid', reasonCode: null, nextAllowedAt: null };
+    }
+    const now = new Date();
+    const { user, activeSubscriptions } = await this.loadLegacyEntContext(this.prisma, userId, now);
+    if (!user) return { allowed: false, tier: null, reasonCode: 'NO_ENTITLEMENT', nextAllowedAt: null };
+
+    if (this.hasUnlimitedPaid(activeSubscriptions)) {
+      return { allowed: true, tier: 'paid', reasonCode: null, nextAllowedAt: null };
+    }
+    const limitedSub = await this.findLegacyLimitedSubWithAttempts(
+      this.prisma,
+      userId,
+      examTypeId,
+      activeSubscriptions,
+    );
+    if (limitedSub) {
+      const tier = this.subscriptionEntitlementTier(limitedSub.planType);
+      return {
+        allowed: true,
+        tier: tier === EntitlementTier.paid ? 'paid' : 'free',
+        reasonCode: null,
+        nextAllowedAt: null,
+      };
+    }
+    const free = await this.getFreeDailyStatus(this.prisma, userId, exam, user.timezone, now);
+    if (free && free.remainingToday > 0) {
+      return { allowed: true, tier: 'free', reasonCode: null, nextAllowedAt: null };
+    }
+    return free
+      ? { allowed: false, tier: null, reasonCode: 'DAILY_LIMIT_REACHED', nextAllowedAt: free.nextResetAt }
+      : { allowed: false, tier: null, reasonCode: 'NO_ENTITLEMENT', nextAllowedAt: null };
+  }
+
+  private async getLegacyAccessByExam(
+    userId: string,
+    now: Date,
+  ): Promise<AccessExamStatus[]> {
+    const exams = await this.prisma.examType.findMany({
+      where: { isActive: true },
+      select: { id: true, slug: true },
+    });
+    const { user, activeSubscriptions } = await this.loadLegacyEntContext(this.prisma, userId, now);
+    if (!user) return [];
 
     const result: AccessExamStatus[] = [];
     for (const exam of exams) {
-      if (exam.slug !== 'ent') {
+      if (exam.slug !== ENT_SLUG) {
         result.push({
           examTypeId: exam.id,
           examSlug: exam.slug,
@@ -562,26 +815,23 @@ export class AccessService {
           hasPaidTier: true,
           total: { used: 0, limit: null, remaining: null, isUnlimited: true },
           daily: { used: 0, limit: null, remaining: null, isUnlimited: true, nextResetAt: null },
+          free: null,
         });
         continue;
       }
-      const unlimitedPaid = activeSubscriptions.some(
-        (s) =>
-          this.subscriptionTotalAttemptsLimit(s.planType) == null &&
-          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
-      );
+      const unlimitedPaid = this.hasUnlimitedPaid(activeSubscriptions);
       const hasPaidSubscription = activeSubscriptions.some(
         (s) => this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
       );
       const limitedPaidSubs = activeSubscriptions.filter(
         (s) =>
-          this.subscriptionTotalAttemptsLimit(s.planType) != null &&
+          this.subscriptionLimits(s).attemptsLimit != null &&
           this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
       );
-      let paidTrialRemaining = 0;
-      let paidTrialLimit = 0;
+      let paidRemaining = 0;
+      let paidLimit = 0;
       for (const sub of limitedPaidSubs) {
-        const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
+        const limit = this.subscriptionLimits(sub).attemptsLimit ?? 0;
         const taken = await this.prisma.testSession.count({
           where: {
             userId,
@@ -589,33 +839,44 @@ export class AccessService {
             startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
           },
         });
-        paidTrialLimit += limit;
-        paidTrialRemaining += Math.max(0, limit - Math.min(limit, taken));
+        paidLimit += limit;
+        paidRemaining += Math.max(0, limit - Math.min(limit, taken));
       }
-      const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
-      const freeRemaining = Math.max(0, legacyFreeLimit - user.entTrialUsed);
-      const totalRemaining = unlimitedPaid ? null : freeRemaining + paidTrialRemaining;
+      const free = await this.getFreeDailyStatus(this.prisma, userId, exam, user.timezone, now);
+      const paidAvailable = unlimitedPaid || paidRemaining > 0;
+      const hasAccess = paidAvailable || (free?.remainingToday ?? 0) > 0;
+      const reasonCode: AccessReasonCode | null = hasAccess
+        ? null
+        : free
+          ? 'DAILY_LIMIT_REACHED'
+          : limitedPaidSubs.length > 0
+            ? 'TOTAL_LIMIT_EXHAUSTED'
+            : 'NO_ENTITLEMENT';
+      const nextResetAt = reasonCode === 'DAILY_LIMIT_REACHED' ? free!.nextResetAt : null;
       result.push({
         examTypeId: exam.id,
         examSlug: exam.slug,
-        hasAccess: unlimitedPaid || (totalRemaining ?? 0) > 0,
-        reasonCode:
-          unlimitedPaid || (totalRemaining ?? 0) > 0 ? null : 'TOTAL_LIMIT_EXHAUSTED',
-        nextAllowedAt: null,
+        hasAccess,
+        reasonCode,
+        nextAllowedAt: nextResetAt,
         hasPaidTier: hasPaidSubscription,
         total: {
-          used: unlimitedPaid ? 0 : user.entTrialUsed + (paidTrialLimit - paidTrialRemaining),
-          limit: unlimitedPaid ? null : legacyFreeLimit + paidTrialLimit,
-          remaining: totalRemaining,
+          used: unlimitedPaid ? 0 : paidLimit - paidRemaining,
+          limit: unlimitedPaid ? null : paidLimit,
+          remaining: unlimitedPaid ? null : paidRemaining,
           isUnlimited: unlimitedPaid,
         },
-        daily: {
-          used: 0,
-          limit: null,
-          remaining: null,
-          isUnlimited: true,
-          nextResetAt: null,
-        },
+        daily:
+          paidAvailable || !free
+            ? { used: 0, limit: null, remaining: null, isUnlimited: true, nextResetAt: null }
+            : {
+                used: free.usedToday,
+                limit: free.dailyLimit,
+                remaining: free.remainingToday,
+                isUnlimited: false,
+                nextResetAt,
+              },
+        free,
       });
     }
     return result;
@@ -632,56 +893,31 @@ export class AccessService {
       select: { id: true, slug: true },
     });
     if (!exam) throw new BadRequestException('EXAM_NOT_FOUND');
-    if (exam.slug !== 'ent') return;
+    if (exam.slug !== ENT_SLUG) return;
 
     const now = new Date();
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { createdAt: true },
-    });
+    const { user, activeSubscriptions } = await this.loadLegacyEntContext(tx, userId, now);
     if (!user) throw new BadRequestException('USER_NOT_FOUND');
-    const activeSubscriptions = await tx.subscription.findMany({
-      where: {
-        userId,
-        isActive: true,
-        startsAt: { lte: now },
-        expiresAt: { gt: now },
-      },
-      select: { planType: true, startsAt: true, expiresAt: true },
-    });
 
-    if (
-      activeSubscriptions.some(
-        (s) =>
-          this.subscriptionTotalAttemptsLimit(s.planType) == null &&
-          this.subscriptionEntitlementTier(s.planType) === EntitlementTier.paid,
-      )
-    ) {
-      return;
-    }
+    // Платные попытки — первыми (LEGACY считает их по сессиям в окне подписки).
+    if (this.hasUnlimitedPaid(activeSubscriptions)) return;
+    const limitedSub = await this.findLegacyLimitedSubWithAttempts(
+      tx,
+      userId,
+      examTypeId,
+      activeSubscriptions,
+      sessionId,
+    );
+    if (limitedSub) return;
 
-    for (const sub of activeSubscriptions.filter(
-      (s) => this.subscriptionTotalAttemptsLimit(s.planType) != null,
-    )) {
-      const limit = this.subscriptionTotalAttemptsLimit(sub.planType) ?? 0;
-      const used = await tx.testSession.count({
-        where: {
-          userId,
-          examTypeId,
-          startedAt: { gte: sub.startsAt, lt: sub.expiresAt },
-          ...(sessionId ? { NOT: { id: sessionId } } : {}),
-        },
-      });
-      if (used < limit) return;
-    }
+    if (await this.consumeFreeDailyTx(tx, userId, exam, now, sessionId)) return;
 
-    const legacyFreeLimit = this.getSignupFreeAttemptLimit(user.createdAt);
-    const consumed = await tx.user.updateMany({
-      where: { id: userId, entTrialUsed: { lt: legacyFreeLimit } },
-      data: { entTrialUsed: { increment: 1 } },
-    });
-    if (consumed.count === 0) throw new BadRequestException('TRIAL_LIMIT_EXCEEDED');
+    const free = await this.getFreeDailyStatus(tx, userId, exam, user.timezone, now);
+    if (free) throw accessDeniedError('DAILY_LIMIT_REACHED', free.nextResetAt);
+    throw accessDeniedError('NO_ENTITLEMENT');
   }
+
+  // ─── Общие помощники ─────────────────────────────────────────────────────
 
   private parseBool(value: string | undefined, fallback: boolean): boolean {
     if (value == null) return fallback;
@@ -714,17 +950,6 @@ export class AccessService {
       true,
     );
     return dualRead || dualWrite ? 'DUAL' : 'V2';
-  }
-
-  async recordDeniedAttemptForError(
-    error: unknown,
-    userId: string,
-    examTypeId: string,
-  ): Promise<void> {
-    const reasonCode = this.extractAccessReasonCode(error);
-    if (reasonCode) {
-      await this.recordDeniedAttempt(userId, examTypeId, reasonCode);
-    }
   }
 
   private extractAccessReasonCode(error: unknown): AccessReasonCode | null {
@@ -778,12 +1003,31 @@ export class AccessService {
     return planType === 'free' ? EntitlementTier.free : EntitlementTier.paid;
   }
 
-  private subscriptionTotalAttemptsLimit(planType: string): number | null {
-    return PLAN_BY_ID.get(planType)?.attemptsLimit ?? null;
+  /**
+   * Лимиты подписки: из снапшота покупки или текущего каталога. Неизвестный код
+   * (старые ручные выдачи) — без лимитов, как и раньше.
+   */
+  private subscriptionLimits(sub: SubscriptionLike): {
+    attemptsLimit: number | null;
+    dailyLimit: number | null;
+  } {
+    const terms = this.monetization.planTerms(sub);
+    return {
+      attemptsLimit: terms?.attemptsLimit ?? null,
+      dailyLimit: terms?.dailyLimit ?? null,
+    };
   }
 
-  private subscriptionDailyAttemptsLimit(planType: string): number | null {
-    return PLAN_BY_ID.get(planType)?.dailyLimit ?? null;
+  /** Подготовка строк доступа перед решением: бесплатная квота, legacy-синхронизация, истёкшие окна. */
+  private async reconcileEntitlementsTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    exam: { id: string; slug: string },
+    now: Date,
+  ) {
+    await this.ensureFreeDailyEntitlementTx(tx, userId, exam, now);
+    await this.maybeSyncLegacyEntitlements(tx, userId, exam, now);
+    await this.expireEndedEntitlements(tx, userId, exam.id, now);
   }
 
   private async expireEndedEntitlements(
@@ -809,7 +1053,7 @@ export class AccessService {
     exam: { id: string; slug: string },
     now: Date,
   ) {
-    if (!this.legacySyncEnabled || exam.slug !== 'ent') return;
+    if (!this.legacySyncEnabled || exam.slug !== ENT_SLUG) return;
 
     const user = await tx.user.findUnique({
       where: { id: userId },
@@ -828,6 +1072,7 @@ export class AccessService {
       select: {
         id: true,
         planType: true,
+        planSnapshot: true,
         startsAt: true,
         expiresAt: true,
       },
@@ -867,8 +1112,7 @@ export class AccessService {
         continue;
       }
       const tier = this.subscriptionEntitlementTier(sub.planType);
-      const totalLimit = this.subscriptionTotalAttemptsLimit(sub.planType);
-      const dailyLimit = this.subscriptionDailyAttemptsLimit(sub.planType);
+      const { attemptsLimit: totalLimit, dailyLimit } = this.subscriptionLimits(sub);
       const countedUsed = totalLimit != null
         ? await tx.testSession.count({
             where: {
@@ -926,195 +1170,41 @@ export class AccessService {
           usedAttemptsTotal: used,
           windowStartsAt: sub.startsAt,
           windowEndsAt: sub.expiresAt,
-          timezone: user.timezone || 'Asia/Almaty',
+          timezone: user.timezone || DEFAULT_TIMEZONE,
           exhaustedAt: status === EntitlementStatus.exhausted ? now : null,
         },
       });
     }
   }
 
-  private async ensureSignupEntitlementsTx(
+  /** Дневной лимит строки доступа: свой, а для подписок без него — из условий тарифа. */
+  private entitlementDailyLimit(ent: {
+    dailyAttemptsLimit: number | null;
+    subscription: SubscriptionLike | null;
+  }): number | null {
+    return (
+      ent.dailyAttemptsLimit ??
+      (ent.subscription ? this.subscriptionLimits(ent.subscription).dailyLimit : null)
+    );
+  }
+
+  private async loadDailyUsage(
     tx: Prisma.TransactionClient,
-    userId: string,
-    now: Date,
-  ) {
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { id: true, timezone: true, entTrialUsed: true, createdAt: true },
+    lookups: Array<{ entitlementId: string; localDay: string }>,
+  ): Promise<Map<string, number>> {
+    const usage = new Map<string, number>();
+    if (lookups.length === 0) return usage;
+    const rows = await tx.userExamDailyUsage.findMany({
+      where: {
+        entitlementId: { in: [...new Set(lookups.map((item) => item.entitlementId))] },
+        localDay: { in: [...new Set(lookups.map((item) => item.localDay))] },
+      },
+      select: { entitlementId: true, localDay: true, attemptsUsed: true },
     });
-    if (!user) return;
-
-    const tpl = await this.ensureSignupPlanTemplateTx(tx);
-    if (!tpl || tpl.examRules.length === 0) return;
-
-    const start = user.createdAt && user.createdAt <= now ? user.createdAt : now;
-    const end =
-      tpl.durationDays != null
-        ? new Date(start.getTime() + tpl.durationDays * 86400000)
-        : null;
-    const tz = user.timezone || 'Asia/Almaty';
-
-    for (const rule of tpl.examRules) {
-      const totalLimit = rule.isUnlimited
-        ? null
-        : (rule.totalAttemptsLimit ?? tpl.totalAttemptsLimit);
-      const dailyLimit = rule.dailyAttemptsLimit ?? tpl.dailyAttemptsLimit;
-      const sourceRef = `signup:${user.id}:exam:${rule.examTypeId}`;
-      const existing = await tx.userExamEntitlement.findUnique({
-        where: {
-          sourceType_sourceRef: {
-            sourceType: EntitlementSourceType.plan_template,
-            sourceRef,
-          },
-        },
-        select: { usedAttemptsTotal: true },
-      });
-      if (!existing && !tpl.isPremium && !this.isEligibleForSignupFreeAccess(user.createdAt)) {
-        continue;
-      }
-      const usedAttemptsTotal =
-        existing?.usedAttemptsTotal ??
-        (totalLimit != null && rule.examType.slug === 'ent'
-          ? Math.min(Math.max(0, user.entTrialUsed), totalLimit)
-          : 0);
-      const status =
-        totalLimit != null && usedAttemptsTotal >= totalLimit
-          ? EntitlementStatus.exhausted
-          : EntitlementStatus.active;
-
-      await tx.userExamEntitlement.upsert({
-        where: {
-          sourceType_sourceRef: {
-            sourceType: EntitlementSourceType.plan_template,
-            sourceRef,
-          },
-        },
-        update: {
-          userId: user.id,
-          examTypeId: rule.examTypeId,
-          tier: tpl.isPremium ? EntitlementTier.paid : EntitlementTier.free,
-          status,
-          planTemplateId: tpl.id,
-          totalAttemptsLimit: totalLimit,
-          dailyAttemptsLimit: dailyLimit,
-          usedAttemptsTotal,
-          timezone: tz,
-          windowStartsAt: start,
-          windowEndsAt: end,
-          exhaustedAt: status === EntitlementStatus.exhausted ? now : null,
-          revokedAt: null,
-          metadata: {
-            planTemplateCode: tpl.code,
-            autoGrantedOnSignup: true,
-          },
-        },
-        create: {
-          userId: user.id,
-          examTypeId: rule.examTypeId,
-          tier: tpl.isPremium ? EntitlementTier.paid : EntitlementTier.free,
-          status,
-          sourceType: EntitlementSourceType.plan_template,
-          sourceRef,
-          planTemplateId: tpl.id,
-          totalAttemptsLimit: totalLimit,
-          dailyAttemptsLimit: dailyLimit,
-          usedAttemptsTotal,
-          timezone: tz,
-          windowStartsAt: start,
-          windowEndsAt: end,
-          exhaustedAt: status === EntitlementStatus.exhausted ? now : null,
-          metadata: {
-            planTemplateCode: tpl.code,
-            autoGrantedOnSignup: true,
-          },
-        },
-      });
+    for (const row of rows) {
+      usage.set(`${row.entitlementId}:${row.localDay}`, row.attemptsUsed);
     }
-  }
-
-  private async ensureSignupPlanTemplateTx(tx: Prisma.TransactionClient) {
-    const existing = await tx.subscriptionPlanTemplate.findUnique({
-      where: { code: this.signupPlanTemplateCode },
-      include: {
-        examRules: {
-          include: { examType: { select: { id: true, slug: true } } },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
-    if (existing && existing.isActive) return existing;
-
-    const entExam = await tx.examType.findUnique({
-      where: { slug: 'ent' },
-      select: { id: true, slug: true },
-    });
-    if (!entExam) return null;
-
-    const created = await tx.subscriptionPlanTemplate.upsert({
-      where: { code: this.signupPlanTemplateCode },
-      update: { isActive: true },
-      create: {
-        code: this.signupPlanTemplateCode,
-        name: 'Free ENT trial',
-        description: 'Automatically grants 2 ENT attempts to registered users.',
-        isActive: true,
-        isPremium: false,
-        durationDays: null,
-        totalAttemptsLimit: ENT_TRIAL_LIMIT,
-        dailyAttemptsLimit: null,
-        timezoneMode: 'user',
-        metadata: { system: true, autoGrantOnSignup: true },
-        examRules: {
-          create: {
-            examTypeId: entExam.id,
-            totalAttemptsLimit: ENT_TRIAL_LIMIT,
-            dailyAttemptsLimit: null,
-            isUnlimited: false,
-            sortOrder: 0,
-          },
-        },
-      },
-      include: {
-        examRules: {
-          include: { examType: { select: { id: true, slug: true } } },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
-
-    if (created.examRules.length > 0) return created;
-
-    await tx.subscriptionPlanTemplateExamRule.create({
-      data: {
-        planTemplateId: created.id,
-        examTypeId: entExam.id,
-        totalAttemptsLimit: ENT_TRIAL_LIMIT,
-        dailyAttemptsLimit: null,
-        isUnlimited: false,
-        sortOrder: 0,
-      },
-    });
-
-    return tx.subscriptionPlanTemplate.findUnique({
-      where: { id: created.id },
-      include: {
-        examRules: {
-          include: { examType: { select: { id: true, slug: true } } },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
-  }
-
-  private isEligibleForSignupFreeAccess(createdAt: Date | string | null | undefined): boolean {
-    if (!createdAt) return false;
-    const time = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
-    return Number.isFinite(time) && time < this.freeSignupCutoffAt.getTime();
-  }
-
-  private parseDate(value: string | undefined, fallback: string): Date {
-    const parsed = Date.parse(value?.trim() || fallback);
-    return new Date(Number.isNaN(parsed) ? Date.parse(fallback) : parsed);
+    return usage;
   }
 
   private async buildExamSummaryTx(
@@ -1136,76 +1226,55 @@ export class AccessService {
         id: true,
         tier: true,
         status: true,
+        sourceType: true,
         totalAttemptsLimit: true,
         usedAttemptsTotal: true,
         dailyAttemptsLimit: true,
         timezone: true,
-        subscription: { select: { planType: true } },
+        subscription: { select: { planType: true, planSnapshot: true } },
       },
     });
 
-    const dailyUsageByEntitlementDay = new Map<string, number>();
-    const dailyLookups = entitlements
-      .map((ent) => {
-        const dailyAttemptsLimit =
-          ent.dailyAttemptsLimit ??
-          (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
-        if (dailyAttemptsLimit == null) return null;
-        return {
-          entitlementId: ent.id,
-          localDay: this.getLocalDayKey(now, ent.timezone),
-        };
-      })
-      .filter(
-        (item): item is { entitlementId: string; localDay: string } => item !== null,
-      );
-
-    if (dailyLookups.length > 0) {
-      const usageRows = await tx.userExamDailyUsage.findMany({
-        where: {
-          entitlementId: { in: [...new Set(dailyLookups.map((item) => item.entitlementId))] },
-          localDay: { in: [...new Set(dailyLookups.map((item) => item.localDay))] },
-        },
-        select: { entitlementId: true, localDay: true, attemptsUsed: true },
-      });
-      for (const usage of usageRows) {
-        dailyUsageByEntitlementDay.set(
-          `${usage.entitlementId}:${usage.localDay}`,
-          usage.attemptsUsed,
-        );
-      }
-    }
+    const dailyUsageByEntitlementDay = await this.loadDailyUsage(
+      tx,
+      entitlements
+        .filter((ent) => this.entitlementDailyLimit(ent) != null)
+        .map((ent) => ({ entitlementId: ent.id, localDay: this.getLocalDayKey(now, ent.timezone) })),
+    );
 
     let usedTotal = 0;
-    let totalLimit: number | null = 0;
+    let totalLimit = 0;
     let totalUnlimited = false;
     let usedDaily = 0;
-    let dailyLimit: number | null = 0;
+    let dailyLimit = 0;
     let dailyUnlimited = false;
     let hasPaidTier = false;
     let anyAllowed = false;
     let nearestReset: Date | null = null;
     let anyTotalExhausted = false;
     let anyDailyBlocked = false;
+    let free: FreeDailyStatus | null = null;
 
     for (const ent of entitlements) {
       if (ent.tier === EntitlementTier.paid) hasPaidTier = true;
+      const isFreeDaily = ent.sourceType === EntitlementSourceType.free_daily;
       const remTotal =
         ent.totalAttemptsLimit == null
           ? null
           : Math.max(0, ent.totalAttemptsLimit - ent.usedAttemptsTotal);
       if (remTotal === 0) anyTotalExhausted = true;
-      if (ent.totalAttemptsLimit == null) {
-        totalUnlimited = true;
-      } else {
-        totalLimit = (totalLimit ?? 0) + ent.totalAttemptsLimit;
-        usedTotal += ent.usedAttemptsTotal;
+      // Бесплатная квота отображается отдельно (`free`), в «всего попыток» её не смешиваем.
+      if (!isFreeDaily) {
+        if (ent.totalAttemptsLimit == null) {
+          totalUnlimited = true;
+        } else {
+          totalLimit += ent.totalAttemptsLimit;
+          usedTotal += ent.usedAttemptsTotal;
+        }
       }
 
-      const dailyAttemptsLimit =
-        ent.dailyAttemptsLimit ??
-        (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
-      if (dailyAttemptsLimit == null) {
+      const entDailyLimit = this.entitlementDailyLimit(ent);
+      if (entDailyLimit == null) {
         dailyUnlimited = true;
         if (remTotal == null || remTotal > 0) anyAllowed = true;
         continue;
@@ -1213,9 +1282,10 @@ export class AccessService {
 
       const localDay = this.getLocalDayKey(now, ent.timezone);
       const dailyUsed = dailyUsageByEntitlementDay.get(`${ent.id}:${localDay}`) ?? 0;
-      const remDaily = Math.max(0, dailyAttemptsLimit - dailyUsed);
+      const remDaily = Math.max(0, entDailyLimit - dailyUsed);
       usedDaily += dailyUsed;
-      dailyLimit = (dailyLimit ?? 0) + dailyAttemptsLimit;
+      dailyLimit += entDailyLimit;
+      if (isFreeDaily) free = this.toFreeDailyStatus(entDailyLimit, dailyUsed, ent.timezone, now);
       if (remDaily === 0) {
         anyDailyBlocked = true;
         const next = this.getNextLocalMidnightUtc(now, ent.timezone);
@@ -1226,14 +1296,6 @@ export class AccessService {
       }
     }
 
-    const computedTotalLimit = totalUnlimited ? null : totalLimit;
-    const computedTotalRemaining = totalUnlimited
-      ? null
-      : Math.max(0, (totalLimit ?? 0) - usedTotal);
-    const computedDailyLimit = dailyUnlimited ? null : dailyLimit;
-    const computedDailyRemaining = dailyUnlimited
-      ? null
-      : Math.max(0, (dailyLimit ?? 0) - usedDaily);
     const reasonCode: AccessReasonCode | null = anyAllowed
       ? null
       : anyDailyBlocked
@@ -1241,33 +1303,30 @@ export class AccessService {
         : anyTotalExhausted
           ? 'TOTAL_LIMIT_EXHAUSTED'
           : 'NO_ENTITLEMENT';
+    const resetIso =
+      reasonCode === 'DAILY_LIMIT_REACHED' && nearestReset ? nearestReset.toISOString() : null;
 
     return {
       examTypeId,
       examSlug,
       hasAccess: anyAllowed,
       reasonCode,
-      nextAllowedAt:
-        reasonCode === 'DAILY_LIMIT_REACHED' && nearestReset
-          ? nearestReset.toISOString()
-          : null,
+      nextAllowedAt: resetIso,
       hasPaidTier,
       total: {
         used: usedTotal,
-        limit: computedTotalLimit,
-        remaining: computedTotalRemaining,
+        limit: totalUnlimited ? null : totalLimit,
+        remaining: totalUnlimited ? null : Math.max(0, totalLimit - usedTotal),
         isUnlimited: totalUnlimited,
       },
       daily: {
         used: usedDaily,
-        limit: computedDailyLimit,
-        remaining: computedDailyRemaining,
+        limit: dailyUnlimited ? null : dailyLimit,
+        remaining: dailyUnlimited ? null : Math.max(0, dailyLimit - usedDaily),
         isUnlimited: dailyUnlimited,
-        nextResetAt:
-          reasonCode === 'DAILY_LIMIT_REACHED' && nearestReset
-            ? nearestReset.toISOString()
-            : null,
+        nextResetAt: resetIso,
       },
+      free,
     };
   }
 
@@ -1295,7 +1354,7 @@ export class AccessService {
         tier: true,
         windowEndsAt: true,
         createdAt: true,
-        subscription: { select: { planType: true } },
+        subscription: { select: { planType: true, planSnapshot: true } },
       },
       orderBy: [{ createdAt: 'asc' }],
     });
@@ -1309,7 +1368,12 @@ export class AccessService {
       };
     }
 
+    // Порядок списания: платные/выданные → бесплатные; внутри — сначала с лимитом
+    // попыток, затем с ближайшим окончанием окна.
     const sorted = [...entitlements].sort((a, b) => {
+      const aFree = a.tier === EntitlementTier.free ? 1 : 0;
+      const bFree = b.tier === EntitlementTier.free ? 1 : 0;
+      if (aFree !== bFree) return aFree - bFree;
       const aUnlimited = a.totalAttemptsLimit == null ? 1 : 0;
       const bUnlimited = b.totalAttemptsLimit == null ? 1 : 0;
       if (aUnlimited !== bUnlimited) return aUnlimited - bUnlimited;
@@ -1318,36 +1382,12 @@ export class AccessService {
       return aEnds - bEnds;
     });
 
-    const dailyLookups = sorted
-      .map((ent) => {
-        const dailyAttemptsLimit =
-          ent.dailyAttemptsLimit ??
-          (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
-        if (dailyAttemptsLimit == null) return null;
-        return {
-          entitlementId: ent.id,
-          localDay: this.getLocalDayKey(now, ent.timezone),
-        };
-      })
-      .filter(
-        (item): item is { entitlementId: string; localDay: string } => item !== null,
-      );
-    const dailyUsageByEntitlementDay = new Map<string, number>();
-    if (dailyLookups.length > 0) {
-      const usageRows = await tx.userExamDailyUsage.findMany({
-        where: {
-          entitlementId: { in: [...new Set(dailyLookups.map((item) => item.entitlementId))] },
-          localDay: { in: [...new Set(dailyLookups.map((item) => item.localDay))] },
-        },
-        select: { entitlementId: true, localDay: true, attemptsUsed: true },
-      });
-      for (const usage of usageRows) {
-        dailyUsageByEntitlementDay.set(
-          `${usage.entitlementId}:${usage.localDay}`,
-          usage.attemptsUsed,
-        );
-      }
-    }
+    const dailyUsageByEntitlementDay = await this.loadDailyUsage(
+      tx,
+      sorted
+        .filter((ent) => this.entitlementDailyLimit(ent) != null)
+        .map((ent) => ({ entitlementId: ent.id, localDay: this.getLocalDayKey(now, ent.timezone) })),
+    );
 
     let hasDailyBlocked = false;
     let hasTotalExhausted = false;
@@ -1364,15 +1404,13 @@ export class AccessService {
       const localDay = this.getLocalDayKey(now, ent.timezone);
       let remToday: number | null = null;
       let nextResetAt: Date | null = null;
-      const dailyAttemptsLimit =
-        ent.dailyAttemptsLimit ??
-        (ent.subscription ? this.subscriptionDailyAttemptsLimit(ent.subscription.planType) : null);
+      const dailyAttemptsLimit = this.entitlementDailyLimit(ent);
       if (dailyAttemptsLimit != null) {
         const used = dailyUsageByEntitlementDay.get(`${ent.id}:${localDay}`) ?? 0;
         remToday = Math.max(0, dailyAttemptsLimit - used);
+        nextResetAt = this.getNextLocalMidnightUtc(now, ent.timezone);
         if (remToday <= 0) {
           hasDailyBlocked = true;
-          nextResetAt = this.getNextLocalMidnightUtc(now, ent.timezone);
           if (!nearestReset || nextResetAt < nearestReset) nearestReset = nextResetAt;
           continue;
         }
@@ -1412,6 +1450,31 @@ export class AccessService {
     };
   }
 
+  /**
+   * Атомарно занимает одну попытку дня. Строку дня создаём `ON CONFLICT DO NOTHING`
+   * (без ошибки уникальности, которая оборвала бы транзакцию Postgres), затем
+   * условный UPDATE: при гонке второй запрос не пройдёт `attemptsUsed < limit`.
+   */
+  private async tryIncrementDailyUsageTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    examTypeId: string,
+    entitlementId: string,
+    localDay: string,
+    timezone: string,
+    limit: number,
+  ): Promise<boolean> {
+    await tx.userExamDailyUsage.createMany({
+      data: [{ userId, examTypeId, entitlementId, localDay, timezone, attemptsUsed: 0 }],
+      skipDuplicates: true,
+    });
+    const updated = await tx.userExamDailyUsage.updateMany({
+      where: { entitlementId, localDay, attemptsUsed: { lt: limit } },
+      data: { attemptsUsed: { increment: 1 } },
+    });
+    return updated.count > 0;
+  }
+
   private async incrementDailyUsageTx(
     tx: Prisma.TransactionClient,
     userId: string,
@@ -1420,46 +1483,18 @@ export class AccessService {
     localDay: string,
     timezone: string,
     limit: number,
+    nextResetAt: Date,
   ) {
-    const updated = await tx.userExamDailyUsage.updateMany({
-      where: {
-        entitlementId,
-        localDay,
-        attemptsUsed: { lt: limit },
-      },
-      data: { attemptsUsed: { increment: 1 } },
-    });
-    if (updated.count > 0) return;
-
-    try {
-      await tx.userExamDailyUsage.create({
-        data: {
-          userId,
-          examTypeId,
-          entitlementId,
-          localDay,
-          timezone,
-          attemptsUsed: 1,
-        },
-      });
-      return;
-    } catch (err) {
-      if (!(err instanceof PrismaClientKnownRequestError) || err.code !== 'P2002') {
-        throw err;
-      }
-    }
-
-    const retry = await tx.userExamDailyUsage.updateMany({
-      where: {
-        entitlementId,
-        localDay,
-        attemptsUsed: { lt: limit },
-      },
-      data: { attemptsUsed: { increment: 1 } },
-    });
-    if (retry.count === 0) {
-      throw new BadRequestException('DAILY_LIMIT_REACHED');
-    }
+    const ok = await this.tryIncrementDailyUsageTx(
+      tx,
+      userId,
+      examTypeId,
+      entitlementId,
+      localDay,
+      timezone,
+      limit,
+    );
+    if (!ok) throw accessDeniedError('DAILY_LIMIT_REACHED', nextResetAt);
   }
 
   private isValidTimeZone(timezone: string): boolean {

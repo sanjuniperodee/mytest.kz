@@ -1,5 +1,7 @@
 import { PrismaClient, EntitlementStatus, EntitlementTier, EntitlementSourceType } from '@prisma/client';
-import { ENT_TRIAL_LIMIT } from '../src/modules/billing/billing.config';
+
+/** Историческая одноразовая бесплатная попытка (до перехода на «N ЕНТ в день»). */
+const ENT_TRIAL_LIMIT = 1;
 
 const prisma = new PrismaClient();
 

@@ -1,5 +1,6 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { BillingService } from '../src/modules/billing/billing.service';
+import { staticMonetization } from './helpers/monetization';
 
 function makeService(configValues: Record<string, string> = {}) {
   const config = { get: jest.fn((key: string) => configValues[key]) };
@@ -9,6 +10,7 @@ function makeService(configValues: Record<string, string> = {}) {
     { syncSubscriptionEntitlements: jest.fn() } as any,
     {} as any,
     { recordEvent: jest.fn() } as any,
+    staticMonetization(),
   );
 }
 

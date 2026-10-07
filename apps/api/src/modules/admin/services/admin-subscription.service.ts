@@ -2,24 +2,22 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { EntitlementSourceType, EntitlementStatus, EntitlementTier, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { AccessService } from '../../subscriptions/access.service';
-import { BILLING_PLANS } from '../../billing/billing.config';
-
-const VALID_SUBSCRIPTION_PLAN_TYPES = new Set([
-  'free',
-  ...BILLING_PLANS.map((plan) => plan.id),
-]);
+import { MonetizationService } from '../../subscriptions/monetization.service';
 
 @Injectable()
 export class AdminSubscriptionService {
   constructor(
     private prisma: PrismaService,
     private accessService: AccessService,
+    private monetization: MonetizationService,
   ) {}
 
-  private assertValidSubscriptionPlanType(planType: string) {
-    if (!VALID_SUBSCRIPTION_PLAN_TYPES.has(planType)) {
-      throw new BadRequestException('UNKNOWN_PLAN_TYPE');
-    }
+  /** Тариф из каталога «Тарифы и доступ» (в т.ч. снятый с продажи); `free` — без тарифа. */
+  private async resolveGrantPlan(planType: string) {
+    if (planType === 'free') return null;
+    const plan = await this.monetization.getPlan(planType, { includeInactive: true });
+    if (!plan) throw new BadRequestException('UNKNOWN_PLAN_TYPE');
+    return plan;
   }
 
   async grantSubscription(
@@ -37,12 +35,13 @@ export class AdminSubscriptionService {
       where: { id: data.userId },
     });
     if (!user) throw new NotFoundException('User not found');
-    this.assertValidSubscriptionPlanType(data.planType);
+    const plan = await this.resolveGrantPlan(data.planType);
 
     const created = await this.prisma.subscription.create({
       data: {
         userId: data.userId,
         planType: data.planType,
+        ...(plan ? { planSnapshot: { ...this.monetization.snapshotFor(plan) } } : {}),
         examTypeId: data.examTypeId || null,
         grantedBy: adminId,
         startsAt: new Date(data.startsAt),
@@ -99,7 +98,7 @@ export class AdminSubscriptionService {
   }
 
   async listUserEntitlements(userId: string) {
-    await this.accessService.ensureSignupEntitlementsForUser(userId);
+    await this.accessService.ensureFreeEntitlementsForUser(userId);
 
     return this.prisma.userExamEntitlement.findMany({
       where: { userId },

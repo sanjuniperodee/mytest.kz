@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, Calculator, Gift, Info } from "lucide-react"
+import { AdSlot } from "@/components/ads/ad-slot"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
 import { OG_IMAGES } from "@/lib/seo"
@@ -170,6 +171,10 @@ export default async function UbtOtuBalyPage() {
         </section>
 
         <GrantHubDirectory data={data} lang="kk" />
+
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <AdSlot placement="content" className="mb-14" />
+        </div>
 
         <section className="mx-auto max-w-4xl px-4 pb-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight">Жиі қойылатын сұрақтар</h2>

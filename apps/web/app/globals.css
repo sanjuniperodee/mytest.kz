@@ -405,3 +405,8 @@
     font-size: 0.9em;
   }
 }
+
+/* AdSense: незаполненный рекламный блок схлопываем вместе с рамкой и подписью. */
+[data-ad-placement]:has(ins[data-ad-status="unfilled"]) {
+  display: none;
+}

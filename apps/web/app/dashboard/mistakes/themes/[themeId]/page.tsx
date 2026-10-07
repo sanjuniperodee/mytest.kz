@@ -14,6 +14,7 @@ import { MistakesPracticeDialog, type FixedPracticeScope } from "@/components/da
 import { RichText } from "@/components/exam/rich-text"
 import { useUiI18n } from "@/lib/i18n/ui"
 import { useAuth } from "@/lib/api/auth-context"
+import { usePremiumAccess } from "@/lib/api/monetization"
 import { api, ApiError } from "@/lib/api/client"
 import { localize } from "@/lib/api/i18n"
 import type { AiTopicLesson, MistakesThemeDetail } from "@/lib/api/types"
@@ -26,8 +27,8 @@ export default function ThemeLessonPage() {
 
 function ThemeContent({ themeId, language }: {themeId:string; language:"ru"|"kk"}) {
   const t = (ru:string,kk:string) => language === "kk" ? kk : ru
-  const { user, isLoading: authLoading } = useAuth()
-  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const { isLoading: authLoading } = useAuth()
+  const paid = usePremiumAccess().can("aiCoach")
   const url = `/ai/mistakes/themes/${themeId}`
   const {data,error,isLoading,isValidating,mutate} = useSWR<MistakesThemeDetail>(paid ? [url,language] : null, ([path]:[string,string]) => api<MistakesThemeDetail>(path))
   const [busy,setBusy] = useState(false)

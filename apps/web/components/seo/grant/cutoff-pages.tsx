@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, Calculator, Gift, Info, TrendingDown, TrendingUp } from "lucide-react"
+import { AdSlot } from "@/components/ads/ad-slot"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { ENT_SUBJECTS } from "@/lib/ent-subjects"
 import { OG_IMAGES } from "@/lib/seo"
@@ -370,6 +371,10 @@ export function UniversityCutoffsPage({ data, university, lang }: { data: GrantD
           </section>
         )}
 
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <AdSlot placement="content" className="mt-12" />
+        </div>
+
         <Faq lang={lang} items={faq} />
 
         <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6">
@@ -582,6 +587,10 @@ export function ProgramCutoffsPage({ data, program, lang }: { data: GrantData; p
             <TrendTable lang={lang} trend={trend} />
           </section>
         )}
+
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <AdSlot placement="content" className="mt-12" />
+        </div>
 
         <Faq lang={lang} items={faq} />
 

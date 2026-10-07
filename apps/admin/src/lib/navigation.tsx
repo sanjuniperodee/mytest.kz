@@ -16,6 +16,7 @@ import {
   NotificationOutlined,
   FlagOutlined,
   ContactsOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 
 /**
@@ -153,13 +154,23 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Доступы, роли, история активности и сопровождение аккаунтов.',
   },
   {
+    key: 'monetization',
+    path: '/monetization',
+    group: 'Аккаунты',
+    menuLabel: 'Тарифы и доступ',
+    icon: <DollarOutlined />,
+    title: 'Тарифы и доступ',
+    description:
+      'Бесплатный лимит, что открывает подписка, каталог тарифов и реклама — в одном месте.',
+  },
+  {
     key: 'subscriptions',
     path: '/subscriptions',
     group: 'Аккаунты',
-    menuLabel: 'Подписки',
+    menuLabel: 'Выдача доступа',
     icon: <CrownOutlined />,
-    title: 'Подписки',
-    description: 'Управление активными тарифами, сроками и ручными выдачами доступа.',
+    title: 'Выдача доступа',
+    description: 'Ручная выдача и отзыв доступа конкретным пользователям, шаблоны и entitlements.',
   },
   {
     key: 'leads',

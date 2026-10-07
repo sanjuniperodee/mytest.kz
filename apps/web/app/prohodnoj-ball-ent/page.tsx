@@ -6,6 +6,7 @@ import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
 import { loadGrantData } from "@/lib/seo/grant-cutoffs"
+import { AdSlot } from "@/components/ads/ad-slot"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -275,6 +276,11 @@ export default async function ProhodnoiBallEntPage() {
             ))}
           </ul>
         </Reveal>
+
+        {/* Реклама (AdSense, место «Контентные страницы»; без настроек в админке не рендерится) */}
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <AdSlot placement="content" />
+        </div>
 
         {/* FAQ */}
         <Reveal as="section" className="border-y border-border/60 bg-secondary/30">

@@ -124,7 +124,7 @@ export class AuthService {
       await this.attributeVisit(visitorId, user.id);
     }
 
-    await this.accessService.ensureSignupEntitlementsForUser(user.id);
+    await this.accessService.ensureFreeEntitlementsForUser(user.id);
 
     return this.generateTokens({
       ...user,
@@ -213,7 +213,7 @@ export class AuthService {
       await this.attributeVisit(visitorId, user.id);
     }
 
-    await this.accessService.ensureSignupEntitlementsForUser(user.id);
+    await this.accessService.ensureFreeEntitlementsForUser(user.id);
 
     return this.generateTokens({
       ...user,
@@ -385,7 +385,7 @@ export class AuthService {
       throw new UnauthorizedException('Подтвердите email перед входом');
     }
 
-    await this.accessService.ensureSignupEntitlementsForUser(user.id);
+    await this.accessService.ensureFreeEntitlementsForUser(user.id);
 
     return this.generateTokens({
       ...user,
@@ -426,7 +426,7 @@ export class AuthService {
         throw new UnauthorizedException();
       }
 
-      await this.accessService.ensureSignupEntitlementsForUser(session.user.id);
+      await this.accessService.ensureFreeEntitlementsForUser(session.user.id);
 
       return this.generateTokens({
         ...session.user,

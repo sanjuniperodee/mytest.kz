@@ -6,6 +6,7 @@ import { OG_IMAGES } from "@/lib/seo"
 import { ENT_SUBJECTS, ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
+import { AdSlot } from "@/components/ads/ad-slot"
 
 const SUBJECTS = ENT_SUBJECTS
 
@@ -215,6 +216,11 @@ export default async function EntSubjectPage({
             ))}
           </ol>
         </Reveal>
+
+        {/* Реклама (AdSense, место «Контентные страницы»; без настроек в админке не рендерится) */}
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <AdSlot placement="content" />
+        </div>
 
         {/* FAQ */}
         <Reveal as="section" className="border-t border-border/60">

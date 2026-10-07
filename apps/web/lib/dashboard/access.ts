@@ -16,6 +16,16 @@ export function examAccessStatus(
   access: AccessByExamItem | undefined,
   trial?: TrialStatusItem,
 ): AccessStatus {
+  // Только бесплатная квота дня (нет платных попыток) — показываем её отдельно.
+  const paidAvailable = Boolean(
+    access && (access.total.isUnlimited || (access.total.remaining ?? 0) > 0),
+  )
+  if (access?.free && !paidAvailable) {
+    return access.free.remainingToday > 0
+      ? { label: `Бесплатно сегодня ${access.free.remainingToday}/${access.free.dailyLimit}`, tone: "ok" }
+      : { label: "Бесплатный — завтра", tone: "limit" }
+  }
+
   if (access?.hasAccess) {
     if (access.daily.isUnlimited || access.daily.limit == null) {
       return { label: "Доступ открыт", tone: "ok" }
