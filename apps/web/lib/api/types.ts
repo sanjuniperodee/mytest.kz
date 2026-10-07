@@ -33,6 +33,13 @@ export interface AccessByExamItem {
   hasPaidTier: boolean
   total: AccessLimit
   daily: AccessLimit & { nextResetAt: string | null }
+  /** Бесплатная квота ЕНТ на сегодня; null — у экзамена её нет. */
+  free?: {
+    dailyLimit: number
+    usedToday: number
+    remainingToday: number
+    nextResetAt: string
+  } | null
 }
 
 export interface TrialStatusItem {
@@ -49,6 +56,9 @@ export interface TrialStatusItem {
   totalLimit?: number
   totalUsed?: number
   totalRemaining?: number
+  /** Бесплатных ЕНТ в день и когда откроется следующий. */
+  freeDailyLimit?: number
+  nextFreeAt?: string | null
 }
 
 export interface TrialStatus {

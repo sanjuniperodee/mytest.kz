@@ -11,11 +11,16 @@ import { Prisma } from '@prisma/client';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { Environment, SignedDataVerifier, type JWSTransactionDecodedPayload } from '@apple/app-store-server-library';
-import { normalizeKzPhone } from '@bilimland/shared';
+import {
+  normalizeKzPhone,
+  parsePlanSnapshot,
+  toBillingPlanDto,
+  type PlanSnapshot,
+} from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
-import { BILLING_PLANS, ENT_TRIAL_LIMIT } from './billing.config';
 import { freedomPaySalt, freedomPaySign, freedomPayVerifySignature } from './freedompay-signature';
 import { AccessService } from '../subscriptions/access.service';
+import { MonetizationService } from '../subscriptions/monetization.service';
 import { KaspiPosService } from './kaspi-pos.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import type { VerifyStorePurchaseDto } from './dto/store-purchase.dto';
@@ -111,10 +116,41 @@ export class BillingService {
     private accessService: AccessService,
     private kaspiPosService: KaspiPosService,
     private analytics: AnalyticsService,
+    private monetization: MonetizationService,
   ) {}
 
-  getPlans() {
-    return BILLING_PLANS;
+  /** Тарифы в продаже — из настроек «Тарифы и доступ» в админке. */
+  async getPlans(lang = 'ru') {
+    const plans = await this.monetization.getActivePlans();
+    return plans.map((plan) => toBillingPlanDto(plan, lang));
+  }
+
+  /** Тариф для новой покупки: только те, что сейчас в продаже. */
+  private async getPlanForCheckout(planId: string): Promise<PlanSnapshot> {
+    const plan = await this.monetization.getPlan(planId);
+    if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
+    return this.monetization.snapshotFor(plan);
+  }
+
+  /**
+   * Условия оплаченного заказа: зафиксированные при создании заказа, а для заказов,
+   * созданных до снапшотов, — текущий тариф (даже снятый с продажи).
+   */
+  private async resolveOrderPlan(order: {
+    planCode: string;
+    planSnapshot?: Prisma.JsonValue | null;
+  }): Promise<PlanSnapshot | null> {
+    const snapshot = parsePlanSnapshot(order.planSnapshot);
+    if (snapshot) return snapshot;
+    const plan = await this.monetization.getPlan(order.planCode, { includeInactive: true });
+    return plan ? this.monetization.snapshotFor(plan) : null;
+  }
+
+  /** Тариф по продукту из стора: маппинг продуктов фиксирован, поэтому снятый с продажи тоже подходит. */
+  private async getStorePlan(planId: string): Promise<PlanSnapshot | null> {
+    if (!planId) return null;
+    const plan = await this.monetization.getPlan(planId, { includeInactive: true });
+    return plan ? this.monetization.snapshotFor(plan) : null;
   }
 
   /** OTP-вход Kaspi POS; номер уже нормализован (normalizeKzPhone). */
@@ -167,12 +203,11 @@ export class BillingService {
   }
 
   async createKaspiCheckout(userId: string, planId: string, phoneNumber: string, method?: string) {
-    const plan = BILLING_PLANS.find((p) => p.id === planId);
-    if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
+    const plan = await this.getPlanForCheckout(planId);
     const preferredMethod = method?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
 
     const pending = await this.prisma.paymentOrder.findFirst({
-      where: { userId, provider: 'kaspi', status: 'pending', planCode: plan.id },
+      where: { userId, provider: 'kaspi', status: 'pending', planCode: plan.code },
       orderBy: { createdAt: 'desc' },
     });
     if (pending) {
@@ -297,7 +332,8 @@ export class BillingService {
       where: { providerOrderId },
       create: {
         userId,
-        planCode: plan.id,
+        planCode: plan.code,
+        planSnapshot: { ...plan },
         amount: plan.priceKzt,
         provider: 'kaspi',
         providerOrderId,
@@ -336,7 +372,7 @@ export class BillingService {
 
     await this.recordBillingEvent(userId, 'checkout_created', {
       provider: 'kaspi',
-      planCode: plan.id,
+      planCode: plan.code,
       amount: plan.priceKzt,
       paymentType,
       reused: false,
@@ -448,7 +484,7 @@ export class BillingService {
       return { ok: true, status: 'paid' };
     }
 
-    const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
+    const plan = await this.resolveOrderPlan(order);
     if (!plan) {
       return { ok: false, reason: 'PLAN_NOT_FOUND' };
     }
@@ -478,7 +514,8 @@ export class BillingService {
       return tx.subscription.create({
         data: {
           userId: order.userId,
-          planType: plan.id,
+          planType: plan.code,
+          planSnapshot: { ...plan },
           paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
@@ -490,7 +527,7 @@ export class BillingService {
       await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
       await this.recordBillingEvent(order.userId, 'payment_paid', {
         provider: 'kaspi',
-        planCode: plan.id,
+        planCode: plan.code,
         amount: Number(order.amount),
         providerOrderId: order.providerOrderId,
       });
@@ -499,20 +536,8 @@ export class BillingService {
     return { ok: true, status: 'paid' };
   }
 
-  getEntTrialStatus(entTrialUsed: number) {
-    const used = Math.max(0, entTrialUsed);
-    const remaining = Math.max(0, ENT_TRIAL_LIMIT - used);
-    return {
-      limit: ENT_TRIAL_LIMIT,
-      used,
-      remaining,
-      exhausted: remaining <= 0,
-    };
-  }
-
   async createCheckout(userId: string, planId: string) {
-    const plan = BILLING_PLANS.find((p) => p.id === planId);
-    if (!plan) throw new BadRequestException('PLAN_NOT_FOUND');
+    const plan = await this.getPlanForCheckout(planId);
 
     const merchantId = this.config.get<string>('FREEDOMPAY_MERCHANT_ID');
     const secretKey = this.config.get<string>('FREEDOMPAY_SECRET_KEY');
@@ -524,7 +549,7 @@ export class BillingService {
     const callbackUrl = this.resolveCallbackUrl();
     const successUrl = this.config.get<string>('FREEDOMPAY_SUCCESS_URL') || this.resolveSiteUrl('/paywall?payment=success');
     const failureUrl = this.config.get<string>('FREEDOMPAY_FAILURE_URL') || this.resolveSiteUrl('/paywall?payment=failed');
-    const orderId = this.buildOrderId(userId, plan.id);
+    const orderId = this.buildOrderId(userId, plan.code);
     const salt = freedomPaySalt(16);
     const amount = this.formatAmount(plan.priceKzt);
 
@@ -584,7 +609,8 @@ export class BillingService {
     await this.prisma.paymentOrder.create({
       data: {
         userId,
-        planCode: plan.id,
+        planCode: plan.code,
+        planSnapshot: { ...plan },
         amount: plan.priceKzt,
         providerOrderId: orderId,
         checkoutUrl,
@@ -595,7 +621,7 @@ export class BillingService {
 
     await this.recordBillingEvent(userId, 'checkout_created', {
       provider: 'freedompay',
-      planCode: plan.id,
+      planCode: plan.code,
       amount: plan.priceKzt,
     });
 
@@ -667,7 +693,7 @@ export class BillingService {
       return ack('ok', 'ALREADY_PAID');
     }
 
-    const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
+    const plan = await this.resolveOrderPlan(order);
     if (!plan) return ack('rejected', 'PLAN_NOT_FOUND');
     if (!this.isFreedomPayCallbackAmountValid(normalized, order.amount)) {
       return ack('rejected', 'AMOUNT_MISMATCH');
@@ -693,7 +719,8 @@ export class BillingService {
       return tx.subscription.create({
         data: {
           userId: order.userId,
-          planType: plan.id,
+          planType: plan.code,
+          planSnapshot: { ...plan },
           paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
@@ -705,7 +732,7 @@ export class BillingService {
       await this.accessService.syncSubscriptionEntitlements(createdSubscription.id);
       await this.recordBillingEvent(order.userId, 'payment_paid', {
         provider: 'freedompay',
-        planCode: plan.id,
+        planCode: plan.code,
         amount: Number(order.amount),
         providerOrderId: order.providerOrderId,
       });
@@ -1262,6 +1289,7 @@ export class BillingService {
     amount: unknown;
     currency: string;
     planCode: string;
+    planSnapshot?: unknown;
     checkoutUrl: string | null;
     providerPayload: unknown;
     paidAt: Date | null;
@@ -1295,7 +1323,7 @@ export class BillingService {
       paymentType === 'qr'
         ? firstString(order.checkoutUrl, qrToken, receiptUrl)
         : firstString(order.checkoutUrl, receiptUrl);
-    const plan = BILLING_PLANS.find((p) => p.id === order.planCode);
+    const plan = parsePlanSnapshot(order.planSnapshot) ?? this.monetization.planTerms({ planType: order.planCode });
     return {
       invoiceId: order.providerOrderId,
       providerOrderId: order.providerOrderId,
@@ -1512,7 +1540,7 @@ export class BillingService {
     const existing = await this.getExistingStoreOrder(input.provider, input.providerOrderId, input.userId);
     if (existing) return { ok: true, reused: true, planId: existing.planCode };
     const planId = this.mapStoreProductToPlan(input.productId);
-    const plan = BILLING_PLANS.find((item) => item.id === planId);
+    const plan = await this.getStorePlan(planId);
     if (!plan) throw new BadRequestException('STORE_PLAN_NOT_MAPPED');
     const now = new Date();
     const expiresAt = input.expiresAt && input.expiresAt > now ? input.expiresAt : this.addDays(now, plan.durationDays);
@@ -1520,7 +1548,8 @@ export class BillingService {
       const subscription = await this.prisma.$transaction(async (tx) => {
         const order = await tx.paymentOrder.create({ data: {
           userId: input.userId,
-          planCode: plan.id,
+          planCode: plan.code,
+          planSnapshot: { ...plan },
           amount: plan.priceKzt,
           provider: input.provider,
           providerOrderId: input.providerOrderId,
@@ -1531,7 +1560,8 @@ export class BillingService {
         } });
         return tx.subscription.create({ data: {
           userId: input.userId,
-          planType: plan.id,
+          planType: plan.code,
+          planSnapshot: { ...plan },
           paymentOrderId: order.id,
           startsAt: now,
           expiresAt,
@@ -1628,7 +1658,7 @@ export class BillingService {
     }
 
     const planId = this.mapAppleProductToPlan(productId);
-    const plan = BILLING_PLANS.find((p) => p.id === planId);
+    const plan = await this.getStorePlan(planId);
     if (!plan) throw new BadRequestException('APPLE_PLAN_NOT_MAPPED');
 
     const existingOrder = await this.prisma.paymentOrder.findFirst({
@@ -1649,7 +1679,8 @@ export class BillingService {
         const order = await tx.paymentOrder.create({
           data: {
             userId,
-            planCode: plan.id,
+            planCode: plan.code,
+            planSnapshot: { ...plan },
             amount: plan.priceKzt,
             provider: 'apple_iap',
             providerOrderId: transactionId,
@@ -1669,7 +1700,8 @@ export class BillingService {
         return tx.subscription.create({
           data: {
             userId,
-            planType: plan.id,
+            planType: plan.code,
+            planSnapshot: { ...plan },
             paymentOrderId: order.id,
             startsAt: now,
             expiresAt,

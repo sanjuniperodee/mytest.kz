@@ -1,0 +1,442 @@
+/* «Тарифы и доступ» — единая страница монетизации. */
+
+.pg-money {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hig-vspace-lg);
+  padding-bottom: 88px; /* место под липкую панель сохранения */
+}
+
+/* Сводка «как работает доступ» */
+.pg-money__flow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+
+@media (min-width: 1100px) {
+  .pg-money__flow {
+    grid-template-columns: 1fr auto 1fr auto 1fr 1fr;
+  }
+}
+
+.pg-money__flow-arrow {
+  display: none;
+  align-self: center;
+  color: var(--admin-text-tertiary);
+  font-size: 20px;
+}
+
+@media (min-width: 1100px) {
+  .pg-money__flow-arrow {
+    display: block;
+  }
+}
+
+.pg-money__flow-card {
+  position: relative;
+  padding: 16px 16px 14px;
+  background: var(--admin-surface-strong);
+  border: 0.5px solid var(--admin-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.pg-money__flow-card p {
+  margin: 6px 0 0;
+  color: var(--admin-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pg-money__flow-icon {
+  font-size: 18px;
+  color: var(--flow-accent, var(--hig-tint));
+}
+
+.pg-money__flow-card--free {
+  --flow-accent: #34c759;
+}
+.pg-money__flow-card--limit {
+  --flow-accent: #ff9f0a;
+}
+.pg-money__flow-card--paid {
+  --flow-accent: #5856d6;
+}
+.pg-money__flow-card--ads {
+  --flow-accent: #32ade6;
+}
+
+.pg-money__flow-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--flow-accent, var(--hig-tint));
+}
+
+.pg-money__flow-k {
+  margin-top: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-muted);
+}
+
+.pg-money__flow-v {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+/* Панели настроек */
+.pg-money__columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--hig-vspace-lg);
+}
+
+@media (min-width: 1000px) {
+  .pg-money__columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pg-money__panel {
+  padding: 18px 20px;
+  background: var(--admin-surface-strong);
+  border: 0.5px solid var(--admin-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.pg-money__panel-head {
+  margin-bottom: 8px;
+}
+
+.pg-money__panel-head--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.pg-money__panel-head h2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.pg-money__panel-head p {
+  margin: 4px 0 0;
+  max-width: 760px;
+  color: var(--admin-text-secondary);
+  font-size: 13px;
+}
+
+.pg-money__row {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 0.5px solid var(--admin-separator);
+}
+
+.pg-money__row-title {
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.pg-money__row-desc {
+  font-size: 13px;
+  color: var(--admin-text-secondary);
+}
+
+.pg-money__switch {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+
+.pg-money__switch-on {
+  color: #5856d6;
+  font-weight: 600;
+}
+
+/* Тарифы */
+.pg-money__plans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pg-money-plan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border: 0.5px solid var(--admin-border);
+  border-radius: 12px;
+  background: #fbfaf8;
+}
+
+.pg-money-plan--off {
+  opacity: 0.65;
+}
+
+.pg-money-plan__title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.pg-money-plan__terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  margin-top: 2px;
+  color: var(--admin-text-secondary);
+}
+
+.pg-money-plan__terms strong {
+  color: var(--admin-text);
+  font-size: 15px;
+}
+
+.pg-money-plan__terms code {
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+
+.pg-money-plan__stats {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+
+.pg-money-plan__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Поля форм */
+.pg-money__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.pg-money__field-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--admin-text);
+}
+
+.pg-money__field-hint {
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+
+.pg-money__field-error {
+  font-size: 12px;
+  color: #d70015;
+}
+
+.pg-money__i18n {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+@media (min-width: 720px) {
+  .pg-money__i18n {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pg-money__grid-2,
+.pg-money__grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 16px;
+}
+
+@media (min-width: 720px) {
+  .pg-money__grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pg-money__grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.pg-money__ads-grid {
+  margin: 12px 0 4px;
+}
+
+.pg-money__features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pg-money__feature-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.pg-money__error-list,
+.pg-money__steps {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* Редактор тарифа */
+.pg-money-editor {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 900px) {
+  .pg-money-editor {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}
+
+.pg-money-editor__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: start;
+  position: sticky;
+  top: 0;
+}
+
+.pg-money-preview {
+  position: relative;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.pg-money-preview--hl {
+  border-color: var(--hig-tint);
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.12);
+}
+
+.pg-money-preview__badge {
+  position: absolute;
+  top: -10px;
+  right: 14px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--hig-tint);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pg-money-preview__name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.pg-money-preview__price {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.pg-money-preview__old {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--admin-muted);
+  text-decoration: line-through;
+}
+
+.pg-money-preview__meta,
+.pg-money-preview__desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--admin-text-secondary);
+}
+
+.pg-money-preview__features {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.pg-money-preview__features li {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.pg-money-preview__features .anticon {
+  color: #34c759;
+  margin-top: 3px;
+}
+
+.pg-money-preview__cta {
+  margin-top: 14px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--hig-tint);
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Липкая панель сохранения */
+.pg-money__savebar {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 12px 10px 18px;
+  border-radius: 14px;
+  background: var(--admin-sider-bg);
+  color: var(--admin-sider-text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  transform: translate(-50%, 140%);
+  visibility: hidden;
+  transition:
+    transform 0.2s ease,
+    visibility 0.2s;
+  max-width: calc(100vw - 32px);
+}
+
+.pg-money__savebar--visible {
+  transform: translate(-50%, 0);
+  visibility: visible;
+}

@@ -1,4 +1,5 @@
 import { UsersService } from '../src/modules/users/users.service';
+import { staticMonetization } from './helpers/monetization';
 
 describe('UsersService stats activity rows', () => {
   it('includes exams with in-progress-only sessions', async () => {
@@ -23,7 +24,7 @@ describe('UsersService stats activity rows', () => {
           ]),
       },
     } as any;
-    const service = new UsersService(prismaMock, {} as any, {} as any);
+    const service = new UsersService(prismaMock, {} as any, {} as any, staticMonetization());
 
     const result = await service.getStats('user-1');
 

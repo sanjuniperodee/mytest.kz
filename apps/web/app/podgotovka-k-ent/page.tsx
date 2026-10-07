@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Calendar, TrendingUp, AlertCircle } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
+import { AdSlot } from "@/components/ads/ad-slot"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -297,6 +298,11 @@ export default function PodgotovkaKEntPage() {
             </ol>
           </div>
         </Reveal>
+
+        {/* Реклама (AdSense, место «Контентные страницы»; без настроек в админке не рендерится) */}
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <AdSlot placement="content" />
+        </div>
 
         {/* FAQ */}
         <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">

@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { StudyThemes } from "@/components/dashboard/study-themes"
 import { MistakesPracticeDialog, type FixedPracticeScope } from "@/components/dashboard/mistakes-practice-dialog"
 import { useUiI18n } from "@/lib/i18n/ui"
-import { useAuth } from "@/lib/api/auth-context"
+import { usePremiumAccess } from "@/lib/api/monetization"
 import { api } from "@/lib/api/client"
 import { localize } from "@/lib/api/i18n"
 import type { MistakesSubjectDetail } from "@/lib/api/types"
@@ -33,8 +33,9 @@ function SubjectRoute() {
 
 function SubjectContent({ subjectId, examId, language }: {subjectId:string; examId:string|null; language:"ru"|"kk"}) {
   const t = (ru: string, kk: string) => language === "kk" ? kk : ru
-  const { user } = useAuth()
-  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const { can } = usePremiumAccess()
+  const canPractice = can("mistakesPractice")
+  const canAi = can("aiCoach")
   const url = `/tests/mistakes/subjects/${subjectId}${examId ? `?examTypeId=${encodeURIComponent(examId)}` : ""}`
   const { data, error, isLoading, isValidating, mutate } = useSWR<MistakesSubjectDetail>([url,language], ([path]:[string,string]) => api<MistakesSubjectDetail>(path))
   const [practice, setPractice] = useState<FixedPracticeScope|null>(null)
@@ -69,25 +70,25 @@ function SubjectContent({ subjectId, examId, language }: {subjectId:string; exam
           <h2 className="mt-2 break-words text-xl font-semibold">{recommended ? localize(recommended.topicName,language) : data.openTotal === 0 ? t("Ошибки по предмету закрыты", "Пән бойынша қателер түзетілген") : t("Вопросы временно недоступны", "Сұрақтар уақытша қолжетімсіз")}</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{recommended ? t("Начните с темы, где больше доступных ошибок. Короткая практика поможет проверить, что вы поняли решение.", "Қолжетімді қатесі көп тақырыптан бастаңыз. Қысқа жаттығу шешімді түсінгеніңізді тексеруге көмектеседі.") : data.openTotal === 0 ? t("Можно перейти к новому пробному или повторить сохранённые уроки.", "Жаңа сынаққа өтуге немесе сақталған сабақтарды қайталауға болады.") : t("Ошибки сохранены, но вопросы исключены из активного банка. Они не попадут в тренировку.", "Қателер сақталған, бірақ сұрақтар белсенді қордан алынған. Олар жаттығуға кірмейді.")}</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {paid && recommended && <Button disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-2" onClick={event => openPractice(scope(recommended),event.currentTarget)}><Play className="size-4" />{t("Практика по этой теме", "Осы тақырып бойынша жаттығу")}</Button>}
-            {paid && data.activeOpenTotal > 0 && <Button variant="outline" disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-2" onClick={event => openPractice(scope(),event.currentTarget)}>{t("Весь предмет", "Бүкіл пән")}</Button>}
+            {canPractice && recommended && <Button disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-2" onClick={event => openPractice(scope(recommended),event.currentTarget)}><Play className="size-4" />{t("Практика по этой теме", "Осы тақырып бойынша жаттығу")}</Button>}
+            {canPractice && data.activeOpenTotal > 0 && <Button variant="outline" disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-2" onClick={event => openPractice(scope(),event.currentTarget)}>{t("Весь предмет", "Бүкіл пән")}</Button>}
             {data.activeOpenTotal === 0 && <Button asChild variant="outline"><Link href="/dashboard/exams">{t("Выбрать пробный", "Сынақты таңдау")}<ArrowRight className="size-4" /></Link></Button>}
           </div>
           {data.openTotal > data.activeOpenTotal && <p className="mt-3 text-xs text-muted-foreground">{t("Архивных вопросов", "Мұрағаттағы сұрақтар")}: {data.openTotal-data.activeOpenTotal}. {t("Они учитываются в истории, но не в практике.", "Олар тарихта есепке алынады, бірақ жаттығуда емес.")}</p>}
         </div>
       </section>
-      {!paid && data.openTotal > 0 && <section className="rounded-xl border border-border bg-muted/30 p-5" data-no-translate><h2 className="font-semibold">{t("Практика и AI-уроки с Premium", "Premium арқылы жаттығу және AI сабақтары")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Список тем виден бесплатно. Платный доступ добавляет тренировку по вашим вопросам и объяснения.", "Тақырыптар тізімі тегін көрінеді. Ақылы қолжетімділік сұрақтарыңыз бойынша жаттығу мен түсіндірмелерді қосады.")}</p><Button asChild variant="outline" className="mt-4"><Link href="/dashboard/billing?reason=mistakes_subject_detail">{t("Посмотреть тарифы", "Тарифтерді көру")}</Link></Button></section>}
+      {!(canPractice && canAi) && data.openTotal > 0 && <section className="rounded-xl border border-border bg-muted/30 p-5" data-no-translate><h2 className="font-semibold">{t("Практика и AI-уроки с Premium", "Premium арқылы жаттығу және AI сабақтары")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Список тем виден бесплатно. Платный доступ добавляет тренировку по вашим вопросам и объяснения.", "Тақырыптар тізімі тегін көрінеді. Ақылы қолжетімділік сұрақтарыңыз бойынша жаттығу мен түсіндірмелерді қосады.")}</p><Button asChild variant="outline" className="mt-4"><Link href="/dashboard/billing?reason=mistakes_subject_detail">{t("Посмотреть тарифы", "Тарифтерді көру")}</Link></Button></section>}
       <section className="rounded-xl border border-border bg-card p-5" data-no-translate data-testid="subject-topics">
         <h2 className="font-semibold">{t("Темы программы", "Бағдарлама тақырыптары")}</h2>
         <p className="mt-1 text-xs text-muted-foreground">{t("По реальным вопросам из ваших завершённых тестов. Не зависит от AI.", "Аяқталған тесттеріңіздегі нақты сұрақтар бойынша. AI-ға тәуелді емес.")}</p>
         <ul className="mt-3 divide-y divide-border">{topics.map(topic => <li key={topic.topicId} className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="min-w-0 flex-1 basis-48"><h3 className="break-words text-sm font-medium">{localize(topic.topicName,language)}</h3><p className="mt-1 text-xs text-muted-foreground">{t("Ошибок", "Қателер")}: {topic.openCount} · {t("Для практики", "Жаттығуға")}: {topic.activeOpenCount}</p></div>
-          {paid && <Button variant="outline" size="sm" disabled={Boolean(error) || topic.activeOpenCount === 0} onClick={event => openPractice(scope(topic),event.currentTarget)}>{t("Тренировать", "Жаттығу")}</Button>}
+          {canPractice && <Button variant="outline" size="sm" disabled={Boolean(error) || topic.activeOpenCount === 0} onClick={event => openPractice(scope(topic),event.currentTarget)}>{t("Тренировать", "Жаттығу")}</Button>}
         </li>)}</ul>
         {topics.length === 0 && <p className="mt-4 text-sm text-muted-foreground">{t("Нет тем с открытыми ошибками.", "Ашық қатесі бар тақырыптар жоқ.")}</p>}
       </section>
-      {paid && <StudyThemes key={language} subjectId={subjectId} examTypeId={data.examTypeId} language={language} onPractice={openPractice} />}
-      {paid && data.openTotal > 0 && <section>
+      {canAi && <StudyThemes key={language} subjectId={subjectId} examTypeId={data.examTypeId} language={language} onPractice={openPractice} />}
+      {canAi && data.openTotal > 0 && <section>
         <Button variant="outline" className="h-auto min-h-11 whitespace-normal py-2" onClick={() => setCoachOpen(!coachOpen)} aria-expanded={coachOpen} data-no-translate>{coachOpen ? t("Скрыть подробный AI-разбор", "Толық AI талдауын жасыру") : t("Причины ошибок и персональный разбор", "Қате себептері және жеке талдау")}</Button>
         {coachOpen && <div className="mt-4"><AiMistakesCoach key={language} language={language} examTypeId={data.examTypeId} subjectId={subjectId} totalOpen={data.openTotal} onTrainSubject={() => setPractice(scope())} onTrainTopic={topicId => { const topic=topics.find(item=>item.topicId===topicId); if(topic?.activeOpenCount) setPractice(scope(topic)) }} /></div>}
       </section>}

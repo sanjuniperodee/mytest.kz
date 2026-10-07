@@ -36,6 +36,7 @@ import {
 import { isAxiosError } from 'axios';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { AdminPageShell } from '../components/AdminPageShell';
 import { HigTableCard } from '../components/HigBlocks';
@@ -66,36 +67,21 @@ function apiErr(e: unknown, fallback: string): string {
   return humanizeApiMessage(fallback);
 }
 
-const LEGACY_PLAN_TYPES = [
-  {
-    value: 'starter',
-    label: 'Разовый — 1 попытка · 7 дней · 490 ₸',
-    hint: '1 полная попытка ЕНТ с Premium-разбором. Суточный лимит: 1.',
-  },
-  {
-    value: 'basic',
-    label: '3 пробных · 30 дней · 900 ₸',
-    hint: '3 полных попытки ЕНТ с Premium-разбором.',
-  },
-  {
-    value: 'pro',
-    label: '5 пробных · 30 дней · 1 490 ₸',
-    hint: '5 полных попыток ЕНТ с Premium-разбором.',
-  },
-  {
-    value: 'premium',
-    label: 'Месяц без лимита · 30 дней · 2 990 ₸',
-    hint: 'Безлимитные попытки ЕНТ на 30 дней.',
-  },
-];
-
-/** Длительность по умолчанию для дат в legacy-модалке (календарные дни с «сейчас»). */
-const LEGACY_PLAN_DAYS: Record<string, number> = {
-  starter: 7,
-  basic: 30,
-  pro: 30,
-  premium: 30,
+type CatalogPlan = {
+  code: string;
+  name: { ru: string; kk: string };
+  priceKzt: number;
+  durationDays: number;
+  attemptsLimit: number | null;
+  isActive: boolean;
 };
+
+/** Подпись тарифа каталога для селекта ручной выдачи. */
+function catalogPlanLabel(plan: CatalogPlan): string {
+  const attempts = plan.attemptsLimit == null ? 'безлимит' : `${plan.attemptsLimit} ЕНТ`;
+  const status = plan.isActive ? '' : ' · снят с продажи';
+  return `${plan.name.ru} — ${attempts} · ${plan.durationDays} дн. · ${plan.priceKzt.toLocaleString('ru-RU')} ₸${status}`;
+}
 
 type PlanTemplateExamRule = {
   id?: string;
@@ -152,6 +138,15 @@ export function SubscriptionsPage() {
   const [editTemplateForm] = Form.useForm();
   const [subscriptionForm] = Form.useForm();
   const [entitlementForm] = Form.useForm();
+
+  // Тарифы — из единого каталога «Тарифы и доступ».
+  const { data: catalogPlans = [] } = useQuery({
+    queryKey: ['admin-monetization'],
+    queryFn: async () =>
+      (await api.get<{ config: { plans: CatalogPlan[] } }>('/admin/monetization')).data,
+    select: (data) => data.config.plans,
+  });
+  const planDays = (code: string) => catalogPlans.find((p) => p.code === code)?.durationDays ?? 30;
 
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users', debouncedUserSearch, 'compact-picker'],
@@ -698,10 +693,10 @@ export function SubscriptionsPage() {
             <p className="pg-dash__eyebrow">
               <CrownOutlined /> Биллинг
             </p>
-            <h1 className="pg-dash__headline">Подписки</h1>
+            <h1 className="pg-dash__headline">Выдача доступа</h1>
             <p className="pg-dash__lede">
-              Выдача entitlements по шаблонам, каталог тарифов, редкие сценарии (legacy-Subscription и ручной
-              entitlement). Пользователей ищите в селектах — таблицы подтянут связанные записи.
+              Ручная выдача и отзыв доступа конкретным пользователям. Цены, состав тарифов и бесплатный лимит
+              настраиваются в разделе <Link to="/monetization">«Тарифы и доступ»</Link>.
             </p>
           </div>
           <div className="pg-dash__hero-aside">
@@ -1020,12 +1015,13 @@ export function SubscriptionsPage() {
                       <p className="pg-subs__section-desc">Когда v2-шаблона недостаточно.</p>
                     </div>
                     <div className="hig-inner-flow" style={{ maxWidth: 520 }}>
-                      <Card className="hig-surface-card" size="small" title="Legacy (как в биллинге, planType)">
+                      <Card className="hig-surface-card" size="small" title="Выдать тариф из каталога">
                         <Typography.Paragraph type="secondary">
-                          Создаётся <code>Subscription</code> + синхронизация, если нужен именно legacy-поведение.
+                          Как после оплаты: создаётся подписка с условиями тарифа на момент выдачи. Например, если
+                          ученик заплатил переводом.
                         </Typography.Paragraph>
                         <Button type="default" onClick={() => setSubscriptionModalOpen(true)}>
-                          Форма legacy
+                          Выдать тариф
                         </Button>
                       </Card>
                       <Card className="hig-surface-card" size="small" title="Точечный entitlement (поддержка)">
@@ -1100,7 +1096,7 @@ export function SubscriptionsPage() {
       </div>
 
       <Modal
-        title="Legacy: выдать подписку (Subscription)"
+        title="Выдать тариф из каталога"
         open={subscriptionModalOpen}
         width={640}
         destroyOnClose
@@ -1115,11 +1111,17 @@ export function SubscriptionsPage() {
           form={subscriptionForm}
           layout="vertical"
           onFinish={(v) => grantSubscription.mutate(v)}
-          initialValues={{ planType: 'month', dateRange: [dayjs(), dayjs().add(LEGACY_PLAN_DAYS.month, 'day')] }}
+          initialValues={{
+            planType: catalogPlans.find((p) => p.isActive)?.code,
+            dateRange: [
+              dayjs(),
+              dayjs().add(planDays(catalogPlans.find((p) => p.isActive)?.code ?? ''), 'day'),
+            ],
+          }}
           onValuesChange={(changed) => {
             if (Object.prototype.hasOwnProperty.call(changed, 'planType')) {
               const pt = String(changed.planType);
-              const days = LEGACY_PLAN_DAYS[pt] ?? 30;
+              const days = planDays(pt);
               subscriptionForm.setFieldValue('dateRange', [dayjs(), dayjs().add(days, 'day')]);
             }
           }}
@@ -1131,7 +1133,7 @@ export function SubscriptionsPage() {
             name="planType"
             label={
               <Space>
-                Тариф (plan type)
+                Тариф
                 <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
                   даты подставятся под срок
                 </Typography.Text>
@@ -1140,10 +1142,9 @@ export function SubscriptionsPage() {
             rules={[{ required: true }]}
           >
             <Select
-              options={LEGACY_PLAN_TYPES.map((p) => ({
-                value: p.value,
-                label: p.label,
-                title: p.hint,
+              options={catalogPlans.map((p) => ({
+                value: p.code,
+                label: catalogPlanLabel(p),
               }))}
             />
           </Form.Item>

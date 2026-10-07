@@ -9,7 +9,12 @@ import {
   type EntScope,
   isEntProfileSubjectPairAllowed,
 } from '@bilimland/shared';
-import { AccessService } from '../subscriptions/access.service';
+import { AccessService, accessDeniedError } from '../subscriptions/access.service';
+
+/** День «бесплатного теста дня» — общий для всех пользователей (Алматы). */
+export function freeTestDayKey(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(now);
+}
 
 @Injectable()
 export class TestSessionService {
@@ -165,18 +170,34 @@ export class TestSessionService {
       resolvedEntScope,
     );
 
-    // Бесплатная попытка → детерминированный тест: один и тот же набор/порядок вопросов
-    // для данной конфигурации (предмет/режим/язык) у ЛЮБОГО аккаунта. Это убирает абуз,
-    // когда юзер создаёт новые аккаунты ради нового бесплатного теста. Платные попытки
-    // остаются рандомизированными (+ свежие вопросы вперёд). seed детерминируется по
-    // предмету внутри генератора (`seed|subjectId`), поэтому пара/обязательные блоки
-    // фиксированы и независимы от того, в каком режиме их запросили.
-    const attemptTier = await this.accessService.peekNextAttemptTier?.(
+    // Сначала — есть ли вообще попытка: без неё не тратим время на сборку теста, а
+    // клиент сразу получает код отказа и время следующей бесплатной попытки.
+    const access = await this.accessService.checkAttemptAccess?.(
       userId,
       template.examTypeId,
     );
+    if (access && !access.allowed) {
+      const denied = accessDeniedError(
+        access.reasonCode ?? 'NO_ENTITLEMENT',
+        access.nextAllowedAt,
+      );
+      await this.accessService.recordDeniedAttemptForError(
+        denied,
+        userId,
+        template.examTypeId,
+      );
+      throw denied;
+    }
+
+    // Бесплатная попытка → детерминированный «тест дня»: один и тот же набор/порядок
+    // вопросов для данной конфигурации (предмет/режим/язык) у ЛЮБОГО аккаунта в этот
+    // день (по Алматы). Новые аккаунты не дают нового бесплатного теста, а завтра
+    // будет другой. Платные попытки остаются рандомизированными (+ свежие вопросы
+    // вперёд). seed детерминируется по предмету внутри генератора (`seed|subjectId`).
     const freeSeed =
-      attemptTier === 'free' ? `free|${templateId}|${language ?? ''}` : undefined;
+      access?.tier === 'free'
+        ? `free|${templateId}|${language ?? ''}|${freeTestDayKey(new Date())}`
+        : undefined;
     const generatorOpts =
       examSlug === 'ent' && resolvedEntScope
         ? { entScope: resolvedEntScope, ...(freeSeed ? { seed: freeSeed } : {}) }

@@ -575,6 +575,9 @@ model Subscription {
   expiresAt      DateTime @map("expires_at") @db.Timestamptz
   isActive       Boolean  @default(true) @map("is_active")
   paymentNote    String?  @map("payment_note") @db.Text
+  /// Условия тарифа на момент покупки/выдачи ({code,name,priceKzt,durationDays,attemptsLimit,dailyLimit}).
+  /// null у старых записей — тогда лимиты берутся из текущего каталога тарифов по planType.
+  planSnapshot   Json?    @map("plan_snapshot")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user                   User                   @relation("UserSubscriptions", fields: [userId], references: [id])
@@ -607,6 +610,8 @@ enum EntitlementStatus {
 
 enum EntitlementSourceType {
   plan_template
+  /// Бесплатные N пробных ЕНТ в день (настройка monetization.freeTier).
+  free_daily
   subscription
   legacy_free_trial
   legacy_trial_subscription
@@ -986,6 +991,8 @@ model PaymentOrder {
   providerOrderId   String             @unique @map("provider_order_id") @db.VarChar(120)
   providerPaymentId String?            @map("provider_payment_id") @db.VarChar(120)
   checkoutUrl       String?            @map("checkout_url") @db.Text
+  /// Условия тарифа на момент создания заказа: цена/срок/лимиты не меняются, если админ правит тариф до оплаты.
+  planSnapshot      Json?              @map("plan_snapshot")
   status            PaymentOrderStatus @default(created)
   providerPayload   Json?              @map("provider_payload")
   paidAt            DateTime?          @map("paid_at") @db.Timestamptz

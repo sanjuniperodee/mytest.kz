@@ -1,13 +1,30 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { AttemptLedgerAction, EntitlementStatus, EntitlementTier } from '@prisma/client';
+import type { PremiumFeatureKey } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { AccessService } from '../../modules/subscriptions/access.service';
+import { MonetizationService } from '../../modules/subscriptions/monetization.service';
+import { PREMIUM_FEATURE_METADATA } from '../decorators/premium-feature.decorator';
+
+function premiumRequired(feature: PremiumFeatureKey | undefined) {
+  // message не меняем: клиенты различают отказ по статусу 403 и этому тексту.
+  return new ForbiddenException({
+    statusCode: 403,
+    error: 'Forbidden',
+    message: 'Premium subscription required',
+    code: 'PREMIUM_REQUIRED',
+    feature: feature ?? null,
+  });
+}
 
 @Injectable()
 export class PremiumGuard implements CanActivate {
   constructor(
     private prisma: PrismaService,
     private accessService: AccessService,
+    private monetization: MonetizationService,
+    private reflector: Reflector,
   ) {}
 
   private async resolveTargetExamTypeId(request: {
@@ -37,6 +54,15 @@ export class PremiumGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const feature = this.reflector.getAllAndOverride<PremiumFeatureKey | undefined>(
+      PREMIUM_FEATURE_METADATA,
+      [context.getHandler(), context.getClass()],
+    );
+    if (feature) {
+      await this.monetization.getConfig();
+      if (!this.monetization.isPremiumFeature(feature)) return true;
+    }
+
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     const targetExamTypeId = await this.resolveTargetExamTypeId(request);
@@ -90,7 +116,7 @@ export class PremiumGuard implements CanActivate {
         if (paidSessionLedger) return true;
       }
 
-      throw new ForbiddenException('Premium subscription required');
+      throw premiumRequired(feature);
     }
 
     const activeSubscription = await this.prisma.subscription.findFirst({
@@ -107,7 +133,7 @@ export class PremiumGuard implements CanActivate {
     });
 
     if (!activeSubscription) {
-      throw new ForbiddenException('Premium subscription required');
+      throw premiumRequired(feature);
     }
 
     return true;

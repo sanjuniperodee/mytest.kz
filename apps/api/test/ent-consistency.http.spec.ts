@@ -4,6 +4,7 @@ import { TestScorerService } from '../src/modules/tests/test-scorer.service';
 import { TestSessionService } from '../src/modules/tests/test-session.service';
 import { TestGeneratorService } from '../src/modules/tests/test-generator.service';
 import { UsersService } from '../src/modules/users/users.service';
+import { staticMonetization } from './helpers/monetization';
 
 function makeAnswerOptions(optionCount: number, correctCount: number) {
   return Array.from({ length: optionCount }, (_, i) => ({
@@ -1357,7 +1358,7 @@ describe('ENT 120/140 consistency', () => {
         },
       ]),
     } as any;
-    const users = new UsersService(prismaMock, {} as any, accessMock);
+    const users = new UsersService(prismaMock, {} as any, accessMock, staticMonetization());
 
     const stats = await users.getStats('user-1');
 
@@ -1416,7 +1417,7 @@ describe('ENT 120/140 consistency', () => {
       },
     } as any;
     const accessMock = {
-      ensureSignupEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
+      ensureFreeEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
       getUserAccessByExam: jest.fn().mockResolvedValue([
         {
           examTypeId: 'exam-ent',
@@ -1425,18 +1426,22 @@ describe('ENT 120/140 consistency', () => {
           reasonCode: null,
           nextAllowedAt: null,
           hasPaidTier: false,
-          total: { used: 0, limit: 2, remaining: 2, isUnlimited: false },
+          // total — только платные/выданные попытки; бесплатная квота дня — в `free`.
+          total: { used: 1, limit: 2, remaining: 1, isUnlimited: false },
           daily: { used: 0, limit: null, remaining: null, isUnlimited: true, nextResetAt: null },
+          free: { dailyLimit: 1, usedToday: 0, remainingToday: 1, nextResetAt: '2030-01-01T19:00:00.000Z' },
         },
       ]),
     } as any;
-    const users = new UsersService(prismaMock, {} as any, accessMock);
+    const users = new UsersService(prismaMock, {} as any, accessMock, staticMonetization());
 
     const profile = await users.getProfile('user-1');
     const ent = profile?.trialStatus?.ent;
 
     expect(profile?.hasActiveSubscription).toBe(true);
     expect(ent?.freeRemaining).toBe(1);
+    expect(ent?.freeDailyLimit).toBe(1);
+    expect(ent?.nextFreeAt).toBe('2030-01-01T19:00:00.000Z');
     expect(ent?.paidTrialRemaining).toBe(1);
     expect(ent?.totalRemaining).toBe(2);
     expect(ent?.exhausted).toBe(false);

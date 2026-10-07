@@ -176,9 +176,14 @@ export interface BillingPlanDto {
   name: string;
   description: string;
   priceKzt: number;
+  originalPriceKzt?: number;
   durationDays: number;
   highlight?: string;
   features: string[];
+  /** null — безлимит попыток ЕНТ. */
+  attemptsLimit: number | null;
+  /** null — без дневного лимита. */
+  dailyLimit: number | null;
 }
 
 export interface BillingCheckoutRequestDto {

@@ -16,7 +16,7 @@ const kk: Record<string, string> = {
   'Стартовый доступ': 'Бастапқы қолжетімділік', 'Пробные попытки для ЕНТ': 'ҰБТ сынақтары',
   'Админ-доступ': 'Әкімші берген қолжетімділік', 'Подписка на год': 'Бір жылға жазылым',
   'Подписка на месяц': 'Бір айға жазылым', 'Подписка на месяц без лимита': 'Бір айға шексіз жазылым',
-  'Free ENT trial': 'Тегін ҰБТ сынағы',
+  'Free ENT trial': 'Тегін ҰБТ сынағы', 'Бесплатный доступ': 'Тегін қолжетімділік',
   'Automatically grants 2 ENT attempts to registered users.': 'Тіркелген пайдаланушыларға автоматты түрде 2 ҰБТ сынағы беріледі.',
 };
 
@@ -30,6 +30,8 @@ export function localizeBillingText(value: unknown, lang: string): unknown {
   }
   if (lang !== 'kk') return value;
   if (kk[text]) return kk[text];
+  const freeDaily = text.match(/^(\d+) бесплатн(?:ый|ых) пробн(?:ый|ых) ЕНТ в день$/);
+  if (freeDaily) return `Күніне ${freeDaily[1]} тегін ҰБТ сынағы`;
   const subscription = text.match(/^Подписка на (\d+) пробны(?:й|х) на (\d+) (?:день|дня|дней)$/);
   if (subscription) return `${subscription[2]} күнге ${subscription[1]} сынаққа жазылым`;
   return value;

@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CountUp } from "@/components/motion/count-up"
 import { AdmissionGoalCard } from "@/components/dashboard/admission-goal-card"
 import { SessionStatusBadge } from "@/components/dashboard/data-display"
+import { AdSlot } from "@/components/ads/ad-slot"
 import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
 
 type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
@@ -40,6 +41,9 @@ export default function DashboardHomePage() {
   const freeRemaining = user?.trialStatus?.ent.freeRemaining ?? user?.trialStatus?.ent.remaining ?? 0
   const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
   const dailyLimit = access?.reasonCode === "DAILY_LIMIT_REACHED"
+  const nextFreeAt = access?.nextAllowedAt
+    ? new Date(access.nextAllowedAt).toLocaleTimeString(getFormatLocale(), { hour: "2-digit", minute: "2-digit" })
+    : null
   const needsAccess = access?.hasAccess === false && !dailyLimit
   const examHref = ent ? `/dashboard/exams/${ent.id}` : "/dashboard/exams"
   const startHref = needsAccess ? "/dashboard/billing?reason=no_access" : examHref
@@ -60,9 +64,11 @@ export default function DashboardHomePage() {
     text: t(`В работе ${openMistakes} ошибок. Начните с одной темы и закрепите её тренировкой.`, `Қателер саны: ${openMistakes}. Бір тақырыптан бастап, жаттығумен бекітіңіз.`),
     label: t("Работать над ошибками", "Қателермен жұмыс істеу"), href: "/dashboard/mistakes",
   } : dailyLimit ? {
-    kind: "daily-limit", title: t("Лимит пробных на сегодня исчерпан", "Бүгінгі сынақтар лимиті таусылды"),
-    text: t("Пока можно вернуться к решениям и повторить пройденные темы.", "Әзірге шешімдерді қарап, өткен тақырыптарды қайталауға болады."),
-    label: t("Посмотреть результаты", "Нәтижелерді көру"), href: "/dashboard/history",
+    kind: "daily-limit", title: t("Бесплатный ЕНТ на сегодня пройден", "Бүгінгі тегін ҰБТ тапсырылды"),
+    text: nextFreeAt
+      ? t(`Следующий бесплатный пробный откроется в ${nextFreeAt}. Не хотите ждать — с подпиской можно продолжить уже сегодня.`, `Келесі тегін сынақ ${nextFreeAt}-де ашылады. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз.`)
+      : t("Новый бесплатный пробный откроется завтра. Не хотите ждать — с подпиской можно продолжить уже сегодня.", "Жаңа тегін сынақ ертең ашылады. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз."),
+    label: t("Продолжить без ожидания", "Күтпей жалғастыру"), href: "/dashboard/billing?reason=daily_limit",
   } : needsAccess ? {
     kind: "access", title: t("Выберите доступ к следующему пробному", "Келесі сынаққа қолжетімділікті таңдаңыз"),
     text: t("Предыдущие результаты остаются в истории. Для новой попытки выберите подходящий пакет.", "Алдыңғы нәтижелер тарихта сақталады. Жаңа әрекет үшін қолайлы пакетті таңдаңыз."),
@@ -74,7 +80,9 @@ export default function DashboardHomePage() {
   }
   const actionLoading = active.isLoading || summary.isLoading || exams.isLoading
   const tariff = localize(user?.currentTariff?.name, locale) || (paid ? t("Платный доступ", "Ақылы қолжетімділік") : t("Стартовый доступ", "Бастапқы қолжетімділік"))
-  const remaining = !access ? "—" : access.total.isUnlimited ? t("Без лимита", "Шектеусіз") : String(access.total.remaining ?? "—")
+  // Без платных попыток показываем бесплатную квоту дня.
+  const freeOnly = Boolean(access?.free && !access.total.isUnlimited && !(access.total.remaining ?? 0))
+  const remaining = !access ? "—" : access.total.isUnlimited ? t("Без лимита", "Шектеусіз") : freeOnly ? String(access.free!.remainingToday) : String(access.total.remaining ?? "—")
   const finiteLimits = access ? [access.total, access.daily].filter(limit => !limit.isUnlimited) : []
   const today = !access ? "—" : finiteLimits.length === 0 ? t("Без лимита", "Шектеусіз")
     : finiteLimits.some(limit => limit.remaining == null) ? "—" : String(Math.max(0, Math.min(...finiteLimits.map(limit => limit.remaining!))))
@@ -149,5 +157,7 @@ export default function DashboardHomePage() {
         {href:"/dashboard/leaderboard",Icon:Trophy,title:t("Лидерборд", "Көшбасшылар"),text:t("Результаты других участников", "Басқа қатысушылардың нәтижелері")},
       ].map(({href,Icon,title,text}) => <Link key={href} href={href} className="lift flex min-w-0 items-start gap-3 rounded-xl border border-border bg-card p-4 hover:bg-muted/50"><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><p className="text-sm font-medium">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p></div></Link>)}
     </nav>
+
+    <AdSlot placement="dashboard" />
   </div>
 }

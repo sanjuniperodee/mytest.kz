@@ -8,13 +8,13 @@ import { existsSync, unlinkSync } from "fs";
 import { join, normalize, sep } from "path";
 import { PrismaService } from "../../database/prisma.service";
 import { TelegramBotService } from "../telegram/telegram-bot.service";
-import { BILLING_PLANS, PLAN_BY_ID } from "../billing/billing.config";
 import { ENT_CONFIG } from "@bilimland/shared";
 import {
   BLOCKED_CONTENT_MESSAGE,
   containsBlockedContent,
 } from "../social/domain/content-filter";
 import { AccessService } from "../subscriptions/access.service";
+import { MonetizationService } from "../subscriptions/monetization.service";
 
 type ChannelMembershipStatus =
   "member" | "not_member" | "not_required" | "unknown";
@@ -25,6 +25,7 @@ export class UsersService {
     private prisma: PrismaService,
     private telegramBot: TelegramBotService,
     private accessService: AccessService,
+    private monetization: MonetizationService,
   ) {}
 
   async getProfile(userId: string) {
@@ -37,7 +38,8 @@ export class UsersService {
     const membership = await this.refreshChannelMembership(user);
     const isChannelMember = membership.isChannelMember;
 
-    await this.accessService.ensureSignupEntitlementsForUser(userId);
+    await this.monetization.getConfig();
+    await this.accessService.ensureFreeEntitlementsForUser(userId);
 
     const accessByExam = await this.accessService.getUserAccessByExam(userId);
     const entAccess = accessByExam.find((x) => x.examSlug === "ent");
@@ -56,34 +58,15 @@ export class UsersService {
       select: { id: true },
     });
 
-    const signupEntitlement = await this.prisma.userExamEntitlement.findFirst({
-      where: {
-        userId,
-        sourceType: EntitlementSourceType.plan_template,
-        sourceRef: { startsWith: `signup:${userId}:exam:` },
-        examType: { slug: "ent" },
-      },
-      select: { totalAttemptsLimit: true, usedAttemptsTotal: true },
-      orderBy: { createdAt: "desc" },
-    });
-    const freeLimit =
-      signupEntitlement?.totalAttemptsLimit ??
-      this.accessService.getSignupFreeAttemptLimit(user.createdAt);
-    const freeUsed = Math.max(
-      0,
-      signupEntitlement?.usedAttemptsTotal ?? user.entTrialUsed,
-    );
-    const freeRemaining = Math.max(0, freeLimit - freeUsed);
-    const totalRemainingFromAccess =
-      entAccess?.total.remaining != null
-        ? Math.max(0, entAccess.total.remaining)
-        : 0;
-    const paidTrialRemaining = Math.max(
-      0,
-      totalRemainingFromAccess - freeRemaining,
-    );
-    const paidTrialLimit = paidTrialRemaining;
-    const paidTrialUsed = 0;
+    // Бесплатная квота — «на сегодня»; поля free* сохранены для совместимости клиентов.
+    const freeDaily = entAccess?.free ?? null;
+    const freeLimit = freeDaily?.dailyLimit ?? 0;
+    const freeUsed = freeDaily?.usedToday ?? 0;
+    const freeRemaining = freeDaily?.remainingToday ?? 0;
+    const paidTrialRemaining =
+      entAccess?.total.remaining != null ? Math.max(0, entAccess.total.remaining) : 0;
+    const paidTrialLimit = entAccess?.total.limit ?? 0;
+    const paidTrialUsed = entAccess?.total.used ?? 0;
     const totalLimit = freeLimit + paidTrialLimit;
     const totalUsed = freeUsed + paidTrialUsed;
     const totalRemaining = freeRemaining + paidTrialRemaining;
@@ -91,6 +74,7 @@ export class UsersService {
       freeLimit,
       freeUsed,
       freeRemaining,
+      nextFreeAt: freeDaily?.nextResetAt ?? null,
     });
     const hasActivePaidSubscription =
       activePaidAccess ||
@@ -124,6 +108,8 @@ export class UsersService {
           freeLimit,
           freeUsed,
           freeRemaining,
+          freeDailyLimit: freeLimit,
+          nextFreeAt: freeDaily?.nextResetAt ?? null,
           paidTrialLimit,
           paidTrialUsed,
           paidTrialRemaining,
@@ -214,7 +200,12 @@ export class UsersService {
 
   private async getCurrentTariff(
     userId: string,
-    free: { freeLimit: number; freeUsed: number; freeRemaining: number },
+    free: {
+      freeLimit: number;
+      freeUsed: number;
+      freeRemaining: number;
+      nextFreeAt: string | null;
+    },
   ) {
     const now = new Date();
     const subscriptions = await this.prisma.subscription.findMany({
@@ -227,6 +218,7 @@ export class UsersService {
       select: {
         id: true,
         planType: true,
+        planSnapshot: true,
         startsAt: true,
         expiresAt: true,
         examType: { select: { id: true, slug: true, name: true } },
@@ -243,7 +235,7 @@ export class UsersService {
 
     const limitedSubscriptionIds = sortedSubscriptions
       .filter(
-        (sub) => this.subscriptionTotalAttemptsLimit(sub.planType) != null,
+        (sub) => this.monetization.planTerms(sub)?.attemptsLimit != null,
       )
       .map((sub) => sub.id);
     const entitlementUsageBySubscription = new Map<string, number>();
@@ -297,13 +289,12 @@ export class UsersService {
 
     let exhaustedSubscriptionTariff: Record<string, unknown> | null = null;
     for (const activeSubscription of sortedSubscriptions) {
-      const plan = BILLING_PLANS.find(
-        (p) => p.id === activeSubscription.planType,
-      );
+      const terms = this.monetization.planTerms(activeSubscription);
+      const plan = this.monetization
+        .current()
+        .plans.find((p) => p.code === activeSubscription.planType);
       const isPaid = activeSubscription.planType !== "free";
-      const totalLimit = this.subscriptionTotalAttemptsLimit(
-        activeSubscription.planType,
-      );
+      const totalLimit = terms?.attemptsLimit ?? null;
       const usedAttemptsTotal =
         totalLimit != null
           ? (entitlementUsageBySubscription.get(activeSubscription.id) ?? 0)
@@ -313,7 +304,7 @@ export class UsersService {
       const tariff = {
         code: activeSubscription.planType,
         name:
-          plan?.name ?? this.fallbackTariffName(activeSubscription.planType),
+          plan?.name ?? terms?.name ?? this.fallbackTariffName(activeSubscription.planType),
         description: plan?.description ?? null,
         tier: isPaid ? "paid" : "free",
         sourceType: "subscription",
@@ -324,9 +315,7 @@ export class UsersService {
         isPaid,
         examSlug: activeSubscription.examType?.slug ?? null,
         totalAttemptsLimit: totalLimit,
-        dailyAttemptsLimit: this.subscriptionDailyAttemptsLimit(
-          activeSubscription.planType,
-        ),
+        dailyAttemptsLimit: terms?.dailyLimit ?? null,
         usedAttemptsTotal,
         remainingAttempts:
           totalLimit == null
@@ -414,7 +403,7 @@ export class UsersService {
 
     if (exhaustedSubscriptionTariff) return exhaustedSubscriptionTariff;
 
-    if (free.freeRemaining <= 0) {
+    if (free.freeLimit <= 0) {
       return {
         code: "premium_required",
         name: "Premium не подключён",
@@ -427,45 +416,38 @@ export class UsersService {
         isActive: false,
         isPaid: false,
         examSlug: "ent",
-        totalAttemptsLimit: free.freeLimit,
+        totalAttemptsLimit: 0,
         dailyAttemptsLimit: null,
-        usedAttemptsTotal: free.freeUsed,
+        usedAttemptsTotal: 0,
         remainingAttempts: 0,
       };
     }
 
     return {
-      code: "free_ent_trial",
-      name: "Стартовый доступ",
-      description: "Пробные попытки для ЕНТ",
+      code: "free_daily",
+      name: "Бесплатный доступ",
+      description: `${free.freeLimit} ${free.freeLimit === 1 ? "бесплатный пробный" : "бесплатных пробных"} ЕНТ в день`,
       tier: "free",
-      sourceType: "signup",
+      sourceType: "free_daily",
       startsAt: null,
       expiresAt: null,
       isActive: free.freeRemaining > 0,
       isPaid: false,
       examSlug: "ent",
-      totalAttemptsLimit: free.freeLimit,
-      dailyAttemptsLimit: null,
+      totalAttemptsLimit: null,
+      dailyAttemptsLimit: free.freeLimit,
       usedAttemptsTotal: free.freeUsed,
       remainingAttempts: free.freeRemaining,
+      nextFreeAt: free.nextFreeAt,
     };
   }
 
   private fallbackTariffName(code: string) {
-    const plan = PLAN_BY_ID.get(code);
+    const plan = this.monetization.current().plans.find((p) => p.code === code);
     if (plan) return plan.name;
     if (code === "paid") return "Premium";
     if (code === "admin") return "Админ-доступ";
     return code;
-  }
-
-  private subscriptionTotalAttemptsLimit(planType: string): number | null {
-    return PLAN_BY_ID.get(planType)?.attemptsLimit ?? null;
-  }
-
-  private subscriptionDailyAttemptsLimit(planType: string): number | null {
-    return PLAN_BY_ID.get(planType)?.dailyLimit ?? null;
   }
 
   async updateProfile(
