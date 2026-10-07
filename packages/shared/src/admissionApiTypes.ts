@@ -103,3 +103,32 @@ export type AdmissionHistoryPointDto = {
   avgScore: number | null;
   grantCount: number | null;
 };
+
+/**
+ * Compact grant-cutoff dataset for the public SEO pages (GET /admission/seo-dataset):
+ * every university × ГОП × admission year of the general competition, with the rural-quota
+ * cutoff alongside. ГОП profile-subject variants are merged (grants are awarded per ГОП).
+ */
+export type AdmissionSeoDatasetDto = {
+  /** When the newest admission cycle was added — a stable "data updated" date. */
+  generatedAt: string;
+  source: string;
+  /** Admission (ЕНТ) years present in `rows`, ascending. */
+  years: number[];
+  universities: {
+    code: number;
+    name: string;
+    nameKk: string | null;
+    shortName: string | null;
+  }[];
+  programs: {
+    code: string;
+    name: string;
+    nameKk: string | null;
+    /** Profile-subject combinations of the ГОП, variant 0 first. */
+    subjects: string[];
+    subjectsKk: string[];
+  }[];
+  /** [universityCode, programCode, year, minScore, avgScore, maxScore, grantCount, ruralMinScore | null] */
+  rows: [number, string, number, number, number, number, number, number | null][];
+};

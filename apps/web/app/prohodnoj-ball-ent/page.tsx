@@ -1,39 +1,57 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowRight, CheckCircle2, Gift, TrendingUp, AlertCircle, Calculator } from "lucide-react"
+import { ArrowRight, CheckCircle2, Gift, AlertCircle, Calculator } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
+import { SeoShell } from "@/components/seo/seo-shell"
+import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
+import { loadGrantData } from "@/lib/seo/grant-cutoffs"
 import { AdSlot } from "@/components/ads/ad-slot"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
-export const metadata: Metadata = {
-  title: "Проходной балл ЕНТ 2027 — пороговые баллы для гранта",
-  description:
-    "Проходной балл ЕНТ 2027 для гранта по специальностям Казахстана. Минимальный порог — 50 баллов. Таблица по специальностям, калькулятор шансов на грант.",
-  keywords: [
-    "проходной балл ент",
-    "проходной балл ент 2027",
-    "пороговый балл ент",
-    "проходной балл ент 2026",
-    "минимальный балл ент",
-    "сколько нужно баллов для гранта ент",
-    "ент сколько нужно баллов",
-    "проходной балл для гранта",
-    "ент грант 2027",
-    "проходной балл казну",
-    "проходной балл назарбаев университет",
-    "пороговые баллы вузов казахстан",
-    "ент калькулятор гранта",
-  ],
-  alternates: { canonical: `${siteUrl}/prohodnoj-ball-ent` },
-  openGraph: {
-    title: "Проходной балл ЕНТ 2027 для гранта — my-test.kz",
-    description: "Пороговые баллы ЕНТ по специальностям и вузам. Калькулятор шансов на грант.",
-    url: `${siteUrl}/prohodnoj-ball-ent`,
-    siteName: "mytest",
-    images: OG_IMAGES,
-  },
+// Баллы читаются из прод API (ISR раз в 6 часов).
+export const revalidate = 21600
+
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await loadGrantData()
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
+  return {
+    title: "Проходной балл ЕНТ 2027 на грант — все вузы и специальности",
+    description:
+      `Реальные проходные баллы ЕНТ на грант ${LATEST_YEAR} года по ${data.listUniversities().length} вузам и ${data.listPrograms().length} группам программ Казахстана (данные МНВО РК), пороговые баллы и ориентир на ${NEXT_YEAR}. Калькулятор шансов на грант.`,
+    keywords: [
+      "проходной балл ент",
+      "проходной балл ент 2027",
+      "пороговый балл ент",
+      "проходной балл ент 2026",
+      "минимальный балл ент",
+      "сколько нужно баллов для гранта ент",
+      "ент сколько нужно баллов",
+      "проходной балл для гранта",
+      "ент грант 2027",
+      "проходной балл казну",
+      "проходной балл назарбаев университет",
+      "пороговые баллы вузов казахстан",
+      "ент калькулятор гранта",
+    ],
+    alternates: {
+      canonical: `${siteUrl}/prohodnoj-ball-ent`,
+      languages: {
+        ru: `${siteUrl}/prohodnoj-ball-ent`,
+        kk: `${siteUrl}/ubt-otu-baly`,
+        "x-default": `${siteUrl}/prohodnoj-ball-ent`,
+      },
+    },
+    openGraph: {
+      title: "Проходной балл ЕНТ 2027 для гранта — my-test.kz",
+      description: "Пороговые баллы ЕНТ по специальностям и вузам. Калькулятор шансов на грант.",
+      url: `${siteUrl}/prohodnoj-ball-ent`,
+      siteName: "mytest",
+      images: OG_IMAGES,
+    },
+  }
 }
 
 const breadcrumbLd = {
@@ -100,20 +118,12 @@ const jsonLd = {
   ],
 }
 
-const thresholds = [
-  { specialty: "Медицина / Фармация", ballpark: "110–125", competition: "Очень высокая" },
-  { specialty: "Информационные технологии", ballpark: "100–120", competition: "Высокая" },
-  { specialty: "Юриспруденция", ballpark: "100–118", competition: "Высокая" },
-  { specialty: "Экономика и финансы", ballpark: "95–115", competition: "Высокая" },
-  { specialty: "Архитектура и строительство", ballpark: "85–105", competition: "Средняя" },
-  { specialty: "Педагогика", ballpark: "75–95", competition: "Средняя" },
-  { specialty: "Технические специальности", ballpark: "70–100", competition: "Средняя" },
-  { specialty: "Сельское хозяйство", ballpark: "55–80", competition: "Низкая" },
-]
-
-export default function ProhodnoiBallEntPage() {
+export default async function ProhodnoiBallEntPage() {
+  const data = await loadGrantData()
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
   return (
-    <>
+    <SeoShell lang="ru" alternate={{ href: "/ubt-otu-baly" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
@@ -129,8 +139,9 @@ export default function ProhodnoiBallEntPage() {
               <span className="text-accent">для гранта</span>
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-              Сколько нужно набрать на ЕНТ, чтобы получить грант? Минимальный порог, проходные
-              баллы по специальностям и интерактивный калькулятор шансов по конкретным вузам.
+              Сколько нужно набрать на ЕНТ, чтобы получить грант? Реальные проходные баллы {LATEST_YEAR}{" "}
+              года по всем вузам и специальностям — по официальным спискам грантников МНВО РК — и
+              калькулятор шансов по конкретным вузам.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -152,7 +163,7 @@ export default function ProhodnoiBallEntPage() {
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2.5 text-sm text-muted-foreground">
               {[
                 "Минимальный порог — 50 баллов",
-                "Грант — от 70 до 125+ в зависимости от специальности",
+                `Баллы ${LATEST_YEAR} по ${data.listUniversities().length} вузам и ${data.listPrograms().length} специальностям`,
                 "Калькулятор по конкретным вузам",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2">
@@ -211,9 +222,9 @@ export default function ProhodnoiBallEntPage() {
           <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200/60 bg-amber-50/50 dark:border-amber-400/20 dark:bg-amber-500/5 p-4 text-sm">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <span className="text-amber-800 dark:text-amber-300">
-              Проходные баллы меняются каждый год в зависимости от конкурса. Данные ниже —
-              ориентировочные диапазоны на основе статистики прошлых лет. Точные цифры по
-              конкретному вузу и специальности — в{" "}
+              Проходные баллы меняются каждый год в зависимости от конкурса. Ниже — реальные баллы{" "}
+              {LATEST_YEAR} года: ориентир на {NEXT_YEAR} с запасом в 3–5 баллов. Шансы по своим
+              баллам и квоте — в{" "}
               <Link href="/admission" className="font-medium underline underline-offset-4">
                 калькуляторе шансов
               </Link>.
@@ -221,54 +232,8 @@ export default function ProhodnoiBallEntPage() {
           </div>
         </Reveal>
 
-        {/* Table by specialty */}
-        <Reveal as="section" className="border-y border-border/60 bg-secondary/30">
-          <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Проходные баллы ЕНТ по специальностям
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Ориентировочные диапазоны для гранта. Точные данные — в калькуляторе.
-            </p>
-            <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/50">
-                    <th className="px-5 py-3 text-left font-medium text-muted-foreground">Специальность</th>
-                    <th className="px-5 py-3 text-right font-medium text-muted-foreground">Балл для гранта</th>
-                    <th className="hidden px-5 py-3 text-right font-medium text-muted-foreground sm:table-cell">Конкурс</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {thresholds.map((row) => (
-                    <tr key={row.specialty} className="hover:bg-secondary/30 transition-colors">
-                      <td className="px-5 py-3.5 font-medium">{row.specialty}</td>
-                      <td className="px-5 py-3.5 text-right font-semibold text-accent">{row.ballpark}</td>
-                      <td className={`hidden px-5 py-3.5 text-right text-xs sm:table-cell ${
-                        row.competition === "Очень высокая" ? "text-destructive" :
-                        row.competition === "Высокая" ? "text-amber-600 dark:text-amber-400" :
-                        "text-muted-foreground"
-                      }`}>
-                        {row.competition}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-6 text-center">
-              <Link
-                href="/admission"
-                className="inline-flex items-center gap-2 rounded-full bg-foreground px-7 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90"
-              >
-                <TrendingUp className="h-4 w-4" />
-                Проверить шансы по конкретному вузу
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </Reveal>
+        {/* Real cutoffs: every program group and university, linking to their pages */}
+        <GrantHubDirectory data={data} lang="ru" />
 
         {/* How to prepare */}
         <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
@@ -385,6 +350,6 @@ export default function ProhodnoiBallEntPage() {
         </Reveal>
 
       </main>
-    </>
+    </SeoShell>
   )
 }

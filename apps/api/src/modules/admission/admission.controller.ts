@@ -21,6 +21,12 @@ export class AdmissionController {
     return this.admissionService.listCycles();
   }
 
+  /** Compact cutoff dataset for the public SEO pages (all universities × ГОП × years). */
+  @Get('seo-dataset')
+  seoDataset() {
+    return this.admissionService.seoDataset();
+  }
+
   @Get('universities')
   listUniversities(@Query() query: AdmissionUniversitiesQueryDto) {
     return this.admissionService.listUniversities({ cycleSlug: query.cycleSlug });

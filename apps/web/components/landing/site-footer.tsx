@@ -21,6 +21,7 @@ const groups = [
       { label: "Тегін ҰБТ (қазақша)", href: "/uat" },
       { label: "Подготовка к ЕНТ", href: "/podgotovka-k-ent" },
       { label: "Проходной балл ЕНТ 2027", href: "/prohodnoj-ball-ent" },
+      { label: "ҰБТ өту балдары (қазақша)", href: "/ubt-otu-baly" },
       { label: "Шансы на грант", href: "/admission" },
     ],
   },

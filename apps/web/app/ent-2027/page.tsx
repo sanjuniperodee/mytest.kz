@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
+import { SeoShell } from "@/components/seo/seo-shell"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -79,7 +80,7 @@ const jsonLd = {
 
 export default function Ent2027Page() {
   return (
-    <>
+    <SeoShell lang="ru">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script
         type="application/ld+json"
@@ -177,6 +178,6 @@ export default function Ent2027Page() {
           </div>
         </Reveal>
       </main>
-    </>
+    </SeoShell>
   )
 }

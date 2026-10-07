@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
+import { SeoShell } from "@/components/seo/seo-shell"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -124,7 +125,7 @@ const subjectsKk = [
 
 export default function UatPage() {
   return (
-    <>
+    <SeoShell lang="kk" alternate={{ href: "/probnyy-ent" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
@@ -346,6 +347,30 @@ export default function UatPage() {
           </div>
         </Reveal>
 
+        {/* Өту балдары — қазақша бағдарлар */}
+        <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
+          <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Грантқа қанша балл керек?
+            </h2>
+            <p className="mt-3 max-w-2xl text-muted-foreground">
+              Әр ЖОО мен әр мамандық бойынша нақты өту балдары — ҚР ҒЖБМ грант иегерлерінің ресми тізімдерінен.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/ubt-otu-baly" className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90">
+                ҰБТ өту балдары
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/ubt-otu-baly#specialnosti" className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary">
+                Мамандықтар бойынша
+              </Link>
+              <Link href="/ubt-otu-baly#vuzy" className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary">
+                ЖОО бойынша
+              </Link>
+            </div>
+          </div>
+        </Reveal>
+
         {/* CTA */}
         <Reveal as="section" className="border-t border-border/60">
           <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
@@ -375,6 +400,6 @@ export default function UatPage() {
         </Reveal>
 
       </main>
-    </>
+    </SeoShell>
   )
 }

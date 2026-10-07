@@ -60,6 +60,14 @@ python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pymupdf openpyxl
 cd ../.. && npm run import:grant-admission && npm run seed:grant-admission
 ```
 
+The public SEO pages (`/prohodnoj-ball-ent/vuz|specialnost/*`, `/ubt-otu-baly/*`) read the seeded data from
+`GET /admission/seo-dataset` and pick it up within 6 hours. Also refresh their build-time fallback snapshot
+(used only if the API is unreachable during a web build):
+
+```bash
+cd ../web && npm run seo:grant-data   # rewrites apps/web/lib/seo/grant-cutoffs.data.json
+```
+
 `import:grant-admission` fails loudly on unknown ГОП codes or university codes. The seed replaces each
 cycle's cutoffs in one transaction, upserts universities/programs (ids stay stable) and bumps the
 Redis `admission-cache-version:<slug>` keys.

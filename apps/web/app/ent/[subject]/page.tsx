@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight, BookOpen, CheckCircle2, Gift, Target, Trendi
 import { OG_IMAGES } from "@/lib/seo"
 import { ENT_SUBJECTS, ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
 import { Reveal } from "@/components/motion/reveal"
+import { SeoShell } from "@/components/seo/seo-shell"
 import { AdSlot } from "@/components/ads/ad-slot"
 
 const SUBJECTS = ENT_SUBJECTS
@@ -96,7 +97,7 @@ export default async function EntSubjectPage({
   const otherSubjects = ENT_SUBJECT_SLUGS.filter((slug) => slug !== subject)
 
   return (
-    <>
+    <SeoShell lang="ru">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <script
@@ -296,6 +297,6 @@ export default async function EntSubjectPage({
           </div>
         </Reveal>
       </main>
-    </>
+    </SeoShell>
   )
 }
