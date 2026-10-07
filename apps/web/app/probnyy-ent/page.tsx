@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
+import { SeoShell } from "@/components/seo/seo-shell"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -119,7 +120,7 @@ const subjects = [
 
 export default function ProbnyEntPage() {
   return (
-    <>
+    <SeoShell lang="ru" alternate={{ href: "/uat" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="min-h-screen bg-background text-foreground">
@@ -321,6 +322,6 @@ export default function ProbnyEntPage() {
         </Reveal>
 
       </main>
-    </>
+    </SeoShell>
   )
 }

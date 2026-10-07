@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next"
 import { ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
+import { DATA_UPDATED_AT, listPrograms, listUniversities } from "@/lib/seo/grant-cutoffs"
+import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -42,7 +44,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/podgotovka-k-ent`, lastModified: now, changeFrequency: "weekly", priority: 0.95 },
     // Russian query cluster: "проходной балл ент", "пороговый балл ент", "сколько нужно для гранта"
     { url: `${baseUrl}/prohodnoj-ball-ent`, lastModified: now, changeFrequency: "weekly", priority: 0.95 },
+    // Kazakh query cluster: "ҰБТ өту балы", "грантқа өту балы"
+    { url: `${baseUrl}/ubt-otu-baly`, lastModified: now, changeFrequency: "weekly", priority: 0.95 },
   ]
 
-  return [...staticRoutes, ...seoLandingRoutes, ...yearRoutes, ...subjectRoutes]
+  // Real grant cutoffs per university / program group, RU + KK pairs (hreflang).
+  // lastModified = when the official grant data was last imported, not the build time.
+  const dataUpdated = new Date(DATA_UPDATED_AT)
+  const pair = (ru: string, kk: string, priority: number): MetadataRoute.Sitemap =>
+    [ru, kk].map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: dataUpdated,
+      changeFrequency: "monthly" as const,
+      priority,
+      alternates: { languages: { ru: `${baseUrl}${ru}`, kk: `${baseUrl}${kk}` } },
+    }))
+  const cutoffRoutes: MetadataRoute.Sitemap = [
+    ...listUniversities().flatMap((u) =>
+      pair(GRANT_ROUTES.ru.university(u.slug), GRANT_ROUTES.kk.university(u.slug), 0.7),
+    ),
+    ...listPrograms().flatMap((p) =>
+      pair(GRANT_ROUTES.ru.program(p.slug), GRANT_ROUTES.kk.program(p.slug), 0.7),
+    ),
+  ]
+
+  return [...staticRoutes, ...seoLandingRoutes, ...yearRoutes, ...subjectRoutes, ...cutoffRoutes]
 }

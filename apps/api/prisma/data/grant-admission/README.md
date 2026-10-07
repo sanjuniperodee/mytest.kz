@@ -60,6 +60,13 @@ python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pymupdf openpyxl
 cd ../.. && npm run import:grant-admission && npm run seed:grant-admission
 ```
 
+Then refresh the public SEO pages (`/prohodnoj-ball-ent/vuz|specialnost/*`, `/ubt-otu-baly/*`), which are
+built statically from a committed snapshot of the same seed:
+
+```bash
+cd ../web && npm run seo:grant-data   # rewrites apps/web/lib/seo/grant-cutoffs.data.json
+```
+
 `import:grant-admission` fails loudly on unknown ГОП codes or university codes. The seed replaces each
 cycle's cutoffs in one transaction, upserts universities/programs (ids stay stable) and bumps the
 Redis `admission-cache-version:<slug>` keys.
