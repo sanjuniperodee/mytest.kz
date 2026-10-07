@@ -8,6 +8,7 @@ import {
   type EntScores,
 } from '@bilimland/shared';
 import { localizedName, resolveChanceRows, resolveDisplayedCutoff } from './domain/chance-cutoffs';
+import { buildSeoDataset } from './domain/seo-dataset';
 import type { ResolvedChanceRow } from './domain/chance-cutoffs';
 import { AdmissionRepository } from './infrastructure/admission.repository';
 import { REDIS_CLIENT } from '../../database/redis.module';
@@ -72,6 +73,25 @@ export class AdmissionService {
 
   listCycles() {
     return this.admissionRepository.listCycles();
+  }
+
+  /**
+   * Public dataset for the «проходной балл» SEO pages (the web rebuilds them from it
+   * every few hours). Cached until any cycle's admission-cache-version changes, i.e. until
+   * the next grant-admission seed.
+   */
+  async seoDataset() {
+    const cycles = await this.admissionRepository.listCycles();
+    const versions = cycles.length
+      ? await this.redis.mget(...cycles.map((c) => this.admissionCacheVersionKey(c.slug)))
+      : [];
+    const cacheKey = `admission-seo-dataset1:${cycles.map((c, i) => `${c.slug}@${versions[i] || '0'}`).join(',')}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached) as ReturnType<typeof buildSeoDataset>;
+
+    const dataset = buildSeoDataset(await this.admissionRepository.loadSeoDatasetSource());
+    await this.redis.set(cacheKey, JSON.stringify(dataset), 'EX', 6 * 60 * 60);
+    return dataset;
   }
 
   async listUniversities(input: { cycleSlug?: string } = {}) {

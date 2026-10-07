@@ -5,22 +5,13 @@ import { SeoShell } from "@/components/seo/seo-shell"
 import { ENT_SUBJECTS } from "@/lib/ent-subjects"
 import { OG_IMAGES } from "@/lib/seo"
 import {
-  LATEST_YEAR,
-  NEXT_YEAR,
-  getProgramByCode,
-  getUniversityByCode,
   programName,
-  programSeries,
   programSubjects,
-  programTrend,
-  relatedPrograms,
   summarize,
-  topUniversitiesByGrants,
   universityName,
-  universitySeries,
   universityShortName,
-  universityTrend,
   type CutoffSeries,
+  type GrantData,
   type SeoLang,
   type SeoProgram,
   type SeoUniversity,
@@ -127,7 +118,7 @@ function Faq({ lang, items }: { lang: SeoLang; items: { q: string; a: string }[]
   )
 }
 
-function SourceNote({ lang }: { lang: SeoLang }) {
+function SourceNote({ lang, latestYear: LATEST_YEAR, nextYear: NEXT_YEAR }: { lang: SeoLang; latestYear: number; nextYear: number }) {
   return (
     <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
       <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
@@ -203,8 +194,10 @@ function pageMetadata({
 
 // ─── Вуз ───────────────────────────────────────────────────────────────────
 
-export function universityMetadata(university: SeoUniversity, lang: SeoLang): Metadata {
-  const summary = summarize(universitySeries(university.code))
+export function universityMetadata(data: GrantData, university: SeoUniversity, lang: SeoLang): Metadata {
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
+  const summary = summarize(data.universitySeries(university.code))
   const short = universityShortName(university, lang)
   const full = universityName(university, lang)
   const lo = summary.minCutoff?.latest.min ?? 0
@@ -226,19 +219,21 @@ export function universityMetadata(university: SeoUniversity, lang: SeoLang): Me
   })
 }
 
-export function UniversityCutoffsPage({ university, lang }: { university: SeoUniversity; lang: SeoLang }) {
+export function UniversityCutoffsPage({ data, university, lang }: { data: GrantData; university: SeoUniversity; lang: SeoLang }) {
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
   const routes = GRANT_ROUTES[lang]
-  const list = universitySeries(university.code)
+  const list = data.universitySeries(university.code)
   const summary = summarize(list)
   const short = universityShortName(university, lang)
   const full = universityName(university, lang)
   const highest = summary.maxCutoff
   const lowest = summary.minCutoff
-  const highestProgram = highest ? getProgramByCode(highest.programCode) : null
-  const lowestProgram = lowest ? getProgramByCode(lowest.programCode) : null
-  const trend = universityTrend(university.code)
+  const highestProgram = highest ? data.getProgramByCode(highest.programCode) : null
+  const lowestProgram = lowest ? data.getProgramByCode(lowest.programCode) : null
+  const trend = data.universityTrend(university.code)
   const prevYear = trend.find((t) => t.year === LATEST_YEAR - 1)
-  const others = topUniversitiesByGrants(12, university.code)
+  const others = data.topUniversitiesByGrants(12, university.code)
   const change = summary.medianChange
 
   const lead =
@@ -341,7 +336,7 @@ export function UniversityCutoffsPage({ university, lang }: { university: SeoUni
                 </thead>
                 <tbody className="divide-y divide-border">
                   {list.map((s) => {
-                    const program = getProgramByCode(s.programCode)
+                    const program = data.getProgramByCode(s.programCode)
                     if (!program) return null
                     return (
                       <tr key={s.programCode} className="transition-colors hover:bg-secondary/30">
@@ -362,7 +357,7 @@ export function UniversityCutoffsPage({ university, lang }: { university: SeoUni
                 </tbody>
               </table>
             </div>
-            <SourceNote lang={lang} />
+            <SourceNote lang={lang} latestYear={LATEST_YEAR} nextYear={NEXT_YEAR} />
           </div>
         </section>
 
@@ -402,8 +397,9 @@ export function UniversityCutoffsPage({ university, lang }: { university: SeoUni
 
 // ─── Группа программ (специальность) ───────────────────────────────────────
 
-export function programMetadata(program: SeoProgram, lang: SeoLang): Metadata {
-  const summary = summarize(programSeries(program.code))
+export function programMetadata(data: GrantData, program: SeoProgram, lang: SeoLang): Metadata {
+  const LATEST_YEAR = data.latestYear
+  const summary = summarize(data.programSeries(program.code))
   const name = programName(program, lang)
   const lo = summary.minCutoff?.latest.min ?? 0
   const hi = summary.maxCutoff?.latest.min ?? 0
@@ -424,18 +420,20 @@ export function programMetadata(program: SeoProgram, lang: SeoLang): Metadata {
   })
 }
 
-export function ProgramCutoffsPage({ program, lang }: { program: SeoProgram; lang: SeoLang }) {
+export function ProgramCutoffsPage({ data, program, lang }: { data: GrantData; program: SeoProgram; lang: SeoLang }) {
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
   const routes = GRANT_ROUTES[lang]
-  const list = programSeries(program.code)
+  const list = data.programSeries(program.code)
   const summary = summarize(list)
   const name = programName(program, lang)
   const highest = summary.maxCutoff
   const lowest = summary.minCutoff
-  const highestUni = highest ? getUniversityByCode(highest.universityCode) : null
-  const lowestUni = lowest ? getUniversityByCode(lowest.universityCode) : null
-  const trend = programTrend(program.code)
+  const highestUni = highest ? data.getUniversityByCode(highest.universityCode) : null
+  const lowestUni = lowest ? data.getUniversityByCode(lowest.universityCode) : null
+  const trend = data.programTrend(program.code)
   const prevYear = trend.find((t) => t.year === LATEST_YEAR - 1)
-  const related = relatedPrograms(program, 12)
+  const related = data.relatedPrograms(program, 12)
   const subjects = programSubjects(program, lang)
   const change = summary.medianChange
 
@@ -552,7 +550,7 @@ export function ProgramCutoffsPage({ program, lang }: { program: SeoProgram; lan
                 </thead>
                 <tbody className="divide-y divide-border">
                   {list.map((s) => {
-                    const university = getUniversityByCode(s.universityCode)
+                    const university = data.getUniversityByCode(s.universityCode)
                     if (!university) return null
                     return (
                       <tr key={s.universityCode} className="transition-colors hover:bg-secondary/30">
@@ -572,7 +570,7 @@ export function ProgramCutoffsPage({ program, lang }: { program: SeoProgram; lan
                 </tbody>
               </table>
             </div>
-            <SourceNote lang={lang} />
+            <SourceNote lang={lang} latestYear={LATEST_YEAR} nextYear={NEXT_YEAR} />
           </div>
         </section>
 

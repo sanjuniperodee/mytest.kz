@@ -1,9 +1,13 @@
 import type { MetadataRoute } from "next"
 import { ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
-import { DATA_UPDATED_AT, listPrograms, listUniversities } from "@/lib/seo/grant-cutoffs"
+import { loadGrantData } from "@/lib/seo/grant-cutoffs"
 import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
 
-export default function sitemap(): MetadataRoute.Sitemap {
+// Список страниц с баллами берётся из прод API — обновляем вместе с ними.
+export const revalidate = 21600
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const data = await loadGrantData()
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
   const now = new Date()
 
@@ -50,7 +54,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // Real grant cutoffs per university / program group, RU + KK pairs (hreflang).
   // lastModified = when the official grant data was last imported, not the build time.
-  const dataUpdated = new Date(DATA_UPDATED_AT)
+  const dataUpdated = new Date(data.updatedAt)
   const pair = (ru: string, kk: string, priority: number): MetadataRoute.Sitemap =>
     [ru, kk].map((path) => ({
       url: `${baseUrl}${path}`,
@@ -60,10 +64,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       alternates: { languages: { ru: `${baseUrl}${ru}`, kk: `${baseUrl}${kk}` } },
     }))
   const cutoffRoutes: MetadataRoute.Sitemap = [
-    ...listUniversities().flatMap((u) =>
+    ...data.listUniversities().flatMap((u) =>
       pair(GRANT_ROUTES.ru.university(u.slug), GRANT_ROUTES.kk.university(u.slug), 0.7),
     ),
-    ...listPrograms().flatMap((p) =>
+    ...data.listPrograms().flatMap((p) =>
       pair(GRANT_ROUTES.ru.program(p.slug), GRANT_ROUTES.kk.program(p.slug), 0.7),
     ),
   ]

@@ -72,6 +72,43 @@ export class AdmissionRepository {
     });
   }
 
+  /** Everything the public SEO dataset is built from (one read of the whole reference). */
+  async loadSeoDatasetSource() {
+    const [cycles, universities, programs, cutoffs] = await Promise.all([
+      this.prisma.grantAdmissionCycle.findMany({
+        select: { id: true, slug: true, admissionYear: true, createdAt: true },
+      }),
+      this.prisma.university.findMany({
+        select: { code: true, name: true, nameKk: true, shortName: true },
+      }),
+      this.prisma.entEducationalProgram.findMany({
+        select: {
+          id: true,
+          code: true,
+          profileVariant: true,
+          name: true,
+          nameKk: true,
+          profileSubjects: true,
+          profileSubjectsKk: true,
+        },
+      }),
+      this.prisma.grantCutoff.findMany({
+        where: { minScore: { not: null } },
+        select: {
+          cycleId: true,
+          universityCode: true,
+          programId: true,
+          quotaType: true,
+          minScore: true,
+          maxScore: true,
+          avgScore: true,
+          grantCount: true,
+        },
+      }),
+    ]);
+    return { cycles, universities, programs, cutoffs };
+  }
+
   findCutoffs(where: Prisma.GrantCutoffWhereInput) {
     return this.prisma.grantCutoff.findMany({ where });
   }

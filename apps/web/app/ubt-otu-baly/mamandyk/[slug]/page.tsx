@@ -1,22 +1,33 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { ProgramCutoffsPage, programMetadata } from "@/components/seo/grant/cutoff-pages"
-import { getProgram, listPrograms } from "@/lib/seo/grant-cutoffs"
+import { loadGrantData } from "@/lib/seo/grant-cutoffs"
+import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
 
-// Все страницы собираются при билде из снимка данных; неизвестный slug — 404.
-export const dynamicParams = false
+// Данные — прод API (снимок при недоступности); страницы обновляются раз в 6 часов,
+// новые группы программ после сборки рендерятся по первому запросу.
+export const revalidate = 21600
+export const dynamicParams = true
 
-export function generateStaticParams() {
-  return listPrograms().map((p) => ({ slug: p.slug }))
+type Props = { params: Promise<{ slug: string }> }
+
+export async function generateStaticParams() {
+  const data = await loadGrantData()
+  return data.listPrograms().map((item) => ({ slug: item.slug }))
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const program = getProgram((await params).slug)
-  return program ? programMetadata(program, "kk") : {}
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const data = await loadGrantData()
+  const program = data.findProgram((await params).slug)
+  return program ? programMetadata(data, program, "kk") : {}
 }
 
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
-  const program = getProgram((await params).slug)
+export default async function Page({ params }: Props) {
+  const { slug } = await params
+  const data = await loadGrantData()
+  const program = data.findProgram(slug)
   if (!program) notFound()
-  return <ProgramCutoffsPage program={program} lang="kk" />
+  // Адрес держится на коде: если название поменялось, старый слаг ведёт на новый (301).
+  if (program.slug !== slug) permanentRedirect(GRANT_ROUTES.kk.program(program.slug))
+  return <ProgramCutoffsPage data={data} program={program} lang="kk" />
 }

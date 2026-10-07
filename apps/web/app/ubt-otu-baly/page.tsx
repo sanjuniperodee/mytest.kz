@@ -4,56 +4,61 @@ import { ArrowRight, Calculator, Gift, Info } from "lucide-react"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
 import { OG_IMAGES } from "@/lib/seo"
-import {
-  LATEST_YEAR,
-  NEXT_YEAR,
-  getProgramByCode,
-  listPrograms,
-  listUniversities,
-  nationalSummary,
-  programName,
-} from "@/lib/seo/grant-cutoffs"
+import { loadGrantData, programName } from "@/lib/seo/grant-cutoffs"
 import { getSiteUrl } from "@/lib/site"
 
 const siteUrl = getSiteUrl()
-const universitiesCount = listUniversities().length
-const programsCount = listPrograms().length
 
-export const metadata: Metadata = {
-  title: { absolute: `ҰБТ өту балы ${NEXT_YEAR}: грантқа ЖОО және мамандықтар бойынша | mytest` },
-  description: `${LATEST_YEAR} жылғы грантқа ҰБТ өту балдары: ${universitiesCount} ЖОО және ${programsCount} білім беру бағдарламаларының тобы (ҚР ҒЖБМ ресми деректері). Ауыл квотасы, жылдар бойынша өзгеріс және ${NEXT_YEAR} жылға бағдар.`,
-  keywords: [
-    "ҰБТ өту балы",
-    `ҰБТ өту балы ${NEXT_YEAR}`,
-    `ҰБТ өту балы ${LATEST_YEAR}`,
-    "грантқа өту балы",
-    "грантқа қанша балл керек",
-    "ҰБТ шекті балл",
-    "ЖОО өту балдары",
-    "мамандықтар өту балы",
-    "ауыл квотасы өту балы",
-  ],
-  alternates: {
-    canonical: `${siteUrl}/ubt-otu-baly`,
-    languages: {
-      ru: `${siteUrl}/prohodnoj-ball-ent`,
-      kk: `${siteUrl}/ubt-otu-baly`,
-      "x-default": `${siteUrl}/prohodnoj-ball-ent`,
+// Баллы читаются из прод API (ISR раз в 6 часов).
+export const revalidate = 21600
+
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await loadGrantData()
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
+  const universitiesCount = data.listUniversities().length
+  const programsCount = data.listPrograms().length
+  return {
+    title: { absolute: `ҰБТ өту балы ${NEXT_YEAR}: грантқа ЖОО және мамандықтар бойынша | mytest` },
+    description: `${LATEST_YEAR} жылғы грантқа ҰБТ өту балдары: ${universitiesCount} ЖОО және ${programsCount} білім беру бағдарламаларының тобы (ҚР ҒЖБМ ресми деректері). Ауыл квотасы, жылдар бойынша өзгеріс және ${NEXT_YEAR} жылға бағдар.`,
+    keywords: [
+      "ҰБТ өту балы",
+      `ҰБТ өту балы ${NEXT_YEAR}`,
+      `ҰБТ өту балы ${LATEST_YEAR}`,
+      "грантқа өту балы",
+      "грантқа қанша балл керек",
+      "ҰБТ шекті балл",
+      "ЖОО өту балдары",
+      "мамандықтар өту балы",
+      "ауыл квотасы өту балы",
+    ],
+    alternates: {
+      canonical: `${siteUrl}/ubt-otu-baly`,
+      languages: {
+        ru: `${siteUrl}/prohodnoj-ball-ent`,
+        kk: `${siteUrl}/ubt-otu-baly`,
+        "x-default": `${siteUrl}/prohodnoj-ball-ent`,
+      },
     },
-  },
-  openGraph: {
-    title: `ҰБТ өту балы — грантқа ЖОО және мамандықтар бойынша`,
-    description: `${LATEST_YEAR} жылғы нақты өту балдары: ${universitiesCount} ЖОО, ${programsCount} мамандық тобы.`,
-    url: `${siteUrl}/ubt-otu-baly`,
-    siteName: "mytest",
-    locale: "kk_KZ",
-    images: OG_IMAGES,
-  },
+    openGraph: {
+      title: `ҰБТ өту балы — грантқа ЖОО және мамандықтар бойынша`,
+      description: `${LATEST_YEAR} жылғы нақты өту балдары: ${universitiesCount} ЖОО, ${programsCount} мамандық тобы.`,
+      url: `${siteUrl}/ubt-otu-baly`,
+      siteName: "mytest",
+      locale: "kk_KZ",
+      images: OG_IMAGES,
+    },
+  }
 }
 
-export default function UbtOtuBalyPage() {
-  const summary = nationalSummary()
-  const top = summary.maxCutoff ? getProgramByCode(summary.maxCutoff.programCode) : null
+export default async function UbtOtuBalyPage() {
+  const data = await loadGrantData()
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
+  const universitiesCount = data.listUniversities().length
+  const programsCount = data.listPrograms().length
+  const summary = data.nationalSummary()
+  const top = summary.maxCutoff ? data.getProgramByCode(summary.maxCutoff.programCode) : null
 
   const faq = [
     {
@@ -164,7 +169,7 @@ export default function UbtOtuBalyPage() {
           </p>
         </section>
 
-        <GrantHubDirectory lang="kk" />
+        <GrantHubDirectory data={data} lang="kk" />
 
         <section className="mx-auto max-w-4xl px-4 pb-14 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight">Жиі қойылатын сұрақтар</h2>

@@ -60,8 +60,9 @@ python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pymupdf openpyxl
 cd ../.. && npm run import:grant-admission && npm run seed:grant-admission
 ```
 
-Then refresh the public SEO pages (`/prohodnoj-ball-ent/vuz|specialnost/*`, `/ubt-otu-baly/*`), which are
-built statically from a committed snapshot of the same seed:
+The public SEO pages (`/prohodnoj-ball-ent/vuz|specialnost/*`, `/ubt-otu-baly/*`) read the seeded data from
+`GET /admission/seo-dataset` and pick it up within 6 hours. Also refresh their build-time fallback snapshot
+(used only if the API is unreachable during a web build):
 
 ```bash
 cd ../web && npm run seo:grant-data   # rewrites apps/web/lib/seo/grant-cutoffs.data.json

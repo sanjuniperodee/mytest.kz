@@ -5,44 +5,52 @@ import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
-import { LATEST_YEAR, NEXT_YEAR, listPrograms, listUniversities } from "@/lib/seo/grant-cutoffs"
+import { loadGrantData } from "@/lib/seo/grant-cutoffs"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
-export const metadata: Metadata = {
-  title: "Проходной балл ЕНТ 2027 на грант — все вузы и специальности",
-  description:
-    `Реальные проходные баллы ЕНТ на грант ${LATEST_YEAR} года по ${listUniversities().length} вузам и ${listPrograms().length} группам программ Казахстана (данные МНВО РК), пороговые баллы и ориентир на ${NEXT_YEAR}. Калькулятор шансов на грант.`,
-  keywords: [
-    "проходной балл ент",
-    "проходной балл ент 2027",
-    "пороговый балл ент",
-    "проходной балл ент 2026",
-    "минимальный балл ент",
-    "сколько нужно баллов для гранта ент",
-    "ент сколько нужно баллов",
-    "проходной балл для гранта",
-    "ент грант 2027",
-    "проходной балл казну",
-    "проходной балл назарбаев университет",
-    "пороговые баллы вузов казахстан",
-    "ент калькулятор гранта",
-  ],
-  alternates: {
-    canonical: `${siteUrl}/prohodnoj-ball-ent`,
-    languages: {
-      ru: `${siteUrl}/prohodnoj-ball-ent`,
-      kk: `${siteUrl}/ubt-otu-baly`,
-      "x-default": `${siteUrl}/prohodnoj-ball-ent`,
+// Баллы читаются из прод API (ISR раз в 6 часов).
+export const revalidate = 21600
+
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await loadGrantData()
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
+  return {
+    title: "Проходной балл ЕНТ 2027 на грант — все вузы и специальности",
+    description:
+      `Реальные проходные баллы ЕНТ на грант ${LATEST_YEAR} года по ${data.listUniversities().length} вузам и ${data.listPrograms().length} группам программ Казахстана (данные МНВО РК), пороговые баллы и ориентир на ${NEXT_YEAR}. Калькулятор шансов на грант.`,
+    keywords: [
+      "проходной балл ент",
+      "проходной балл ент 2027",
+      "пороговый балл ент",
+      "проходной балл ент 2026",
+      "минимальный балл ент",
+      "сколько нужно баллов для гранта ент",
+      "ент сколько нужно баллов",
+      "проходной балл для гранта",
+      "ент грант 2027",
+      "проходной балл казну",
+      "проходной балл назарбаев университет",
+      "пороговые баллы вузов казахстан",
+      "ент калькулятор гранта",
+    ],
+    alternates: {
+      canonical: `${siteUrl}/prohodnoj-ball-ent`,
+      languages: {
+        ru: `${siteUrl}/prohodnoj-ball-ent`,
+        kk: `${siteUrl}/ubt-otu-baly`,
+        "x-default": `${siteUrl}/prohodnoj-ball-ent`,
+      },
     },
-  },
-  openGraph: {
-    title: "Проходной балл ЕНТ 2027 для гранта — my-test.kz",
-    description: "Пороговые баллы ЕНТ по специальностям и вузам. Калькулятор шансов на грант.",
-    url: `${siteUrl}/prohodnoj-ball-ent`,
-    siteName: "mytest",
-    images: OG_IMAGES,
-  },
+    openGraph: {
+      title: "Проходной балл ЕНТ 2027 для гранта — my-test.kz",
+      description: "Пороговые баллы ЕНТ по специальностям и вузам. Калькулятор шансов на грант.",
+      url: `${siteUrl}/prohodnoj-ball-ent`,
+      siteName: "mytest",
+      images: OG_IMAGES,
+    },
+  }
 }
 
 const breadcrumbLd = {
@@ -109,7 +117,10 @@ const jsonLd = {
   ],
 }
 
-export default function ProhodnoiBallEntPage() {
+export default async function ProhodnoiBallEntPage() {
+  const data = await loadGrantData()
+  const LATEST_YEAR = data.latestYear
+  const NEXT_YEAR = data.nextYear
   return (
     <SeoShell lang="ru" alternate={{ href: "/ubt-otu-baly" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
@@ -151,7 +162,7 @@ export default function ProhodnoiBallEntPage() {
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2.5 text-sm text-muted-foreground">
               {[
                 "Минимальный порог — 50 баллов",
-                `Баллы ${LATEST_YEAR} по ${listUniversities().length} вузам и ${listPrograms().length} специальностям`,
+                `Баллы ${LATEST_YEAR} по ${data.listUniversities().length} вузам и ${data.listPrograms().length} специальностям`,
                 "Калькулятор по конкретным вузам",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2">
@@ -221,7 +232,7 @@ export default function ProhodnoiBallEntPage() {
         </Reveal>
 
         {/* Real cutoffs: every program group and university, linking to their pages */}
-        <GrantHubDirectory lang="ru" />
+        <GrantHubDirectory data={data} lang="ru" />
 
         {/* How to prepare */}
         <Reveal as="section" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">

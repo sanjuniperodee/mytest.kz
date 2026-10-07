@@ -1,12 +1,5 @@
 import Link from "next/link"
-import {
-  LATEST_YEAR,
-  programName,
-  programOverview,
-  universityName,
-  universityOverview,
-  type SeoLang,
-} from "@/lib/seo/grant-cutoffs"
+import { programName, universityName, type GrantData, type SeoLang } from "@/lib/seo/grant-cutoffs"
 import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
 
 const tx = (lang: SeoLang, ru: string, kk: string) => (lang === "kk" ? kk : ru)
@@ -16,10 +9,11 @@ const tx = (lang: SeoLang, ru: string, kk: string) => (lang === "kk" ? kk : ru)
  * ссылками на их страницы. Это и контент по запросу «проходной балл ЕНТ», и
  * точка входа краулера во все программные страницы.
  */
-export function GrantHubDirectory({ lang }: { lang: SeoLang }) {
+export function GrantHubDirectory({ data, lang }: { data: GrantData; lang: SeoLang }) {
   const routes = GRANT_ROUTES[lang]
-  const programs = programOverview().sort((a, b) => b.grants - a.grants)
-  const universities = universityOverview().sort((a, b) => b.grants - a.grants)
+  const LATEST_YEAR = data.latestYear
+  const programs = data.programOverview().sort((a, b) => b.grants - a.grants)
+  const universities = data.universityOverview().sort((a, b) => b.grants - a.grants)
 
   return (
     <>
