@@ -225,9 +225,9 @@ function getBillingPitch(reason: BillingReason, trial?: TrialStatusItem) {
     }
     if (reason === "daily_limit") {
         return {
-            eyebrow: "Лимит на сегодня исчерпан",
-            title: "Сохрани темп и продолжай сегодня",
-            text: "Premium снимает дневную паузу в подготовке: можно пройти ещё пробник, разобрать ошибки и не терять день.",
+            eyebrow: "Бесплатный ЕНТ на сегодня пройден",
+            title: "Не жди до завтра — продолжай сегодня",
+            text: "Бесплатный пробный ЕНТ открывается каждый день. С подпиской можно пройти ещё один уже сейчас, получить AI-разбор ошибок и объяснения к каждому вопросу.",
             recommendedPlan: "month",
         }
     }
@@ -1079,7 +1079,7 @@ function CurrentTariffCard({
                 >
                     <TariffMetric label="Сегодня осталось" value={formatDailyRemaining(entAccess)} />
                     {!hasPaid && (
-                        <TariffMetric label="Доступные попытки" value={formatFreeTrialRemaining(trial)} />
+                        <TariffMetric label="Бесплатно сегодня" value={formatFreeTrialRemaining(trial)} />
                     )}
                 </div>
             </CardContent>
@@ -1116,7 +1116,11 @@ function formatDailyRemaining(item: AccessByExamItem | undefined): string {
 function formatFreeTrialRemaining(trial: TrialStatusItem | undefined): string {
     if (!trial) return "—"
     const remaining = trial.freeRemaining ?? trial.remaining ?? 0
-    const limit = trial.freeLimit ?? trial.limit ?? 0
+    const limit = trial.freeDailyLimit ?? trial.freeLimit ?? trial.limit ?? 0
     if (limit <= 0) return "Нужен Premium"
+    if (remaining <= 0 && trial.nextFreeAt) {
+        const at = new Date(trial.nextFreeAt).toLocaleTimeString(getFormatLocale(), { hour: "2-digit", minute: "2-digit" })
+        return `0/${limit} · снова в ${at}`
+    }
     return `${remaining}/${limit}`
 }

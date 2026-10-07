@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { MistakesPracticeDialog } from "@/components/dashboard/mistakes-practice-dialog"
 import { useUiI18n } from "@/lib/i18n/ui"
 import { useAuth } from "@/lib/api/auth-context"
+import { usePremiumAccess } from "@/lib/api/monetization"
 import { localize } from "@/lib/api/i18n"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import type { MistakesSummary } from "@/lib/api/types"
@@ -18,14 +19,16 @@ const subjectHref = (subject: MistakesSummary["openBySubject"][number]) =>
   `/dashboard/mistakes/subjects/${subject.subjectId}?examTypeId=${encodeURIComponent(subject.examTypeId)}`
 
 export default function MistakesPage() {
-  const { user, refresh } = useAuth()
+  const { refresh } = useAuth()
   const { locale } = useUiI18n()
   const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
   const { data, error, isLoading, isValidating, mutate } = useSWR<MistakesSummary>("/tests/mistakes/summary")
   const [examFilter, setExamFilter] = useState("all")
   const [practice, setPractice] = useState<PracticeScope | null>(null)
   const practiceTrigger = useRef<HTMLButtonElement | null>(null)
-  const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  const { can } = usePremiumAccess()
+  const canPractice = can("mistakesPractice")
+  const canAi = can("aiCoach")
   const exams = data?.openByExam ?? []
   const subjects = [...(data?.openBySubject ?? [])].sort((a, b) => b.count - a.count)
   const selectedExam = exams.some(exam => exam.examTypeId === examFilter) ? examFilter : "all"
@@ -71,7 +74,7 @@ export default function MistakesPage() {
             {recommended && <p className="mt-2 text-xs text-muted-foreground">{localize(recommended.examName, locale)}</p>}
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {recommended && <Button asChild className="h-auto min-h-11 whitespace-normal py-3"><Link href={subjectHref(recommended)}>{t("Разобрать предмет", "Пәнді талдау")}<ArrowRight className="size-4" /></Link></Button>}
-              {paid && exams[0] && <Button variant="outline" disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-3" onClick={event => openPractice({examTypeId: recommended?.examTypeId ?? exams[0].examTypeId, subjectId: recommended?.subjectId}, event.currentTarget)}><Play className="size-4" />{t("Настроить тренировку", "Жаттығуды баптау")}</Button>}
+              {canPractice && exams[0] && <Button variant="outline" disabled={Boolean(error)} className="h-auto min-h-11 whitespace-normal py-3" onClick={event => openPractice({examTypeId: recommended?.examTypeId ?? exams[0].examTypeId, subjectId: recommended?.subjectId}, event.currentTarget)}><Play className="size-4" />{t("Настроить тренировку", "Жаттығуды баптау")}</Button>}
             </div>
           </div>
           <dl className="grid grid-cols-2 gap-4 border-t border-border bg-muted/30 p-5 sm:p-6 md:grid-cols-1 md:content-center md:border-l md:border-t-0">
@@ -81,7 +84,7 @@ export default function MistakesPage() {
         </div>
       </section>
 
-      {!paid && <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4 sm:p-5">
+      {!(canPractice && canAi) && <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4 sm:p-5">
         <div className="flex min-w-0 items-start gap-3"><Crown className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><h2 className="text-sm font-semibold">{t("Тренировки и AI-разбор — с Premium", "Жаттығулар мен AI талдауы — Premium арқылы")}</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">{t("Карта ошибок доступна уже сейчас. Premium добавляет разбор причин, уроки и практику по вашим вопросам.", "Қателер картасы қазір қолжетімді. Premium қате себептерін талдауды, сабақтар мен сұрақтарыңыз бойынша жаттығуды қосады.")}</p></div></div>
         <Button asChild variant="outline" className="h-auto min-h-10 whitespace-normal py-2"><Link href="/dashboard/billing?reason=mistakes_practice" onClick={() => { void recordFunnelEvent("premium_gate", {feature:"mistakes_practice"}) }}>{t("Посмотреть тарифы", "Тарифтерді көру")}<ArrowRight className="size-4" /></Link></Button>
       </section>}
@@ -99,7 +102,7 @@ export default function MistakesPage() {
               <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-medium group-hover:underline">{name}</h3><p className="mt-1 text-xs text-muted-foreground">{localize(subject.examName, locale)} · {t("Ошибок", "Қателер")}: <span className="font-medium tabular-nums text-foreground">{subject.count}</span></p></div>
               <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
             </Link>
-            {paid && <Button variant="outline" size="sm" disabled={Boolean(error)} className="mb-2 min-h-9 sm:mb-0" aria-label={`${t("Тренировать", "Жаттығу")}: ${name}`} onClick={event => openPractice({examTypeId:subject.examTypeId, subjectId:subject.subjectId}, event.currentTarget)}><Play className="size-3.5" />{t("Тренировать", "Жаттығу")}</Button>}
+            {canPractice && <Button variant="outline" size="sm" disabled={Boolean(error)} className="mb-2 min-h-9 sm:mb-0" aria-label={`${t("Тренировать", "Жаттығу")}: ${name}`} onClick={event => openPractice({examTypeId:subject.examTypeId, subjectId:subject.subjectId}, event.currentTarget)}><Play className="size-3.5" />{t("Тренировать", "Жаттығу")}</Button>}
           </li>
         })}</ul>
         <p className="border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground">{t("Здесь вопросы, на которые вы в последний раз ответили неверно. После правильного ответа в завершённом тесте ошибка исчезнет из списка.", "Мұнда соңғы рет қате жауап берген сұрақтар көрсетілген. Аяқталған тестте дұрыс жауап бергеннен кейін қате тізімнен жойылады.")}</p>

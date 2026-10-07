@@ -72,6 +72,7 @@ npm run db:seed                   # cd apps/api && npx prisma db seed
 ### apps/api — Backend
 
 - **Modules** under `src/modules/`: `settings`, `admission`, `auth`, `users`, `tests`, `telegram`, `billing`, `notifications`, `leads`, `analytics`, etc.
+- **Monetization** (tariffs, free daily ENT limit, premium features, AdSense) is one admin-edited config — see the "Monetization" bullets in `CLAUDE.md`; `packages/shared/src/monetization.ts` + `apps/api/src/modules/subscriptions/monetization.service.ts`. No hardcoded plan list.
 - **`admission` is the reference architecture**: pure domain logic in `domain/chance-cutoffs.ts`, persistence isolated in `infrastructure/admission.repository.ts`, and `admission.service.ts` as a thin orchestrator.
 - **Common** (`src/common/`): `guards/` (e.g. `AdminGuard`, `PremiumGuard`, `channel-member.guard.ts`), `interceptors/` (i18n response localization), `decorators/`, `filters/`, `config/`.
 - **Prisma schema** (`prisma/schema.prisma`): Models for `User`, `TestSession`, `TestAnswer`, `PaymentOrder`, `PaymentRefund`, `Lead`, `VisitEvent`, etc.

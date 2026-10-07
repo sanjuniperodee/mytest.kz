@@ -51,6 +51,7 @@ import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { TestFeedback } from "@/components/exam/test-feedback"
 import { useAuth } from "@/lib/api/auth-context"
+import { usePremiumAccess } from "@/lib/api/monetization"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import {
   buildReviewSections,
@@ -58,6 +59,7 @@ import {
   type ReviewSectionModel,
 } from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
+import { AdSlot } from "@/components/ads/ad-slot"
 import type {
   QuestionAppeal,
   QuestionAppealReason,
@@ -85,7 +87,7 @@ export default function ReviewPage({
 }) {
   const { sessionId } = use(params)
   const router = useRouter()
-  const { user, refresh } = useAuth()
+  const { refresh } = useAuth()
   const { locale } = useUiI18n()
   const t = (ru: string, kk: string) => locale === "kk" ? kk : ru
   const { data, isLoading, error, mutate } = useSWR<ReviewResponse>(
@@ -108,7 +110,10 @@ export default function ReviewPage({
   const accuracy = displayMax ? Math.round((displayScore / displayMax) * 100) : 0
   const canRetakeEnt =
     data?.examType?.slug === "ent" && data.metadata?.kind !== "remediation"
-  const hasPremium = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
+  // Что открыто — по подписке или потому что админ сделал функцию бесплатной.
+  const { can } = usePremiumAccess()
+  const canRetake = can("retake")
+  const canPractice = can("mistakesPractice")
   const scoreSegment = useMemo(
     () => getScoreSegment(displayScore, displayMax),
     [displayMax, displayScore],
@@ -243,7 +248,7 @@ export default function ReviewPage({
                   </p>
                   {canRetakeEnt && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      {hasPremium ? (
+                      {canRetake ? (
                         <Button variant="outline" size="sm" onClick={startRetake} disabled={retaking}>
                           {retaking ? (
                             <Spinner className="size-4" />
@@ -266,13 +271,15 @@ export default function ReviewPage({
                     </div>
                   )}
                 </div>
-                <ReviewNextStep sessionId={sessionId} weakSections={weakSections} hasPremium={hasPremium} hasMistakes={mistakeCount > 0} practiceHref={data.metadata?.kind === "remediation" ? data.metadata.remediationScope?.themeId ? `/dashboard/mistakes/themes/${data.metadata.remediationScope.themeId}` : data.metadata.remediationScope?.subjectId ? `/dashboard/mistakes/subjects/${data.metadata.remediationScope.subjectId}` : "/dashboard/mistakes" : undefined} />
+                <ReviewNextStep sessionId={sessionId} weakSections={weakSections} hasPremium={canPractice} hasMistakes={mistakeCount > 0} practiceHref={data.metadata?.kind === "remediation" ? data.metadata.remediationScope?.themeId ? `/dashboard/mistakes/themes/${data.metadata.remediationScope.themeId}` : data.metadata.remediationScope?.subjectId ? `/dashboard/mistakes/subjects/${data.metadata.remediationScope.subjectId}` : "/dashboard/mistakes" : undefined} />
               </CardContent>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 sm:px-6">
                 <Button asChild variant="ghost" size="sm"><a href="#review-questions" data-no-translate>{t("Перейти к разбору", "Талдауға өту")}<ChevronDown className="size-4" /></a></Button>
                 <TestFeedback key={sessionId} sessionId={sessionId} />
               </div>
             </Card>
+
+            <AdSlot placement="results" />
 
             {/* Section breakdown */}
             {sections.length > 1 && (

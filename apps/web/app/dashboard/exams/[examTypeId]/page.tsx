@@ -26,6 +26,12 @@ import {
 } from "@/components/ui/dialog"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
+import {
+  AttemptLimitDialog,
+  parseAttemptDenial,
+  type AttemptDenial,
+} from "@/components/billing/attempt-limit-dialog"
+import { AttemptAccessNote } from "@/components/billing/attempt-access-note"
 import { localize } from "@/lib/api/i18n"
 import type { ExamType, Subject, TestSession, TestTemplate } from "@/lib/api/types"
 import {
@@ -70,7 +76,7 @@ export default function ExamDetailPage({
 }) {
   const { examTypeId } = use(params)
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const { locale } = useUiI18n()
   const [selectedTemplate, setSelectedTemplate] = useState<TestTemplate | null>(null)
   const [language, setLanguage] = useState<"ru" | "kk">(
@@ -79,6 +85,8 @@ export default function ExamDetailPage({
   const [entScope, setEntScope] = useState<EntScope>("full")
   const [profileSubjectIds, setProfileSubjectIds] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
+  const [denial, setDenial] = useState<AttemptDenial | null>(null)
+  const examAccess = user?.accessByExam?.find((item) => item.examTypeId === examTypeId)
 
   const { data: types } = useSWR<ExamType[]>("/exams/types")
   const examType = (types || []).find((t) => t.id === examTypeId)
@@ -160,22 +168,19 @@ export default function ExamDetailPage({
       })
       router.push(`/exam/${session.id}`)
     } catch (err) {
+      // Попытки кончились → окно «подожди или оформи подписку» вместо ухода на тарифы.
+      const accessDenial = parseAttemptDenial(err)
+      if (accessDenial) {
+        setDenial({
+          ...accessDenial,
+          nextAllowedAt: accessDenial.nextAllowedAt ?? examAccess?.nextAllowedAt ?? null,
+        })
+        setSelectedTemplate(null)
+        setStarting(false)
+        void refresh({ silent: true })
+        return
+      }
       const message = err instanceof ApiError ? err.message : ""
-      if (message === "NO_ENTITLEMENT") {
-        router.push("/dashboard/billing?reason=no_access")
-        return
-      }
-      if (
-        message === "TRIAL_LIMIT_EXCEEDED" ||
-        message === "TOTAL_LIMIT_EXHAUSTED"
-      ) {
-        router.push("/dashboard/billing?reason=limit_exhausted")
-        return
-      }
-      if (message === "DAILY_LIMIT_REACHED") {
-        router.push("/dashboard/billing?reason=daily_limit")
-        return
-      }
       toast.error(message || "Не удалось запустить тест")
       setStarting(false)
     }
@@ -366,6 +371,7 @@ export default function ExamDetailPage({
                   </>
                 )}
               </Button>
+              <AttemptAccessNote access={examAccess} />
             </CardContent>
           </Card>
 
@@ -534,6 +540,13 @@ export default function ExamDetailPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AttemptLimitDialog
+        denial={denial}
+        examTypeId={examTypeId}
+        onOpenChange={(open) => !open && setDenial(null)}
+        onRetry={() => void startTest()}
+      />
     </div>
   )
 }
