@@ -8,6 +8,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
   type RawBodyRequest,
@@ -30,8 +31,13 @@ export class BillingController {
   constructor(private billingService: BillingService) {}
 
   @Get('plans')
-  getPlans() {
-    return this.billingService.getPlans();
+  getPlans(
+    @Query('lang') langQuery?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const lang =
+      langQuery === 'kk' || acceptLanguage?.toLowerCase().startsWith('kk') ? 'kk' : 'ru';
+    return this.billingService.getPlans(lang);
   }
 
   @Post('checkout')

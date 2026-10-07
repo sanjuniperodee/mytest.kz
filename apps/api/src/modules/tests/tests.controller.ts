@@ -10,6 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
 import { PremiumGuard } from '../../common/guards/premium.guard';
+import { PremiumFeature } from '../../common/decorators/premium-feature.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TestSessionService } from './test-session.service';
 import { MistakesService } from './mistakes.service';
@@ -41,6 +42,7 @@ export class TestsController {
 
   @Post('mistakes/practice')
   @UseGuards(PremiumGuard)
+  @PremiumFeature('mistakesPractice')
   async mistakesPractice(
     @CurrentUser('id') userId: string,
     @Body() dto: MistakesPracticeDto,
@@ -143,6 +145,7 @@ export class TestsController {
 
   @Post('sessions/:id/retake')
   @UseGuards(PremiumGuard)
+  @PremiumFeature('retake')
   async retakeEntSession(
     @CurrentUser('id') userId: string,
     @Param('id') sessionId: string,
@@ -160,6 +163,7 @@ export class TestsController {
 
   @Get('sessions/:id/review/:questionId/explanation')
   @UseGuards(PremiumGuard)
+  @PremiumFeature('explanations')
   async getExplanation(
     @CurrentUser('id') userId: string,
     @Param('id') sessionId: string,

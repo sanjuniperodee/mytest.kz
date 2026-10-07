@@ -13,6 +13,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
 import { PremiumGuard } from '../../common/guards/premium.guard';
+import { PremiumFeature } from '../../common/decorators/premium-feature.decorator';
+import { MonetizationService } from '../subscriptions/monetization.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AiCoachService } from './ai-coach.service';
 import { StudyThemeService } from './study-theme.service';
@@ -22,18 +24,25 @@ import { TopicLessonDto } from './dto/topic-lesson.dto';
 import { ThemeLessonDto } from './dto/theme-lesson.dto';
 import { CreateLessonNoteDto } from './dto/lesson-note.dto';
 
+/** AI-разбор — платная функция: каждый маршрут с PremiumGuard требует подписку. */
 @Controller('ai')
 @UseGuards(AuthGuard('jwt'), ChannelMemberGuard)
+@PremiumFeature('aiCoach')
 export class AiController {
   constructor(
     private readonly aiCoach: AiCoachService,
     private readonly studyTheme: StudyThemeService,
+    private readonly monetization: MonetizationService,
   ) {}
 
-  /** Whether AI coaching is configured (lets the UI hide AI features gracefully). */
+  /** Whether AI coaching is configured and whether it needs a subscription (for UI gating). */
   @Get('status')
-  status() {
-    return { enabled: this.aiCoach.isEnabled() };
+  async status() {
+    await this.monetization.getConfig();
+    return {
+      enabled: this.aiCoach.isEnabled(),
+      premiumRequired: this.monetization.isPremiumFeature('aiCoach'),
+    };
   }
 
   /** Instant load of the last stored analysis — no model call, no cost. */

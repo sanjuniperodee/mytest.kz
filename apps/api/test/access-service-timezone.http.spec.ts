@@ -1,4 +1,5 @@
 import { AccessService } from '../src/modules/subscriptions/access.service';
+import { staticMonetization } from './helpers/monetization';
 
 describe('AccessService timezone updates', () => {
   it('does not apply timezone cooldown when timezone is unchanged', async () => {
@@ -13,7 +14,7 @@ describe('AccessService timezone updates', () => {
       $transaction: jest.fn(),
     } as any;
     const cfg = { get: jest.fn().mockReturnValue(undefined) } as any;
-    const service = new AccessService(prismaMock, cfg);
+    const service = new AccessService(prismaMock, cfg, staticMonetization());
 
     const result = await service.updateUserTimezone('user-1', 'Asia/Almaty');
 

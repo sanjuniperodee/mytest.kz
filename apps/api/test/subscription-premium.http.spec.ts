@@ -1,17 +1,21 @@
 import { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import {
   AttemptLedgerAction,
   EntitlementTier,
 } from '@prisma/client';
 import { PremiumGuard } from '../src/common/guards/premium.guard';
 import { AccessService } from '../src/modules/subscriptions/access.service';
+import { staticMonetization } from './helpers/monetization';
 
-function httpContext(request: unknown): ExecutionContext {
+function httpContext(request: unknown, handler: () => void = () => undefined): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => request,
     }),
-  } as ExecutionContext;
+    getHandler: () => handler,
+    getClass: () => class {},
+  } as unknown as ExecutionContext;
 }
 
 describe('subscription premium access', () => {
@@ -45,7 +49,7 @@ describe('subscription premium access', () => {
         return undefined;
       }),
     } as any;
-    const service = new AccessService(prisma, config);
+    const service = new AccessService(prisma, config, staticMonetization());
 
     await service.syncSubscriptionEntitlements('sub-trial');
 
@@ -93,7 +97,7 @@ describe('subscription premium access', () => {
         return undefined;
       }),
     } as any;
-    const service = new AccessService(prisma, config);
+    const service = new AccessService(prisma, config, staticMonetization());
 
     await service.syncSubscriptionEntitlements('sub-week');
 
@@ -141,7 +145,7 @@ describe('subscription premium access', () => {
         return undefined;
       }),
     } as any;
-    const service = new AccessService(prisma, config);
+    const service = new AccessService(prisma, config, staticMonetization());
 
     await service.syncSubscriptionEntitlements('sub-annual');
 
@@ -185,7 +189,7 @@ describe('subscription premium access', () => {
         return undefined;
       }),
     } as any;
-    const service = new AccessService(prisma, config);
+    const service = new AccessService(prisma, config, staticMonetization());
 
     await service.syncSubscriptionEntitlements('sub-month');
 
@@ -217,7 +221,7 @@ describe('subscription premium access', () => {
       },
     } as any;
     const access = { isV2Enabled: jest.fn().mockReturnValue(true) } as any;
-    const guard = new PremiumGuard(prisma, access);
+    const guard = new PremiumGuard(prisma, access, staticMonetization(), new Reflector());
 
     await expect(
       guard.canActivate(
@@ -255,7 +259,7 @@ describe('subscription premium access', () => {
       },
     } as any;
     const access = { isV2Enabled: jest.fn().mockReturnValue(true) } as any;
-    const guard = new PremiumGuard(prisma, access);
+    const guard = new PremiumGuard(prisma, access, staticMonetization(), new Reflector());
 
     await expect(
       guard.canActivate(

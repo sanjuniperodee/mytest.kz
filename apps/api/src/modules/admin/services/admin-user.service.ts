@@ -359,7 +359,7 @@ export class AdminUserService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    await this.accessService.ensureSignupEntitlementsForUser(id);
+    await this.accessService.ensureFreeEntitlementsForUser(id);
 
     const userWithEntitlements = user;
 

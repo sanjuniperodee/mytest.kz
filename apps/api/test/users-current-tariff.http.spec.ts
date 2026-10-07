@@ -1,5 +1,6 @@
 import { EntitlementSourceType, EntitlementStatus, EntitlementTier } from '@prisma/client';
 import { UsersService } from '../src/modules/users/users.service';
+import { staticMonetization } from './helpers/monetization';
 
 describe('UsersService current tariff', () => {
   it('skips exhausted trial subscriptions and shows active admin/template tariff', async () => {
@@ -67,7 +68,7 @@ describe('UsersService current tariff', () => {
       },
     } as any;
     const accessMock = {
-      ensureSignupEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
+      ensureFreeEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
       getUserAccessByExam: jest.fn().mockResolvedValue([
         {
           examTypeId: 'exam-ent',
@@ -81,7 +82,7 @@ describe('UsersService current tariff', () => {
         },
       ]),
     } as any;
-    const users = new UsersService(prismaMock, {} as any, accessMock);
+    const users = new UsersService(prismaMock, {} as any, accessMock, staticMonetization());
 
     const profile = await users.getProfile('user-1');
 
@@ -145,7 +146,7 @@ describe('UsersService current tariff', () => {
       },
     } as any;
     const accessMock = {
-      ensureSignupEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
+      ensureFreeEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
       getUserAccessByExam: jest.fn().mockResolvedValue([
         {
           examTypeId: 'exam-ent',
@@ -159,7 +160,7 @@ describe('UsersService current tariff', () => {
         },
       ]),
     } as any;
-    const users = new UsersService(prismaMock, {} as any, accessMock);
+    const users = new UsersService(prismaMock, {} as any, accessMock, staticMonetization());
 
     const profile = await users.getProfile('user-1');
 

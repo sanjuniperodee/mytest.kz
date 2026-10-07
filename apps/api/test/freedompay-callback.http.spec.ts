@@ -1,5 +1,6 @@
 import { BillingService } from '../src/modules/billing/billing.service';
 import { freedomPaySign } from '../src/modules/billing/freedompay-signature';
+import { staticMonetization } from './helpers/monetization';
 
 const SECRET = 'freedom-secret';
 const CALLBACK_SCRIPT = 'callback';
@@ -32,6 +33,7 @@ function makeService(order?: Record<string, unknown>) {
     { syncSubscriptionEntitlements: jest.fn() } as any,
     {} as any,
     analytics as any,
+    staticMonetization(),
   );
   return { service, prisma, analytics };
 }
