@@ -43,6 +43,7 @@ const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default:
 const UserDetailPage = lazy(() => import('./pages/UserDetailPage').then((m) => ({ default: m.UserDetailPage })));
 const QuestionsPage = lazy(() => import('./pages/QuestionsPage').then((m) => ({ default: m.QuestionsPage })));
 const ExamCatalogPage = lazy(() => import('./pages/ExamCatalogPage').then((m) => ({ default: m.ExamCatalogPage })));
+const MonetizationPage = lazy(() => import('./pages/MonetizationPage').then((m) => ({ default: m.MonetizationPage })));
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })));
 const FinancePage = lazy(() => import('./pages/FinancePage').then((m) => ({ default: m.FinancePage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
@@ -276,6 +277,7 @@ function AdminLayout() {
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/questions" element={<QuestionsPage />} />
               <Route path="/exams" element={<ExamCatalogPage />} />
+              <Route path="/monetization" element={<MonetizationPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />

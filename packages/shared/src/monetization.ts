@@ -376,6 +376,37 @@ export interface MonetizationValidationError {
   message: string;
 }
 
+/** Проверка одного тарифа; `prefix` — путь к нему в конфиге («plans.2.»). */
+export function validateMonetizationPlan(
+  plan: MonetizationPlan,
+  prefix = '',
+): MonetizationValidationError[] {
+  const errors: MonetizationValidationError[] = [];
+  const add = (field: string, message: string) => errors.push({ path: `${prefix}${field}`, message });
+  if (!PLAN_CODE_RE.test(plan.code)) {
+    add('code', 'Код: латиница/цифры/_/-, начинается с буквы, 2–20 символов');
+  } else if (RESERVED_PLAN_CODES.has(plan.code)) {
+    add('code', `Код «${plan.code}» зарезервирован`);
+  }
+  if (!plan.name.ru) add('name', 'Укажите название');
+  if (!Number.isInteger(plan.priceKzt) || plan.priceKzt < 1 || plan.priceKzt > 1_000_000) {
+    add('priceKzt', 'Цена: целое число от 1 до 1 000 000 ₸');
+  }
+  if (plan.originalPriceKzt != null && plan.originalPriceKzt <= plan.priceKzt) {
+    add('originalPriceKzt', 'Старая цена должна быть больше текущей');
+  }
+  if (!Number.isInteger(plan.durationDays) || plan.durationDays < 1 || plan.durationDays > 3650) {
+    add('durationDays', 'Срок: от 1 до 3650 дней');
+  }
+  if (plan.attemptsLimit != null && (plan.attemptsLimit < 1 || plan.attemptsLimit > 100_000)) {
+    add('attemptsLimit', 'Попыток: от 1 или безлимит');
+  }
+  if (plan.dailyLimit != null && (plan.dailyLimit < 1 || plan.dailyLimit > 1000)) {
+    add('dailyLimit', 'Дневной лимит: от 1 или без лимита');
+  }
+  return errors;
+}
+
 /** Строгая проверка перед сохранением. Пустой массив — конфиг корректен. */
 export function validateMonetizationConfig(
   config: MonetizationConfig,
@@ -391,31 +422,9 @@ export function validateMonetizationConfig(
   if (config.plans.length > 12) add('plans', 'Не больше 12 тарифов');
   const codes = new Set<string>();
   config.plans.forEach((plan, i) => {
-    const p = `plans.${i}`;
-    if (!PLAN_CODE_RE.test(plan.code)) {
-      add(`${p}.code`, 'Код: латиница/цифры/_/-, начинается с буквы, 2–20 символов');
-    } else if (RESERVED_PLAN_CODES.has(plan.code)) {
-      add(`${p}.code`, `Код «${plan.code}» зарезервирован`);
-    } else if (codes.has(plan.code)) {
-      add(`${p}.code`, `Код «${plan.code}» уже используется`);
-    }
+    errors.push(...validateMonetizationPlan(plan, `plans.${i}.`));
+    if (codes.has(plan.code)) add(`plans.${i}.code`, `Код «${plan.code}» уже используется`);
     codes.add(plan.code);
-    if (!plan.name.ru) add(`${p}.name`, 'Укажите название');
-    if (!Number.isInteger(plan.priceKzt) || plan.priceKzt < 1 || plan.priceKzt > 1_000_000) {
-      add(`${p}.priceKzt`, 'Цена: целое число от 1 до 1 000 000 ₸');
-    }
-    if (plan.originalPriceKzt != null && plan.originalPriceKzt <= plan.priceKzt) {
-      add(`${p}.originalPriceKzt`, 'Старая цена должна быть больше текущей');
-    }
-    if (!Number.isInteger(plan.durationDays) || plan.durationDays < 1 || plan.durationDays > 3650) {
-      add(`${p}.durationDays`, 'Срок: от 1 до 3650 дней');
-    }
-    if (plan.attemptsLimit != null && (plan.attemptsLimit < 1 || plan.attemptsLimit > 100_000)) {
-      add(`${p}.attemptsLimit`, 'Попыток: от 1 или безлимит');
-    }
-    if (plan.dailyLimit != null && (plan.dailyLimit < 1 || plan.dailyLimit > 1000)) {
-      add(`${p}.dailyLimit`, 'Дневной лимит: от 1 или без лимита');
-    }
   });
   if (!config.plans.some((plan) => plan.isActive)) {
     add('plans', 'Хотя бы один тариф должен быть в продаже');
