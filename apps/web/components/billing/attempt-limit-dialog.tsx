@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { ArrowRight, Check, Clock3, Crown, Hourglass, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import { cheapestPlanPrice, usePublicMonetization } from "@/lib/api/monetization
 import type { AccessReasonCode } from "@/lib/api/types"
 import { useUiI18n } from "@/lib/i18n/ui"
 import { cn } from "@/lib/utils"
+import { formatResetMoment, formatWait, useCountdown } from "./free-reset"
 
 export interface AttemptDenial {
   reason: Exclude<AccessReasonCode, null>
@@ -36,26 +37,6 @@ export function parseAttemptDenial(err: unknown): AttemptDenial | null {
     reason: code === "TRIAL_LIMIT_EXCEEDED" ? "TOTAL_LIMIT_EXHAUSTED" : (code as AttemptDenial["reason"]),
     nextAllowedAt: typeof body?.nextAllowedAt === "string" ? body.nextAllowedAt : null,
   }
-}
-
-export function useCountdown(target: string | null, active: boolean) {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!active || !target) return
-    setNow(Date.now())
-    const id = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(id)
-  }, [active, target])
-  const targetMs = target ? Date.parse(target) : NaN
-  if (!Number.isFinite(targetMs)) return null
-  return Math.max(0, Math.ceil((targetMs - now) / 1000))
-}
-
-export function formatCountdown(totalSeconds: number) {
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.floor((totalSeconds % 3600) / 60)
-  const s = totalSeconds % 60
-  return [h, m, s].map((part) => String(part).padStart(2, "0")).join(":")
 }
 
 /**
@@ -94,12 +75,7 @@ export function AttemptLimitDialog({
     void recordFunnelEvent("premium_gate", { feature: "attempt_limit", reason: denial.reason, examTypeId })
   }, [denial, examTypeId])
 
-  const resetAt = denial?.nextAllowedAt
-    ? new Date(denial.nextAllowedAt).toLocaleTimeString(locale === "kk" ? "kk-KZ" : "ru-RU", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null
+  const resetAt = denial?.nextAllowedAt ? formatResetMoment(denial.nextAllowedAt, locale) : null
   const billingHref = `/dashboard/billing?reason=${isDaily ? "daily_limit" : "limit_exhausted"}`
   const perks = [
     t("Пробные ЕНТ без ожидания", "Күтпей-ақ ҰБТ сынақтары"),
@@ -169,11 +145,11 @@ export function AttemptLimitDialog({
                   aria-live="off"
                   aria-label={t("До следующей бесплатной попытки", "Келесі тегін әрекетке дейін")}
                 >
-                  {secondsLeft != null ? formatCountdown(secondsLeft) : "—"}
+                  {secondsLeft != null ? formatWait(secondsLeft, locale) : "—"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {resetAt
-                    ? t(`Откроется в ${resetAt} по вашему времени`, `Сіздің уақытыңызбен ${resetAt}-де ашылады`)
+                    ? t(`Откроется ${resetAt}`, `Ашылады: ${resetAt}`)
                     : t("Откроется завтра", "Ертең ашылады")}
                 </p>
                 <div className="mt-auto pt-4">

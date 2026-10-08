@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
+import { FreeResetIn, formatResetMoment } from "@/components/billing/free-reset"
 import { useAuth } from "@/lib/api/auth-context"
 import { api } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
@@ -301,6 +302,7 @@ export default function BillingPage() {
     const entTrial = user?.trialStatus?.ent
     const hasPaidSubscription = Boolean(user?.hasActiveSubscription)
     const pitch = getBillingPitch(reason, entTrial)
+    const freeResetAt = nextFreeResetAt(entTrial)
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -346,13 +348,21 @@ export default function BillingPage() {
                         <p className="text-muted-foreground">{pitch.text}</p>
                     </div>
                     {!hasPaidSubscription && (
-                        <div className="grid gap-2 rounded-lg border border-border bg-background/80 p-3 text-sm sm:min-w-64">
-                            <div className="flex items-center justify-between gap-4">
-                                <span className="text-muted-foreground">Бесплатно осталось</span>
-                                <span className="font-semibold tabular-nums">{formatFreeTrialRemaining(entTrial)}</span>
+                        <div className="grid gap-2 rounded-lg border border-border bg-background/80 p-3 text-sm sm:min-w-72">
+                            <div className="flex items-baseline justify-between gap-4">
+                                <span className="whitespace-nowrap text-muted-foreground">Бесплатно сегодня</span>
+                                <span className="whitespace-nowrap font-semibold tabular-nums">{formatFreeToday(entTrial)}</span>
                             </div>
-                            <div className="flex items-center justify-between gap-4">
-                                <span className="text-muted-foreground">Рекомендуем</span>
+                            {freeResetAt && (
+                                <div className="flex items-baseline justify-between gap-4">
+                                    <span className="whitespace-nowrap text-muted-foreground">Следующий бесплатный</span>
+                                    <span className="whitespace-nowrap font-semibold tabular-nums" data-no-translate>
+                                        <FreeResetIn at={freeResetAt} locale={locale} />
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex items-baseline justify-between gap-4">
+                                <span className="whitespace-nowrap text-muted-foreground">Рекомендуем</span>
                                 <span className="font-semibold">{pitch.recommendedPlan === "trial" ? "Разовый" : pitch.recommendedPlan === "week" ? "5 пробных" : "Месяц"}</span>
                             </div>
                         </div>
@@ -1037,6 +1047,7 @@ function CurrentTariffCard({
         hasPaid ? "Premium" : "Стартовый доступ",
     )
     const description = localize(tariff?.description, locale)
+    const resetAt = hasPaid ? null : nextFreeResetAt(trial)
     return (
         <Card className={cn(hasPaid ? "border-emerald-200 bg-emerald-50" : "bg-secondary/30")}>
             <CardContent className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between">
@@ -1054,7 +1065,7 @@ function CurrentTariffCard({
                             <p className={cn("font-semibold", hasPaid && "text-emerald-950")}>
                                 Текущий тариф: {title}
                             </p>
-                            {tariff?.isActive === false && (
+                            {tariff?.isActive === false && tariff.sourceType !== "free_daily" && (
                                 <Badge variant="outline">Неактивен</Badge>
                             )}
                         </div>
@@ -1074,12 +1085,26 @@ function CurrentTariffCard({
                 <div
                     className={cn(
                         "grid gap-2",
-                        hasPaid ? "sm:grid-cols-1 lg:min-w-[210px]" : "sm:grid-cols-2 lg:min-w-[420px]",
+                        resetAt ? "sm:grid-cols-2 lg:min-w-[420px]" : "sm:grid-cols-1 lg:min-w-[210px]",
                     )}
                 >
-                    <TariffMetric label="Сегодня осталось" value={formatDailyRemaining(entAccess)} />
-                    {!hasPaid && (
-                        <TariffMetric label="Бесплатно сегодня" value={formatFreeTrialRemaining(trial)} />
+                    {hasPaid ? (
+                        <TariffMetric label="Сегодня осталось" value={formatDailyRemaining(entAccess)} />
+                    ) : (
+                        <TariffMetric label="Бесплатно сегодня" value={formatFreeToday(trial)} />
+                    )}
+                    {resetAt && (
+                        <TariffMetric
+                            label="Следующий бесплатный"
+                            value={
+                                <span data-no-translate>
+                                    {formatResetMoment(resetAt, locale)}
+                                    <span className="block text-xs font-normal text-muted-foreground">
+                                        <FreeResetIn at={resetAt} locale={locale} />
+                                    </span>
+                                </span>
+                            }
+                        />
                     )}
                 </div>
             </CardContent>
@@ -1087,7 +1112,7 @@ function CurrentTariffCard({
     )
 }
 
-function TariffMetric({ label, value }: { label: string; value: string }) {
+function TariffMetric({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div className="rounded-md border border-border/70 bg-background/80 px-3 py-2">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -1113,14 +1138,18 @@ function formatDailyRemaining(item: AccessByExamItem | undefined): string {
     return `${item.daily.remaining ?? 0}/${item.daily.limit}`
 }
 
-function formatFreeTrialRemaining(trial: TrialStatusItem | undefined): string {
+function formatFreeToday(trial: TrialStatusItem | undefined): string {
     if (!trial) return "—"
     const remaining = trial.freeRemaining ?? trial.remaining ?? 0
     const limit = trial.freeDailyLimit ?? trial.freeLimit ?? trial.limit ?? 0
     if (limit <= 0) return "Нужен Premium"
-    if (remaining <= 0 && trial.nextFreeAt) {
-        const at = new Date(trial.nextFreeAt).toLocaleTimeString(getFormatLocale(), { hour: "2-digit", minute: "2-digit" })
-        return `0/${limit} · снова в ${at}`
-    }
     return `${remaining}/${limit}`
+}
+
+/** Когда откроется следующая бесплатная попытка — только если на сегодня они кончились. */
+function nextFreeResetAt(trial: TrialStatusItem | undefined): string | null {
+    if (!trial?.nextFreeAt) return null
+    const limit = trial.freeDailyLimit ?? trial.freeLimit ?? trial.limit ?? 0
+    const remaining = trial.freeRemaining ?? trial.remaining ?? 0
+    return limit > 0 && remaining <= 0 ? trial.nextFreeAt : null
 }
