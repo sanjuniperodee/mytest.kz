@@ -178,4 +178,65 @@ describe('UsersService current tariff', () => {
       }),
     );
   });
+
+  it('keeps the free daily tier active after today\'s attempt and says when the next one opens', async () => {
+    const now = new Date();
+    const nextResetAt = new Date(now.getTime() + 3600_000).toISOString();
+    const prismaMock = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-free',
+          telegramId: null,
+          telegramUsername: 'free-user',
+          email: null,
+          phone: '77005556677',
+          firstName: 'Free',
+          lastName: null,
+          avatarUrl: null,
+          preferredLanguage: 'ru',
+          timezone: 'Asia/Almaty',
+          isAdmin: false,
+          isChannelMember: true,
+          channelCheckedAt: now,
+          entTrialUsed: 0,
+        }),
+      },
+      userExamEntitlement: { findMany: jest.fn().mockResolvedValue([]) },
+      subscription: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const accessMock = {
+      ensureFreeEntitlementsForUser: jest.fn().mockResolvedValue(undefined),
+      getUserAccessByExam: jest.fn().mockResolvedValue([
+        {
+          examTypeId: 'exam-ent',
+          examSlug: 'ent',
+          hasAccess: false,
+          reasonCode: 'DAILY_LIMIT_REACHED',
+          nextAllowedAt: nextResetAt,
+          hasPaidTier: false,
+          total: { used: 0, limit: 0, remaining: 0, isUnlimited: false },
+          daily: { used: 1, limit: 1, remaining: 0, isUnlimited: false, nextResetAt },
+          free: { dailyLimit: 1, usedToday: 1, remainingToday: 0, nextResetAt },
+        },
+      ]),
+    } as any;
+    const users = new UsersService(prismaMock, {} as any, accessMock, staticMonetization());
+
+    const profile = await users.getProfile('user-free');
+
+    expect(profile?.hasActiveSubscription).toBe(false);
+    expect(profile?.currentTariff).toMatchObject({
+      code: 'free_daily',
+      sourceType: 'free_daily',
+      isActive: true,
+      isPaid: false,
+      dailyAttemptsLimit: 1,
+      remainingAttempts: 0,
+      nextFreeAt: nextResetAt,
+    });
+    expect(profile?.trialStatus.ent).toMatchObject({ freeRemaining: 0, freeDailyLimit: 1, nextFreeAt: nextResetAt });
+  });
 });

@@ -15,6 +15,7 @@ import { CountUp } from "@/components/motion/count-up"
 import { AdmissionGoalCard } from "@/components/dashboard/admission-goal-card"
 import { SessionStatusBadge } from "@/components/dashboard/data-display"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { formatResetMoment } from "@/components/billing/free-reset"
 import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
 
 type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
@@ -41,9 +42,7 @@ export default function DashboardHomePage() {
   const freeRemaining = user?.trialStatus?.ent.freeRemaining ?? user?.trialStatus?.ent.remaining ?? 0
   const paid = Boolean(user?.hasActiveSubscription || user?.currentTariff?.isPaid)
   const dailyLimit = access?.reasonCode === "DAILY_LIMIT_REACHED"
-  const nextFreeAt = access?.nextAllowedAt
-    ? new Date(access.nextAllowedAt).toLocaleTimeString(getFormatLocale(), { hour: "2-digit", minute: "2-digit" })
-    : null
+  const nextFreeAt = access?.nextAllowedAt ? formatResetMoment(access.nextAllowedAt, locale) : null
   const needsAccess = access?.hasAccess === false && !dailyLimit
   const examHref = ent ? `/dashboard/exams/${ent.id}` : "/dashboard/exams"
   const startHref = needsAccess ? "/dashboard/billing?reason=no_access" : examHref
@@ -66,7 +65,7 @@ export default function DashboardHomePage() {
   } : dailyLimit ? {
     kind: "daily-limit", title: t("Бесплатный ЕНТ на сегодня пройден", "Бүгінгі тегін ҰБТ тапсырылды"),
     text: nextFreeAt
-      ? t(`Следующий бесплатный пробный откроется в ${nextFreeAt}. Не хотите ждать — с подпиской можно продолжить уже сегодня.`, `Келесі тегін сынақ ${nextFreeAt}-де ашылады. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз.`)
+      ? t(`Следующий бесплатный пробный откроется ${nextFreeAt}. Не хотите ждать — с подпиской можно продолжить уже сегодня.`, `Келесі тегін сынақ ашылады: ${nextFreeAt}. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз.`)
       : t("Новый бесплатный пробный откроется завтра. Не хотите ждать — с подпиской можно продолжить уже сегодня.", "Жаңа тегін сынақ ертең ашылады. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз."),
     label: t("Продолжить без ожидания", "Күтпей жалғастыру"), href: "/dashboard/billing?reason=daily_limit",
   } : needsAccess ? {

@@ -431,7 +431,10 @@ export class UsersService {
       sourceType: "free_daily",
       startsAt: null,
       expiresAt: null,
-      isActive: free.freeRemaining > 0,
+      // Бесплатный доступ сам по себе всегда действует; что попытка на сегодня
+      // потрачена — видно по remainingAttempts = 0 и nextFreeAt (иначе клиенты
+      // рисуют «Неактивен» у тарифа, который завтра снова даст попытку).
+      isActive: true,
       isPaid: false,
       examSlug: "ent",
       totalAttemptsLimit: null,
