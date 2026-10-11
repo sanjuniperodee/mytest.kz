@@ -15,9 +15,10 @@ import { Diagnostic } from "@/components/landing/diagnostic"
 import { MobileStickyCta } from "@/components/landing/mobile-sticky-cta"
 
 export const metadata: Metadata = {
+  // No hreflang here: the Kazakh counterpart of /uat is /probnyy-ent (they point at
+  // each other), and a one-way "/" → "/uat" pair is ignored by Google anyway.
   alternates: {
     canonical: "/",
-    languages: { ru: "/", kk: "/uat", "x-default": "/" },
   },
 }
 

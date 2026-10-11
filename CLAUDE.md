@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Bilimland is a Kazakh ENT (Единое Национальное Тестирование) exam-prep platform — my-test.kz / mytest.kz. It's a monorepo serving a Next.js web app, a Vite admin SPA, an Expo mobile app, and a Telegram Mini App, all backed by one NestJS API.
+Bilimland is a Kazakh ENT (Единое Национальное Тестирование) exam-prep platform — my-test.kz (note: mytest.kz without the hyphen is an unrelated site, Miras Academy). It's a monorepo serving a Next.js web app, a Vite admin SPA, an Expo mobile app, and a Telegram Mini App, all backed by one NestJS API.
 
 ## Stack
 
@@ -109,6 +109,7 @@ Built TS package; `src/index.ts` re-exports everything. Key files: `entGrantMode
 
 - **ENT scoring** = 5 subjects: mathLit (max 10), readingLit (max 10), history (max 20), profile1 (max 50), profile2 (max 50) → 140 total. Use `totalEntScore()` from `@bilimland/shared` (it clamps inputs); do **not** re-sum the five fields inline — that's a recurring duplication/bug source across clients. Шектік балл thresholds live in `ENT_THRESHOLD_2026`.
 - **Passing scores (проходные баллы)**: `GET /admission/cutoffs?cycleSlug=<slug>&quotaType=GRANT` → rows with `universityCode`, `programId`, `minScore`/`maxScore`/`avgScore`/`grantCount`, `quotaType`. Cycles `2023-2024`…`2026-2027` (slug = academic year, `admissionYear` = ЕНТ year). Data is computed from the official МНВО grant-holder lists — pipeline in `apps/api/prisma/data/grant-admission/README.md` (`parse_grant_holders_pdf.py` → `results/*.csv` → `npm run import:grant-admission` → `npm run seed:grant-admission`). Rural applicants are shown `min(RURAL, GRANT)` (they compete in both pools).
+- **Public topic tests** (`/ent/<subject>/<topic>`, SEO): free questions with answers/explanations, no login. Data is a committed snapshot `apps/web/lib/seo/practice-tests.data.json` built from the authored banks `apps/api/prisma/ent-banks` (RU, single-choice, ≤10 per topic) by `cd apps/web && npm run seo:practice-data` — re-run it after editing the banks. Rendered server-side (KaTeX in `lib/seo/practice-tests.ts`), not from the DB.
 - **JWT `isAdmin` is a UI hint only** — `AdminGuard` re-reads `User.isAdmin` from the DB on every request, so privilege changes take effect immediately. Never treat the JWT claim as the security boundary.
 - **i18n on the wire**: the API returns `{ kk, ru, en }` objects; an interceptor localizes responses server-side and the client `localize()` handles the rest. The interceptor skips some subtrees (e.g. `/exams/`, bulk endpoints) via URL heuristics — be careful adding routes that should/shouldn't be localized.
 - **Hero slides / landing config from API**: landing pages fetch `heroSlides`, `instructionVideoUrl`, social URLs from `/public/landing-settings` — not hardcoded. Slides carry `desktopImageUrl`/`tabletImageUrl`/`mobileImageUrl` (or a legacy `image` fallback).

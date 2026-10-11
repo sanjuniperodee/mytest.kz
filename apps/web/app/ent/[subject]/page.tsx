@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { AlertTriangle, ArrowRight, BookOpen, CheckCircle2, Gift, Target, TrendingUp } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { ENT_SUBJECTS, ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
+import { getPracticeSubject, subjectDative } from "@/lib/seo/practice-tests"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { AdSlot } from "@/components/ads/ad-slot"
@@ -95,6 +96,7 @@ export default async function EntSubjectPage({
   }
 
   const otherSubjects = ENT_SUBJECT_SLUGS.filter((slug) => slug !== subject)
+  const practice = getPracticeSubject(subject)
 
   return (
     <SeoShell lang="ru">
@@ -169,6 +171,34 @@ export default async function EntSubjectPage({
             ))}
           </div>
         </Reveal>
+
+        {/* Open topic tests — /ent/<subject>/<topic> */}
+        {practice && (
+          <Reveal as="section" className="mx-auto max-w-4xl px-4 pt-16 sm:px-6">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Тесты по {subjectDative(subject, info.ru)} по темам
+            </h2>
+            <p className="mb-6 mt-2 text-muted-foreground">
+              Бесплатно и без регистрации: вопросы в формате ЕНТ с ответами и разбором.
+            </p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {practice.topics.map((t) => (
+                <li key={t.slug}>
+                  <Link
+                    href={`/ent/${subject}/${t.slug}`}
+                    className="flex h-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-secondary"
+                  >
+                    <span className="font-medium">{t.name}</span>
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      {t.questions.length} вопр.
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        )}
 
         {/* Topics */}
         <Reveal as="section" className="mx-auto max-w-4xl px-4 pt-16 sm:px-6">

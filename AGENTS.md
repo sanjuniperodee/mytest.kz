@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-Bilimland is a Kazakh ENT (Единое Национальное Тестирование) exam-prep platform — my-test.kz / mytest.kz. It is a monorepo serving a Next.js web app, a Vite admin SPA, an Expo mobile app, and a Telegram Mini App, all backed by one NestJS API.
+Bilimland is a Kazakh ENT (Единое Национальное Тестирование) exam-prep platform — my-test.kz (note: mytest.kz without the hyphen is an unrelated site, Miras Academy). It is a monorepo serving a Next.js web app, a Vite admin SPA, an Expo mobile app, and a Telegram Mini App, all backed by one NestJS API.
 
 ## Stack
 

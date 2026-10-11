@@ -14,6 +14,14 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // www.my-test.kz used to answer 200 with a full copy of the site. One host
+      // only: the apex (canonical URLs already point there).
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.my-test.kz" }],
+        destination: "https://my-test.kz/:path*",
+        permanent: true,
+      },
       // Profiles used to live inside the community section; there is now one
       // profile page for everyone. Keeps shared links and old messages working.
       {
