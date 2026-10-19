@@ -1,0 +1,78 @@
+# Выкатка my-test на прод при пуше в main: сборка сайта и API здесь, на сервер уезжает готовый архив (deploy/ci-run.sh).
+# Сервер (общий с другими сайтами) больше не собирает: сборка не помещалась в его память и тормозила сайты.
+# Нужен секрет DEPLOY_SSH_KEY — закрытый ключ, открытая часть которого лежит в ~/.ssh/authorized_keys на сервере.
+# Админка (admin.my-test.kz, статика в /var/www) сюда не входит и выкладывается как раньше.
+name: Выкатка на прод
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Выкатки идут по одной; из ожидающих GitHub оставляет только самую свежую.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Сборка Next не standalone: сайт запускается `next start` из папки репозитория на сервере. Собираем по тому же
+      # пути, что на сервере, чтобы пути внутри .next совпадали.
+      - name: Папка как на сервере
+        run: |
+          sudo mkdir -p /home/sanjuniperodee
+          sudo chown "$USER" /home/sanjuniperodee
+          cp -a "$GITHUB_WORKSPACE" /home/sanjuniperodee/bilimland
+
+      - name: Зависимости
+        working-directory: /home/sanjuniperodee/bilimland
+        run: npm ci --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+      # Публичные настройки сайта: Next вшивает NEXT_PUBLIC_* в код при сборке (на сервере — apps/web/.env.production).
+      - name: Сборка сайта и API
+        working-directory: /home/sanjuniperodee/bilimland
+        run: |
+          cat > apps/web/.env.production <<'ENV'
+          NEXT_PUBLIC_SITE_URL=https://my-test.kz
+          NEXT_PUBLIC_API_BASE_URL=https://api.my-test.kz
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID=212617758279-r1npptnn5h4ad9fkrjf9e2im8kfsu4sr.apps.googleusercontent.com
+          NEXT_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/bilimilimland
+          ENV
+          npx turbo run build --filter=@bilimland/api --filter=mytest-v2
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Архив
+        working-directory: /home/sanjuniperodee/bilimland
+        run: |
+          mkdir -p out
+          cp -a apps/web/.next out/web-next
+          rm -rf out/web-next/cache out/web-next/dev out/web-next/trace out/web-next/trace-build
+          cp -a apps/api/dist out/api-dist
+          cp -a packages/shared/dist out/shared-dist
+          git rev-parse HEAD > out/BUILD_SHA
+          tar -czf "$GITHUB_WORKSPACE/mytest.tgz" -C out .
+
+      - name: Ключ сервера
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          echo "94.131.93.92 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBvZzOPdHhSf2YhAKy29oLAp8C1uWReP6NovOUcB5+ye" >> ~/.ssh/known_hosts
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Выкатка
+        run: bash deploy/ci-run.sh mytest.tgz
