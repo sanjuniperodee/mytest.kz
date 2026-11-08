@@ -5,13 +5,15 @@ import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
 export const metadata: Metadata = {
   title: "Пробный ЕНТ онлайн бесплатно 2027 — сдать пробник ЕНТ",
   description:
-    "Сдай пробный ЕНТ онлайн бесплатно. 140 вопросов, 240 минут, реальный формат ЕНТ 2027. Первый пробник без карты — разбор ошибок и объяснения после сдачи.",
+    "Сдай пробный ЕНТ онлайн бесплатно — каждый день. 140 вопросов, 240 минут, реальный формат ЕНТ 2027. Балл по предметам и шанс на грант сразу, без карты.",
   keywords: [
     "пробный ент",
     "пробный ент онлайн",
@@ -36,7 +38,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Пробный ЕНТ онлайн бесплатно — my-test.kz",
-    description: "Первый пробный ЕНТ бесплатно. 140 вопросов, реальный формат, разбор ошибок.",
+    description: "Пробный ЕНТ бесплатно каждый день. 140 вопросов, реальный формат, балл и шанс на грант.",
     url: `${siteUrl}/probnyy-ent`,
     siteName: "mytest",
     images: OG_IMAGES,
@@ -69,7 +71,7 @@ const jsonLd = {
       name: "Можно ли пройти пробный ЕНТ бесплатно?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Да. На my-test.kz первый пробный ЕНТ полностью бесплатен — без карты, без SMS, без скрытых платежей. Просто зарегистрируйся и сразу начинай. После сдачи получишь балл и базовый разбор ошибок.",
+        text: "Да. На my-test.kz полный пробный ЕНТ можно сдавать бесплатно каждый день — без карты и скрытых платежей. Войди через Google или по номеру телефона и сразу начинай. После сдачи получишь балл по каждому предмету, правильные ответы и сравнение с проходными баллами на грант.",
       },
     },
     {
@@ -85,7 +87,7 @@ const jsonLd = {
       name: "Сколько раз можно сдавать пробный ЕНТ?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "На бесплатном тарифе — 1 полная попытка. На платных тарифах от 3 до неограниченного количества попыток. Чем больше пробников ты сдаёшь, тем точнее видишь прогресс и понимаешь, какие темы ещё нужно подтянуть.",
+        text: "Бесплатно — один полный пробный ЕНТ каждый день. С тарифом — без ограничений, плюс объяснение к каждой ошибке и тренировка слабых тем. Чем регулярнее сдаёшь пробные, тем точнее видишь прогресс и понимаешь, какие темы ещё нужно подтянуть.",
       },
     },
     {
@@ -138,18 +140,19 @@ export default function ProbnyEntPage() {
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
               Сдай пробный ЕНТ в реальном формате прямо сейчас — 140 вопросов, 240 минут, те же
-              5 предметов что и на настоящем ЕНТ. Первый пробник бесплатен. Получи балл и
-              разбор ошибок сразу после сдачи.
+              5 предметов, что и на настоящем ЕНТ. Бесплатно каждый день. Получи балл и
+              сравнение с проходными на грант сразу после сдачи.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
+              <ConversionLink
+                href={loginHref(START_ENT_PATH, "seo-probnyy")}
+                placement="seo-probnyy-1"
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
               >
                 <Gift className="h-4 w-4" />
                 Сдать пробный ЕНТ бесплатно
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </ConversionLink>
               <Link
                 href="/admission"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-secondary sm:text-base"
@@ -270,7 +273,7 @@ export default function ProbnyEntPage() {
             </h2>
             <ol className="mt-6 space-y-4">
               {[
-                { n: "1", title: "Зарегистрируйся — 1 минута", text: "Войди через Telegram или создай аккаунт по номеру телефона. Сразу получаешь 1 бесплатный пробный ЕНТ — без карты." },
+                { n: "1", title: "Зарегистрируйся — 1 минута", text: "Войди через Google или по номеру телефона. Пробный ЕНТ откроется сразу — бесплатно и без карты." },
                 { n: "2", title: "Выбери профиль", text: "Укажи профильные предметы: математика, физика, химия, биология, география, информатика, английский язык или история. Система сформирует тест именно под твой профиль ЕНТ." },
                 { n: "3", title: "Сдай тест", text: "140 вопросов, 240 минут. Таймер и формат как на настоящем ЕНТ. Можно сделать перерыв и вернуться — прогресс сохраняется." },
                 { n: "4", title: "Получи результат и разбор", text: "Сразу после сдачи: итоговый балл по каждому предмету, список ошибок с объяснениями. Платные тарифы открывают полный разбор всех вопросов." },
@@ -311,19 +314,20 @@ export default function ProbnyEntPage() {
         <Reveal as="section" className="border-t border-border/60 bg-secondary/30">
           <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Начни прямо сейчас — первый пробный ЕНТ бесплатно
+              Начни прямо сейчас — пробный ЕНТ бесплатно
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
               Зарегистрируйся за 1 минуту и сдай пробный ЕНТ в реальном формате. Без карты, без риска.
             </p>
-            <Link
-              href="/login"
+            <ConversionLink
+              href={loginHref(START_ENT_PATH, "seo-probnyy")}
+              placement="seo-probnyy-2"
               className="mt-7 inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
             >
               <Gift className="h-4 w-4" />
               Сдать пробный ЕНТ бесплатно
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </ConversionLink>
           </div>
         </Reveal>
 

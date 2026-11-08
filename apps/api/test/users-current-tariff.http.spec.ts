@@ -60,6 +60,10 @@ describe('UsersService current tariff', () => {
           {
             id: 'sub-trial',
             planType: 'starter',
+
+            // Куплен по старым условиям «Разовый» (1 попытка) — условия зафиксированы в снапшоте.
+
+            planSnapshot: { code: 'starter', name: 'Разовый', priceKzt: 490, durationDays: 7, attemptsLimit: 1, dailyLimit: 1 },
             startsAt: new Date(now.getTime() - 1000),
             expiresAt: new Date(now.getTime() + 7 * 86400000),
             examType: null,
@@ -138,6 +142,10 @@ describe('UsersService current tariff', () => {
           {
             id: 'sub-trial',
             planType: 'starter',
+
+            // Куплен по старым условиям «Разовый» (1 попытка) — условия зафиксированы в снапшоте.
+
+            planSnapshot: { code: 'starter', name: 'Разовый', priceKzt: 490, durationDays: 7, attemptsLimit: 1, dailyLimit: 1 },
             startsAt: new Date(now.getTime() - 1000),
             expiresAt: new Date(now.getTime() + 7 * 86400000),
             examType: null,

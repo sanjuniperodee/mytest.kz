@@ -1,6 +1,7 @@
 import { ArrowRight, CheckCircle2, Clock, Gift, Star } from "lucide-react"
 import { ExamPreview } from "./exam-preview"
 import { ConversionLink } from "./conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 export function Hero() {
   return (
@@ -30,7 +31,7 @@ export function Hero() {
 
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
             <ConversionLink
-              href="/login?source=hero"
+              href={loginHref(START_ENT_PATH, "hero")}
               placement="hero_primary"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background press transition-[opacity,transform] hover:opacity-90 sm:text-base"
             >
@@ -47,7 +48,7 @@ export function Hero() {
 
           <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/8 px-4 py-2 text-sm font-medium text-accent">
             <Gift className="h-4 w-4 shrink-0" aria-hidden="true" />
-            1 бесплатный пробный ЕНТ сразу после регистрации — без карты
+            Пробный ЕНТ бесплатно каждый день — без карты
           </div>
 
           <ul className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">

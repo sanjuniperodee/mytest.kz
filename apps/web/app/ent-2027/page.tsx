@@ -4,6 +4,8 @@ import { ArrowRight, CheckCircle2, Gift } from "lucide-react"
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -23,7 +25,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteUrl}/ent-2027` },
   openGraph: {
     title: "Пробный ЕНТ 2027 — онлайн бесплатно",
-    description: "1 бесплатный пробный ЕНТ 2027 без карты. Реальный формат, разбор ошибок.",
+    description: "Пробный ЕНТ 2027 бесплатно каждый день, без карты. Реальный формат, балл и шанс на грант.",
     url: `${siteUrl}/ent-2027`,
     siteName: "mytest",
     images: OG_IMAGES,
@@ -72,7 +74,7 @@ const jsonLd = {
       name: "Можно ли пройти пробный ЕНТ 2027 бесплатно?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Да. На my-test.kz первый пробный ЕНТ в реальном формате полностью бесплатный — без карты и без регистрации кредитки. Зарегистрируйся и сразу начинай.",
+        text: "Да. На my-test.kz полный пробный ЕНТ в реальном формате можно сдавать бесплатно каждый день — без карты. Войди через Google или по телефону и сразу начинай.",
       },
     },
   ],
@@ -94,19 +96,20 @@ export default function Ent2027Page() {
               онлайн, бесплатно
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-              Начни подготовку к ЕНТ 2027 уже сейчас. Первый полный пробный тест —
-              бесплатно и без карты. 140 вопросов, реальный формат, таймер и разбор
+              Начни подготовку к ЕНТ 2027 уже сейчас. Полный пробный тест —
+              бесплатно каждый день и без карты. 140 вопросов, реальный формат, таймер и разбор
               ошибок после сдачи.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
+              <ConversionLink
+                href={loginHref(START_ENT_PATH, "seo-ent-2027")}
+                placement="seo-ent-2027-1"
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
               >
                 <Gift className="h-4 w-4" aria-hidden="true" />
                 Попробовать бесплатно
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </ConversionLink>
               <Link
                 href="/admission"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary sm:text-base"
@@ -119,7 +122,7 @@ export default function Ent2027Page() {
                 "140 вопросов · реальный формат",
                 "Разбор ошибок после сдачи",
                 "Русский и қазақ тілі",
-                "Без карты — первый тест бесплатно",
+                "Без карты — пробный бесплатно каждый день",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" />

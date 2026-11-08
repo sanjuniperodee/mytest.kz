@@ -4,6 +4,8 @@ import { ArrowRight, CheckCircle2, Gift, BookOpen, Clock, Target, TrendingUp } f
 import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -156,14 +158,15 @@ export default function UatPage() {
               </Link>
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
+              <ConversionLink
+                href={loginHref(START_ENT_PATH, "seo-uat")}
+                placement="seo-uat-1"
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
               >
                 <Gift className="h-4 w-4" />
                 Тегін ҰБТ тапсыру
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </ConversionLink>
               <Link
                 href="/admission"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-secondary sm:text-base"
@@ -330,7 +333,7 @@ export default function UatPage() {
             </h2>
             <ol className="mt-6 space-y-4">
               {[
-                { n: "1", title: "Тіркелу — 1 минут", text: "Telegram арқылы немесе телефон нөмірімен аккаунт жасаңыз. Бірден 1 тегін ҰБТ сынағы беріледі — картасыз." },
+                { n: "1", title: "Тіркелу — 1 минут", text: "Google арқылы немесе телефон нөмірімен кіріңіз. ҰБТ сынағы бірден ашылады — тегін және картасыз." },
                 { n: "2", title: "Бейінді таңдаңыз", text: "Бейіндік пәндерді көрсетіңіз: математика, физика, химия, биология, география, информатика, ағылшын тілі немесе тарих. Жүйе сіздің бейініңізге сай тест жасайды." },
                 { n: "3", title: "Тест тапсырыңыз", text: "140 сұрақ, 240 минут. Таймер мен формат нақты ҰБТ сияқты. Үзіліс жасап, қайта оралуға болады — үлгерім сақталады." },
                 { n: "4", title: "Нәтиже мен талдауды алыңыз", text: "Тапсырып болғаннан соң: әр пән бойынша жиынтық балл, қателер тізімі мен түсіндірмелер. Ақылы тарифтар барлық сұрақтардың толық талдауын ашады." },
@@ -381,14 +384,15 @@ export default function UatPage() {
               1 минутта тіркеліп, нақты форматта ҰБТ сынағын тапсырыңыз. Картасыз, тәуекелсіз.
             </p>
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link
-                href="/login"
+              <ConversionLink
+                href={loginHref(START_ENT_PATH, "seo-uat")}
+                placement="seo-uat-2"
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
               >
                 <Gift className="h-4 w-4" />
                 Тегін ҰБТ тапсыру
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </ConversionLink>
               <Link
                 href="/probnyy-ent"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-4 text-sm font-semibold transition-colors hover:bg-secondary sm:text-base"

@@ -19,7 +19,7 @@ function httpContext(request: unknown, handler: () => void = () => undefined): E
 }
 
 describe('subscription premium access', () => {
-  it('syncs purchased starter subscriptions as premium entitlements with one attempt', async () => {
+  it('syncs starter subscriptions bought as one attempt (snapshot) as premium entitlements with one attempt', async () => {
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const tx = {
       subscription: {
@@ -27,6 +27,10 @@ describe('subscription premium access', () => {
           id: 'sub-trial',
           userId: 'user-1',
           planType: 'starter',
+
+          // Куплен по старым условиям «Разовый» (1 попытка) — условия зафиксированы в снапшоте.
+
+          planSnapshot: { code: 'starter', name: 'Разовый', priceKzt: 490, durationDays: 7, attemptsLimit: 1, dailyLimit: 1 },
           examTypeId: null,
           startsAt: new Date(Date.now() - 1000),
           expiresAt: future,

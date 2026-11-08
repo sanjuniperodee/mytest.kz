@@ -8,7 +8,8 @@ import useSWR from "swr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowRight, Check, Crown, Sparkles, ShieldCheck, Loader2, ExternalLink, XCircle, QrCode, Smartphone } from "lucide-react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { SEASON_PLAN_CODE } from "@bilimland/shared"
 import { useSWRConfig } from "swr"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -214,62 +215,74 @@ function normalizeBillingReason(value: string | null): BillingReason {
     return "default"
 }
 
+/**
+ * Тарифы отличаются только сроком, поэтому питч продаёт результат (разбор, слабые
+ * темы, план до гранта), а рекомендация — срок: сразу после теста лучше всего берут
+ * короткий доступ «разобрать ошибки сейчас», в остальных случаях — сезон до ЕНТ.
+ */
 function getBillingPitch(reason: BillingReason, trial?: TrialStatusItem) {
     const left = trial?.freeRemaining ?? trial?.remaining ?? 0
     if (reason === "limit_exhausted" || reason === "no_access") {
         return {
-            eyebrow: "Доступ открыт в Premium",
-            title: "Начни подготовку с полного пробника",
-            text: "Premium открывает пробники, подробный разбор, работу над ошибками и аналитику, чтобы готовиться по цифрам, а не на ощущениях.",
-            recommendedPlan: "week",
+            eyebrow: "Полный доступ к подготовке",
+            title: "Готовься по своим ошибкам, а не наугад",
+            text: "Тариф открывает безлимитные пробные ЕНТ, объяснение к каждой ошибке, тренировку слабых тем и AI-план до цели.",
+            recommendedPlan: SEASON_PLAN_CODE,
         }
     }
     if (reason === "daily_limit") {
         return {
             eyebrow: "Бесплатный ЕНТ на сегодня пройден",
             title: "Не жди до завтра — продолжай сегодня",
-            text: "Бесплатный пробный ЕНТ открывается каждый день. С подпиской можно пройти ещё один уже сейчас, получить AI-разбор ошибок и объяснения к каждому вопросу.",
-            recommendedPlan: "month",
+            text: "Бесплатный пробный открывается каждый день. С тарифом можно пройти ещё один прямо сейчас и разобрать каждую ошибку.",
+            recommendedPlan: SEASON_PLAN_CODE,
         }
     }
     if (reason === "premium_explanation") {
         return {
-            eyebrow: "Разбор открыт в Premium",
+            eyebrow: "Объяснения открываются с тарифом",
             title: "Не просто узнай ответ, а пойми ошибку",
-            text: "Premium показывает объяснения к вопросам и превращает ошибки в короткие тренировки. Это самый быстрый путь добрать баллы.",
-            recommendedPlan: "trial",
+            text: "Объяснение к каждому вопросу и тренировка на похожих задачах — самый быстрый способ не повторить ошибку на ЕНТ.",
+            recommendedPlan: "starter",
         }
     }
     if (reason === "mistakes_practice") {
         return {
-            eyebrow: "Работа над ошибками в Premium",
+            eyebrow: "Работа над ошибками",
             title: "Преврати прошлые ошибки в короткую тренировку",
-            text: "Premium собирает ваши ошибки в мини-тесты, чтобы закрывать слабые места быстрее и видеть рост по баллам.",
-            recommendedPlan: "week",
+            text: "Собираем твои ошибки в мини-тесты по темам, чтобы закрывать слабые места и видеть рост балла.",
+            recommendedPlan: "starter",
         }
     }
     if (reason === "retake") {
         return {
-            eyebrow: "Пересдача открыта в Premium",
+            eyebrow: "Повтор ЕНТ",
             title: "Повтори ЕНТ и проверь рост",
-            text: "Premium даёт следующие попытки и разбор после каждой сдачи: удобно сравнить результат и понять, где ещё теряются баллы.",
-            recommendedPlan: "week",
+            text: "С тарифом можно пересдать тот же пробный, сравнить результат и увидеть, какие темы ещё отнимают баллы.",
+            recommendedPlan: "starter",
         }
     }
     if (reason === "post_trial" || reason === "review_recovery") {
         return {
-            eyebrow: "Пробник уже показал слабые места",
-            title: "Закрой ошибки, пока они свежие",
-            text: "Мы уже знаем, где ты теряешь баллы. Возьми план с разбором и следующими пробниками, чтобы превратить результат в рост.",
-            recommendedPlan: "week",
+            eyebrow: "Пробный уже показал слабые места",
+            title: "Разбери ошибки, пока они свежие",
+            text: "Мы знаем, где ты потерял баллы. Открой объяснения и тренировку именно этих тем — так баллы растут быстрее всего.",
+            recommendedPlan: "starter",
         }
     }
     return {
-        eyebrow: left > 0 ? "Доступные попытки" : "Premium-подготовка",
-        title: "Открой полный доступ к пробникам",
-        text: "Разборы, аналитика и повторные попытки помогают готовиться по цифрам, а не на ощущениях.",
-        recommendedPlan: "month",
+        eyebrow: left > 0 ? "Пробный ЕНТ сегодня бесплатно" : "Подготовка к ЕНТ 2027",
+        title: "Добери баллы до гранта",
+        text: "Тест остаётся бесплатным. Тариф открывает то, что поднимает балл: разбор каждой ошибки, тренировку слабых тем и AI-план.",
+        recommendedPlan: SEASON_PLAN_CODE,
     }
+}
+
+/** Сколько стоит месяц на длинном тарифе — «≈ 1 110 ₸ в месяц». */
+function monthlyPriceLabel(plan: NormalizedPlan): string | null {
+    if (plan.price == null || !plan.durationDays || plan.durationDays < 60) return null
+    const perMonth = Math.round(plan.price / (plan.durationDays / 30) / 10) * 10
+    return `≈ ${perMonth.toLocaleString(getFormatLocale())} ${plan.currency} в месяц`
 }
 
 export default function BillingPage() {
@@ -278,6 +291,7 @@ export default function BillingPage() {
     const [billingContext, setBillingContext] = useState<{
         reason: BillingReason
         sourceSessionId?: string
+        planCode?: string
         ready: boolean
     }>({ reason: "default", ready: false })
     const reason = billingContext.reason
@@ -309,6 +323,7 @@ export default function BillingPage() {
         setBillingContext({
             reason: normalizeBillingReason(params.get("reason")),
             sourceSessionId: params.get("sessionId") || undefined,
+            planCode: params.get("plan") || undefined,
             ready: true,
         })
     }, [])
@@ -321,11 +336,18 @@ export default function BillingPage() {
             trialRemaining: entTrial?.remaining,
             freeRemaining: entTrial?.freeRemaining,
             hasPaidSubscription,
+            planCode: billingContext.planCode,
         })
-    }, [billingContext.ready, entTrial?.freeRemaining, entTrial?.remaining, hasPaidSubscription, reason, sourceSessionId])
+    }, [billingContext.ready, billingContext.planCode, entTrial?.freeRemaining, entTrial?.remaining, hasPaidSubscription, reason, sourceSessionId])
 
     // Highlight the most "popular" plan when there's a badge, otherwise the middle plan
+    // Тариф, выбранный на лендинге (?plan=), — сразу открываем его оплату.
+    const requestedPlan = billingContext.planCode
+        ? sorted.find((p) => p.code === billingContext.planCode || p.id === billingContext.planCode)
+        : undefined
+    const recommended = sorted.find((p) => p.code === pitch.recommendedPlan || p.id === pitch.recommendedPlan)
     const highlightedIdx = (() => {
+        if (requestedPlan) return sorted.indexOf(requestedPlan)
         const byReason = sorted.findIndex((p) => p.code === pitch.recommendedPlan || p.id === pitch.recommendedPlan)
         if (byReason >= 0) return byReason
         const byBadge = sorted.findIndex((p) => p.badge)
@@ -363,7 +385,7 @@ export default function BillingPage() {
                             )}
                             <div className="flex items-baseline justify-between gap-4">
                                 <span className="whitespace-nowrap text-muted-foreground">Рекомендуем</span>
-                                <span className="font-semibold">{pitch.recommendedPlan === "trial" ? "Разовый" : pitch.recommendedPlan === "week" ? "5 пробных" : "Месяц"}</span>
+                                <span className="font-semibold">{(requestedPlan ?? recommended)?.name ?? "—"}</span>
                             </div>
                         </div>
                     )}
@@ -373,7 +395,7 @@ export default function BillingPage() {
             <div className="flex flex-col gap-2">
                 <h2 className="text-xl font-semibold tracking-tight">Выберите тариф</h2>
                 <p className="text-muted-foreground">
-                    Чем быстрее разберём свежие ошибки, тем выше шанс добрать баллы уже на следующем пробнике.
+                    Все тарифы открывают одно и то же — разборы, тренировку слабых тем, AI-план и безлимитные пробные. Отличается только срок. Без автопродления.
                 </p>
             </div>
 
@@ -417,6 +439,7 @@ export default function BillingPage() {
                             pendingOrder={orders?.find((o) => o.planCode === plan.id)}
                             sourceReason={reason}
                             sourceSessionId={sourceSessionId}
+                            autoOpen={requestedPlan?.id === plan.id}
                         />
                     ))}
                 </div>
@@ -562,6 +585,7 @@ function PlanCard({
                       pendingOrder,
                       sourceReason,
                       sourceSessionId,
+                      autoOpen,
                   }: {
     plan: NormalizedPlan
     highlighted?: boolean
@@ -571,6 +595,7 @@ function PlanCard({
     pendingOrder?: KaspiOrder
     sourceReason: BillingReason
     sourceSessionId?: string
+    autoOpen?: boolean
 }) {
     const router = useRouter()
     const { mutate } = useSWRConfig()
@@ -605,6 +630,15 @@ function PlanCard({
         setShowModal(true)
         setError(null)
     }
+
+    const autoOpened = useRef(false)
+    useEffect(() => {
+        if (!autoOpen || autoOpened.current || current) return
+        autoOpened.current = true
+        void onCheckout()
+        // onCheckout читает актуальные props; запускаем один раз на тариф из ?plan=.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoOpen, current])
 
     const handleKaspiCheckout = async () => {
         const digits = phone.replace(/\D/g, "")
@@ -737,8 +771,8 @@ function PlanCard({
             >
                 {plan.badge && (
                     <div className="absolute right-4 top-4 z-10">
-                        <Badge className="bg-accent text-accent-foreground hover:bg-accent capitalize">
-                            {plan.badge}
+                        <Badge className="bg-accent text-accent-foreground hover:bg-accent">
+                            {plan.badge.charAt(0).toUpperCase() + plan.badge.slice(1)}
                         </Badge>
                     </div>
                 )}
@@ -758,9 +792,6 @@ function PlanCard({
                 )}
                 <CardContent className="flex flex-1 flex-col gap-5 p-6">
                     <div className="flex flex-col gap-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            {plan.code}
-                        </p>
                         <p className="text-xl font-semibold">{plan.name}</p>
                         {plan.description && (
                             <p className="text-sm text-muted-foreground">{plan.description}</p>
@@ -781,6 +812,9 @@ function PlanCard({
                                 </Badge>
                             )}
                         </div>
+                        {monthlyPriceLabel(plan) && (
+                            <p className="text-sm font-medium text-accent">{monthlyPriceLabel(plan)}</p>
+                        )}
                         {plan.durationDays && (
                             <p className="text-xs text-muted-foreground">
                                 Срок действия: {plan.durationDays}{" "}

@@ -5,6 +5,8 @@ import { LegalShell } from "@/components/legal/legal-shell"
 import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
 import { LEGAL_SELLER } from "@/lib/legal-content"
 import { getSiteUrl } from "@/lib/site"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref } from "@/lib/api/login-return"
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = getSiteUrl()
@@ -128,13 +130,14 @@ export default function PaymentPage() {
                 .
               </p>
             </div>
-            <Link
-              href="/login"
+            <ConversionLink
+              href={loginHref("/dashboard/billing", "payment-page")}
+              placement="payment-page-1"
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90"
             >
               Перейти к тарифам
               <ArrowRight className="size-4" />
-            </Link>
+            </ConversionLink>
           </article>
         </section>
       </div>

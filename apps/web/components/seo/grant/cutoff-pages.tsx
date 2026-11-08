@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowRight, Calculator, Gift, Info, TrendingDown, TrendingUp } from "lucide-react"
+import { ArrowRight, Calculator, Info, TrendingDown, TrendingUp } from "lucide-react"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { ScoreCheck } from "@/components/seo/grant/score-check"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { ENT_SUBJECTS } from "@/lib/ent-subjects"
 import { OG_IMAGES } from "@/lib/seo"
@@ -71,25 +72,13 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Ctas({ lang, source }: { lang: SeoLang; source: string }) {
+function CalculatorLink({ lang }: { lang: SeoLang }) {
   return (
-    <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-      <Link
-        href={`/login?source=${source}`}
-        className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
-      >
-        <Gift className="size-4" />
-        {tx(lang, "Проверить свой балл — пробный ЕНТ бесплатно", "Балыңды тексер — ҰБТ сынағы тегін")}
-        <ArrowRight className="size-4" />
-      </Link>
-      <Link
-        href="/admission"
-        className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-secondary"
-      >
-        <Calculator className="size-4" />
-        {tx(lang, "Рассчитать шансы на грант", "Грант мүмкіндігін есептеу")}
-      </Link>
-    </div>
+    <Link href="/admission" className="mt-4 inline-flex items-center gap-2 text-sm font-medium hover:underline">
+      <Calculator className="size-4" />
+      {tx(lang, "Точный шанс с учётом квоты и предметов — в калькуляторе", "Квота мен пәндерді ескеретін нақты мүмкіндік — калькуляторда")}
+      <ArrowRight className="size-4" />
+    </Link>
   )
 }
 
@@ -315,7 +304,22 @@ export function UniversityCutoffsPage({ data, university, lang }: { data: GrantD
               value={change == null ? "—" : signed(change)}
             />
           </div>
-          <Ctas lang={lang} source="seo-university" />
+          <div className="mt-6">
+            <ScoreCheck
+              items={list.flatMap((series) => {
+                const program = data.getProgramByCode(series.programCode)
+                return program
+                  ? [{ key: program.code, label: programName(program, lang), href: routes.program(program.slug), min: series.latest.min, grants: series.latest.grants }]
+                  : []
+              })}
+              kind="program"
+              lang={lang}
+              source="seo-university"
+              context={short}
+              latestYear={LATEST_YEAR}
+            />
+          </div>
+          <CalculatorLink lang={lang} />
         </section>
 
         <section className="border-y border-border/60 bg-secondary/30">
@@ -533,7 +537,22 @@ export function ProgramCutoffsPage({ data, program, lang }: { data: GrantData; p
             />
             <Stat label={tx(lang, "Медиана по стране", "Ел бойынша медиана")} value={summary.medianMin == null ? "—" : String(summary.medianMin)} />
           </div>
-          <Ctas lang={lang} source="seo-program" />
+          <div className="mt-6">
+            <ScoreCheck
+              items={list.flatMap((series) => {
+                const uni = data.getUniversityByCode(series.universityCode)
+                return uni
+                  ? [{ key: String(uni.code), label: universityShortName(uni, lang), href: routes.university(uni.slug), min: series.latest.min, grants: series.latest.grants }]
+                  : []
+              })}
+              kind="university"
+              lang={lang}
+              source="seo-program"
+              context={name}
+              latestYear={LATEST_YEAR}
+            />
+          </div>
+          <CalculatorLink lang={lang} />
         </section>
 
         <section className="border-y border-border/60 bg-secondary/30">

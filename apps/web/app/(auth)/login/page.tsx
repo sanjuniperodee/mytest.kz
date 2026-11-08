@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useEffect } from "react"
-import { loginDestination } from '@/lib/api/login-return'
+import { loginDestination, rememberLoginNext } from '@/lib/api/login-return'
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowRight, Check, Gift, LockKeyhole, Route, Sparkles } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -32,9 +32,17 @@ function LoginContent() {
   const fromDiagnostic = source === "diagnostic" && currentScore !== null && targetScore !== null
   const hasGoogle = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
 
+  const nextParam = searchParams.get("next")
   useEffect(() => {
-    if (!isLoading && isAuthenticated) router.replace(loginDestination())
-  }, [isAuthenticated, isLoading, router])
+    rememberLoginNext(nextParam)
+  }, [nextParam])
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      rememberLoginNext(nextParam)
+      router.replace(loginDestination())
+    }
+  }, [isAuthenticated, isLoading, nextParam, router])
 
   if (isLoading) {
     return <LoginLoadingState />
@@ -45,7 +53,7 @@ function LoginContent() {
       <div className="stagger flex flex-col gap-4 md:pr-4">
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold text-accent">
           <Gift className="size-3.5" />
-          1 полный пробный бесплатно · без карты
+          Пробный ЕНТ бесплатно каждый день · без карты
         </span>
         <h1 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl">
           {fromDiagnostic ? (
@@ -61,8 +69,8 @@ function LoginContent() {
           )}
         </h1>
         <p className="text-pretty text-base text-muted-foreground leading-relaxed">
-          Один аккаунт сохраняет результаты, слабые темы и прогресс. Первый полный
-          пробный откроется сразу после входа — покупать тариф заранее не нужно.
+          Один аккаунт сохраняет результаты, слабые темы и прогресс. Пробный ЕНТ
+          откроется сразу после входа — покупать тариф заранее не нужно.
         </p>
 
         {fromDiagnostic && (
@@ -91,7 +99,7 @@ function LoginContent() {
             <Check className="size-4 shrink-0 text-accent" /> 140 вопросов и реальный таймер
           </li>
           <li className="flex items-center gap-2">
-            <Check className="size-4 shrink-0 text-accent" /> Результат и слабые темы сразу
+            <Check className="size-4 shrink-0 text-accent" /> Балл, слабые темы и шанс на грант сразу
           </li>
           <li className="flex items-center gap-2">
             <Check className="size-4 shrink-0 text-accent" /> Без карты и скрытой подписки

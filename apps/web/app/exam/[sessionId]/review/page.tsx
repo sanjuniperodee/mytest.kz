@@ -60,6 +60,7 @@ import {
 } from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { GrantGapUpsell } from "@/components/exam/grant-gap-upsell"
 import type {
   QuestionAppeal,
   QuestionAppealReason,
@@ -139,6 +140,19 @@ export default function ReviewPage({
       })
       .sort((a, b) => a.pct - b.pct)
       .slice(0, 3)
+  }, [sections])
+  // Для блока «где потерял баллы»: предметы по числу потерянных баллов.
+  const lostSections = useMemo(() => {
+    return sections
+      .filter((sec) => sec.id !== "all")
+      .map((sec) => ({
+        title: sec.title,
+        lost:
+          sec.maxPoints != null && sec.rawPoints != null
+            ? Math.max(0, sec.maxPoints - sec.rawPoints)
+            : Math.max(0, sec.totalCount - sec.correctCount),
+      }))
+      .sort((a, b) => b.lost - a.lost)
   }, [sections])
 
   const matchesFilter = (q: FlatSessionQuestion) => filter === "all" ||
@@ -278,6 +292,16 @@ export default function ReviewPage({
                 <TestFeedback key={sessionId} sessionId={sessionId} />
               </div>
             </Card>
+
+            {canRetakeEnt && displayMax >= 100 && (
+              <GrantGapUpsell
+                sessionId={sessionId}
+                score={displayScore}
+                maxScore={displayMax}
+                weakSections={lostSections}
+                mistakeCount={mistakeCount}
+              />
+            )}
 
             <AdSlot placement="results" />
 

@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils"
 import { ENT_MAX, ENT_TOTAL_MAX, totalEntScore } from "@bilimland/shared"
 import type { AdmissionCycle, ChanceProgram, ChanceUniversity } from "@/lib/api/types"
 import { ChanceBadge, ChanceLegend, CutoffTrend, grantsLabel, useT } from "@/components/admission/chance"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 type QuotaType = "GRANT" | "RURAL"
 type Tab = "programs" | "universities"
@@ -207,6 +209,16 @@ export default function AdmissionPage() {
             "Балыңызды өту балдарымен — әр ЖОО-да грант берілген ең төменгі балмен салыстырамыз. Деректер ҒЖБМ ресми грант иегерлерінің тізімдерінен алынған.",
           )}
         </p>
+        <ConversionLink
+          href={loginHref(START_ENT_PATH, "admission")}
+          placement="admission_header"
+          className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent transition-colors hover:bg-accent/15"
+          data-no-translate
+        >
+          <Sparkles className="size-4" aria-hidden="true" />
+          {t("Не знаешь свой балл? Пробный ЕНТ бесплатно", "Балыңды білмейсің бе? ҰБТ сынағы тегін")}
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </ConversionLink>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[380px_1fr]">
@@ -477,6 +489,17 @@ function ResultsSummary({
           {t("Как считаем", "Қалай есептейміз")}
         </Button>
       </div>
+      <ConversionLink
+        href={loginHref(START_ENT_PATH, "admission-results")}
+        placement="admission_results"
+        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+      >
+        {t(
+          "Это по введённым баллам. Узнай реальный — пробный ЕНТ бесплатно",
+          "Бұл енгізілген балл бойынша. Нақты балыңды біл — ҰБТ сынағы тегін",
+        )}
+        <ChevronRight className="size-3.5" aria-hidden="true" />
+      </ConversionLink>
       {showLegend && (
         <div className="mt-3 space-y-2 border-t border-border pt-3">
           <ChanceLegend />

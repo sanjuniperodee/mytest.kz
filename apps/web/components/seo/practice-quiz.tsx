@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { recordPublicFunnelEvent } from "@/lib/api/analytics"
 import { ArrowRight, CheckCircle2, Gift, RotateCcw, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -30,8 +31,25 @@ export function PracticeQuiz({ questions, ctaHref }: { questions: PracticeQuizQu
   const score = answers.filter((a, i) => a === questions[i].correct).length
   const done = answered === questions.length
 
+  // Воронка с открытых тестов: начал → закончил → нажал «Пробный ЕНТ».
+  const tracked = useRef({ started: false, completed: false })
+  useEffect(() => {
+    if (done && !tracked.current.completed) {
+      tracked.current.completed = true
+      void recordPublicFunnelEvent("diagnostic_completed", {
+        placement: "topic_quiz",
+        currentScore: score,
+        targetScore: questions.length,
+      })
+    }
+  }, [done, questions.length, score])
+
   const choose = (qi: number, oi: number) => {
     if (answers[qi] !== null) return
+    if (!tracked.current.started) {
+      tracked.current.started = true
+      void recordPublicFunnelEvent("diagnostic_started", { placement: "topic_quiz" })
+    }
     setAnswers((prev) => prev.map((a, i) => (i === qi ? oi : a)))
     setOpen((prev) => prev.map((o, i) => (i === qi ? true : o)))
   }
@@ -126,7 +144,8 @@ export function PracticeQuiz({ questions, ctaHref }: { questions: PracticeQuizQu
                 Результат: {score} из {questions.length}
               </p>
               <p className="text-sm text-muted-foreground">
-                На ЕНТ такие темы смешаны в одном тесте на время. Проверь себя в полном формате.
+                На ЕНТ такие темы смешаны в одном тесте на время. Сдай полный пробный бесплатно —
+                узнаешь свой балл из 140 и шанс на грант.
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
@@ -140,6 +159,7 @@ export function PracticeQuiz({ questions, ctaHref }: { questions: PracticeQuizQu
               </button>
               <Link
                 href={ctaHref}
+                onClick={() => void recordPublicFunnelEvent("landing_cta", { placement: "topic_quiz_end" })}
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background hover:opacity-90"
               >
                 <Gift className="h-4 w-4" aria-hidden="true" />

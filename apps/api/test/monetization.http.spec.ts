@@ -23,11 +23,14 @@ describe('monetization config contract', () => {
         ]),
       ),
     ).toEqual({
-      starter: { priceKzt: 490, originalPriceKzt: null, attemptsLimit: 1 },
-      basic: { priceKzt: 900, originalPriceKzt: 1470, attemptsLimit: 3 },
-      pro: { priceKzt: 1490, originalPriceKzt: 2450, attemptsLimit: 5 },
-      premium: { priceKzt: 2990, originalPriceKzt: 5890, attemptsLimit: null },
+      starter: { priceKzt: 490, originalPriceKzt: null, attemptsLimit: null },
+      premium: { priceKzt: 2990, originalPriceKzt: null, attemptsLimit: null },
+      season: { priceKzt: 9990, originalPriceKzt: null, attemptsLimit: null },
+      basic: { priceKzt: 900, originalPriceKzt: null, attemptsLimit: 3 },
+      pro: { priceKzt: 1490, originalPriceKzt: null, attemptsLimit: 5 },
     });
+    // В продаже только три срока; пакеты попыток сняты, но остаются для купивших.
+    expect(defaults.plans.filter((p) => p.isActive).map((p) => p.code)).toEqual(['starter', 'premium', 'season']);
     expect(defaults.freeTier).toEqual({ enabled: true, dailyEntAttempts: 1 });
     expect(defaults.premiumFeatures.aiCoach).toBe(true);
     expect(validateMonetizationConfig(defaults)).toEqual([]);
@@ -37,13 +40,11 @@ describe('monetization config contract', () => {
     const premium = DEFAULT_MONETIZATION_CONFIG.plans.find((p) => p.code === 'premium')!;
     expect(toBillingPlanDto(premium, 'ru')).toEqual({
       id: 'premium',
-      name: 'Месяц без лимита',
+      name: 'Месяц',
       description: expect.any(String),
       priceKzt: 2990,
-      originalPriceKzt: 5890,
       durationDays: 30,
-      highlight: 'популярно',
-      features: expect.arrayContaining(['AI-разбор ошибок']),
+      features: expect.arrayContaining(['Объяснение к каждой ошибке']),
       attemptsLimit: null,
       dailyLimit: null,
     });

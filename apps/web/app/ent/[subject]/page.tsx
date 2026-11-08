@@ -8,6 +8,8 @@ import { getPracticeSubject, subjectDative } from "@/lib/seo/practice-tests"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 const SUBJECTS = ENT_SUBJECTS
 
@@ -122,14 +124,15 @@ export default async function EntSubjectPage({
               <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
                 {info.lead}</p>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/login"
+                <ConversionLink
+                  href={loginHref(START_ENT_PATH, "seo-subject")}
+                  placement="seo-subject-1"
                   className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
                 >
                   <Gift className="h-4 w-4" aria-hidden="true" />
                   Начать бесплатно
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </ConversionLink>
                 <Link
                   href="/#pricing"
                   className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary sm:text-base"
@@ -316,14 +319,15 @@ export default async function EntSubjectPage({
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
               Первый пробный ЕНТ — бесплатно. Зарегистрируйся и начни подготовку к ЕНТ 2027 уже сегодня.
             </p>
-            <Link
-              href="/login"
+            <ConversionLink
+              href={loginHref(START_ENT_PATH, "seo-subject")}
+              placement="seo-subject-2"
               className="mt-8 inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
             >
               <Gift className="h-4 w-4" aria-hidden="true" />
               Попробовать бесплатно
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </ConversionLink>
           </div>
         </Reveal>
       </main>

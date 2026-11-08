@@ -4,6 +4,7 @@ import { Logo } from "@/components/landing/logo"
 import { SiteFooter } from "@/components/landing/site-footer"
 import { getSiteUrl } from "@/lib/site"
 import type { SeoLang } from "@/lib/seo/grant-cutoffs"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 export interface Crumb {
   name: string
@@ -92,12 +93,14 @@ export function SeoShell({
               </Link>
             )}
           </nav>
+          {/* На мобильных — основной трафик из поиска — кнопка тоже нужна, просто короче. */}
           <Link
-            href="/login"
-            className="hidden shrink-0 items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 sm:inline-flex"
+            href={loginHref(START_ENT_PATH, `seo-header-${lang}`)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 sm:px-4 sm:py-2 sm:text-sm"
           >
-            {lang === "kk" ? "Тегін бастау" : "Начать бесплатно"}
-            <ArrowRight className="size-4" />
+            <span className="sm:hidden">{lang === "kk" ? "Тегін тест" : "Тест бесплатно"}</span>
+            <span className="hidden sm:inline">{lang === "kk" ? "Тегін бастау" : "Начать бесплатно"}</span>
+            <ArrowRight className="hidden size-4 sm:block" />
           </Link>
         </div>
       </header>

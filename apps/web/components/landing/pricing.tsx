@@ -1,10 +1,11 @@
 import { Reveal } from "@/components/motion/reveal"
 import { Check, Flame, Gift } from "lucide-react"
 import { ConversionLink } from "./conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 type Plan = {
+  code: string
   name: string
-  oldPrice?: string
   price: string
   perDay?: string
   period: string
@@ -13,81 +14,57 @@ type Plan = {
   cta: string
   href: string
   highlighted?: boolean
-  free?: boolean
   badge?: string
   badgeTone?: "accent" | "muted"
-  discount?: string
 }
+
+// Те же тарифы, что в каталоге по умолчанию (@bilimland/shared DEFAULT_MONETIZATION_PLANS).
+// Все открывают одно и то же — разбор, тренировку и AI-план — и отличаются только сроком.
+const paidFeatures = [
+  "Объяснение к каждой ошибке",
+  "Тренировка слабых тем",
+  "AI-разбор и план до цели",
+  "Безлимитные пробные ЕНТ и повтор",
+  "Без рекламы",
+]
+
+const planHref = (code: string) => loginHref(`/dashboard/billing?plan=${code}`, `pricing-${code}`)
 
 const plans: Plan[] = [
   {
-    name: "Разовый",
+    code: "starter",
+    name: "Неделя",
     price: "490",
-    period: "7 дней · 1 попытка",
-    description: "Один полный пробный ЕНТ с Premium-разбором.",
-    features: [
-      "1 полный пробный ЕНТ",
-      "Premium-разбор вопросов",
-      "Статистика результата",
-      "Доступ 7 дней",
-    ],
-    cta: "Купить 1 пробный",
-    href: "/login",
+    period: "7 дней",
+    description: "Разбери ошибки последнего пробного и потренируй слабые темы.",
+    features: paidFeatures,
+    cta: "Открыть на 7 дней",
+    href: planHref("starter"),
   },
   {
-    name: "3 пробных",
-    oldPrice: "1 470",
-    price: "900",
-    period: "30 дней · 3 попытки",
-    description: "Три полные попытки ЕНТ с Premium-разбором.",
-    features: [
-      "3 полных пробных ЕНТ",
-      "Premium-разбор вопросов",
-      "Статистика по попыткам",
-      "Доступ 30 дней",
-    ],
-    cta: "Взять 3 пробных",
-    href: "/login",
-    discount: "−39%",
-  },
-  {
-    name: "5 пробных",
-    oldPrice: "2 450",
-    price: "1 490",
-    period: "30 дней · 5 попыток",
-    description: "Пять полных попыток ЕНТ с Premium-разбором.",
-    features: [
-      "5 полных пробных ЕНТ",
-      "Premium-разбор вопросов",
-      "Статистика по попыткам",
-      "Доступ 30 дней",
-    ],
-    cta: "Взять 5 пробных",
-    href: "/login",
-    badge: "Выгодно",
-    badgeTone: "muted",
-    discount: "−39%",
-  },
-  {
-    name: "Месяц без лимита",
-    oldPrice: "5 890",
+    code: "premium",
+    name: "Месяц",
     price: "2 990",
     perDay: "≈ 100 ₸ в день",
-    period: "30 дней · безлимит",
-    description: "Оптимально, чтобы реально подтянуть слабые темы.",
-    features: [
-      "Безлимитные попытки ЕНТ",
-      "Доступ на 30 дней без ограничений",
-      "Аналитика по предметам и темам",
-      "Работа над ошибками",
-      "Объяснения ко всем вопросам",
-    ],
-    cta: "Готовиться без лимита",
-    href: "/login",
+    period: "30 дней",
+    description: "Месяц системной подготовки: разборы, слабые темы, пробные без лимита.",
+    features: paidFeatures,
+    cta: "Готовиться месяц",
+    href: planHref("premium"),
+  },
+  {
+    code: "season",
+    name: "До ЕНТ 2027",
+    price: "9 990",
+    perDay: "≈ 1 110 ₸ в месяц — почти втрое дешевле помесячной",
+    period: "9 месяцев · один платёж",
+    description: "Вся подготовка до экзамена без продлений и доплат.",
+    features: paidFeatures,
+    cta: "Готовиться до ЕНТ",
+    href: planHref("season"),
     highlighted: true,
-    badge: "Популярный",
+    badge: "Выгоднее всего",
     badgeTone: "accent",
-    discount: "−49%",
   },
 ]
 
@@ -98,16 +75,17 @@ export function Pricing() {
         <Reveal className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
             <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-            Новые выгодные тарифы
+            Тарифы
           </span>
           <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-            Начни{" "}
+            Тест —{" "}
             <span className="font-serif italic font-normal">бесплатно.</span>{" "}
-            Потом — понятный план дешевле, чем{" "}
-            <span className="font-serif italic font-normal">пара чашек кофе.</span>
+            Платишь только за то, что{" "}
+            <span className="font-serif italic font-normal">поднимает балл.</span>
           </h2>
           <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground">
-            Первый пробный ЕНТ — бесплатно и без карты. Понравится — выбирай тариф и готовься дальше.
+            Полный пробный ЕНТ можно сдавать бесплатно каждый день. Тариф открывает разбор каждой
+            ошибки, тренировку слабых тем и AI-план — всё, чтобы добрать баллы до гранта.
           </p>
         </Reveal>
 
@@ -119,14 +97,14 @@ export function Pricing() {
                 <Gift className="h-5 w-5 text-accent" aria-hidden="true" />
               </div>
               <div>
-                <p className="font-semibold text-foreground">1 бесплатный пробный ЕНТ — сразу после регистрации</p>
+                <p className="font-semibold text-foreground">Пробный ЕНТ бесплатно — каждый день</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Полный тест в реальном формате · 140 вопросов · таймер · базовый разбор ошибок. Без карты и оплаты.
+                  Полный тест в реальном формате · 140 вопросов · таймер · балл по предметам и шанс на грант. Без карты и оплаты.
                 </p>
               </div>
             </div>
             <ConversionLink
-              href="/login?source=pricing-free"
+              href={loginHref(START_ENT_PATH, "pricing-free")}
               placement="pricing_free"
               className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
             >
@@ -136,11 +114,11 @@ export function Pricing() {
           </div>
         </Reveal>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {plans.filter((p) => !p.free).map((plan, index) => (
+        <div className="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-3">
+          {plans.map((plan, index) => (
             <Reveal
               as="article"
-              key={plan.name}
+              key={plan.code}
               delay={index * 80}
               className={[
                 "relative flex flex-col rounded-2xl border p-6 sm:p-7",
@@ -164,33 +142,9 @@ export function Pricing() {
 
               <div className="flex items-start justify-between">
                 <h3 className="text-base font-semibold tracking-tight">{plan.name}</h3>
-                {plan.discount && (
-                  <span
-                    className={[
-                      "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
-                      plan.highlighted
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-accent/10 text-accent",
-                    ].join(" ")}
-                    aria-label={`Скидка ${plan.discount}`}
-                  >
-                    {plan.discount}
-                  </span>
-                )}
               </div>
 
               <div className="mt-5">
-                {plan.oldPrice && (
-                  <div
-                    className={[
-                      "text-sm line-through tabular-nums",
-                      plan.highlighted ? "text-background/45" : "text-muted-foreground/70",
-                    ].join(" ")}
-                    aria-label="Старая цена"
-                  >
-                    {plan.oldPrice} ₸
-                  </div>
-                )}
                 <div className="mt-1 flex items-baseline gap-1.5 whitespace-nowrap">
                   <span className="text-4xl font-semibold tracking-tight tabular-nums lg:text-[2.35rem] xl:text-[2.75rem]">
                     {plan.price}
@@ -246,7 +200,7 @@ export function Pricing() {
 
               <ConversionLink
                 href={plan.href}
-                placement={`pricing_${plan.name.toLowerCase()}`}
+                placement={`pricing_${plan.code}`}
                 className={[
                   "press mt-7 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-[opacity,transform]",
                   plan.highlighted
@@ -262,7 +216,7 @@ export function Pricing() {
 
         <div className="mt-10 flex flex-col items-center gap-2 text-center">
           <p className="text-sm text-muted-foreground">
-            Цены указаны в тенге. Оплата через Freedom Pay, картой Visa / Mastercard или через Kaspi.
+            Цены в тенге. Оплата через Kaspi или картой Visa / Mastercard. Без автопродления.
           </p>
         </div>
       </div>

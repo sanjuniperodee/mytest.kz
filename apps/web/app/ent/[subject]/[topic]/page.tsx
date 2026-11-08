@@ -17,13 +17,14 @@ import {
 import { SeoShell } from "@/components/seo/seo-shell"
 import { PracticeQuiz } from "@/components/seo/practice-quiz"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 // Все темы известны при сборке (снимок банков) — остальные адреса 404.
 export const dynamicParams = false
 
 type Props = { params: Promise<{ subject: string; topic: string }> }
 
-const CTA_HREF = "/login?source=topic-test"
+const CTA_HREF = loginHref(START_ENT_PATH, "topic-test")
 
 export function generateStaticParams() {
   return listPracticeTopics().map(({ subject, topic }) => ({ subject, topic: topic.slug }))

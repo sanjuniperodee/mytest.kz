@@ -5,6 +5,8 @@ import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { AdSlot } from "@/components/ads/ad-slot"
+import { ConversionLink } from "@/components/landing/conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 
@@ -29,7 +31,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteUrl}/podgotovka-k-ent` },
   openGraph: {
     title: "Подготовка к ЕНТ 2027 онлайн — my-test.kz",
-    description: "Пробные ЕНТ, разбор ошибок, проходные баллы. Первый пробник бесплатно.",
+    description: "Пробные ЕНТ, разбор ошибок, проходные баллы. Пробный ЕНТ бесплатно каждый день.",
     url: `${siteUrl}/podgotovka-k-ent`,
     siteName: "mytest",
     images: OG_IMAGES,
@@ -138,17 +140,18 @@ export default function PodgotovkaKEntPage() {
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
               Пробные ЕНТ в реальном формате, разбор ошибок и статистика по предметам. Зарегистрируйся
-              и получи первый пробный ЕНТ бесплатно — узнай свой текущий уровень уже сегодня.
+              и сдай пробный ЕНТ бесплатно — узнай свой текущий уровень уже сегодня.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
+              <ConversionLink
+                href={loginHref(START_ENT_PATH, "seo-podgotovka")}
+                placement="seo-podgotovka-1"
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
               >
                 <Gift className="h-4 w-4" />
                 Начать подготовку бесплатно
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </ConversionLink>
               <Link
                 href="/admission"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-secondary sm:text-base"
@@ -331,14 +334,15 @@ export default function PodgotovkaKEntPage() {
               Первый шаг к подготовке — понять, где ты сейчас.
             </p>
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link
-                href="/login"
+              <ConversionLink
+                href={loginHref(START_ENT_PATH, "seo-podgotovka")}
+                placement="seo-podgotovka-2"
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
               >
                 <Gift className="h-4 w-4" />
                 Начать подготовку бесплатно
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </ConversionLink>
               <Link
                 href="/admission"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-4 text-sm font-semibold transition-colors hover:bg-secondary sm:text-base"

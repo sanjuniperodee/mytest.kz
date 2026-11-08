@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet"
 import { ConversionLink } from "./conversion-link"
 import { Logo } from "./logo"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 const nav = [
   { label: "Пробный ЕНТ", href: "/probnyy-ent", external: true },
@@ -104,7 +105,7 @@ export function SiteHeader() {
                 Войти
               </Link>
               <ConversionLink
-                href="/login?source=header"
+                href={loginHref(START_ENT_PATH, "header")}
                 placement="header_primary"
                 className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background press transition-[opacity,transform] hover:opacity-90"
               >
@@ -171,7 +172,7 @@ export function SiteHeader() {
               ) : (
                 <>
                   <ConversionLink
-                    href="/login?source=mobile_menu"
+                    href={loginHref(START_ENT_PATH, "mobile_menu")}
                     placement="mobile_menu_primary"
                     onClick={() => setOpen(false)}
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background"

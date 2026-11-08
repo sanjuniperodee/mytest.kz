@@ -1,7 +1,7 @@
 "use client"
 
 import { useUiI18n } from "@/lib/i18n/ui"
-import { rememberInvite } from '@/lib/api/login-return'
+import { rememberInvite, rememberLoginNext } from '@/lib/api/login-return'
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -127,7 +127,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const unread = useUnreadMessages(isAuthenticated && user?.isChannelMember !== false)
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) { rememberInvite(pathname); router.replace("/login") }
+    if (!isLoading && !isAuthenticated) { rememberInvite(pathname); rememberLoginNext(`${pathname}${window.location.search}`); router.replace("/login") }
   }, [isAuthenticated, isLoading, router, pathname])
 
   useEffect(() => {

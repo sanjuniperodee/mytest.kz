@@ -5,7 +5,9 @@ import { OG_IMAGES } from "@/lib/seo"
 import { Reveal } from "@/components/motion/reveal"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
-import { loadGrantData } from "@/lib/seo/grant-cutoffs"
+import { loadGrantData, programName } from "@/lib/seo/grant-cutoffs"
+import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
+import { ScoreCheck } from "@/components/seo/grant/score-check"
 import { AdSlot } from "@/components/ads/ad-slot"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
@@ -143,23 +145,29 @@ export default async function ProhodnoiBallEntPage() {
               года по всем вузам и специальностям — по официальным спискам грантников МНВО РК — и
               калькулятор шансов по конкретным вузам.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/admission"
-                className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:text-base"
-              >
-                <Calculator className="h-4 w-4" />
-                Проверить шансы на грант
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/probnyy-ent"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-secondary sm:text-base"
-              >
-                <Gift className="h-4 w-4" />
-                Сдать пробный ЕНТ бесплатно
-              </Link>
+            <div className="mt-7">
+              <ScoreCheck
+                items={data.programOverview().map(({ program, lowest, grants }) => ({
+                  key: program.code,
+                  label: programName(program, "ru"),
+                  href: GRANT_ROUTES.ru.program(program.slug),
+                  min: lowest,
+                  grants,
+                }))}
+                kind="program"
+                lang="ru"
+                source="seo-hub"
+                latestYear={LATEST_YEAR}
+              />
             </div>
+            <Link
+              href="/admission"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              <Calculator className="h-4 w-4" />
+              Калькулятор шансов по конкретному вузу и квоте
+              <ArrowRight className="h-4 w-4" />
+            </Link>
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2.5 text-sm text-muted-foreground">
               {[
                 "Минимальный порог — 50 баллов",

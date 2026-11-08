@@ -3,6 +3,7 @@
 import { ArrowRight, Sparkles } from "lucide-react"
 import { useLandingSettings } from "@/lib/api/landing"
 import { ConversionLink } from "./conversion-link"
+import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
 export function PromoBar() {
   const { data } = useLandingSettings()
@@ -12,7 +13,7 @@ export function PromoBar() {
 
   const title = campaign?.title || "Первый полный пробный — бесплатно"
   const eyebrow = campaign?.eyebrow || "Подготовка к ЕНТ 2027"
-  const href = campaign?.ctaHref || "/login?source=campaign"
+  const href = campaign?.ctaHref || loginHref(START_ENT_PATH, "campaign")
   const ctaLabel = campaign?.ctaLabel || "Начать"
   const deadline = campaign?.endsAt ? new Date(campaign.endsAt) : null
   const deadlineLabel =

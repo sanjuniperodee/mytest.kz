@@ -61,10 +61,9 @@ const organizationSchema = {
     name: "Тарифы подготовки к ЕНТ",
     itemListElement: [
       { "@type": "Offer", name: "Бесплатный пробный ЕНТ", price: "0", priceCurrency: "KZT" },
-      { "@type": "Offer", name: "Разовый", price: "490", priceCurrency: "KZT" },
-      { "@type": "Offer", name: "3 пробных", price: "900", priceCurrency: "KZT" },
-      { "@type": "Offer", name: "5 пробных", price: "1490", priceCurrency: "KZT" },
-      { "@type": "Offer", name: "Месяц без лимита", price: "2990", priceCurrency: "KZT" },
+      { "@type": "Offer", name: "Неделя", price: "490", priceCurrency: "KZT" },
+      { "@type": "Offer", name: "Месяц", price: "2990", priceCurrency: "KZT" },
+      { "@type": "Offer", name: "До ЕНТ 2027", price: "9990", priceCurrency: "KZT" },
     ],
   },
 }

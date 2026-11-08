@@ -7,6 +7,8 @@ import { GrantHubDirectory } from "@/components/seo/grant/hub-directory"
 import { OG_IMAGES } from "@/lib/seo"
 import { loadGrantData, programName } from "@/lib/seo/grant-cutoffs"
 import { getSiteUrl } from "@/lib/site"
+import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
+import { ScoreCheck } from "@/components/seo/grant/score-check"
 
 const siteUrl = getSiteUrl()
 
@@ -111,23 +113,29 @@ export default async function UbtOtuBalyPage() {
               есептелген нақты өту балдары: әр мамандық пен әр ЖОО бойынша, ауыл квотасымен және жылдар бойынша
               өзгерісімен. {NEXT_YEAR} жылы түсетіндер үшін — сенімді бағдар.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login?source=seo-kk-hub"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
-              >
-                <Gift className="size-4" />
-                Балыңды тексер — ҰБТ сынағы тегін
-                <ArrowRight className="size-4" />
-              </Link>
-              <Link
-                href="/admission"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-secondary"
-              >
-                <Calculator className="size-4" />
-                Грант мүмкіндігін есептеу
-              </Link>
+            <div className="mt-7">
+              <ScoreCheck
+                items={data.programOverview().map(({ program, lowest, grants }) => ({
+                  key: program.code,
+                  label: programName(program, "kk"),
+                  href: GRANT_ROUTES.kk.program(program.slug),
+                  min: lowest,
+                  grants,
+                }))}
+                kind="program"
+                lang="kk"
+                source="seo-kk-hub"
+                latestYear={LATEST_YEAR}
+              />
             </div>
+            <Link
+              href="/admission"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              <Calculator className="size-4" />
+              Нақты ЖОО мен квота бойынша мүмкіндікті есептеу
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
         </section>
 
