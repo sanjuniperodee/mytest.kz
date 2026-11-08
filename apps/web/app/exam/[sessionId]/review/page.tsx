@@ -45,7 +45,6 @@ import { QuestionMedia } from "@/components/exam/question-media"
 import {
   RichText,
   getDetachedImageUrls,
-  imageReferenceText,
 } from "@/components/exam/rich-text"
 import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
@@ -393,8 +392,7 @@ export default function ReviewPage({
                         ...q.answerOptions.map((opt) =>
                           localize(opt.content ?? opt.text, locale),
                         ),
-                        imageReferenceText(q.explanation),
-                      ])
+                      ]).filter((url) => !q.explanationImageUrls.includes(url))
                       return (
                         <AccordionItem
                           key={q.id}

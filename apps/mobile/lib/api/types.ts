@@ -156,7 +156,9 @@ export interface Question {
   difficulty?: number
   type?: string
   content: unknown
-  explanation?: unknown
+  /** Session payloads never carry the explanation text (paid: `/review/:questionId/explanation`). */
+  hasExplanation?: boolean
+  explanationImageUrls?: unknown
   imageUrls?: unknown
   answerOptions: AnswerOption[]
   subjectId?: string

@@ -38,7 +38,6 @@ import { QuestionMedia } from "@/components/exam/question-media"
 import {
   RichText,
   getDetachedImageUrls,
-  imageReferenceText,
 } from "@/components/exam/rich-text"
 import { Logo } from "@/components/landing/logo"
 import { api, ApiError } from "@/lib/api/client"
@@ -501,8 +500,7 @@ export default function ExamSessionPage({
     current.display.topicLine ?? "",
     current.display.stem,
     ...current.answerOptions.map((opt) => localize(opt.content ?? opt.text, locale)),
-    imageReferenceText(current.explanation),
-  ])
+  ]).filter((url) => !current.explanationImageUrls.includes(url))
 
   return (
     <div className="flex min-h-svh flex-col">
