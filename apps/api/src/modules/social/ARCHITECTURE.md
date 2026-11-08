@@ -14,6 +14,13 @@ This is a modular monolith inside the existing Nest API, not another service or 
 - `ChatFileStore` owns private local storage. `ChatMediaService` owns validation, quotas and download authorization. `domain/media-format.ts` validates file signatures.
 - `ModerationService` is reached only behind the existing database-backed `AdminGuard`. Reading chat content/media and moderation mutations are audited. Group owners/admins cannot use platform moderation endpoints.
 
+## Topics and the only public surface
+
+- `SocialPost.topicKey` groups posts into discussions: `program:<ГОП code>`, `university:<code>`, `qotd:<YYYY-MM-DD>` (question of the day). Rules live in `domain/topics.ts`.
+- `isPublic` is set only for a root post created with an explicit `isPublic` in a `program:`/`university:` topic (the "Задать вопрос" flow from the public cutoff pages). Replies always inherit `topicKey` and `isPublic` from the parent; client values are ignored. Public text rejects links and phone numbers.
+- `GET /social/public/discussions` (`PublicSocialController`, no JWT, 60/min) is the only unauthenticated social route. It returns public roots plus up to five public replies with `authorName` = first name + last initial — no user ids, avatars or surnames. Ordinary feed posts are never public.
+- `GET /social/activity?since=` returns replies to my posts and new followers since a moment (capped at 30 days) plus up to five threads with new replies — the "Лента" badge and the "Тебе ответили" banner.
+
 ## Invariants
 
 - The server chooses author, room membership and privilege; JWT `isAdmin` is not authority.

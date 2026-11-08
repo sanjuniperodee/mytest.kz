@@ -2,11 +2,14 @@ import { Transform } from "class-transformer";
 import {
   IsBoolean,
   IsIn,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
   Length,
+  Matches,
 } from "class-validator";
+import { PUBLIC_TOPIC_KEY_RE, TOPIC_KEY_RE } from "./domain/topics";
 
 export class TextDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
@@ -17,6 +20,10 @@ export class TextDto {
 export class PostDto extends TextDto {
   @IsOptional() @IsUUID() parentId?: string;
   @IsOptional() @IsUUID() groupInviteId?: string;
+  /** Тема корневого поста; у ответа берётся из родителя. */
+  @IsOptional() @Matches(TOPIC_KEY_RE) topicKey?: string;
+  /** Открытый вопрос на странице вуза/специальности — только вместе с такой темой. */
+  @IsOptional() @IsBoolean() isPublic?: boolean;
 }
 export class MessageDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
@@ -73,6 +80,15 @@ export class FeedDto {
   @IsOptional()
   @IsIn(["all", "following", "posts", "replies", "reposts"])
   tab?: string;
+  @IsOptional() @Matches(TOPIC_KEY_RE) topicKey?: string;
+}
+export class PublicDiscussionsDto {
+  /** Без темы — последние открытые вопросы со всех страниц. */
+  @IsOptional() @Matches(PUBLIC_TOPIC_KEY_RE) topicKey?: string;
+  @IsOptional() @IsUUID() cursor?: string;
+}
+export class ActivityDto {
+  @IsISO8601() since!: string;
 }
 export class PeopleDto {
   @IsOptional() @IsString() @Length(0, 100) q?: string;

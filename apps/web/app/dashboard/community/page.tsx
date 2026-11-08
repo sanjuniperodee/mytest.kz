@@ -14,6 +14,8 @@ import {
   useSocialText,
 } from "@/components/social/common";
 import { PostList } from "@/components/social/posts";
+import { QuestionOfDayCard } from "@/components/social/question-of-day";
+import { RepliesToMe } from "@/components/social/replies-to-me";
 import { useUnreadMessages } from "@/components/social/use-unread";
 import type { Profile } from "@/components/profile/profile-view";
 import { useAuth } from "@/lib/api/auth-context";
@@ -57,6 +59,8 @@ export default function CommunityPage() {
       />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="flex min-w-0 flex-col gap-4">
+          <RepliesToMe />
+          <QuestionOfDayCard />
           <SegmentedTabs
             value={tab}
             onChange={setTab}

@@ -17,6 +17,11 @@ import {
   containsBlockedContent,
 } from "./domain/content-filter";
 import { FeedDto, MessageDto, PeopleDto, PostDto } from "./social.dto";
+import {
+  isPublicTopic,
+  publicAuthorName,
+  publicTextProblem,
+} from "./domain/topics";
 import { person, order, page } from "./social-selects";
 @Injectable()
 export class PostsService {
@@ -60,6 +65,7 @@ export class PostsService {
     }
     if (query.tab === "following")
       where.author = { followers: { some: { followerId: user } } };
+    if (query.topicKey) where.topicKey = query.topicKey;
     return page(
       await this.db.socialPost.findMany({
         where,
@@ -84,7 +90,29 @@ export class PostsService {
   async create(user: string, data: PostDto) {
     if (containsBlockedContent(data.body))
       throw new BadRequestException(BLOCKED_CONTENT_MESSAGE);
-    if (data.parentId) await this.post(user, data.parentId);
+    // Тема и публичность: ответ всегда наследует их от родителя (клиентские значения
+    // игнорируются), корень может стать открытым только в теме вуза/специальности.
+    let topicKey: string | null = data.topicKey ?? null;
+    let isPublic = false;
+    if (data.parentId) {
+      const parent = await this.post(user, data.parentId);
+      topicKey = parent.topicKey;
+      isPublic = parent.isPublic;
+    } else if (data.isPublic) {
+      if (!isPublicTopic(topicKey))
+        throw new BadRequestException(
+          "Открытыми бывают только вопросы на страницах вузов и специальностей",
+        );
+      isPublic = true;
+    }
+    if (isPublic) {
+      if (data.groupInviteId)
+        throw new BadRequestException(
+          "В открытый вопрос нельзя прикрепить приглашение в группу",
+        );
+      const problem = publicTextProblem(data.body);
+      if (problem) throw new BadRequestException(problem);
+    }
     let groupInviteToken: string | undefined;
     if (data.groupInviteId) {
       const { room, member } = await this.chatAccess.access(
@@ -109,6 +137,8 @@ export class PostsService {
         parentId: data.parentId,
         groupInviteId: data.groupInviteId,
         groupInviteToken,
+        topicKey,
+        isPublic,
       },
       include: this.include(user),
     });
@@ -194,5 +224,104 @@ export class PostsService {
         .catch(() => {});
     }
     return { ok: true };
+  }
+
+  /**
+   * Открытые вопросы для публичных страниц вузов и специальностей (без входа).
+   * Отдаём только то, что нужно странице: текст, дату, «Имя Ф.» и счётчики —
+   * без id пользователей, аватаров и ответов на закрытые посты.
+   */
+  async publicDiscussions(topicKey?: string, cursor?: string) {
+    const replySelect = {
+      id: true,
+      body: true,
+      createdAt: true,
+      author: { select: { firstName: true, lastName: true } },
+      _count: { select: { likes: true } },
+    } satisfies Prisma.SocialPostSelect;
+    const rows = await this.db.socialPost.findMany({
+      where: {
+        isPublic: true,
+        deletedAt: null,
+        parentId: null,
+        ...(topicKey ? { topicKey } : {}),
+      },
+      select: {
+        id: true,
+        body: true,
+        createdAt: true,
+        topicKey: true,
+        author: { select: { firstName: true, lastName: true } },
+        _count: {
+          select: { likes: true, replies: { where: { deletedAt: null } } },
+        },
+        replies: {
+          where: { deletedAt: null, isPublic: true },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          take: 5,
+          select: replySelect,
+        },
+      },
+      orderBy: order,
+      take: 21,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    const shape = <T extends { author: { firstName: string | null; lastName: string | null } }>(
+      row: T,
+    ) => {
+      const { author, ...rest } = row;
+      return { ...rest, authorName: publicAuthorName(author.firstName, author.lastName) };
+    };
+    return {
+      items: rows.slice(0, 20).map((row) => ({
+        ...shape(row),
+        replies: row.replies.map(shape),
+      })),
+      nextCursor: rows.length > 20 ? rows[19].id : null,
+    };
+  }
+
+  /** Что произошло вокруг меня с момента `since`: ответы на мои посты и новые подписчики. */
+  async activity(user: string, since: Date) {
+    const floor = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const from = since < floor ? floor : since;
+    const hidden = await this.socialAccess.hidden(user);
+    const replyWhere: Prisma.SocialPostWhereInput = {
+      deletedAt: null,
+      createdAt: { gt: from },
+      authorId: { not: user, notIn: hidden },
+      parent: { authorId: user, deletedAt: null },
+    };
+    const [replies, followers, grouped] = await Promise.all([
+      this.db.socialPost.count({ where: replyWhere }),
+      this.db.socialFollow.count({
+        where: { followingId: user, createdAt: { gt: from }, followerId: { notIn: hidden } },
+      }),
+      this.db.socialPost.groupBy({
+        by: ["parentId"],
+        where: replyWhere,
+        _count: { _all: true },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: "desc" } },
+        take: 5,
+      }),
+    ]);
+    // Куда именно ответили: до пяти моих постов с новыми ответами (для плашки в ленте).
+    const parentIds = grouped.map((g) => g.parentId).filter((id): id is string => Boolean(id));
+    const parents = parentIds.length
+      ? await this.db.socialPost.findMany({
+          where: { id: { in: parentIds } },
+          select: { id: true, body: true },
+        })
+      : [];
+    const bodyById = new Map(parents.map((p) => [p.id, p.body]));
+    const threads = grouped
+      .filter((g) => g.parentId && bodyById.has(g.parentId))
+      .map((g) => ({
+        postId: g.parentId as string,
+        excerpt: (bodyById.get(g.parentId as string) ?? "").slice(0, 90),
+        replies: g._count._all,
+      }));
+    return { replies, followers, threads };
   }
 }

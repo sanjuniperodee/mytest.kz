@@ -27,6 +27,10 @@ export type Post = {
   likes: { userId: string }[];
   reposts: { userId: string }[];
   views?: number;
+  /** program:B057, university:13, qotd:2026-11-08 — см. apps/api/src/modules/social/domain/topics.ts */
+  topicKey?: string | null;
+  /** Открытый вопрос со страницы вуза/специальности: виден без входа. */
+  isPublic?: boolean;
 };
 export function formatViews(views?: number): string {
   const n = views ?? 0;

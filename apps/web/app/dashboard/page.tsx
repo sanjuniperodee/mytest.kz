@@ -17,6 +17,7 @@ import { SessionStatusBadge } from "@/components/dashboard/data-display"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { formatResetMoment } from "@/components/billing/free-reset"
 import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
+import { QuestionOfDayCard } from "@/components/social/question-of-day"
 
 type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
 const sessionsList = (data?: SessionsResponse) => Array.isArray(data) ? data : data?.items ?? []
@@ -148,6 +149,8 @@ export default function DashboardHomePage() {
       </Card>
       <div className="min-w-0"><AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={impact?.available ? impact.potentialScore : null} maxScore={impact?.available ? impact.maxScore : undefined} /></div>
     </div>
+
+    <QuestionOfDayCard />
 
     <nav className="grid gap-3 sm:grid-cols-3" aria-label={t("Другие разделы", "Басқа бөлімдер")} data-no-translate>
       {[

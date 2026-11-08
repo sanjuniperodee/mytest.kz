@@ -10,12 +10,21 @@ const DANGEROUS_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: 'DELETE FROM', re: /\bDELETE\s+FROM\b/i },
 ];
 
+// Уже применённые на проде миграции, деструктивная часть которых проверена вручную.
+// Помечать их комментарием в самом migration.sql нельзя: сменится checksum применённой
+// миграции. Без этого списка гейт блокировал любую выкатку с новыми миграциями.
+const REVIEWED_APPLIED_MIGRATIONS = new Set<string>([
+  // Дедупликация test_answers перед уникальным индексом (session_id, question_id), июнь 2026.
+  '20260616150000_unique_test_answers_session_question',
+]);
+
 function listMigrationSqlFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const out: string[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    if (REVIEWED_APPLIED_MIGRATIONS.has(entry.name)) continue;
     const sqlPath = path.join(dir, entry.name, 'migration.sql');
     if (fs.existsSync(sqlPath)) out.push(sqlPath);
   }

@@ -61,6 +61,7 @@ import {
 import { cn } from "@/lib/utils"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { GrantGapUpsell } from "@/components/exam/grant-gap-upsell"
+import { ShareResult } from "@/components/exam/share-result"
 import type {
   QuestionAppeal,
   QuestionAppealReason,
@@ -289,7 +290,20 @@ export default function ReviewPage({
               </CardContent>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 sm:px-6">
                 <Button asChild variant="ghost" size="sm"><a href="#review-questions" data-no-translate>{t("Перейти к разбору", "Талдауға өту")}<ChevronDown className="size-4" /></a></Button>
-                <TestFeedback key={sessionId} sessionId={sessionId} />
+                <div className="flex flex-wrap items-center gap-1">
+                  <ShareResult
+                    score={displayScore}
+                    maxScore={displayMax}
+                    subjectLines={sections
+                      .filter((sec) => sec.id !== "all")
+                      .map((sec) =>
+                        sec.rawPoints != null && sec.maxPoints != null
+                          ? `${sec.title} ${sec.rawPoints}/${sec.maxPoints}`
+                          : `${sec.title} ${sec.correctCount}/${sec.totalCount}`,
+                      )}
+                  />
+                  <TestFeedback key={sessionId} sessionId={sessionId} />
+                </div>
               </div>
             </Card>
 

@@ -6,6 +6,7 @@ import { PostsService } from "./posts.service";
 import { PeopleService } from "./people.service";
 import { ChatsService } from "./chats.service";
 import { PostsController } from "./posts.controller";
+import { PublicSocialController } from "./public-social.controller";
 import { PeopleController } from "./people.controller";
 import { ChatsController } from "./chats.controller";
 import { SocialAccessService } from "./social-access.service";
@@ -22,6 +23,7 @@ import { LeaderboardService } from "../leaderboard/leaderboard.service";
 @Module({
   imports: [PrismaModule, RedisModule],
   controllers: [
+    PublicSocialController,
     PostsController,
     PeopleController,
     ChatsController,

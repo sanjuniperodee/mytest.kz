@@ -34,6 +34,7 @@ import { localize } from "@/lib/api/i18n"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { WhatsAppFab } from "@/components/common/whatsapp-fab"
+import { markSocialSeen, useSocialActivity } from "@/components/social/use-social-activity"
 import { useUnreadMessages } from "@/components/social/use-unread"
 import {
   Sheet,
@@ -52,6 +53,8 @@ type NavItem = {
   /** Custom active-state rule; defaults to a prefix match on `href`. */
   match?: (pathname: string, userId?: string) => boolean
   showUnread?: boolean
+  /** Бейдж «ответили / подписались» с прошлого визита в ленту. */
+  showActivity?: boolean
 }
 
 const isOwnProfile = (pathname: string, userId?: string) =>
@@ -97,7 +100,7 @@ const navSections: NavSection[] = [
   {
     section: "Сообщество",
     items: [
-      { href: "/dashboard/community", label: "Лента", mobileLabel: "Лента", icon: Globe2, primary: true, match: isFeed },
+      { href: "/dashboard/community", label: "Лента", mobileLabel: "Лента", icon: Globe2, primary: true, match: isFeed, showActivity: true },
       { href: "/dashboard/community/people", label: "Люди", icon: Users, match: isPeople },
       { href: "/dashboard/messages", label: "Сообщения", icon: MessageCircle, showUnread: true },
       { href: "/dashboard/global-chat", label: "Глобальный чат", icon: Radio },
@@ -125,6 +128,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, signOut } = useAuth()
   const [moreOpen, setMoreOpen] = useState(false)
   const unread = useUnreadMessages(isAuthenticated && user?.isChannelMember !== false)
+  const activity = useSocialActivity(isAuthenticated && user?.isChannelMember !== false)
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard/community")) markSocialSeen()
+  }, [pathname])
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) { rememberInvite(pathname); rememberLoginNext(`${pathname}${window.location.search}`); router.replace("/login") }
@@ -245,6 +252,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                             {item.showUnread && unread > 0 && (
                               <UnreadBadge label={unreadLabel} />
                             )}
+                            {item.showActivity && activity > 0 && (
+                              <UnreadBadge label={activity > 99 ? "99+" : String(activity)} />
+                            )}
                           </Link>
                         </li>
                       )
@@ -317,8 +327,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 >
                   <span className="relative">
                     <Icon className={cn("size-5 transition-transform duration-200", active && "scale-110")} aria-hidden="true" />
-                    {item.href === "/dashboard/community" && unread > 0 && (
-                      <span className="absolute -right-1 -top-0.5 size-2 animate-pop rounded-full bg-accent ring-2 ring-background" aria-label="Непрочитанные сообщения" />
+                    {item.href === "/dashboard/community" && (unread > 0 || activity > 0) && (
+                      <span className="absolute -right-1 -top-0.5 size-2 animate-pop rounded-full bg-accent ring-2 ring-background" aria-label={activity > 0 ? "Новые ответы в ленте" : "Непрочитанные сообщения"} />
                     )}
                   </span>
                   {item.mobileLabel}
@@ -405,6 +415,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                           </span>
                           <span className="flex-1">{item.label}</span>
                           {item.showUnread && unread > 0 && <UnreadBadge label={unreadLabel} />}
+                          {item.showActivity && activity > 0 && <UnreadBadge label={activity > 99 ? "99+" : String(activity)} />}
                           <ChevronRight className="size-4 opacity-60" aria-hidden="true" />
                         </Link>
                       </li>

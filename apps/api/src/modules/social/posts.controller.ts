@@ -15,14 +15,7 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import {
-  FeedDto,
-  MessageDto,
-  PeopleDto,
-  PostDto,
-  ReportDto,
-  ReadDto,
-} from "./social.dto";
+import { ActivityDto, FeedDto, MessageDto, PeopleDto, PostDto, ReadDto, ReportDto } from "./social.dto";
 
 import { PostsService } from "./posts.service";
 @Controller("social")
@@ -38,6 +31,13 @@ export class PostsController {
   constructor(private readonly service: PostsService) {}
   @Get("posts") feed(@CurrentUser("id") user: string, @Query() query: FeedDto) {
     return this.service.feed(user, query);
+  }
+  /** Счётчик для бейджа «Лента»: ответы на мои посты и новые подписчики с момента since. */
+  @Get("activity") activity(
+    @CurrentUser("id") user: string,
+    @Query() query: ActivityDto,
+  ) {
+    return this.service.activity(user, new Date(query.since));
   }
   @Get("posts/:id") post(
     @CurrentUser("id") user: string,

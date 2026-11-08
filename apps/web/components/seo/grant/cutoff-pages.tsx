@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight, Calculator, Info, TrendingDown, TrendingUp } from "lucide-react"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { ScoreCheck } from "@/components/seo/grant/score-check"
+import { TopicDiscussion } from "@/components/seo/grant/topic-discussion"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { ENT_SUBJECTS } from "@/lib/ent-subjects"
 import { OG_IMAGES } from "@/lib/seo"
@@ -376,6 +377,14 @@ export function UniversityCutoffsPage({ data, university, lang }: { data: GrantD
         )}
 
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <div className="mt-12">
+            <TopicDiscussion
+              topicKey={`university:${university.code}`}
+              lang={lang}
+              title={tx(lang, `Вопросы о поступлении в ${short}`, `${short}: түсу туралы сұрақтар`)}
+              askLabel={short}
+            />
+          </div>
           <AdSlot placement="content" className="mt-12" />
         </div>
 
@@ -608,6 +617,14 @@ export function ProgramCutoffsPage({ data, program, lang }: { data: GrantData; p
         )}
 
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <div className="mt-12">
+            <TopicDiscussion
+              topicKey={`program:${program.code}`}
+              lang={lang}
+              title={tx(lang, `Вопросы о поступлении на «${name}»`, `«${name}»: түсу туралы сұрақтар`)}
+              askLabel={`${name} · ${program.code}`}
+            />
+          </div>
           <AdSlot placement="content" className="mt-12" />
         </div>
 

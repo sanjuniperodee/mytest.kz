@@ -42,16 +42,26 @@ import {
 export function Composer({
   parentId,
   onDone,
+  topicKey,
+  isPublic = false,
+  placeholder,
+  onCreated,
 }: {
   parentId?: string;
   onDone: () => void | Promise<unknown>;
+  /** Тема корневого поста (вопрос дня, вуз, специальность). */
+  topicKey?: string;
+  /** Открытый вопрос: увидят все на странице темы, без входа. */
+  isPublic?: boolean;
+  placeholder?: string;
+  onCreated?: (post: Post) => void;
 }) {
   const { user } = useAuth();
   const t = useSocialText();
   const [text, setText] = useState("");
   const [inviteId, setInviteId] = useState("");
   const { data: rooms } = useSWR<Room[]>(
-    !parentId ? "/social/rooms" : null,
+    !parentId && !isPublic ? "/social/rooms" : null,
     (path: string) => api<Room[]>(path),
   );
   useEffect(() => {
@@ -68,14 +78,17 @@ export function Composer({
     setPublishError("");
     setBusy(true);
     try {
-      await api("/social/posts", {
+      const created = await api<Post>("/social/posts", {
         method: "POST",
         body: {
           body: text.trim(),
           ...(parentId ? { parentId } : {}),
           ...(inviteId ? { groupInviteId: inviteId } : {}),
+          ...(!parentId && topicKey ? { topicKey } : {}),
+          ...(!parentId && isPublic ? { isPublic: true } : {}),
         },
       });
+      onCreated?.(created);
       setText("");
       setInviteId("");
       try {
@@ -129,16 +142,26 @@ export function Composer({
             rows={3}
             disabled={busy}
             placeholder={
-              parentId
+              placeholder ??
+              (parentId
                 ? t("Поделись своим ответом…", "Жауабыңмен бөліс…")
                 : t(
                     "Что нового? Вопрос, мысль или маленькая победа…",
                     "Не жаңалық? Сұрағыңмен не жетістігіңмен бөліс…",
-                  )
+                  ))
             }
             className="w-full resize-y rounded-lg bg-transparent p-1 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
           />
+          {isPublic && (
+            <p className="mt-2 rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
+              {t(
+                "Вопрос увидят все на странице вуза или специальности и в ленте — даже без входа. Подпись: имя и первая буква фамилии. Не пиши телефон, ссылки и личные данные.",
+                "Сұрақты ЖОО немесе мамандық бетінде және лентада бәрі көреді — кірмей-ақ. Қолтаңба: аты және тегінің бірінші әрпі. Телефон, сілтеме және жеке деректерді жазба.",
+              )}
+            </p>
+          )}
           {!parentId &&
+            !isPublic &&
             rooms?.some(
               (r) =>
                 r.title &&
@@ -215,6 +238,35 @@ function AnimatedCounter({ value }: { value: string | number }) {
 }
 
 const viewedPosts = new Set<string>();
+
+/** Метка темы над постом: ведёт на страницу вуза/специальности или в обсуждение вопроса дня. */
+function TopicChip({ topicKey, isPublic }: { topicKey: string; isPublic?: boolean }) {
+  const t = useSocialText();
+  const [kind, value] = topicKey.split(":");
+  const label =
+    kind === "program"
+      ? t(`Поступление · ${value}`, `Түсу · ${value}`)
+      : kind === "university"
+        ? t("Поступление в вуз", "ЖОО-ға түсу")
+        : kind === "qotd"
+          ? t("Вопрос дня", "Күн сұрағы")
+          : topicKey;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+      <Link
+        href={`/t/${encodeURIComponent(topicKey)}`}
+        className="inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent hover:bg-accent/15"
+      >
+        {label}
+      </Link>
+      {isPublic && (
+        <span className="text-[11px] text-muted-foreground">
+          {t("открытый вопрос", "ашық сұрақ")}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function PostCard({
   post,
@@ -432,6 +484,7 @@ export function PostCard({
               {t("В ответ на публикацию ↗", "Жарияланымға жауап ↗")}
             </Link>
           )}
+          {post.topicKey && !nested && <TopicChip topicKey={post.topicKey} isPublic={post.isPublic} />}
           <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed [overflow-wrap:anywhere]">
             {post.body}
           </p>
@@ -596,7 +649,12 @@ export function PostList({
   nested = false,
   toolbar = !parentId,
   empty,
+  topicKey,
+  composerPlaceholder,
 }: {
+  /** Только посты этой темы; новый пост в композере получит её же. */
+  topicKey?: string;
+  composerPlaceholder?: string;
   query?: string;
   composer?: boolean;
   parentId?: string;
@@ -612,7 +670,7 @@ export function PostList({
       (index, previous) =>
         index > 0 && !previous?.nextCursor
           ? null
-          : `/social/posts?${query}${parentId ? `&parentId=${parentId}` : ""}${index ? `&cursor=${previous?.nextCursor}` : ""}`,
+          : `/social/posts?${query}${parentId ? `&parentId=${parentId}` : ""}${topicKey ? `&topicKey=${encodeURIComponent(topicKey)}` : ""}${index ? `&cursor=${previous?.nextCursor}` : ""}`,
       (path: string) => api<Page<Post>>(path),
       {
         revalidateOnFocus: false,
@@ -631,6 +689,8 @@ export function PostList({
       {composer && (
         <Composer
           parentId={parentId}
+          topicKey={topicKey}
+          placeholder={composerPlaceholder}
           onDone={async () => {
             await mutate();
             await onChange?.();

@@ -217,6 +217,10 @@ model SocialPost {
   createdAt DateTime @default(now()) @db.Timestamptz
   deletedAt DateTime? @db.Timestamptz
   views Int @default(0)
+  /// Тема обсуждения: program:B057, university:13, qotd:2026-11-08. Ответы наследуют тему корня.
+  topicKey String? @db.VarChar(64)
+  /// Виден без входа на публичных страницах темы (только вопросы, заданные там явно, и ответы на них).
+  isPublic Boolean @default(false)
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parent SocialPost? @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
   replies SocialPost[] @relation("Replies")
@@ -225,6 +229,7 @@ model SocialPost {
   reports SocialReport[]
   @@index([parentId, createdAt, id])
   @@index([authorId, createdAt, id])
+  @@index([topicKey, isPublic, createdAt])
 }
 
 model SocialLike {
