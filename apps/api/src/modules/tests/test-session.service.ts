@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { TestGeneratorService } from './test-generator.service';
 import { TestScorerService } from './test-scorer.service';
 import { MistakesService } from './mistakes.service';
+import { SESSION_QUESTION_SELECT, toSessionQuestionPayload } from './session-question-payload';
 import {
   ENT_CONFIG,
   type EntScope,
@@ -373,8 +374,8 @@ export class TestSessionService {
           answers: {
             include: {
               question: {
-                include: {
-                  subject: { select: { id: true, name: true, slug: true } },
+                select: {
+                  ...SESSION_QUESTION_SELECT,
                   answerOptions: {
                     select: { id: true, content: true, sortOrder: true },
                     orderBy: { sortOrder: 'asc' },
@@ -428,9 +429,20 @@ export class TestSessionService {
 
     return {
       ...this.normalizeSessionScore(session),
+      answers: this.withoutExplanationText(session.answers),
       isPaused: paused && session.status === 'in_progress',
       appeals,
     };
+  }
+
+  /** Explanations are paid (see `getExplanation`): session payloads carry only flags, never the text. */
+  private withoutExplanationText<A extends { question: { explanation?: unknown; imageUrls?: unknown } }>(
+    answers: A[],
+  ) {
+    return answers.map((answer) => ({
+      ...answer,
+      question: toSessionQuestionPayload(answer.question),
+    }));
   }
 
   async getSessions(
@@ -721,8 +733,8 @@ export class TestSessionService {
         answers: {
           include: {
             question: {
-              include: {
-                subject: { select: { id: true, name: true, slug: true } },
+              select: {
+                ...SESSION_QUESTION_SELECT,
                 answerOptions: {
                   orderBy: { sortOrder: 'asc' },
                 },
@@ -766,7 +778,7 @@ export class TestSessionService {
       rawScore: scoreResult.rawScore,
       maxScore: scoreResult.maxScore,
       score: scoreResult.score,
-      answers: normalized.answers?.map((answer) => {
+      answers: this.withoutExplanationText(normalized.answers ?? []).map((answer) => {
         const answerScore = answerScoresById.get(answer.id);
         return answerScore
           ? {

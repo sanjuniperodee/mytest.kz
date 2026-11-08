@@ -22,7 +22,7 @@ import { TestFeedback } from "@/components/exam/TestFeedbackSheet"
 import { QuestionAppealButton, upsertAppeal } from "@/components/exam/QuestionAppeal"
 import { api, ApiError } from "@/lib/api/client"
 import { useAuth } from "@/lib/api/auth-context"
-import { getDetachedImageUrls, imageReferenceText } from "@/lib/exam/rich-html"
+import { getDetachedImageUrls } from "@/lib/exam/rich-html"
 import { localize, type Locale, type LocalizedText } from "@/lib/api/i18n"
 import {
   buildReviewSections,
@@ -405,8 +405,7 @@ export default function ExamReviewScreen() {
                         q.display.topicLine ?? "",
                         q.display.stem,
                         ...q.answerOptions.map((opt) => localize(opt.content ?? opt.text, locale)),
-                        imageReferenceText(q.explanation),
-                      ])
+                      ]).filter((url) => !q.explanationImageUrls.includes(url))
                       const open = !!expanded[q.id]
                       const borderQ =
                         q.reviewStatus === "correct"

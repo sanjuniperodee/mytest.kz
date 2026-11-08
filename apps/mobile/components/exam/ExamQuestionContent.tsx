@@ -6,7 +6,7 @@ import { ExamAnswerOptionsWebView } from "@/components/exam/ExamAnswerOptionsWeb
 import { RichHtml } from "@/components/exam/RichHtml"
 import { RichHtmlLayoutGateContext } from "@/lib/exam/rich-html-layout-gate"
 import { examRichColumnWidth } from "@/lib/exam/layout"
-import { getDetachedImageUrls, imageReferenceText } from "@/lib/exam/rich-html"
+import { getDetachedImageUrls } from "@/lib/exam/rich-html"
 import { localize, type Locale } from "@/lib/api/i18n"
 import type { FlatSessionQuestion } from "@/lib/api/test-session"
 import { fonts } from "@/lib/theme/fonts"
@@ -102,8 +102,7 @@ export const ExamQuestionContent = memo(
           question.display.topicLine ?? "",
           question.display.stem,
           ...question.answerOptions.map((opt) => localize(opt.content ?? opt.text, locale)),
-          imageReferenceText(question.explanation),
-        ]),
+        ]).filter((url) => !question.explanationImageUrls.includes(url)),
       [question, locale],
     )
 

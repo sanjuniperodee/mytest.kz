@@ -27,8 +27,9 @@ export interface FlatSessionQuestion {
   maxPoints: number
   errorCount: number | null
   reviewStatus: "correct" | "partial" | "incorrect" | "unanswered"
-  explanation: unknown
   hasExplanation: boolean
+  /** Entries of `imageUrls` embedded in the (paid) explanation — not shown as attached images. */
+  explanationImageUrls: string[]
   multiSelect: boolean
   maxSelections: number | null
   sectionId: string
@@ -236,8 +237,8 @@ export function flattenSessionQuestions(
       maxPoints,
       errorCount: answer.errorCount ?? null,
       reviewStatus,
-      explanation: question.explanation,
-      hasExplanation: question.explanation != null,
+      hasExplanation: question.hasExplanation === true,
+      explanationImageUrls: imageUrls(question.explanationImageUrls),
       multiSelect: (maxSelections ?? 0) > 1 || isMultiSelect(question.type, options),
       maxSelections,
       sectionId: section?.subjectId ?? subject?.id ?? `section-${sectionIndex}`,
