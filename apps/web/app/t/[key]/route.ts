@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { loadGrantData } from "@/lib/seo/grant-cutoffs"
 import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
+import { getSiteUrl } from "@/lib/site"
 
 /**
  * Короткая ссылка на тему обсуждения (метка над постом в ленте): ключ темы → страница,
@@ -29,5 +30,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       target = GRANT_ROUTES.ru.hub
     }
   }
-  return NextResponse.redirect(new URL(target, request.url), 307)
+  // За nginx request.url указывает на внутренний адрес Next (localhost:3000), поэтому
+  // абсолютный адрес строим от публичного origin; в разработке — от адреса запроса.
+  const base = process.env.NODE_ENV === "production" ? getSiteUrl() : request.nextUrl.origin
+  return NextResponse.redirect(new URL(target, base), 307)
 }
