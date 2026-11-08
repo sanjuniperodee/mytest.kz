@@ -395,7 +395,7 @@ export default function BillingPage() {
             <div className="flex flex-col gap-2">
                 <h2 className="text-xl font-semibold tracking-tight">Выберите тариф</h2>
                 <p className="text-muted-foreground">
-                    Все тарифы открывают одно и то же — разборы, тренировку слабых тем, AI-план и безлимитные пробные. Отличается только срок. Без автопродления.
+                    Все тарифы открывают одно и то же — разборы, тренировку слабых тем, AI-план и безлимитные пробные. Отличается только срок. Без автопродления. Нет своего Kaspi — оплатить может родитель: счёт придёт ему в Kaspi.
                 </p>
             </div>
 
@@ -481,11 +481,11 @@ function PendingKaspiOrders({
     if (!visibleOrders.length) return null
 
     return (
-        <Card className="border-amber-300 bg-amber-50">
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30">
             <CardContent className="flex flex-col gap-3 p-5">
                 <div className="flex flex-col gap-1">
-                    <p className="font-semibold text-amber-900">Ожидает оплаты в Kaspi</p>
-                    <p className="text-sm text-amber-800">
+                    <p className="font-semibold text-amber-900 dark:text-amber-100">Ожидает оплаты в Kaspi</p>
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
                         Откройте счёт или Kaspi QR и завершите оплату. После подтверждения доступ включится автоматически.
                     </p>
                 </div>
@@ -493,7 +493,7 @@ function PendingKaspiOrders({
                     const invoiceId = resolveOrderInvoiceId(order)
                     const canCancel = order.paymentType !== "qr"
                     return (
-                        <div key={invoiceId || order.createdAt} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div key={invoiceId || order.createdAt} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-white/70 p-3 dark:border-amber-900/50 dark:bg-background/60 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm">
                                 <p className="font-medium">
                                     {order.planName}
@@ -558,7 +558,7 @@ function CancelKaspiOrderButton({ invoiceId }: { invoiceId: string }) {
             variant="outline"
             onClick={cancelOrder}
             disabled={loading}
-            className="border-amber-300 bg-white/80 text-amber-950 hover:bg-amber-100"
+            className="border-amber-300 bg-white/80 text-amber-950 hover:bg-amber-100 dark:border-amber-800 dark:bg-background/60 dark:text-amber-100 dark:hover:bg-amber-950/50"
         >
             {loading ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
             Отменить
@@ -603,6 +603,9 @@ function PlanCard({
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kaspi")
     const [kaspiMethod, setKaspiMethod] = useState<KaspiMethod>("invoice")
     const [phone, setPhone] = useState("")
+    // У многих школьников нет своего Kaspi: счёт можно выставить на номер родителя.
+    const [payer, setPayer] = useState<"me" | "parent">("me")
+    const userPhoneValue = typeof user?.phone === "string" ? user.phone.trim() : ""
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<ReactNode | null>(null)
 
@@ -625,6 +628,7 @@ function PlanCard({
         }
         const userPhone = typeof user?.phone === "string" ? user.phone.trim() : ""
         setPhone(userPhone)
+        setPayer("me")
         setPaymentMethod("kaspi")
         setKaspiMethod("invoice")
         setShowModal(true)
@@ -649,7 +653,7 @@ function PlanCard({
         }
         setLoading(true)
         setError(null)
-        void recordFunnelEvent("checkout_attempted", { provider: "kaspi", paymentType: kaspiMethod, planCode: plan.code }, sourceSessionId || undefined)
+        void recordFunnelEvent("checkout_attempted", { provider: "kaspi", paymentType: kaspiMethod, planCode: plan.code, payer }, sourceSessionId || undefined)
         try {
             const rawResult = await api<KaspiCheckoutResponse>("/billing/kaspi/checkout", {
                 method: "POST",
@@ -666,6 +670,7 @@ function PlanCard({
                 planCode: plan.code,
                 planId: plan.id,
                 paymentType: kaspiMethod,
+                payer,
                 reason: sourceReason,
                 sessionId: sourceSessionId,
             })
@@ -675,6 +680,11 @@ function PlanCard({
                 return
             }
             setShowModal(false)
+            try {
+                if (payer === "parent") sessionStorage.setItem(`mytest-kaspi-payer-${result.invoiceId}`, "parent")
+            } catch {
+                // ignore
+            }
             router.push(`/dashboard/billing/kaspi/${encodeURIComponent(result.invoiceId)}`)
         } catch (err: unknown) {
             const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err)
@@ -954,7 +964,7 @@ function PlanCard({
                                                     <div>
                                                         <p className="font-medium">Счёт на оплату</p>
                                                         <p className="text-sm text-muted-foreground">
-                                                            Выставим счёт на номер телефона из Kaspi
+                                                            Счёт придёт в Kaspi — на твой номер или номер родителя
                                                         </p>
                                                     </div>
                                                 </div>
@@ -999,16 +1009,49 @@ function PlanCard({
 
                                     {kaspiMethod === "invoice" ? (
                                         <div className="flex flex-col gap-2">
-                                            <label className="text-sm font-medium">Номер телефона в Kaspi</label>
+                                            <p className="text-sm font-medium">Кто платит?</p>
+                                            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Кто платит">
+                                                {([
+                                                    ["me", "Я сам(а)"],
+                                                    ["parent", "Родитель"],
+                                                ] as const).map(([value, label]) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={payer === value}
+                                                        onClick={() => {
+                                                            setPayer(value)
+                                                            setPhone(value === "me" ? userPhoneValue : "")
+                                                            setError(null)
+                                                        }}
+                                                        className={cn(
+                                                            "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                                                            payer === value
+                                                                ? "border-foreground bg-secondary"
+                                                                : "border-border hover:bg-secondary/70",
+                                                        )}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <label className="mt-1 text-sm font-medium" htmlFor={`kaspi-phone-${plan.id}`}>
+                                                {payer === "parent" ? "Номер родителя в Kaspi" : "Номер телефона в Kaspi"}
+                                            </label>
                                             <Input
+                                                id={`kaspi-phone-${plan.id}`}
                                                 type="tel"
                                                 placeholder="+7 (700) 123-45-67"
                                                 value={phone}
+                                                autoFocus={payer === "parent"}
                                                 onChange={(e) => setPhone(e.target.value)}
                                                 className={cn(error && "border-red-500")}
                                             />
                                             <p className="text-xs text-muted-foreground">
-                                                На этот номер мы выставим счёт и откроем отдельный экран оплаты.
+                                                {payer === "parent"
+                                                    ? "Счёт придёт родителю в приложение Kaspi: «Платежи» → «Счета на оплату». Доступ откроется в твоём аккаунте сразу после оплаты — на следующем экране можно отправить родителю сообщение с суммой."
+                                                    : "На этот номер мы выставим счёт и откроем отдельный экран оплаты. Нет своего Kaspi — выбери «Родитель»."}
                                             </p>
                                         </div>
                                     ) : (

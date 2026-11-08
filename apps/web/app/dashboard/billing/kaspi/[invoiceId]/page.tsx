@@ -16,6 +16,8 @@ import {
   Loader2,
   RefreshCw,
   XCircle,
+  MessageCircle,
+  Send,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +27,7 @@ import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { cn } from "@/lib/utils"
+import { useUiI18n } from "@/lib/i18n/ui"
 
 interface PaymentOrder {
   invoiceId: string
@@ -142,7 +145,7 @@ function statusView(status: PaymentOrder["status"]) {
       description: "Этот Kaspi QR уже просрочен. Вернитесь к тарифам и выставьте новый.",
       icon: XCircle,
       badge: "Истёк",
-      className: "border-red-200 bg-red-50 text-red-950",
+      className: "border-red-200 bg-red-50 text-red-950 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100",
     }
   }
   const kind = paymentStatusKind(status)
@@ -152,7 +155,7 @@ function statusView(status: PaymentOrder["status"]) {
       description: "Подписка уже активирована. Можно возвращаться к пробникам.",
       icon: CheckCircle2,
       badge: "Оплачено",
-      className: "border-emerald-200 bg-emerald-50 text-emerald-950",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100",
     }
   }
   if (kind === "inactive") {
@@ -161,7 +164,7 @@ function statusView(status: PaymentOrder["status"]) {
       description: "Этот счёт уже не активен. Вернитесь к тарифам и выставьте новый.",
       icon: XCircle,
       badge: "Отменён",
-      className: "border-red-200 bg-red-50 text-red-950",
+      className: "border-red-200 bg-red-50 text-red-950 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100",
     }
   }
   return {
@@ -169,7 +172,7 @@ function statusView(status: PaymentOrder["status"]) {
     description: "Подтвердите оплату в Kaspi. Статус обновляется автоматически.",
     icon: Clock3,
     badge: "Ожидает",
-    className: "border-amber-200 bg-amber-50 text-amber-950",
+    className: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
   }
 }
 
@@ -239,10 +242,10 @@ export default function KaspiPaymentPage() {
           <ArrowLeft className="size-4" />
           Тарифы
         </Link>
-        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+        <Card className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
           <CardContent className="flex flex-col gap-4 p-6">
             <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80 dark:bg-background/60">
                 <Clock3 className="size-5" />
               </div>
               <div>
@@ -284,10 +287,10 @@ export default function KaspiPaymentPage() {
           <ArrowLeft className="size-4" />
           Тарифы
         </Link>
-        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+        <Card className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
           <CardContent className="flex flex-col gap-4 p-6">
             <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80 dark:bg-background/60">
                 <Clock3 className="size-5" />
               </div>
               <div>
@@ -362,7 +365,7 @@ export default function KaspiPaymentPage() {
         <CardContent className="flex flex-col gap-5 p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/80 dark:bg-background/60">
                 <StatusIcon className="size-5" />
               </div>
               <div>
@@ -372,23 +375,23 @@ export default function KaspiPaymentPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {isQrPayment && (
-                <Badge variant="outline" className="w-fit bg-white/70">
+                <Badge variant="outline" className="w-fit bg-white/70 dark:bg-background/60">
                   Kaspi QR
                 </Badge>
               )}
-              <Badge variant="outline" className="w-fit bg-white/70">
+              <Badge variant="outline" className="w-fit bg-white/70 dark:bg-background/60">
                 {view.badge}
               </Badge>
             </div>
           </div>
 
           {order.fallbackToQr && (
-            <div className="rounded-md border border-current/10 bg-white/75 p-4 text-sm text-foreground">
+            <div className="rounded-md border border-current/10 bg-white/75 p-4 text-sm text-foreground dark:bg-background/60">
               Счёт по номеру телефона сейчас не создался, поэтому мы автоматически переключили оплату на Kaspi QR.
             </div>
           )}
 
-          <div className="rounded-md border border-current/10 bg-white/75 p-4 text-sm text-foreground">
+          <div className="rounded-md border border-current/10 bg-white/75 p-4 text-sm text-foreground dark:bg-background/60">
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Тариф</span>
               <span className="font-medium">{order.planName}</span>
@@ -434,9 +437,9 @@ export default function KaspiPaymentPage() {
           </div>
 
           {isQrPayment && qrValue && statusKind === "pending" && (
-            <div className="grid gap-4 rounded-md border border-current/10 bg-white/75 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-4 rounded-md border border-current/10 bg-white/75 p-4 dark:bg-background/60 md:grid-cols-[220px_minmax(0,1fr)]">
               <div className="mx-auto flex w-full max-w-[220px] flex-col items-center gap-3">
-                <div className="rounded-xl border border-current/10 bg-white p-4 shadow-sm">
+                <div className="rounded-xl border border-current/10 bg-white p-4 text-neutral-950 shadow-sm">
                   <QRCode value={qrValue} size={180} bgColor="transparent" fgColor="currentColor" />
                 </div>
                 <p className="text-center text-xs text-muted-foreground">
@@ -461,6 +464,17 @@ export default function KaspiPaymentPage() {
             </div>
           )}
 
+          {statusKind === "pending" && (
+            <ParentShare
+              amount={`${order.amount.toLocaleString(getFormatLocale())} ${order.currency === "KZT" ? "₸" : order.currency}`}
+              planName={order.planName}
+              invoiceId={order.invoiceId}
+              isQr={isQrPayment}
+              payUrl={openPayUrl}
+              expiresAt={order.expiresAt ? formatDateTime(order.expiresAt) : null}
+            />
+          )}
+
           <div className="flex flex-col gap-2 sm:flex-row">
             {openPayUrl && statusKind === "pending" && (
               <Button
@@ -481,7 +495,7 @@ export default function KaspiPaymentPage() {
               </Button>
             )}
             {!openPayUrl && statusKind === "pending" && (
-              <div className="rounded-md border border-current/10 bg-white/70 p-3 text-sm text-foreground sm:flex-1">
+              <div className="rounded-md border border-current/10 bg-white/70 p-3 text-sm text-foreground dark:bg-background/60 sm:flex-1">
                 {isQrPayment
                   ? "Kaspi QR уже создан. Отсканируйте код в приложении Kaspi и затем обновите статус."
                   : "Счёт выставлен в Kaspi, но ссылка на оплату пока не пришла. Откройте приложение Kaspi или проверьте статус через несколько секунд."}
@@ -516,6 +530,86 @@ export default function KaspiPaymentPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+/**
+ * «Платит родитель»: у многих школьников нет своего Kaspi. Счёт уже ушёл на номер
+ * родителя (или есть ссылка на оплату QR) — даём отправить ему понятное сообщение
+ * с суммой и инструкцией, чтобы он не принял счёт за спам.
+ */
+function ParentShare({
+  amount,
+  planName,
+  invoiceId,
+  isQr,
+  payUrl,
+  expiresAt,
+}: {
+  amount: string
+  planName: string
+  invoiceId: string | null | undefined
+  isQr: boolean
+  payUrl: string | null
+  expiresAt: string | null
+}) {
+  const [parentPays, setParentPays] = useState(false)
+  useEffect(() => {
+    try {
+      setParentPays(Boolean(invoiceId) && sessionStorage.getItem(`mytest-kaspi-payer-${invoiceId}`) === "parent")
+    } catch {
+      setParentPays(false)
+    }
+  }, [invoiceId])
+
+  const { locale } = useUiI18n()
+  // Для QR без ссылки родителю нечего отправить — QR сканируют рядом.
+  if (isQr && !payUrl) return null
+
+  // Сообщение уходит родителю — на языке интерфейса ребёнка.
+  const text =
+    locale === "kk"
+      ? isQr
+        ? `Сәлем! my-test.kz сайтындағы ҰБТ-ға дайындықты төлеп жіберші — «${planName}» тарифі, ${amount}. Kaspi-дегі төлем сілтемесі${expiresAt ? ` (${expiresAt} дейін жарамды)` : ""}: ${payUrl}`
+        : `Сәлем! Саған Kaspi-ге ${amount} шот жібердім — бұл my-test.kz сайтындағы ҰБТ-ға дайындық, «${planName}» тарифі. Kaspi → «Төлемдер» → «Төлемге арналған шоттар» бөлімін ашып, төлеп жіберші.${payUrl ? ` Немесе сілтеме арқылы: ${payUrl}` : ""}`
+      : isQr
+        ? `Привет! Оплати, пожалуйста, подготовку к ЕНТ на my-test.kz — тариф «${planName}», ${amount}. Ссылка на оплату в Kaspi${expiresAt ? ` (действует до ${expiresAt})` : ""}: ${payUrl}`
+        : `Привет! Я отправил(а) тебе счёт в Kaspi на ${amount} — это подготовка к ЕНТ на my-test.kz, тариф «${planName}». Открой Kaspi → «Платежи» → «Счета на оплату» и оплати, пожалуйста.${payUrl ? ` Или по ссылке: ${payUrl}` : ""}`
+  const siteUrl = "https://my-test.kz"
+
+  return (
+    <div className="rounded-md border border-current/10 bg-white/75 p-4 text-sm text-foreground dark:bg-background/60">
+      <p className="font-medium">{parentPays ? "Напиши родителю, что счёт от тебя" : "Платит родитель?"}</p>
+      <p className="mt-1 text-muted-foreground">
+        {isQr
+          ? "Родитель не рядом — отправь ему ссылку на оплату. Доступ откроется в твоём аккаунте автоматически."
+          : "Отправь сообщение с суммой и подсказкой, где найти счёт. Доступ откроется в твоём аккаунте автоматически."}
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <Button asChild variant="outline" className="h-10">
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(text)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => void recordFunnelEvent("payment_opened", { provider: "kaspi", action: "share_parent_whatsapp", invoiceId })}
+          >
+            <MessageCircle className="size-4" />
+            WhatsApp
+          </a>
+        </Button>
+        <Button asChild variant="outline" className="h-10">
+          <a
+            href={`https://t.me/share/url?url=${encodeURIComponent(payUrl ?? siteUrl)}&text=${encodeURIComponent(text)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => void recordFunnelEvent("payment_opened", { provider: "kaspi", action: "share_parent_telegram", invoiceId })}
+          >
+            <Send className="size-4" />
+            Telegram
+          </a>
+        </Button>
+      </div>
     </div>
   )
 }
