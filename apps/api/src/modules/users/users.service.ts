@@ -15,6 +15,7 @@ import {
 } from "../social/domain/content-filter";
 import { AccessService } from "../subscriptions/access.service";
 import { MonetizationService } from "../subscriptions/monetization.service";
+import { isChannelGateExempt } from "../../common/channel-gate";
 
 type ChannelMembershipStatus =
   "member" | "not_member" | "not_required" | "unknown";
@@ -127,6 +128,7 @@ export class UsersService {
       select: {
         id: true,
         telegramId: true,
+        telegramLinkedAt: true,
         isChannelMember: true,
         channelCheckedAt: true,
       },
@@ -141,6 +143,7 @@ export class UsersService {
     user: {
       id: string;
       telegramId: bigint | null;
+      telegramLinkedAt?: Date | null;
       isChannelMember: boolean;
       channelCheckedAt: Date | null;
     },
@@ -150,7 +153,8 @@ export class UsersService {
     isChannelMember: boolean;
     checkedAt: Date | null;
   }> {
-    if (!user.telegramId) {
+    if (!user.telegramId || isChannelGateExempt(user)) {
+      // No Telegram, or Telegram linked to a web account just for reminders.
       return {
         status: "not_required",
         isChannelMember: true,

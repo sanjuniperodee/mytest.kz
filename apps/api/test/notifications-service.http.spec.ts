@@ -6,12 +6,14 @@ describe('NotificationsService', () => {
       {
         id: 'user-ru',
         telegramId: BigInt(1001),
+        phone: '77001234501',
         preferredLanguage: 'ru',
         timezone: 'Asia/Almaty',
       },
       {
         id: 'user-kk',
         telegramId: BigInt(1002),
+        phone: '77001234502',
         preferredLanguage: 'kk',
         timezone: 'Asia/Almaty',
       },
@@ -54,16 +56,26 @@ describe('NotificationsService', () => {
     };
     const telegramBot = {
       sendLifecycleNotification: jest.fn().mockResolvedValue(undefined),
+      canSendLifecycleNotifications: jest.fn().mockReturnValue(true),
+      isUnreachableChatError: jest.fn().mockReturnValue(false),
     };
     const redis = {
       set: jest.fn().mockResolvedValue('OK'),
       eval: jest.fn().mockResolvedValue(1),
     };
+    const mailer = { isConfigured: () => false, hasCapacity: async () => false };
+    const webPush = { isConfigured: () => false };
+    const preferences = { siteUrl: () => 'https://my-test.kz', unsubscribeUrl: () => null };
     const service = new NotificationsService(
       prisma as any,
       config as any,
       telegramBot as any,
       redis as any,
+      mailer as any,
+      webPush as any,
+      preferences as any,
+      {} as any,
+      {} as any,
     );
 
     const result = await service.runAutomation('manual', {
@@ -71,13 +83,32 @@ describe('NotificationsService', () => {
     });
 
     expect(result.sent).toBe(2);
-    expect(prisma.user.findMany).toHaveBeenCalledWith(
+    const where = prisma.user.findMany.mock.calls[0][0].where;
+    // Only Telegram is configured here: the reachability filter is the Telegram clause alone.
+    expect(where.AND).toEqual(
+      expect.arrayContaining([
+        {
+          OR: [
+            {
+              telegramId: { not: null },
+              notificationsMutedAt: null,
+              OR: [{ phone: { not: null } }, { telegramLinkedAt: { not: null } }],
+            },
+          ],
+        },
+        {
+          OR: [
+            { telegramId: null },
+            { telegramLinkedAt: { not: null } },
+            { isChannelMember: true },
+          ],
+        },
+      ]),
+    );
+    expect(prisma.notificationDelivery.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          isChannelMember: true,
-          telegramId: { not: null },
-          phone: { not: null },
-        }),
+        where: { dedupeKey: 'no_trial_day1:user-ru' },
+        create: expect.objectContaining({ channel: 'telegram', targetTelegramId: BigInt(1001) }),
       }),
     );
     expect(telegramBot.sendLifecycleNotification).toHaveBeenCalledWith(

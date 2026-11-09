@@ -21,12 +21,14 @@ export class AdminNotificationsController {
     @Query('limit') limit?: string,
     @Query('campaignKey') campaignKey?: string,
     @Query('status') status?: string,
+    @Query('channel') channel?: string,
   ) {
     return this.notifications.getLogs({
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       campaignKey,
       status,
+      channel,
     });
   }
 

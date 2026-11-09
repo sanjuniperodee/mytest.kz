@@ -87,6 +87,7 @@ Built TS package; `src/index.ts` re-exports everything. Key files: `entGrantMode
 - **ENT scoring**: 5 subjects — mathLit (max 10), readingLit (max 10), history (max 20), profile1 (max 50), profile2 (max 50) = 140 total. Use `totalEntScore()` from `@bilimland/shared` (clamps inputs); do **not** re-sum the five fields inline.
 - **Passing scores (проходные баллы)**: Fetched from `/admission/cutoffs?cycleSlug=<year>&quotaType=GRANT`.
 - **JWT `isAdmin` is a UI hint only**: `AdminGuard` re-reads `User.isAdmin` from the database on every request.
+- **Lifecycle notifications**: push / Telegram / email, one channel per campaign per user — see the "Lifecycle notifications" and "Telegram connect" bullets in `CLAUDE.md`. Accounts with `telegram_linked_at` are exempt from the Telegram channel gate (`isChannelGateExempt`).
 - **i18n on the wire**: The API returns `{ kk, ru, en }` objects; an interceptor localizes responses server-side and the client `localize()` handles the rest.
 - **Hero slides / landing config**: Landing pages fetch `heroSlides` dynamically from `/public/landing-settings`. Each slide has `desktopImageUrl`, `tabletImageUrl`, `mobileImageUrl` or a legacy `image` fallback.
 - **Theme**: Dark/light toggle stored in localStorage (`mytest-theme`). Web UI uses `data-theme` attribute on `<html>`, older pages use CSS class `.dark`.
