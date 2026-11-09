@@ -21,6 +21,8 @@
     "seed:history-kz-ent-ru": "ts-node prisma/seed-history-kz-ent-ru.ts",
     "seed:geo-ent": "ts-node prisma/seed-geo-ent.ts",
     "seed:grant-admission": "ts-node prisma/seed-grant-admission.ts",
+    "seed:ent-banks": "ts-node prisma/seed-ent-banks.ts",
+    "check:ent-banks": "ts-node prisma/seed-ent-banks.ts --check && node prisma/scripts/check-bank-latex.js",
     "parse:geo-ent-pdfs": "python3 prisma/scripts/parse_geo_ent_pdfs.py",
     "import:grant-admission": "ts-node prisma/import-grant-csvs.ts",
     "backfill:subscription-v2": "ts-node prisma/backfill-subscription-v2.ts"
