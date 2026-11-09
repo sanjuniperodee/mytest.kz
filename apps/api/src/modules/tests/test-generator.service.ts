@@ -86,6 +86,16 @@ export class TestGeneratorService {
     const seed = opts?.seed;
     const seenQuestionIds = await this.loadSeenQuestionIds(seed ? undefined : userId);
 
+    if (examSlug === 'ent' && entScope === 'express') {
+      return this.generateEntExpressSections(
+        template.sections,
+        profileSubjectIds ?? [],
+        language,
+        seed,
+        seenQuestionIds,
+      );
+    }
+
     const sections: GeneratedSection[] = [];
 
     if (strictEntProfile && profileQuestionCount !== ENT_CONFIG.profileQuestionsPerSubject) {
@@ -213,6 +223,181 @@ export class TestGeneratorService {
       };
     }
     return { rng: Math.random, seen, canonical: false };
+  }
+
+  /**
+   * Экспресс-ЕНТ: все 5 предметов коротко (ENT_CONFIG.express). Обязательные предметы берутся
+   * из шаблона (его число вопросов не важно), профильные — из выбранной пары.
+   * Подбор нестрогий: сначала одиночный выбор без 2-балльных форматов и не больше
+   * maxQuestionsPerPassage вопросов к одному тексту; не хватает — добираем любыми вопросами
+   * предмета (как в других нестрогих режимах). Тонкий банк не роняет старт теста.
+   */
+  private async generateEntExpressSections(
+    templateSections: Array<{
+      subjectId: string;
+      sortOrder: number;
+      subject?: { slug: string } | null;
+    }>,
+    profileSubjectIds: string[],
+    language: string | undefined,
+    seed: string | undefined,
+    seen: Set<string> | undefined,
+  ): Promise<GeneratedSection[]> {
+    const counts: Record<string, number> = ENT_CONFIG.express.questionCounts;
+    const sections: GeneratedSection[] = [];
+
+    const addSection = async (
+      subjectId: string,
+      count: number,
+      sortOrder: number,
+      preferNoPassage: boolean,
+    ) => {
+      const ctx = this.makeSectionContext(subjectId, seed, seen);
+      let questionIds = await this.selectEntExpressQuestions(
+        subjectId,
+        count,
+        language,
+        preferNoPassage,
+        ctx,
+      );
+      if (questionIds.length < count) {
+        questionIds = await this.padSubjectQuestionIds(subjectId, questionIds, count, language, ctx);
+      }
+      // Экспресс: всё по 1 баллу, никаких «тяжёлых» слотов 31–40.
+      sections.push({ subjectId, questionIds, sortOrder, profileHeavyFrom: null });
+    };
+
+    for (const section of templateSections) {
+      const slug = section.subject?.slug ?? '';
+      const count = Object.prototype.hasOwnProperty.call(counts, slug) ? counts[slug] : 0;
+      if (!count || sections.some((s) => s.subjectId === section.subjectId)) continue;
+      // Грамотность чтения — всегда по тексту: группируем по 2 вопроса на текст.
+      await addSection(section.subjectId, count, section.sortOrder, slug !== 'reading_literacy');
+    }
+
+    const lastSortOrder =
+      sections.length > 0 ? Math.max(...sections.map((s) => s.sortOrder)) : 0;
+    for (let i = 0; i < profileSubjectIds.length; i++) {
+      const subjectId = profileSubjectIds[i];
+      if (sections.some((s) => s.subjectId === subjectId)) continue;
+      await addSection(
+        subjectId,
+        ENT_CONFIG.express.profileQuestionsPerSubject,
+        lastSortOrder + i + 1,
+        true,
+      );
+    }
+
+    return sections;
+  }
+
+  private async selectEntExpressQuestions(
+    subjectId: string,
+    count: number,
+    language: string | undefined,
+    preferNoPassage: boolean,
+    ctx: GenContext,
+  ): Promise<string[]> {
+    const load = async (withLocale: boolean) => {
+      const rows = await this.prisma.question.findMany({
+        where: {
+          AND:
+            withLocale && language
+              ? [...this.questionPoolScope(subjectId), questionWhereForTestLanguage(language)]
+              : this.questionPoolScope(subjectId),
+        },
+        select: {
+          id: true,
+          type: true,
+          content: true,
+          scoreWeight: true,
+          answerOptions: { select: { isCorrect: true } },
+        },
+      });
+      return rows.filter((q) => this.isEntExpressQuestion(q));
+    };
+
+    const primary = await load(true);
+    const picked = this.pickEntExpressQuestions(primary, count, preferNoPassage, ctx);
+    if (picked.length >= count || !language) return picked;
+
+    // Мало вопросов на языке сессии — как и строгие режимы, добираем без фильтра языка.
+    const primaryIds = new Set(primary.map((q) => q.id));
+    const fallback = (await load(false)).filter((q) => !primaryIds.has(q.id));
+    return [
+      ...picked,
+      ...this.pickEntExpressQuestions(fallback, count - picked.length, preferNoPassage, ctx),
+    ];
+  }
+
+  /** Одиночный выбор: 1 верный, 2–5 вариантов, не multiple_choice и без веса > 1. */
+  private isEntExpressQuestion(question: {
+    type?: string | null;
+    scoreWeight?: number | null;
+    answerOptions?: Array<{ isCorrect: boolean }>;
+  }): boolean {
+    if (question.type === 'multiple_choice') return false;
+    if (question.scoreWeight != null && Number(question.scoreWeight) > 1) return false;
+    const optionCount = this.countAnswerOptions(question);
+    return (
+      optionCount >= 2 &&
+      optionCount <= ENT_CONFIG.express.maxOptionCount &&
+      this.countCorrectOptions(question) === 1
+    );
+  }
+
+  /**
+   * Порядок: вопросы без текста — по одному, вопросы к одному тексту — «пачкой» не больше
+   * maxQuestionsPerPassage подряд. preferNoPassage — сначала вопросы без текста (быстрее),
+   * тексты только добором. Свежие (не виденные юзером) — вперёд.
+   */
+  private pickEntExpressQuestions(
+    questions: Array<{ id: string; content: unknown }>,
+    count: number,
+    preferNoPassage: boolean,
+    ctx: GenContext,
+  ): string[] {
+    if (count <= 0 || questions.length === 0) return [];
+    // Канонический порядок строк — чтобы seeded-сборка не зависела от порядка из БД.
+    const rows = ctx.canonical
+      ? [...questions].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      : questions;
+
+    const standaloneIds: string[] = [];
+    const byPassage = new Map<string, string[]>();
+    for (const q of rows) {
+      const key = this.getPassageKey(q.content);
+      if (!key) standaloneIds.push(q.id);
+      else byPassage.set(key, [...(byPassage.get(key) ?? []), q.id]);
+    }
+
+    const passageUnits = [...byPassage.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([, ids]) =>
+        this.orderWithFreshFirst(ids, ctx).slice(0, ENT_CONFIG.express.maxQuestionsPerPassage),
+      );
+    const standaloneUnits = this.orderWithFreshFirst(standaloneIds, ctx).map((id) => [id]);
+    const units = preferNoPassage
+      ? [...standaloneUnits, ...this.orderUnitsWithFreshFirst(passageUnits, ctx)]
+      : this.orderUnitsWithFreshFirst([...standaloneUnits, ...passageUnits], ctx);
+
+    const out: string[] = [];
+    for (const unit of units) {
+      for (const id of unit) {
+        if (out.length >= count) return out;
+        out.push(id);
+      }
+    }
+    return out;
+  }
+
+  /** Перемешивает группы вопросов; группы, где есть ещё не виденные вопросы, — вперёд. */
+  private orderUnitsWithFreshFirst(units: string[][], ctx: GenContext): string[][] {
+    const shuffled = this.shuffle(units, ctx.rng);
+    const seen = ctx.seen;
+    if (!seen || seen.size === 0) return shuffled;
+    const isFresh = (unit: string[]) => unit.some((id) => !seen.has(id));
+    return [...shuffled.filter(isFresh), ...shuffled.filter((unit) => !isFresh(unit))];
   }
 
   private async selectQuestions(

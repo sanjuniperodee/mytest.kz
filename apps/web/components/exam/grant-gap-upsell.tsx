@@ -27,12 +27,16 @@ export function GrantGapUpsell({
   sessionId,
   score,
   maxScore,
+  isEstimate = false,
   weakSections,
   mistakeCount,
 }: {
   sessionId: string
+  /** Балл ЕНТ; при isEstimate — оценка из 140 по экспресс-тесту. */
   score: number
   maxScore: number
+  /** Экспресс-ЕНТ: балл примерный — показываем его со знаком «≈». */
+  isEstimate?: boolean
   weakSections: WeakSection[]
   mistakeCount: number
 }) {
@@ -49,6 +53,7 @@ export function GrantGapUpsell({
   const seasonPlan = plans.find((plan) => plan.id === SEASON_PLAN_CODE) ?? null
   const lostTop = weakSections.filter((section) => section.lost > 0).slice(0, 3)
   const lostTotal = Math.max(0, maxScore - score)
+  const approx = isEstimate ? "≈ " : ""
 
   const billingHref = (planId: string) =>
     `/dashboard/billing?${new URLSearchParams({ reason: "review_recovery", plan: planId, sessionId }).toString()}`
@@ -63,7 +68,7 @@ export function GrantGapUpsell({
     >
       <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
-          <GapHeadline goal={goal} required={required} score={score} t={t} />
+          <GapHeadline goal={goal} required={required} score={score} approx={approx} t={t} />
 
           {lostTop.length > 0 && (
             <div className="rounded-lg border border-border bg-background/80 p-4">
@@ -83,8 +88,8 @@ export function GrantGapUpsell({
               </ul>
               <p className="mt-3 text-xs text-muted-foreground">
                 {t(
-                  `Всего ${lostTotal} ${ruPlural(lostTotal, "балл", "балла", "баллов")} из ${maxScore} ушло на ${mistakeCount} ${ruPlural(mistakeCount, "ошибку", "ошибки", "ошибок")}.`,
-                  `Барлығы ${maxScore}-ден ${lostTotal} балл ${mistakeCount} қатеге кетті.`,
+                  `Всего ${approx}${lostTotal} ${ruPlural(lostTotal, "балл", "балла", "баллов")} из ${maxScore} ушло на ${mistakeCount} ${ruPlural(mistakeCount, "ошибку", "ошибки", "ошибок")}.`,
+                  `Барлығы ${maxScore}-ден ${approx}${lostTotal} балл ${mistakeCount} қатеге кетті.`,
                 )}
               </p>
             </div>
@@ -152,11 +157,14 @@ function GapHeadline({
   goal,
   required,
   score,
+  approx,
   t,
 }: {
   goal: AdmissionGoalResponse["goal"]
   required: number | null
   score: number
+  /** «≈ » для оценки по экспресс-тесту, иначе пусто. */
+  approx: string
   t: (ru: string, kk: string) => string
 }) {
   if (goal && required != null) {
@@ -181,8 +189,8 @@ function GapHeadline({
         </h2>
         <p className="text-sm text-muted-foreground">
           {t(
-            `${target}: проходной ${required}, у тебя ${score}.`,
-            `${target}: өту балы ${required}, сенде ${score}.`,
+            `${target}: проходной ${required}, у тебя ${approx}${score}.`,
+            `${target}: өту балы ${required}, сенде ${approx}${score}.`,
           )}{" "}
           {gap > 0
             ? t("Эти баллы прячутся в ошибках ниже.", "Бұл балдар төмендегі қателерде жатыр.")

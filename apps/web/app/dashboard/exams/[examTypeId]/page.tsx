@@ -33,18 +33,28 @@ import {
 } from "@/components/billing/attempt-limit-dialog"
 import { AttemptAccessNote } from "@/components/billing/attempt-access-note"
 import { localize } from "@/lib/api/i18n"
-import type { ExamType, Subject, TestSession, TestTemplate } from "@/lib/api/types"
+import type {
+  ExamType,
+  PaginatedResponse,
+  Subject,
+  TestSession,
+  TestTemplate,
+} from "@/lib/api/types"
 import {
   buildEntProfilePairOptions,
   getSelectedEntProfilePairKey,
   isEntProfileSubjectAvailable,
 } from "@/lib/ent-profile-pairs"
+import { ruPlural } from "@/components/admission/chance"
+import { ENT_CONFIG } from "@bilimland/shared"
 
-type EntScope = "mandatory" | "profile" | "full" | "creative"
+type EntScope = "express" | "mandatory" | "profile" | "full" | "creative"
 
+const ENT_SCOPE_VALUES: readonly EntScope[] = ["express", "mandatory", "profile", "full", "creative"]
 const ENT_CREATIVE_QUESTION_COUNT = 30
 const ENT_CREATIVE_DURATION_MINS = 70
 const ENT_CREATIVE_SUBJECT_SLUGS = new Set(["reading_literacy", "history_kz"])
+const ENT_EXPRESS = ENT_CONFIG.express
 
 function entModePreview(
   mode: EntScope,
@@ -53,6 +63,9 @@ function entModePreview(
 ) {
   if (mode === "creative") {
     return { totalQ: ENT_CREATIVE_QUESTION_COUNT, displayMins: ENT_CREATIVE_DURATION_MINS }
+  }
+  if (mode === "express") {
+    return { totalQ: ENT_EXPRESS.totalQuestions, displayMins: ENT_EXPRESS.durationMins }
   }
   if (!template) return { totalQ: 0, displayMins: 0 }
   const templateQ =
@@ -78,11 +91,13 @@ export default function ExamDetailPage({
   const router = useRouter()
   const { user, refresh } = useAuth()
   const { locale } = useUiI18n()
+  const tr = (ru: string, kk: string) => (locale === "kk" ? kk : ru)
   const [selectedTemplate, setSelectedTemplate] = useState<TestTemplate | null>(null)
   const [language, setLanguage] = useState<"ru" | "kk">(
     user?.preferredLanguage === "kk" ? "kk" : "ru",
   )
-  const [entScope, setEntScope] = useState<EntScope>("full")
+  /** Выбор пользователя; null — пока не выбирал, действует режим по умолчанию. */
+  const [entScope, setEntScope] = useState<EntScope | null>(null)
   const [profileSubjectIds, setProfileSubjectIds] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
   const [denial, setDenial] = useState<AttemptDenial | null>(null)
@@ -93,6 +108,30 @@ export default function ExamDetailPage({
   const examName = localize(examType?.name, locale, "Экзамен")
   const examDescription = localize(examType?.description, locale)
   const isENT = examType?.slug === "ent"
+
+  // Режим по умолчанию: кто ещё ни разу не дошёл до результата ЕНТ — экспресс
+  // (короткий первый опыт), остальным — полный ЕНТ. Ссылка «?scope=full» задаёт режим явно.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("scope")
+    if (requested && ENT_SCOPE_VALUES.includes(requested as EntScope)) {
+      setEntScope(requested as EntScope)
+    }
+  }, [])
+  const finishedEntKey = (status: "completed" | "timed_out") =>
+    isENT ? `/tests/sessions?page=1&limit=1&examTypeId=${examTypeId}&status=${status}` : null
+  const completedEnt = useSWR<PaginatedResponse<TestSession>>(finishedEntKey("completed"))
+  const timedOutEnt = useSWR<PaginatedResponse<TestSession>>(finishedEntKey("timed_out"))
+  const hasFinishedEnt =
+    (completedEnt.data?.total ?? 0) > 0 || (timedOutEnt.data?.total ?? 0) > 0
+  const finishedEntKnown =
+    (completedEnt.data !== undefined || completedEnt.error !== undefined) &&
+    (timedOutEnt.data !== undefined || timedOutEnt.error !== undefined)
+  const defaultEntScope: EntScope | null = hasFinishedEnt
+    ? "full"
+    : finishedEntKnown
+      ? "express"
+      : null
+  const scope: EntScope | null = entScope ?? defaultEntScope
 
   const { data: subjects, isLoading: subjLoading } = useSWR<Subject[]>(
     `/exams/types/${examTypeId}/subjects`,
@@ -111,10 +150,10 @@ export default function ExamDetailPage({
   )
   const visibleMandatorySubjects = useMemo(
     () =>
-      entScope === "creative"
+      scope === "creative"
         ? mandatorySubjects.filter((subject) => ENT_CREATIVE_SUBJECT_SLUGS.has(subject.slug))
         : mandatorySubjects,
-    [entScope, mandatorySubjects],
+    [scope, mandatorySubjects],
   )
   const entProfilePairs = useMemo(
     () => buildEntProfilePairOptions(profileSubjects, language),
@@ -135,9 +174,10 @@ export default function ExamDetailPage({
   )
   const activeEntTemplate = isENT ? entTemplatesSorted[0] : undefined
   const profileQuestionCount = isENT ? 40 : 10
-  const requiresProfiles = isENT && (entScope === "profile" || entScope === "full")
+  const requiresProfiles =
+    isENT && (scope === "profile" || scope === "full" || scope === "express")
   const showsMandatorySubjects =
-    entScope === "mandatory" || entScope === "full" || entScope === "creative"
+    scope === "mandatory" || scope === "full" || scope === "creative" || scope === "express"
 
   const selectProfilePair = (key: string) => {
     const pair = entProfilePairs.find((option) => option.key === key)
@@ -150,6 +190,7 @@ export default function ExamDetailPage({
       toast.error("Пробник пока недоступен")
       return
     }
+    if (isENT && !scope) return
     if (requiresProfiles && !selectedProfilePairKey) {
       toast.error("Выберите одну из доступных пар профильных предметов")
       return
@@ -163,7 +204,7 @@ export default function ExamDetailPage({
           templateId: templateForStart.id,
           language,
           profileSubjectIds: shouldSendProfileSubjects ? profileSubjectIds : undefined,
-          entScope: isENT ? entScope : undefined,
+          entScope: isENT ? scope : undefined,
         },
       })
       router.push(`/exam/${session.id}`)
@@ -262,11 +303,22 @@ export default function ExamDetailPage({
               <div>
                 <Label>Объём ЕНТ</Label>
                 <RadioGroup
-                  value={entScope}
-                  onValueChange={(v) => setEntScope(v as typeof entScope)}
+                  value={scope ?? ""}
+                  onValueChange={(v) => setEntScope(v as EntScope)}
                   className="mt-2 grid gap-2"
                 >
                   {[
+                    {
+                      v: "express",
+                      l: tr(
+                        `Экспресс-ЕНТ · ~${ENT_EXPRESS.durationMins} мин · ${ENT_EXPRESS.totalQuestions} ${ruPlural(ENT_EXPRESS.totalQuestions, "вопрос", "вопроса", "вопросов")}`,
+                        `Экспресс-ҰБТ · ~${ENT_EXPRESS.durationMins} мин · ${ENT_EXPRESS.totalQuestions} сұрақ`,
+                      ),
+                      s: tr(
+                        "Все 5 предметов в коротком формате — узнай примерный балл из 140",
+                        "Барлық 5 пән қысқа форматта — 140 балдан болжамды нәтижеңді біл",
+                      ),
+                    },
                     { v: "mandatory", l: "Только обязательные", s: "Математическая грамотность, грамотность чтения, история" },
                     { v: "profile", l: "Только профильные", s: "Два профильных предмета" },
                     { v: "full", l: "Полный ЕНТ", s: "Все обязательные и профильные предметы" },
@@ -289,7 +341,7 @@ export default function ExamDetailPage({
                         key={option.v}
                         className={cn(
                           "flex cursor-pointer items-start gap-3 rounded-md border border-border px-3 py-3",
-                          entScope === option.v && "border-foreground bg-secondary/50",
+                          scope === option.v && "border-foreground bg-secondary/50",
                         )}
                       >
                         <RadioGroupItem value={option.v} className="mt-1" />
@@ -299,7 +351,8 @@ export default function ExamDetailPage({
                             {option.s}
                           </span>
                         </span>
-                        {activeEntTemplate && (
+                        {/* У экспресса число вопросов и минут уже в названии. */}
+                        {activeEntTemplate && option.v !== "express" && (
                           <span className="shrink-0 text-right text-xs text-muted-foreground">
                             {preview.totalQ} вопр.
                             <br />
@@ -360,10 +413,20 @@ export default function ExamDetailPage({
                 size="lg"
                 className="h-11"
                 onClick={startTest}
-                disabled={starting || !activeEntTemplate || (requiresProfiles && !selectedProfilePairKey)}
+                disabled={
+                  starting ||
+                  !activeEntTemplate ||
+                  !scope ||
+                  (requiresProfiles && !selectedProfilePairKey)
+                }
               >
                 {starting ? (
                   <Spinner className="size-4" />
+                ) : scope === "express" ? (
+                  <>
+                    <Play className="size-4" />
+                    {tr("Начать экспресс-ЕНТ", "Экспресс-ҰБТ бастау")}
+                  </>
                 ) : (
                   <>
                     <Play className="size-4" />
@@ -390,11 +453,19 @@ export default function ExamDetailPage({
                       </Badge>
                     ))}
                   </div>
-                  {entScope === "creative" && (
+                  {scope === "creative" && (
                     <p className="mt-2 text-xs text-muted-foreground">
                       {locale === "kk"
                         ? "Екі шығармашылық емтихан таңдаған ЖОО-да өтеді. Олармен бірге ең жоғары нәтиже 130 балл болады."
                         : "Два творческих экзамена проводятся в выбранном вузе. С ними максимальный результат составляет 130 баллов."}
+                    </p>
+                  )}
+                  {scope === "express" && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {tr(
+                        `По ${ENT_EXPRESS.questionCounts.math_literacy} вопроса по математической грамотности и грамотности чтения, ${ENT_EXPRESS.questionCounts.history_kz} по истории и по ${ENT_EXPRESS.profileQuestionsPerSubject} по каждому профильному предмету. В каждом задании один верный ответ, результат — примерный балл ЕНТ из 140.`,
+                        `Математикалық және оқу сауаттылығынан ${ENT_EXPRESS.questionCounts.math_literacy} сұрақтан, тарихтан ${ENT_EXPRESS.questionCounts.history_kz} және әр бейіндік пәннен ${ENT_EXPRESS.profileQuestionsPerSubject} сұрақ. Әр тапсырмада бір дұрыс жауап, нәтиже — 140 балдан болжамды ҰБТ балы.`,
+                      )}
                     </p>
                   )}
                 </div>

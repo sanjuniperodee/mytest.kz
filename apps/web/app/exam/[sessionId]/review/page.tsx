@@ -108,8 +108,14 @@ export default function ReviewPage({
     data?.correctCount ?? sections.reduce((sum, sec) => sum + sec.correctCount, 0)
   const overallTotal =
     data?.totalQuestions ?? sections.reduce((sum, sec) => sum + sec.totalCount, 0)
-  const displayScore = data?.rawScore ?? data?.score ?? overallCorrect
-  const displayMax = data?.maxScore ?? overallTotal
+  const rawScore = data?.rawScore ?? data?.score ?? overallCorrect
+  const rawMax = data?.maxScore ?? overallTotal
+  // Экспресс-ЕНТ: главный балл — оценка ЕНТ из 140, сырые баллы (из 32) — строкой ниже.
+  const isExpress =
+    data?.examType?.slug === "ent" && data?.metadata?.entScope === "express"
+  const entEstimate = isExpress ? data?.entEstimate ?? null : null
+  const displayScore = entEstimate?.score ?? rawScore
+  const displayMax = entEstimate?.max ?? rawMax
   const accuracy = displayMax ? Math.round((displayScore / displayMax) * 100) : 0
   const canRetakeEnt =
     data?.examType?.slug === "ent" && data.metadata?.kind !== "remediation"
@@ -143,19 +149,27 @@ export default function ReviewPage({
       .sort((a, b) => a.pct - b.pct)
       .slice(0, 3)
   }, [sections])
-  // Для блока «где потерял баллы»: предметы по числу потерянных баллов.
+  // Для блока «где потерял баллы»: предметы по числу потерянных баллов
+  // (у экспресса — в оценочных баллах ЕНТ, чтобы сходилось с итогом из 140).
   const lostSections = useMemo(() => {
+    const estimateBySlug = new Map(
+      (entEstimate?.sections ?? []).map((item) => [item.subjectSlug, item]),
+    )
     return sections
       .filter((sec) => sec.id !== "all")
-      .map((sec) => ({
-        title: sec.title,
-        lost:
-          sec.maxPoints != null && sec.rawPoints != null
-            ? Math.max(0, sec.maxPoints - sec.rawPoints)
-            : Math.max(0, sec.totalCount - sec.correctCount),
-      }))
+      .map((sec) => {
+        const estimated = sec.subjectSlug ? estimateBySlug.get(sec.subjectSlug) : undefined
+        return {
+          title: sec.title,
+          lost: estimated
+            ? Math.max(0, estimated.maxPoints - estimated.points)
+            : sec.maxPoints != null && sec.rawPoints != null
+              ? Math.max(0, sec.maxPoints - sec.rawPoints)
+              : Math.max(0, sec.totalCount - sec.correctCount),
+        }
+      })
       .sort((a, b) => b.lost - a.lost)
-  }, [sections])
+  }, [entEstimate, sections])
 
   const matchesFilter = (q: FlatSessionQuestion) => filter === "all" ||
     (filter === "mistakes" ? q.reviewStatus !== "correct" : q.reviewStatus === "unanswered")
@@ -179,10 +193,12 @@ export default function ReviewPage({
         maxScore: data.maxScore,
         accuracy,
         scoreSegment: scoreSegment.key,
+        ...(data.metadata?.entScope ? { entScope: data.metadata.entScope } : {}),
+        ...(entEstimate ? { entEstimate: entEstimate.score } : {}),
       },
       sessionId,
     )
-  }, [accuracy, data, scoreSegment.key, sessionId])
+  }, [accuracy, data, entEstimate, scoreSegment.key, sessionId])
 
   const startRetake = async () => {
     if (!data || retaking) return
@@ -244,24 +260,64 @@ export default function ReviewPage({
               <CardContent className="grid gap-6 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
                 <div className="flex min-w-0 flex-col gap-2">
                   <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground" data-no-translate>
-                    {t("Ваш результат", "Сіздің нәтижеңіз")}
+                    {entEstimate
+                      ? t("Примерный балл ЕНТ", "Болжамды ҰБТ балы")
+                      : t("Ваш результат", "Сіздің нәтижеңіз")}
                   </p>
-                  <div className="flex items-baseline gap-3">
-                    <h1 className="text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
-                      {displayScore}
-                      <span className="sr-only" data-no-translate> {t("баллов", "балл")}</span>
-                    </h1>
-                    <span className="text-xl text-muted-foreground tabular-nums">
-                      / {displayMax}
-                    </span>
-                  </div>
+                  {entEstimate ? (
+                    <div className="flex flex-col gap-1" data-no-translate data-testid="express-estimate">
+                      <div className="flex flex-wrap items-baseline gap-x-3">
+                        <h1 className="text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
+                          ≈ {entEstimate.score}
+                          <span className="sr-only"> {t("баллов", "балл")}</span>
+                        </h1>
+                        <span className="text-xl text-muted-foreground tabular-nums">
+                          {t(`из ${entEstimate.max}`, `/ ${entEstimate.max}`)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {t("(оценка по экспресс-тесту)", "(экспресс-тест бойынша болжам)")}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-3">
+                      <h1 className="text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
+                        {displayScore}
+                        <span className="sr-only" data-no-translate> {t("баллов", "балл")}</span>
+                      </h1>
+                      <span className="text-xl text-muted-foreground tabular-nums">
+                        / {displayMax}
+                      </span>
+                    </div>
+                  )}
                   <div className="mt-2 flex items-center gap-3">
                     <Progress value={accuracy} className="max-w-xs" />
                     <span className="text-sm font-medium tabular-nums">{accuracy}%</span>
                   </div>
                   <p className="text-sm text-muted-foreground" data-no-translate>
-                    {t("Точно верных ответов", "Толық дұрыс жауаптар")}: {overallCorrect} / {overallTotal}
+                    {entEstimate
+                      ? t(
+                          `${overallCorrect} из ${overallTotal} верно`,
+                          `${overallTotal} сұрақтан ${overallCorrect} дұрыс`,
+                        )
+                      : `${t("Точно верных ответов", "Толық дұрыс жауаптар")}: ${overallCorrect} / ${overallTotal}`}
                   </p>
+                  {isExpress && (
+                    <div className="mt-3 flex flex-col gap-1.5" data-no-translate>
+                      <Button asChild className="h-auto min-h-10 w-full whitespace-normal py-2.5 sm:w-auto">
+                        <Link href={`/dashboard/exams/${data.examTypeId ?? data.examType?.id ?? ""}?scope=full`}>
+                          {t("Сдать полный ЕНТ — узнать точный балл", "Толық ҰБТ тапсыру — нақты балды білу")}
+                          <ArrowRight className="size-4" />
+                        </Link>
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        {t(
+                          "Экспресс-тест короче настоящего ЕНТ, поэтому балл примерный. Точный покажет полный пробник: 120 заданий, как на экзамене.",
+                          "Экспресс-тест нағыз ҰБТ-дан қысқа, сондықтан балл болжамды. Нақты балды толық сынақ көрсетеді: емтихандағыдай 120 тапсырма.",
+                        )}
+                      </p>
+                    </div>
+                  )}
                   {canRetakeEnt && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       {canRetake ? (
@@ -292,9 +348,10 @@ export default function ReviewPage({
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 sm:px-6">
                 <Button asChild variant="ghost" size="sm"><a href="#review-questions" data-no-translate>{t("Перейти к разбору", "Талдауға өту")}<ChevronDown className="size-4" /></a></Button>
                 <div className="flex flex-wrap items-center gap-1">
+                  {/* Делимся реальным результатом попытки (у экспресса — из 32), а не оценкой. */}
                   <ShareResult
-                    score={displayScore}
-                    maxScore={displayMax}
+                    score={rawScore}
+                    maxScore={rawMax}
                     subjectLines={sections
                       .filter((sec) => sec.id !== "all")
                       .map((sec) =>
@@ -313,6 +370,7 @@ export default function ReviewPage({
                 sessionId={sessionId}
                 score={displayScore}
                 maxScore={displayMax}
+                isEstimate={Boolean(entEstimate)}
                 weakSections={lostSections}
                 mistakeCount={mistakeCount}
               />

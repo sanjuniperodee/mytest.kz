@@ -197,7 +197,7 @@ export interface SessionMetadataSection {
 
 export interface SessionMetadata {
   kind?: "remediation"
-  entScope?: "mandatory" | "profile" | "full" | "creative"
+  entScope?: "mandatory" | "profile" | "full" | "creative" | "express"
   remediationDurationMins?: number
   remediationScope?: { subjectId?: string | null; topicId?: string | null; themeId?: string | null; unclassifiedOnly?: boolean }
   entSessionDurationMins?: number
