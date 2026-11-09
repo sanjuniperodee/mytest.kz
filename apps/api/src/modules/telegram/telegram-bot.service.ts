@@ -621,6 +621,38 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  /**
+   * Викторина (quiz poll) в канал: вопрос дня с правильным ответом и объяснением.
+   * Возвращает false, если бот или канал не настроены.
+   */
+  async postQuizToChannel(input: {
+    intro: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation?: string;
+  }): Promise<boolean> {
+    if (!this.bot || !this.channelId) return false;
+    const chat = this.channelId.trim();
+    await this.bot.telegram.sendMessage(chat, input.intro, {
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+    });
+    await this.bot.telegram.sendQuiz(chat, input.question.slice(0, 300), input.options.map((o) => o.slice(0, 100)), {
+      correct_option_id: input.correctIndex,
+      is_anonymous: true,
+      ...(input.explanation ? { explanation: input.explanation.slice(0, 200) } : {}),
+    });
+    return true;
+  }
+
+  /** Простое сообщение в канал (HTML). */
+  async notifyChannelText(html: string): Promise<boolean> {
+    if (!this.bot || !this.channelId) return false;
+    await this.bot.telegram.sendMessage(this.channelId.trim(), html, { parse_mode: 'HTML' });
+    return true;
+  }
+
   escapeForTelegram(input: string): string {
     return this.escapeHtml(input);
   }
