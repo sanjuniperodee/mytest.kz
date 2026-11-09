@@ -8,5 +8,6 @@ import { AdmissionRepository } from './infrastructure/admission.repository';
 @Module({
   controllers: [AdmissionController, AdmissionGoalController],
   providers: [AdmissionService, AdmissionGoalService, AdmissionRepository],
+  exports: [AdmissionGoalService],
 })
 export class AdmissionModule {}

@@ -18,6 +18,7 @@ import { AdSlot } from "@/components/ads/ad-slot"
 import { formatResetMoment } from "@/components/billing/free-reset"
 import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
 import { QuestionOfDayCard } from "@/components/social/question-of-day"
+import { SendToParentCard } from "@/components/parent-report/send-to-parent"
 
 type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
 const sessionsList = (data?: SessionsResponse) => Array.isArray(data) ? data : data?.items ?? []
@@ -147,7 +148,11 @@ export default function DashboardHomePage() {
           })}</ul>}
         </CardContent>
       </Card>
-      <div className="min-w-0"><AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={impact?.available ? impact.potentialScore : null} maxScore={impact?.available ? impact.maxScore : undefined} /></div>
+      <div className="flex min-w-0 flex-col gap-6">
+        <AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={impact?.available ? impact.potentialScore : null} maxScore={impact?.available ? impact.maxScore : undefined} />
+        {/* Родителям есть что показать только после первого завершённого теста. */}
+        {(completed ?? 0) > 0 && <SendToParentCard />}
+      </div>
     </div>
 
     <QuestionOfDayCard />
