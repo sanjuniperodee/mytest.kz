@@ -72,7 +72,7 @@ export function SeoShell({
           </Link>
           <nav
             aria-label={lang === "kk" ? "Негізгі бөлімдер" : "Основные разделы"}
-            className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 text-sm [scrollbar-width:none]"
+            className="-mx-1 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 text-sm [scrollbar-width:none] sm:flex"
           >
             {NAV[lang].map((item) => (
               <Link
@@ -96,7 +96,7 @@ export function SeoShell({
           {/* На мобильных — основной трафик из поиска — кнопка тоже нужна, просто короче. */}
           <Link
             href={loginHref(START_ENT_PATH, `seo-header-${lang}`)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 sm:px-4 sm:py-2 sm:text-sm"
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 sm:px-4 sm:py-2 sm:text-sm"
           >
             <span className="sm:hidden">{lang === "kk" ? "Тегін тест" : "Тест бесплатно"}</span>
             <span className="hidden sm:inline">{lang === "kk" ? "Тегін бастау" : "Начать бесплатно"}</span>

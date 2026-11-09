@@ -100,14 +100,14 @@ export default async function UbtOtuBalyPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <main>
         <section className="border-b border-border/60 bg-secondary/30">
-          <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 sm:py-20">
+          <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-20">
             <p className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
               ҚР ҒЖБМ деректері · {LATEST_YEAR}
             </p>
-            <h1 className="mt-4 text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+            <h1 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
               ҰБТ өту балы — грантқа <span className="text-accent">ЖОО және мамандықтар</span> бойынша
             </h1>
-            <p className="mt-5 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+            <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted-foreground sm:mt-5 sm:text-lg">
               {LATEST_YEAR} жылы {universitiesCount} ЖОО-ға {programsCount} білім беру бағдарламаларының тобы бойынша{" "}
               {summary.grants.toLocaleString("ru-RU")} грант берілді. Төменде — грант иегерлерінің ресми тізімдерінен
               есептелген нақты өту балдары: әр мамандық пен әр ЖОО бойынша, ауыл квотасымен және жылдар бойынша

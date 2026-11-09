@@ -110,7 +110,7 @@ describe('landing growth contracts', () => {
 
     expect(result.campaign).toMatchObject({
       enabled: true,
-      ctaHref: '/login?source=campaign',
+      ctaHref: '/login?source=campaign&next=%2Fdashboard%2Fstart',
     });
     expect(prismaMock.siteSetting.findUnique).toHaveBeenCalled();
   });

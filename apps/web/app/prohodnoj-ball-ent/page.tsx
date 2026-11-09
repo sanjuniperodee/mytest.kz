@@ -132,20 +132,20 @@ export default async function ProhodnoiBallEntPage() {
 
         {/* Hero */}
         <Reveal as="section" className="border-b border-border/60 bg-secondary/30">
-          <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-24">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
               ЕНТ 2027 · Проходные баллы
             </div>
-            <h1 className="mt-4 text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+            <h1 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
               Проходной балл ЕНТ 2027{" "}
               <span className="text-accent">для гранта</span>
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground sm:mt-5 sm:text-lg">
               Сколько нужно набрать на ЕНТ, чтобы получить грант? Реальные проходные баллы {LATEST_YEAR}{" "}
               года по всем вузам и специальностям — по официальным спискам грантников МНВО РК — и
               калькулятор шансов по конкретным вузам.
             </p>
-            <div className="mt-7">
+            <div className="mt-5 sm:mt-7">
               <ScoreCheck
                 items={data.programOverview().map(({ program, lowest, grants }) => ({
                   key: program.code,

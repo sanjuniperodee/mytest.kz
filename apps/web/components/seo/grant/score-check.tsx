@@ -191,7 +191,7 @@ export function ScoreCheck({
           <ArrowRight className="size-4" aria-hidden="true" />
         </ConversionLink>
         <span className="text-xs text-muted-foreground">
-          {tx(lang, "140 вопросов, как на ЕНТ · балл и слабые темы сразу", "ҰБТ-дағыдай 140 сұрақ · балл мен әлсіз тақырыптар бірден")}
+          {tx(lang, "120 заданий, как на ЕНТ · балл и слабые темы сразу", "ҰБТ-дағыдай 120 тапсырма · балл мен әлсіз тақырыптар бірден")}
         </span>
       </div>
     </section>

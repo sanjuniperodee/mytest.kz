@@ -73,6 +73,8 @@ interface ExplanationData {
   questionId: string
   explanation: unknown
   imageUrls?: string[]
+  /** Без подписки: первые объяснения в тесте открываются бесплатно. */
+  freeExplanation?: { used: number; limit: number; remaining: number }
 }
 
 type ScoreSegment = {
@@ -727,7 +729,7 @@ function ReviewNextStep({
             <ArrowRight className="size-4" />
           </Link>
         </Button>
-        {hasMistakes && !hasPremium && <p className="mt-2 text-xs text-muted-foreground">{t("Тренировка и объяснения — в Premium. Ответы доступны ниже.", "Жаттығу мен түсіндірмелер — Premium-де. Жауаптар төменде қолжетімді.")}</p>}
+        {hasMistakes && !hasPremium && <p className="mt-2 text-xs text-muted-foreground">{t("3 объяснения в этом тесте — бесплатно: нажми «Объяснение» у любой ошибки ниже.", "Осы тесте 3 түсіндірме — тегін: төмендегі кез келген қатеде «Түсіндірме» батырмасын бас.")}</p>}
     </div>
   )
 }
@@ -775,9 +777,9 @@ function ExplanationBlock({
         <div className="flex items-start gap-2">
           <Crown className="size-4 shrink-0 text-amber-600 mt-0.5" />
           <div className="flex flex-col gap-2">
-            <p className="font-medium text-amber-900">Объяснение доступно в Premium</p>
+            <p className="font-medium text-amber-900">Бесплатные объяснения в этом тесте закончились</p>
             <p className="text-amber-800">
-              Получите подробные разборы каждой ошибки, чтобы быстрее закрывать пробелы.
+              С тарифом откроются объяснения ко всем ошибкам и тренировка именно этих тем — от 490 ₸ за неделю.
             </p>
             <Button size="sm" asChild className="self-start">
               <Link href={`/dashboard/billing?reason=premium_explanation&sessionId=${encodeURIComponent(sessionId)}`}>
@@ -835,6 +837,22 @@ function ExplanationBlock({
                       {detachedImageUrls.map((u, i) => (
                         <QuestionMedia key={i} src={u} />
                       ))}
+                    </div>
+                  )}
+                  {data.freeExplanation && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-xs" data-no-translate>
+                      <span>
+                        {locale === "kk"
+                          ? `Тегін түсіндірме: бұл тестте тағы ${data.freeExplanation.remaining} / ${data.freeExplanation.limit}`
+                          : `Бесплатное объяснение: в этом тесте осталось ${data.freeExplanation.remaining} из ${data.freeExplanation.limit}`}
+                      </span>
+                      <Link
+                        href={`/dashboard/billing?reason=premium_explanation&plan=starter&sessionId=${encodeURIComponent(sessionId)}`}
+                        onClick={() => void recordFunnelEvent("premium_gate", { feature: "explanation_free_note", questionId }, sessionId)}
+                        className="font-semibold text-accent hover:underline"
+                      >
+                        {locale === "kk" ? "Барлық түсіндірмелер — тарифпен" : "Все объяснения — с тарифом"}
+                      </Link>
                     </div>
                   )}
                 </div>

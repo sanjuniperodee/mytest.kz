@@ -599,6 +599,32 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  /**
+   * Короткое служебное сообщение админу (тот же получатель, что у заявок). Никогда не
+   * бросает: служебное уведомление не должно ломать действие пользователя.
+   */
+  async notifyAdmin(html: string): Promise<boolean> {
+    if (!this.bot) return false;
+    try {
+      const target = await this.resolveLeadNotificationTarget();
+      await Promise.race([
+        this.bot.telegram.sendMessage(target, html, {
+          parse_mode: 'HTML',
+          link_preview_options: { is_disabled: true },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Telegram API timeout')), 10000)),
+      ]);
+      return true;
+    } catch (error) {
+      this.logger.warn(`notifyAdmin failed: ${String(error)}`);
+      return false;
+    }
+  }
+
+  escapeForTelegram(input: string): string {
+    return this.escapeHtml(input);
+  }
+
   async sendLeadNotificationToAdmin(payload: {
     name: string;
     phone: string;

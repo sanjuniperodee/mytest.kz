@@ -3,8 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, QuestionAppealReason, QuestionAppealStatus } from '@prisma/client';
+import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { PrismaService } from '../../database/prisma.service';
 import { QUESTION_METADATA_LOCALE_KEY } from '../../common/question-locale';
 import { extractSlot, previewFromSlot } from '../../common/question-similarity';
@@ -70,7 +72,10 @@ type AppealWithRelations = Prisma.QuestionAppealGetPayload<{
 
 @Injectable()
 export class QuestionAppealsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly telegram?: TelegramBotService,
+  ) {}
 
   private trimToNull(value: string | null | undefined): string | null {
     if (typeof value !== 'string') return null;
@@ -236,6 +241,7 @@ export class QuestionAppealsService {
     const context = await this.loadSessionQuestion(userId, sessionId, questionId);
     const snapshot = this.buildSnapshot(context);
 
+    let isNew = false;
     const appeal = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.questionAppeal.findUnique({
         where: {
@@ -248,6 +254,7 @@ export class QuestionAppealsService {
       });
 
       if (!existing) {
+        isNew = true;
         return tx.questionAppeal.create({
           data: {
             userId,
@@ -278,7 +285,34 @@ export class QuestionAppealsService {
       });
     });
 
+    // Жалобы копились месяцами, потому что о них никто не узнавал: сразу пишем админу.
+    if (isNew) void this.notifyAdminAboutAppeal(appeal.id, data.reason, message);
+
     return this.formatStudentAppeal(appeal);
+  }
+
+  private async notifyAdminAboutAppeal(appealId: string, reason: QuestionAppealReason, message: string) {
+    if (!this.telegram) return;
+    try {
+      const [appeal, pending] = await Promise.all([
+        this.prisma.questionAppeal.findUnique({
+          where: { id: appealId },
+          select: { subject: { select: { slug: true } }, question: { select: { id: true } } },
+        }),
+        this.prisma.questionAppeal.count({ where: { status: QuestionAppealStatus.pending } }),
+      ]);
+      const esc = (v: string) => this.telegram!.escapeForTelegram(v);
+      const html = [
+        '⚠️ <b>Новая жалоба на вопрос</b>',
+        `<b>Предмет:</b> ${esc(appeal?.subject?.slug ?? '—')} · <b>причина:</b> ${esc(reason)}`,
+        `<b>Текст:</b> ${esc(message.slice(0, 500))}`,
+        `<b>Вопрос:</b> <code>${esc(appeal?.question?.id ?? '—')}</code>`,
+        `Ждут ответа: ${pending}. Разобрать: https://admin.my-test.kz/appeals`,
+      ].join('\n');
+      await this.telegram.notifyAdmin(html);
+    } catch {
+      // уведомление не должно ломать отправку жалобы
+    }
   }
 
   async listForSession(userId: string, sessionId: string) {

@@ -7,6 +7,7 @@ import { MistakesService } from './mistakes.service';
 import { TelegramModule } from '../telegram/telegram.module';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
 import { PremiumGuard } from '../../common/guards/premium.guard';
+import { ExplanationAccessGuard } from '../../common/guards/explanation-access.guard';
 
 @Module({
   imports: [TelegramModule],
@@ -18,6 +19,7 @@ import { PremiumGuard } from '../../common/guards/premium.guard';
     MistakesService,
     ChannelMemberGuard,
     PremiumGuard,
+    ExplanationAccessGuard,
   ],
   exports: [TestSessionService, MistakesService],
 })

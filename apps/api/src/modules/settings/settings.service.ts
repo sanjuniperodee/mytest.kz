@@ -44,10 +44,10 @@ const DEFAULT_LANDING_SETTINGS: LandingSettings = {
   campaign: {
     enabled: true,
     eyebrow: 'Подготовка к ЕНТ 2027',
-    title: 'Первый полный пробный — бесплатно',
-    description: '140 вопросов, реальный таймер и разбор ошибок. Карта не нужна.',
+    title: 'Пробный ЕНТ бесплатно каждый день',
+    description: '120 заданий, реальный таймер и разбор ошибок. Карта не нужна.',
     ctaLabel: 'Начать бесплатно',
-    ctaHref: '/login?source=campaign',
+    ctaHref: '/login?source=campaign&next=%2Fdashboard%2Fstart',
     endsAt: null,
   },
 };

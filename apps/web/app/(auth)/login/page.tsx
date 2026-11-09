@@ -96,7 +96,7 @@ function LoginContent() {
 
         <ul className="mt-1 grid gap-2 text-sm text-muted-foreground sm:grid-cols-3 md:grid-cols-1">
           <li className="flex items-center gap-2">
-            <Check className="size-4 shrink-0 text-accent" /> 140 вопросов и реальный таймер
+            <Check className="size-4 shrink-0 text-accent" /> 120 заданий и реальный таймер
           </li>
           <li className="flex items-center gap-2">
             <Check className="size-4 shrink-0 text-accent" /> Балл, слабые темы и шанс на грант сразу

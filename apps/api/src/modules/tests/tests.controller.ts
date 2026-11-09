@@ -6,10 +6,12 @@ import {
   Param,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ChannelMemberGuard } from '../../common/guards/channel-member.guard';
 import { PremiumGuard } from '../../common/guards/premium.guard';
+import { ExplanationAccessGuard, type FreeExplanationInfo } from '../../common/guards/explanation-access.guard';
 import { PremiumFeature } from '../../common/decorators/premium-feature.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TestSessionService } from './test-session.service';
@@ -162,13 +164,16 @@ export class TestsController {
   }
 
   @Get('sessions/:id/review/:questionId/explanation')
-  @UseGuards(PremiumGuard)
+  @UseGuards(ExplanationAccessGuard)
   @PremiumFeature('explanations')
   async getExplanation(
     @CurrentUser('id') userId: string,
     @Param('id') sessionId: string,
     @Param('questionId') questionId: string,
+    @Req() request: { freeExplanation?: FreeExplanationInfo },
   ) {
-    return this.testSessionService.getExplanation(sessionId, userId, questionId);
+    const result = await this.testSessionService.getExplanation(sessionId, userId, questionId);
+    // Без подписки: сколько бесплатных объяснений в этом тесте ещё осталось.
+    return request.freeExplanation ? { ...result, freeExplanation: request.freeExplanation } : result;
   }
 }

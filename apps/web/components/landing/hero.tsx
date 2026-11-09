@@ -25,7 +25,7 @@ export function Hero() {
           </h1>
 
           <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            140 вопросов, реальный таймер и подробный разбор. После попытки увидишь
+            120 заданий, реальный таймер и подробный разбор. После попытки увидишь
             свой балл, слабые темы и следующий шаг — без догадок и зубрёжки вслепую.
           </p>
 
