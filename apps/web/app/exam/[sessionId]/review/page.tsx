@@ -61,6 +61,7 @@ import { cn } from "@/lib/utils"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { GrantGapUpsell } from "@/components/exam/grant-gap-upsell"
 import { ShareResult } from "@/components/exam/share-result"
+import { SendToParentButton } from "@/components/parent-report/send-to-parent"
 import type {
   QuestionAppeal,
   QuestionAppealReason,
@@ -360,6 +361,7 @@ export default function ReviewPage({
                           : `${sec.title} ${sec.correctCount}/${sec.totalCount}`,
                       )}
                   />
+                  <SendToParentButton />
                   <TestFeedback key={sessionId} sessionId={sessionId} />
                 </div>
               </div>

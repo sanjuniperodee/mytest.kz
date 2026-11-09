@@ -20,6 +20,8 @@ const ALLOWED_FUNNEL_EVENTS = new Set([
   'payment_paid',
   'payment_failed',
   'payment_cancelled',
+  'parent_report_shared',
+  'parent_report_revoked',
 ]);
 
 const ALLOWED_PUBLIC_FUNNEL_EVENTS = new Set([
@@ -28,11 +30,13 @@ const ALLOWED_PUBLIC_FUNNEL_EVENTS = new Set([
   'diagnostic_completed',
   'pricing_viewed',
   'lead_submitted',
+  'parent_report_viewed',
+  'parent_report_cta',
 ]);
 
 function sanitizePublicMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return {};
-  const allowedKeys = new Set(['placement', 'profile', 'currentScore', 'targetScore', 'gap', 'plan']);
+  const allowedKeys = new Set(['placement', 'profile', 'currentScore', 'targetScore', 'gap', 'plan', 'lang']);
   return Object.fromEntries(
     Object.entries(metadata)
       .filter(([key, value]) => {

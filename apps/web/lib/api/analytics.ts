@@ -4,6 +4,18 @@ import { api } from "./client"
 
 const VID_KEY = "blm_vid_local"
 
+/**
+ * Путь для аналитики без секретов: ссылка «отчёт для родителей» (/progress/<token>)
+ * сама по себе открывает отчёт, поэтому токен не должен попадать в visit_events/funnel_steps.
+ */
+export function analyticsPath(pathname: string): string {
+  return pathname.replace(/^\/progress\/[^/?#]+/, "/progress/:token")
+}
+
+function currentPath(): string {
+  return analyticsPath(window.location.pathname)
+}
+
 function getVisitorId(): string {
   if (typeof window === "undefined") return ""
   let id = window.localStorage.getItem(VID_KEY)
@@ -26,8 +38,8 @@ export async function recordVisit() {
         source: params.get("utm_source") || undefined,
         medium: params.get("utm_medium") || undefined,
         campaign: params.get("utm_campaign") || undefined,
-        referrer: document.referrer || undefined,
-        landingPath: window.location.pathname,
+        referrer: document.referrer.replace(/\/progress\/[^/?#]+/, "/progress/:token") || undefined,
+        landingPath: currentPath(),
       },
     })
   } catch {
@@ -48,7 +60,7 @@ export async function recordFunnelEvent(
         step,
         sessionId,
         metadata,
-        landingPath: window.location.pathname,
+        landingPath: currentPath(),
       },
     })
   } catch {
@@ -69,7 +81,7 @@ export async function recordPublicFunnelEvent(
         visitorId: getVisitorId(),
         step,
         metadata,
-        landingPath: window.location.pathname,
+        landingPath: currentPath(),
       },
     })
   } catch {

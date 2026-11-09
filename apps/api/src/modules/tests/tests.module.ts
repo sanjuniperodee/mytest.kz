@@ -21,6 +21,6 @@ import { ExplanationAccessGuard } from '../../common/guards/explanation-access.g
     PremiumGuard,
     ExplanationAccessGuard,
   ],
-  exports: [TestSessionService, MistakesService],
+  exports: [TestSessionService, MistakesService, TestScorerService],
 })
 export class TestsModule {}

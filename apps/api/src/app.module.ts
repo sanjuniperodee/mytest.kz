@@ -27,6 +27,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { QuestionAppealsModule } from './modules/question-appeals/question-appeals.module';
 import { AiModule } from './modules/ai/ai.module';
 import { SocialModule } from './modules/social/social.module';
+import { ParentReportModule } from './modules/parent-report/parent-report.module';
 
 function validateProductionConfig(config: Record<string, unknown>) {
   if (config.NODE_ENV !== 'production') return config;
@@ -96,6 +97,7 @@ function validateProductionConfig(config: Record<string, unknown>) {
     QuestionAppealsModule,
     AiModule,
     SocialModule,
+    ParentReportModule,
   ],
 })
 export class AppModule {}
