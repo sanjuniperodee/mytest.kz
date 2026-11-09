@@ -178,7 +178,11 @@ model User {
   timezone             String    @default("Asia/Almaty") @db.VarChar(80)
   timezoneChangedAt    DateTime? @map("timezone_changed_at") @db.Timestamptz
   notificationsMutedAt DateTime? @map("notifications_muted_at") @db.Timestamptz
-  entTrialUsed         Int       @default(0) @map("ent_trial_used")
+  /// Telegram привязан к уже существующему аккаунту (Google/email) по ссылке из кабинета — для напоминаний; канальный гейт такие аккаунты не трогает.
+  telegramLinkedAt     DateTime? @map("telegram_linked_at") @db.Timestamptz
+  /// Отписка от писем (ссылка в письме / List-Unsubscribe).
+  emailOptOutAt        DateTime? @map("email_opt_out_at") @db.Timestamptz
+  entTrialUsed        Int       @default(0) @map("ent_trial_used")
   isAdmin              Boolean   @default(false) @map("is_admin")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -199,7 +203,8 @@ model User {
   aiLessonNotes          AiLessonNote[]             @relation("AiLessonNotesByUser")
   reviewedAiLessonNotes  AiLessonNote[]             @relation("AiLessonNotesReviewedBy")
   notificationDeliveries NotificationDelivery[]
-  adminAudits            AdminAudit[]               @relation("AdminAudits")
+  pushSubscriptions      PushSubscription[]
+  adminAudits           AdminAudit[]               @relation("AdminAudits")
   aiCoachAnalyses        AiCoachAnalysis[]
   admissionGoal          UserAdmissionGoal?
 
@@ -1142,7 +1147,11 @@ model NotificationDelivery {
   subscriptionId   String?   @map("subscription_id") @db.Uuid
   dedupeKey        String    @unique @map("dedupe_key") @db.VarChar(160)
   status           String    @default("pending") @db.VarChar(20)
-  targetTelegramId BigInt    @map("target_telegram_id")
+  /// telegram | email | push
+  channel          String    @default("telegram") @db.VarChar(16)
+  targetTelegramId BigInt?   @map("target_telegram_id")
+  targetEmail      String?   @map("target_email") @db.VarChar(255)
+  targetPushId     String?   @map("target_push_id") @db.Uuid
   attemptedAt      DateTime  @default(now()) @map("attempted_at") @db.Timestamptz
   sentAt           DateTime? @map("sent_at") @db.Timestamptz
   errorCode        String?   @map("error_code") @db.VarChar(80)
@@ -1155,14 +1164,37 @@ model NotificationDelivery {
   user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   session      TestSession?         @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   subscription Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  pushTarget   PushSubscription?    @relation(fields: [targetPushId], references: [id], onDelete: SetNull)
 
   @@index([campaignKey, status, attemptedAt])
+  @@index([campaignKey, channel, status], map: "notification_deliveries_campaign_channel_status_idx")
   @@index([campaignKey, attemptedAt], map: "notification_deliveries_campaign_attempted_idx")
   @@index([userId, sentAt])
   @@index([userId, status, sentAt], map: "notification_deliveries_user_status_sent_idx")
   @@index([sessionId])
   @@index([subscriptionId])
   @@map("notification_deliveries")
+}
+
+/// Web Push (VAPID) подписка браузера. Строка удаляется, когда push-сервис отвечает 404/410.
+model PushSubscription {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  endpoint      String    @unique @db.Text
+  p256dh        String    @db.VarChar(255)
+  auth          String    @db.VarChar(255)
+  userAgent     String?   @map("user_agent") @db.VarChar(512)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  lastSuccessAt DateTime? @map("last_success_at") @db.Timestamptz
+  lastFailureAt DateTime? @map("last_failure_at") @db.Timestamptz
+  failureCount  Int       @default(0) @map("failure_count")
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@index([userId, createdAt])
+  @@map("push_subscriptions")
 }
 
 model NotificationRun {

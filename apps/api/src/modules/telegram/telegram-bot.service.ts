@@ -13,6 +13,49 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../database/prisma.service';
 import { normalizeKzPhone } from '@bilimland/shared';
 import { AuthService } from '../auth/auth.service';
+import {
+  TELEGRAM_LINK_PREFIX,
+  notificationTokenSecret,
+  verifyTelegramLinkToken,
+} from '../notifications/notification-tokens';
+
+export type TelegramLinkResult =
+  | 'linked'
+  | 'already_linked'
+  | 'telegram_taken'
+  | 'account_has_other_telegram'
+  | 'user_not_found';
+
+type TelegramLinkUser = { id: number; username?: string };
+
+type TelegramOwnerSnapshot = {
+  id: string;
+  phone: string | null;
+  email: string | null;
+  googleId: string | null;
+  passwordHash: string | null;
+  _count: {
+    testSessions: number;
+    subscriptions: number;
+    paymentOrders: number;
+    socialPosts: number;
+    chatMessages: number;
+  };
+};
+
+/**
+ * A user row created only because someone pressed /start (or opened the Mini App) and never
+ * finished onboarding: no phone, no other login, no activity. Releasing its telegram_id loses nothing.
+ */
+function isEmptyTelegramStub(owner: TelegramOwnerSnapshot) {
+  return (
+    !owner.phone &&
+    !owner.email &&
+    !owner.googleId &&
+    !owner.passwordHash &&
+    Object.values(owner._count).every((count) => count === 0)
+  );
+}
 
 /** `users.id` для личного уведомления админа о заявке с лендинга; пустой `LEAD_NOTIFY_USER_ID` отключает поиск в БД. */
 const DEFAULT_LEAD_NOTIFY_USER_ID = '22f36334-d7ac-435f-a834-a6bdb4349217';
@@ -234,6 +277,168 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
+  private siteUrl() {
+    const configured = (this.config.get<string>('PUBLIC_SITE_URL') || '').trim();
+    if (configured) return configured.replace(/\/+$/, '');
+    try {
+      return new URL(this.webAppUrl).origin;
+    } catch {
+      return 'https://my-test.kz';
+    }
+  }
+
+  private async handleTelegramLinkStart(ctx: Context, token: string) {
+    const from = ctx.from;
+    if (!from) return;
+    const secret = notificationTokenSecret(this.config);
+    const verified = secret ? verifyTelegramLinkToken(token, secret) : null;
+    if (!verified) {
+      await ctx.reply(
+        from.language_code === 'kk'
+          ? '⚠️ Сілтеменің мерзімі өтті. my-test.kz сайтында «Telegram қосу» батырмасын қайта басыңыз.'
+          : '⚠️ Ссылка для подключения устарела. Откройте my-test.kz и нажмите «Подключить Telegram» ещё раз.',
+      );
+      return;
+    }
+
+    let result: TelegramLinkResult;
+    let language: 'ru' | 'kk' = from.language_code === 'kk' ? 'kk' : 'ru';
+    try {
+      const outcome = await this.linkTelegramAccount(verified.userId, from);
+      result = outcome.result;
+      if (outcome.language) language = outcome.language;
+    } catch (error) {
+      this.logger.error(`Telegram link failed for ${from.id}: ${error}`);
+      await ctx.reply('Произошла ошибка. Попробуйте ещё раз.');
+      return;
+    }
+
+    const kk = language === 'kk';
+    const texts: Record<TelegramLinkResult, string> = {
+      linked: kk
+        ? '✅ Telegram mytest аккаунтыңызға қосылды. Мұнда тегін ҰБТ туралы еске салғыштар, тест нәтижелері және қауымдастықтағы жауаптар келеді. Өшіру: /stop'
+        : '✅ Telegram подключён к вашему аккаунту mytest. Сюда будут приходить напоминания о бесплатном ЕНТ, итоги тестов и ответы в сообществе. Отключить: /stop',
+      already_linked: kk
+        ? '✅ Бұл Telegram аккаунтыңызға бұрыннан қосулы.'
+        : '✅ Этот Telegram уже подключён к вашему аккаунту.',
+      telegram_taken: kk
+        ? 'Бұл Telegram басқа mytest аккаунтына байланған, сондықтан оны қосу мүмкін емес. Сол аккаунтқа Telegram арқылы кіріңіз немесе сілтемені басқа Telegram-нан ашыңыз.'
+        : 'Этот Telegram уже привязан к другому аккаунту mytest, поэтому подключить его нельзя. Войдите в тот аккаунт через Telegram или откройте ссылку из другого Telegram-аккаунта.',
+      account_has_other_telegram: kk
+        ? 'Сіздің mytest аккаунтыңызға басқа Telegram қосылған.'
+        : 'К вашему аккаунту mytest уже подключён другой Telegram.',
+      user_not_found: kk
+        ? '⚠️ Сілтеме жарамсыз. my-test.kz сайтында «Telegram қосу» батырмасын қайта басыңыз.'
+        : '⚠️ Ссылка недействительна. Откройте my-test.kz и нажмите «Подключить Telegram» ещё раз.',
+    };
+    const openLabel = kk ? '🚀 mytest ашу' : '🚀 Открыть mytest';
+    await ctx.reply(
+      texts[result],
+      result === 'linked' || result === 'already_linked'
+        ? Markup.inlineKeyboard([[Markup.button.url(openLabel, `${this.siteUrl()}/dashboard`)]])
+        : undefined,
+    );
+  }
+
+  /**
+   * Attach a Telegram account to an existing (Google/email) user. Never takes a Telegram account
+   * from another real user; an empty /start stub (no phone, no logins, no activity) is released.
+   */
+  async linkTelegramAccount(
+    userId: string,
+    from: TelegramLinkUser,
+  ): Promise<{ result: TelegramLinkResult; language?: 'ru' | 'kk' }> {
+    const telegramId = BigInt(from.id);
+    const [target, owner] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, telegramId: true, preferredLanguage: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { telegramId },
+        select: {
+          id: true,
+          phone: true,
+          email: true,
+          googleId: true,
+          passwordHash: true,
+          _count: {
+            select: {
+              testSessions: true,
+              subscriptions: true,
+              paymentOrders: true,
+              socialPosts: true,
+              chatMessages: true,
+            },
+          },
+        },
+      }),
+    ]);
+    if (!target) return { result: 'user_not_found' };
+    const language = target.preferredLanguage === 'kk' ? 'kk' : 'ru';
+    if (target.telegramId === telegramId) return { result: 'already_linked', language };
+    if (target.telegramId != null) return { result: 'account_has_other_telegram', language };
+    if (owner && owner.id !== target.id && !isEmptyTelegramStub(owner)) {
+      return { result: 'telegram_taken', language };
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (owner) {
+          const released = await tx.user.updateMany({
+            where: { id: owner.id, telegramId, phone: null, email: null, googleId: null },
+            data: { telegramId: null },
+          });
+          if (released.count === 0) throw new Error('TELEGRAM_LINK_RACE');
+        }
+        const linked = await tx.user.updateMany({
+          where: { id: target.id, telegramId: null },
+          data: {
+            telegramId,
+            telegramUsername: from.username || null,
+            telegramLinkedAt: new Date(),
+            notificationsMutedAt: null,
+          },
+        });
+        if (linked.count === 0) throw new Error('TELEGRAM_LINK_RACE');
+      });
+    } catch (error) {
+      if (
+        (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') ||
+        (error instanceof Error && error.message === 'TELEGRAM_LINK_RACE')
+      ) {
+        return { result: 'telegram_taken', language };
+      }
+      throw error;
+    }
+    if (owner) {
+      this.logger.log(`Released empty Telegram stub ${owner.id} while linking telegram ${from.id} to ${target.id}`);
+    }
+    return { result: 'linked', language };
+  }
+
+  /** Outbound lifecycle messages are possible (bot token set and not disabled). */
+  canSendLifecycleNotifications() {
+    return this.bot !== null;
+  }
+
+  getBotUsername() {
+    const configured = (this.config.get<string>('TELEGRAM_BOT_USERNAME') || '').trim().replace(/^@/, '');
+    return configured || this.bot?.botInfo?.username || 'bilimhan_bot';
+  }
+
+  /** The user blocked the bot / deleted the account: the chat will not accept messages again. */
+  isUnreachableChatError(error: unknown) {
+    const code = (error as { response?: { error_code?: unknown } })?.response?.error_code;
+    const description = this.telegramErrorDescription(error).toLowerCase();
+    return (
+      code === 403 ||
+      description.includes('bot was blocked by the user') ||
+      description.includes('user is deactivated') ||
+      description.includes('chat not found')
+    );
+  }
+
   async onModuleInit() {
     // Жёсткий выключатель для one-off скриптов (sync_subscription.ts и т.п.), которые
     // поднимают весь AppModule: без него такой скрипт становится ВТОРЫМ потребителем
@@ -272,6 +477,12 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     });
 
     bot.start(async (ctx) => {
+      // Deep link from the web cabinet: t.me/<bot>?start=link_<token> — attach this Telegram to that account.
+      const payload = String((ctx as { payload?: unknown }).payload ?? '').trim();
+      if (payload.startsWith(TELEGRAM_LINK_PREFIX)) {
+        await this.handleTelegramLinkStart(ctx, payload.slice(TELEGRAM_LINK_PREFIX.length));
+        return;
+      }
       await this.sendStartWelcome(ctx);
     });
 
@@ -707,7 +918,13 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
   async sendLifecycleNotification(
     telegramId: bigint,
     body: string,
-    options?: { language?: 'ru' | 'kk'; channelButtons?: boolean },
+    options?: {
+      language?: 'ru' | 'kk';
+      channelButtons?: boolean;
+      /** Open this site URL in the browser instead of the Mini App (accounts without a phone in the bot). */
+      url?: string;
+      buttonLabel?: string;
+    },
   ): Promise<void> {
     if (!this.bot) {
       this.logger.warn('sendLifecycleNotification: бот не запущен');
@@ -716,14 +933,15 @@ export class TelegramBotService implements OnModuleInit, OnApplicationShutdown {
     const language = options?.language === 'kk' ? 'kk' : 'ru';
     const openLabel = language === 'kk' ? '🚀 MyTest ашу' : '🚀 Открыть MyTest';
     const subscribeLabel = language === 'kk' ? 'Каналға жазылу' : 'Подписаться';
+    const openButton = options?.url
+      ? Markup.button.url(options.buttonLabel || openLabel, options.url)
+      : Markup.button.webApp(openLabel, this.webAppUrl);
     const keyboard = options?.channelButtons
       ? Markup.inlineKeyboard([
           [Markup.button.url(subscribeLabel, this.channelUrl)],
-          [Markup.button.webApp(openLabel, this.webAppUrl)],
+          [openButton],
         ])
-      : Markup.inlineKeyboard([
-          [Markup.button.webApp(openLabel, this.webAppUrl)],
-        ]);
+      : Markup.inlineKeyboard([[openButton]]);
 
     try {
       await Promise.race([

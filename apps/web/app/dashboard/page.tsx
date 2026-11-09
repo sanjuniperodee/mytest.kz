@@ -19,6 +19,7 @@ import { formatResetMoment } from "@/components/billing/free-reset"
 import type { ExamType, MistakesSummary, SessionListItem, UserStats } from "@/lib/api/types"
 import { QuestionOfDayCard } from "@/components/social/question-of-day"
 import { SendToParentCard } from "@/components/parent-report/send-to-parent"
+import { RemindersOptIn } from "@/components/notifications/reminders-opt-in"
 
 type SessionsResponse = { items?: SessionListItem[] } | SessionListItem[]
 const sessionsList = (data?: SessionsResponse) => Array.isArray(data) ? data : data?.items ?? []
@@ -120,6 +121,8 @@ export default function DashboardHomePage() {
         </div>
       </div>
     </section>
+
+    <RemindersOptIn />
 
     <section aria-label={t("Результаты подготовки", "Дайындық нәтижелері")} className="grid grid-cols-1 divide-y divide-border rounded-xl border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0" data-no-translate>
       {([

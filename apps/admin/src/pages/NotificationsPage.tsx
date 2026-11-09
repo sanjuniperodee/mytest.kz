@@ -27,9 +27,16 @@ type CampaignRow = {
   audience: number;
   sent: number;
   failed: number;
+  byChannel?: Record<Channel, { sent: number; failed: number }>;
+  channels?: Channel[];
+  superseded?: boolean;
   lastAttemptedAt: string | null;
   updatedAt: string;
 };
+
+type Channel = 'push' | 'telegram' | 'email';
+
+const CHANNEL_LABEL: Record<Channel, string> = { push: 'Push', telegram: 'TG', email: 'Email' };
 
 type NotificationRun = {
   id: string;
@@ -53,6 +60,11 @@ type OverviewResponse = {
     batchSize: number;
     quietHours: string;
     globalCooldownHours: number;
+    channels?: {
+      telegram: { configured: boolean };
+      push: { configured: boolean; subscriptions: number };
+      email: { configured: boolean; dailyCap: number; sentToday: number };
+    };
   };
 };
 
@@ -60,7 +72,9 @@ type DeliveryLog = {
   id: string;
   campaignKey: string;
   status: string;
-  targetTelegramId: number;
+  channel?: Channel;
+  targetTelegramId: number | null;
+  targetEmail?: string | null;
   attemptedAt: string;
   sentAt: string | null;
   errorCode: string | null;
@@ -183,7 +197,11 @@ export function NotificationsPage() {
       render: (_: unknown, row) => (
         <div>
           <strong>{row.title}</strong>
-          <div className="pg-notifications__muted">{row.key}</div>
+          <div className="pg-notifications__muted">
+            {row.key}
+            {row.channels ? ` · ${row.channels.map((channel) => CHANNEL_LABEL[channel]).join(', ')}` : ''}
+          </div>
+          {row.superseded && <Tag>не шлётся: заменена другой кампанией</Tag>}
         </div>
       ),
     },
@@ -207,12 +225,22 @@ export function NotificationsPage() {
     },
     {
       title: 'Sent / Failed',
-      width: 130,
+      width: 190,
       render: (_: unknown, row) => (
-        <Space size={4}>
-          <Tag color="green">{row.sent}</Tag>
-          <Tag color="red">{row.failed}</Tag>
-        </Space>
+        <div>
+          <Space size={4}>
+            <Tag color="green">{row.sent}</Tag>
+            <Tag color="red">{row.failed}</Tag>
+          </Space>
+          {row.byChannel && (
+            <div className="pg-notifications__muted">
+              {(Object.keys(CHANNEL_LABEL) as Channel[])
+                .filter((channel) => row.channels?.includes(channel) || row.byChannel![channel].sent > 0)
+                .map((channel) => `${CHANNEL_LABEL[channel]} ${row.byChannel![channel].sent}/${row.byChannel![channel].failed}`)
+                .join(' · ')}
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -272,12 +300,21 @@ export function NotificationsPage() {
       render: statusTag,
     },
     {
+      title: 'Канал',
+      width: 90,
+      render: (_: unknown, row) => <Tag>{CHANNEL_LABEL[row.channel ?? 'telegram'] ?? row.channel}</Tag>,
+    },
+    {
       title: 'Пользователь',
       render: (_: unknown, row) => (
         <div>
           <strong>{userLabel(row.user)}</strong>
           <div className="pg-notifications__muted">
-            {row.user.telegramId ? row.user.telegramId : row.targetTelegramId}
+            {row.channel === 'email'
+              ? row.targetEmail
+              : row.channel === 'push'
+                ? 'web push'
+                : row.targetTelegramId ?? row.user.telegramId}
           </div>
         </div>
       ),
@@ -334,17 +371,29 @@ export function NotificationsPage() {
         <div className="pg-users__hero pg-dash__hero">
           <div>
             <p className="pg-dash__eyebrow">
-              <BellOutlined /> Lifecycle Telegram
+              <BellOutlined /> Lifecycle: Push · Telegram · Email
             </p>
             <h1 className="pg-dash__headline">Рассылки</h1>
             <p className="pg-dash__lede">
-              Автоматические мягкие напоминания по воронке: канал, первый пробный тест, брошенные сессии и paid-retention.
+              Автоматические мягкие напоминания по воронке: приветствие, итог ЕНТ, бесплатный ЕНТ дня, ответы в сообществе,
+              брошенные сессии и paid-retention. Каждому пользователю — один канал: push → Telegram → email.
             </p>
           </div>
           <div className="pg-notifications__settings">
             <Tag color={overview?.settings.enabled ? 'green' : 'red'}>
               {overview?.settings.enabled ? 'enabled' : 'disabled'}
             </Tag>
+            {overview?.settings.channels && (
+              <>
+                <Tag color={overview.settings.channels.telegram.configured ? 'green' : 'default'}>Telegram</Tag>
+                <Tag color={overview.settings.channels.push.configured ? 'green' : 'default'}>
+                  push · {overview.settings.channels.push.subscriptions} подп.
+                </Tag>
+                <Tag color={overview.settings.channels.email.configured ? 'green' : 'default'}>
+                  email · {overview.settings.channels.email.sentToday}/{overview.settings.channels.email.dailyCap} сегодня
+                </Tag>
+              </>
+            )}
             <Tag>poll {overview?.settings.pollIntervalMinutes ?? 15} min</Tag>
             <Tag>batch {overview?.settings.batchSize ?? 50}</Tag>
             <Tag>quiet {overview?.settings.quietHours ?? '22-09'}</Tag>

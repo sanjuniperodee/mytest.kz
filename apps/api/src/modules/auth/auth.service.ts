@@ -23,6 +23,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { TelegramAuthService } from './telegram-auth.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
+import { isChannelGateExempt } from '../../common/channel-gate';
 import {
   getJwtExpiresIn,
   getRequiredConfig,
@@ -102,7 +103,9 @@ export class AuthService {
     // Check channel membership. Technical Telegram failures keep the cached value
     // instead of turning into a false "not subscribed" state.
     const membership = await this.telegramBot.checkChannelMembership(tgUser.id);
-    const isChannelMember = membership ?? user.isChannelMember;
+    const isChannelMember = isChannelGateExempt(user)
+      ? true
+      : membership ?? user.isChannelMember;
     if (membership !== null && user.isChannelMember !== membership) {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -218,7 +221,7 @@ export class AuthService {
     return this.generateTokens({
       ...user,
       telegramId: user.telegramId ? Number(user.telegramId) : null,
-      isChannelMember: user.telegramId ? user.isChannelMember : true,
+      isChannelMember: isChannelGateExempt(user) ? true : user.isChannelMember,
     });
   }
 
@@ -318,7 +321,9 @@ export class AuthService {
     const membership = await this.telegramBot.checkChannelMembership(
       Number(user.telegramId),
     );
-    const isChannelMember = membership ?? user.isChannelMember;
+    const isChannelMember = isChannelGateExempt(user)
+      ? true
+      : membership ?? user.isChannelMember;
     if (membership !== null && user.isChannelMember !== membership) {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -390,7 +395,7 @@ export class AuthService {
     return this.generateTokens({
       ...user,
       telegramId: user.telegramId ? Number(user.telegramId) : null,
-      isChannelMember: user.telegramId ? user.isChannelMember : true,
+      isChannelMember: isChannelGateExempt(user) ? true : user.isChannelMember,
     });
   }
 
@@ -431,7 +436,7 @@ export class AuthService {
       return this.generateTokens({
         ...session.user,
         telegramId: session.user.telegramId ? Number(session.user.telegramId) : null,
-        isChannelMember: session.user.telegramId ? session.user.isChannelMember : true,
+        isChannelMember: isChannelGateExempt(session.user) ? true : session.user.isChannelMember,
       }, {
         id: session.id,
         familyId: session.familyId,

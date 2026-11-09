@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../../modules/telegram/telegram-bot.service';
+import { isChannelGateExempt } from '../channel-gate';
 
 @Injectable()
 export class ChannelMemberGuard implements CanActivate {
@@ -69,6 +70,7 @@ export class ChannelMemberGuard implements CanActivate {
       select: {
         id: true,
         telegramId: true,
+        telegramLinkedAt: true,
         isChannelMember: true,
         channelCheckedAt: true,
       },
@@ -78,8 +80,8 @@ export class ChannelMemberGuard implements CanActivate {
       throw this.telegramChannelForbidden();
     }
 
-    // User with no Telegram account — bypass the Telegram channel requirement
-    if (!dbUser.telegramId) {
+    // No Telegram, or Telegram linked to a web account for reminders — no channel requirement.
+    if (isChannelGateExempt(dbUser)) {
       return true;
     }
 
