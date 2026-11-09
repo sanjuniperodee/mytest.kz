@@ -75,7 +75,8 @@ function getEntScope(metadata: unknown): EntScope | undefined {
     scope === 'mandatory' ||
     scope === 'profile' ||
     scope === 'full' ||
-    scope === 'creative'
+    scope === 'creative' ||
+    scope === 'express'
   ) {
     return scope;
   }
@@ -251,6 +252,8 @@ export class TestScorerService {
       entWeightedActive &&
       examSlug === 'ent' &&
       entScope === 'full';
+    /** Экспресс-ЕНТ: каждый вопрос — 1 балл (ни scoreWeight, ни profileHeavyFrom не действуют). */
+    const entExpress = examSlug === 'ent' && entScope === 'express';
 
     for (const answer of session.answers) {
       const correctOptionIds = answer.question.answerOptions
@@ -263,8 +266,9 @@ export class TestScorerService {
       const subjectId = subject?.id || answer.question.subjectId;
       const pos = entWeightedActive ? placement!.get(answer.questionId) : undefined;
       const qSw = (answer.question as { scoreWeight?: number | null }).scoreWeight;
-      const wMax =
-        entWeightedActive && pos
+      const wMax = entExpress
+        ? 1
+        : entWeightedActive && pos
           ? strictEntFullActive
             ? pos.isMandatory
               ? entStrictFullMaxPoints(pos)

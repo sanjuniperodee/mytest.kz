@@ -217,7 +217,7 @@ export interface SessionMetadataSection {
 
 export interface SessionMetadata {
   kind?: "remediation"
-  entScope?: "mandatory" | "profile" | "full" | "creative"
+  entScope?: "mandatory" | "profile" | "full" | "creative" | "express"
   remediationDurationMins?: number
   remediationScope?: { subjectId?: string | null; topicId?: string | null; themeId?: string | null; unclassifiedOnly?: boolean }
   entSessionDurationMins?: number
@@ -293,6 +293,20 @@ export interface TestSession {
   sectionScores?: SessionSectionScore[]
   sectionsScores?: SessionSectionScore[]
   appeals?: QuestionAppeal[]
+  /** Только экспресс-ЕНТ (review): оценка балла ЕНТ из 140 по доле верных в каждом предмете. */
+  entEstimate?: EntScoreEstimate | null
+}
+
+export interface EntScoreEstimate {
+  score: number
+  max: number
+  sections?: Array<{
+    subjectSlug: string
+    correctCount: number
+    totalCount: number
+    maxPoints: number
+    points: number
+  }>
 }
 
 export interface PaginatedResponse<T> {

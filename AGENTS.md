@@ -85,6 +85,7 @@ Built TS package; `src/index.ts` re-exports everything. Key files: `entGrantMode
 ## Key Patterns
 
 - **ENT scoring**: 5 subjects — mathLit (max 10), readingLit (max 10), history (max 20), profile1 (max 50), profile2 (max 50) = 140 total. Use `totalEntScore()` from `@bilimland/shared` (clamps inputs); do **not** re-sum the five fields inline.
+- **Express ENT** (`entScope: 'express'`, `ENT_CONFIG.express`): 32 single-choice questions, ~50 min, 1 point each; the review returns `entEstimate { score, max: 140 }`. Not a full ENT result — leaderboard / profile stats / goal projection only count 120-question, 140-point sessions.
 - **Passing scores (проходные баллы)**: Fetched from `/admission/cutoffs?cycleSlug=<year>&quotaType=GRANT`.
 - **JWT `isAdmin` is a UI hint only**: `AdminGuard` re-reads `User.isAdmin` from the database on every request.
 - **i18n on the wire**: The API returns `{ kk, ru, en }` objects; an interceptor localizes responses server-side and the client `localize()` handles the rest.

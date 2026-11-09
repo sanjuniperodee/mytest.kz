@@ -8,6 +8,7 @@ import { SESSION_QUESTION_SELECT, toSessionQuestionPayload } from './session-que
 import {
   ENT_CONFIG,
   type EntScope,
+  estimateEntScoreFromExpress,
   isEntProfileSubjectPairAllowed,
 } from '@bilimland/shared';
 import { AccessService, accessDeniedError } from '../subscriptions/access.service';
@@ -95,7 +96,7 @@ export class TestSessionService {
         else if (n === 2) resolvedEntScope = 'full';
         else {
           throw new BadRequestException(
-            'ENT: укажите entScope (mandatory | profile | full | creative) или 0 / 2 профильных предмета',
+            'ENT: укажите entScope (mandatory | profile | full | creative | express) или 0 / 2 профильных предмета',
           );
         }
       }
@@ -103,7 +104,8 @@ export class TestSessionService {
         profileSubjectIds = undefined;
       } else if (
         resolvedEntScope === 'profile' ||
-        resolvedEntScope === 'full'
+        resolvedEntScope === 'full' ||
+        resolvedEntScope === 'express'
       ) {
         if (!profileSubjectIds || profileSubjectIds.length !== 2) {
           throw new BadRequestException(
@@ -115,6 +117,8 @@ export class TestSessionService {
         this.validateEntFullTemplate(template.sections);
       } else if (resolvedEntScope === 'creative') {
         this.validateEntCreativeTemplate(template.sections);
+      } else if (resolvedEntScope === 'express') {
+        this.validateEntExpressTemplate(template.sections);
       }
     } else {
       resolvedEntScope = undefined;
@@ -240,6 +244,8 @@ export class TestSessionService {
     let sessionDurationMins = template.durationMins;
     if (examSlug === 'ent' && resolvedEntScope === 'creative') {
       sessionDurationMins = ENT_CONFIG.creativeDurationMins;
+    } else if (examSlug === 'ent' && resolvedEntScope === 'express') {
+      sessionDurationMins = ENT_CONFIG.express.durationMins;
     } else if (examSlug === 'ent' && fullEntQ > 0) {
       sessionDurationMins = Math.max(
         5,
@@ -346,7 +352,10 @@ export class TestSessionService {
             visitId: visit.id,
             step: 'started_test',
             sessionId: created.id,
-            metadata: { examTypeId: template.examTypeId },
+            metadata: {
+              examTypeId: template.examTypeId,
+              ...(examSlug === 'ent' && resolvedEntScope ? { entScope: resolvedEntScope } : {}),
+            },
           },
         });
       }
@@ -599,6 +608,7 @@ export class TestSessionService {
           where: { visitId: session.visitId, step: 'completed_test', sessionId },
         });
         if (!existingStep) {
+          const { entScope } = this.asPlainMetadata(session.metadata);
           await tx.funnelStep.create({
             data: {
               visitId: session.visitId,
@@ -608,6 +618,7 @@ export class TestSessionService {
                 examTypeId: session.examTypeId,
                 score: scoreResult.score,
                 durationSecs: elapsed,
+                ...(typeof entScope === 'string' ? { entScope } : {}),
               },
             },
           });
@@ -772,12 +783,26 @@ export class TestSessionService {
       scoreResult.answerScores.map((item) => [item.answerId, item]),
     );
     const normalized = this.normalizeSessionScore(session);
+    // Экспресс-ЕНТ: сырые баллы — из 32, плюс оценка балла ЕНТ из 140 (только для express).
+    const isExpress =
+      (session.examType as { slug?: string } | null)?.slug === 'ent' &&
+      this.asPlainMetadata(session.metadata).entScope === 'express';
+    const entEstimate = isExpress
+      ? estimateEntScoreFromExpress(
+          scoreResult.sections.map((section) => ({
+            subjectSlug: section.subjectSlug,
+            correctCount: section.correctCount,
+            totalCount: section.totalCount,
+          })),
+        )
+      : null;
     return {
       ...normalized,
       correctCount: scoreResult.correctCount,
       rawScore: scoreResult.rawScore,
       maxScore: scoreResult.maxScore,
       score: scoreResult.score,
+      ...(entEstimate ? { entEstimate } : {}),
       answers: this.withoutExplanationText(normalized.answers ?? []).map((answer) => {
         const answerScore = answerScoresById.get(answer.id);
         return answerScore
@@ -1345,6 +1370,7 @@ export class TestSessionService {
   ): number {
     if (examSlug === 'ent') {
       if (entScope === 'full' || entScope === 'profile') return ENT_CONFIG.profileQuestionsPerSubject;
+      if (entScope === 'express') return ENT_CONFIG.express.profileQuestionsPerSubject;
       if (mandatoryQuestionSum >= 35) return 40;
       if (mandatoryQuestionSum >= 20) return 20;
       return 10;
@@ -1478,6 +1504,28 @@ export class TestSessionService {
           'ENT creative template must be exactly: reading_literacy=10, history_kz=20',
         );
       }
+    }
+  }
+
+  /**
+   * Экспресс берёт из шаблона только предметы (math_literacy, reading_literacy, history_kz) —
+   * число вопросов задаёт ENT_CONFIG.express, поэтому подходит любой ЕНТ-шаблон с этими блоками.
+   */
+  private validateEntExpressTemplate(
+    sections: Array<{
+      subjectId: string;
+      questionCount: number;
+      subject?: { slug: string; isMandatory: boolean };
+    }>,
+  ): void {
+    const present = new Set(sections.map((sec) => sec.subject?.slug ?? ''));
+    const missing = Object.keys(ENT_CONFIG.express.questionCounts).filter(
+      (slug) => !present.has(slug),
+    );
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `ENT express template must contain mandatory blocks: ${missing.join(', ')}`,
+      );
     }
   }
 

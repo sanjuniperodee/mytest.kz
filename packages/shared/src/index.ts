@@ -3,6 +3,7 @@ export * from './constants/index';
 export * from './validators/phone';
 export * from './entGrantModel';
 export * from './entQuestionScoring';
+export * from './entExpress';
 export * from './admissionCompare';
 export * from './admissionApiTypes';
 export * from './readingLiteracyStemSplit';

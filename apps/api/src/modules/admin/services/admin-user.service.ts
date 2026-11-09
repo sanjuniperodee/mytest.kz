@@ -443,7 +443,8 @@ export class AdminUserService {
       meta.entScope === 'mandatory' ||
       meta.entScope === 'profile' ||
       meta.entScope === 'full' ||
-      meta.entScope === 'creative'
+      meta.entScope === 'creative' ||
+      meta.entScope === 'express'
         ? meta.entScope
         : null;
     const kind = typeof meta.kind === 'string' ? meta.kind : null;
@@ -480,6 +481,8 @@ export class AdminUserService {
       modeLabel = 'Только обязательные';
     } else if (examTypeSlug === 'ent' && entScope === 'creative') {
       modeLabel = 'Творческий экзамен';
+    } else if (examTypeSlug === 'ent' && entScope === 'express') {
+      modeLabel = 'Экспресс-ЕНТ';
     }
 
     const subjectSummaryParts: string[] = [];
