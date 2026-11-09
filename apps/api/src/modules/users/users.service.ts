@@ -563,6 +563,7 @@ export class UsersService {
           correctCount: true,
           durationSecs: true,
           finishedAt: true,
+          metadata: true,
           examType: { select: { id: true, slug: true, name: true } },
         },
       }),
@@ -795,6 +796,16 @@ export class UsersService {
     return {
       totalTests,
       completedTests: totalTests,
+      // Every finished test except mistake practice — express and partial ENT included.
+      // completedTests/averageScore stay full-ENT-only (comparable 140-point results).
+      finishedTests: finishedSessions.filter(
+        (s) =>
+          !(
+            s.metadata &&
+            typeof s.metadata === "object" &&
+            (s.metadata as { kind?: unknown }).kind === "remediation"
+          ),
+      ).length,
       inProgressSessionsCount: analyticsInProgressSessions.length,
       averageScore: Math.round(averageScore * 100) / 100,
       byExamType,

@@ -367,6 +367,8 @@ export interface UserExamStats {
 export interface UserStats {
   totalTests: number
   completedTests: number
+  /** All finished tests except mistake practice (express and partial ENT included). */
+  finishedTests?: number
   inProgressSessionsCount?: number
   averageScore: number
   byExamType?: UserExamStats[]

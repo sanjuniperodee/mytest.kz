@@ -53,6 +53,8 @@ export default function DashboardHomePage() {
   const entStats = stats.data?.byExamType?.find(item => item.examSlug === "ent")
   const impact = summary.data?.scoreImpact
   const completed = stats.data?.completedTests
+  /** Any finished test (express, partial ENT) — for the counter and the parent card. */
+  const finishedCount = stats.data ? (stats.data.finishedTests ?? stats.data.completedTests) : undefined
   const next = inProgress ? {
     kind: "continue", title: t("Продолжите начатый пробный", "Бастаған сынақты жалғастырыңыз"),
     text: t("Ответы сохранены. Вернитесь к тесту, который ещё не завершён.", "Жауаптар сақталған. Әлі аяқталмаған тестке оралыңыз."),
@@ -126,7 +128,7 @@ export default function DashboardHomePage() {
 
     <section aria-label={t("Результаты подготовки", "Дайындық нәтижелері")} className="grid grid-cols-1 divide-y divide-border rounded-xl border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0" data-no-translate>
       {([
-        [t("Завершено пробных", "Аяқталған сынақтар"), completed != null ? <CountUp value={completed} /> : "—"],
+        [t("Завершено пробных", "Аяқталған сынақтар"), finishedCount != null ? <CountUp value={finishedCount} /> : "—"],
         [t("Лучший результат ЕНТ", "ҰБТ-дағы үздік нәтиже"), entStats ? formatBestPoints(entStats) : "—"],
         [t("Средний результат всех тестов", "Барлық тесттердің орташа нәтижесі"), completed && stats.data ? <CountUp value={stats.data.averageScore} format={n => `${n}%`} /> : "—"],
       ] as [string, React.ReactNode][]).map(([label, value]) => <div key={label} className="flex items-center justify-between gap-3 p-4 sm:block sm:p-5"><p className="text-xs text-muted-foreground">{label}</p>{stats.isLoading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="text-xl font-semibold tabular-nums sm:mt-1 sm:text-2xl">{value}</p>}</div>)}
@@ -154,7 +156,7 @@ export default function DashboardHomePage() {
       <div className="flex min-w-0 flex-col gap-6">
         <AdmissionGoalCard currentScore={impact?.available ? impact.lastScore : null} potentialScore={impact?.available ? impact.potentialScore : null} maxScore={impact?.available ? impact.maxScore : undefined} />
         {/* Родителям есть что показать только после первого завершённого теста. */}
-        {(completed ?? 0) > 0 && <SendToParentCard />}
+        {(finishedCount ?? 0) > 0 && <SendToParentCard />}
       </div>
     </div>
 
