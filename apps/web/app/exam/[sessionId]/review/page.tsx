@@ -63,6 +63,7 @@ import { GrantGapUpsell } from "@/components/exam/grant-gap-upsell"
 import { ShareResult } from "@/components/exam/share-result"
 import { SendToParentButton } from "@/components/parent-report/send-to-parent"
 import { RemindersOptIn } from "@/components/notifications/reminders-opt-in"
+import { QuestionSource } from "@/components/exam/question-source"
 import type {
   QuestionAppeal,
   QuestionAppealReason,
@@ -602,6 +603,8 @@ export default function ReviewPage({
                                   }, false)
                                 }}
                               />
+
+                              <QuestionSource source={q.source} locale={locale} />
 
                               {q.hasExplanation && (
                                 <ExplanationBlock

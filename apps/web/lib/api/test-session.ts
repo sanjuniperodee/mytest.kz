@@ -30,6 +30,8 @@ export interface FlatSessionQuestion {
   hasExplanation: boolean
   /** Entries of `imageUrls` embedded in the (paid) explanation — not shown as attached images. */
   explanationImageUrls: string[]
+  /** CC BY source to credit under the question (OpenStax), or null. */
+  source: "openstax" | null
   multiSelect: boolean
   maxSelections: number | null
   sectionId: string
@@ -239,6 +241,7 @@ export function flattenSessionQuestions(
       reviewStatus,
       hasExplanation: question.hasExplanation === true,
       explanationImageUrls: imageUrls(question.explanationImageUrls),
+      source: question.source === "openstax" ? "openstax" : null,
       multiSelect: (maxSelections ?? 0) > 1 || isMultiSelect(question.type, options),
       maxSelections,
       sectionId: section?.subjectId ?? subject?.id ?? `section-${sectionIndex}`,

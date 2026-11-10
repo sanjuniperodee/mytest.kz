@@ -31,6 +31,7 @@ const groups = [
       { label: "Оферта", href: "/terms" },
       { label: "Конфиденциальность", href: "/privacy" },
       { label: "Оплата и возврат", href: "/payment" },
+      { label: "Источники вопросов", href: "/istochniki" },
       { label: "Поддержка", href: "/support" },
     ],
   },

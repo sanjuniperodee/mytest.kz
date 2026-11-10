@@ -46,6 +46,7 @@ import type { Locale } from "@/lib/api/i18n"
 import { localize } from "@/lib/api/i18n"
 import { flattenSessionQuestions, type FlatSessionQuestion } from "@/lib/api/test-session"
 import { cn } from "@/lib/utils"
+import { QuestionSource } from "@/components/exam/question-source"
 import type {
   QuestionAppeal,
   QuestionAppealReason,
@@ -675,6 +676,7 @@ export default function ExamSessionPage({
               </div>
             </CardContent>
           </Card>
+          <QuestionSource source={current.source} locale={locale} className="mt-2 text-xs text-muted-foreground" />
 
           <div className="mt-4 flex items-center justify-between gap-3">
             <Button

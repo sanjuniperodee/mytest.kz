@@ -179,6 +179,8 @@ export interface Question {
   /** Session payloads never carry the explanation text (paid: `/review/:questionId/explanation`). */
   hasExplanation?: boolean
   explanationImageUrls?: unknown
+  /** Licensed source that must be credited to the reader (CC BY), e.g. OpenStax. */
+  source?: "openstax" | null
   imageUrls?: unknown
   answerOptions: AnswerOption[]
   subjectId?: string

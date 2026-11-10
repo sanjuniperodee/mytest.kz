@@ -169,6 +169,7 @@ describe('session payloads do not leak paid explanations', () => {
         'explanation',
         'id',
         'imageUrls',
+        'metadata', // only to derive `source`; stripped by toSessionQuestionPayload
         'subject',
         'subjectId',
         'type',
@@ -184,7 +185,20 @@ describe('toSessionQuestionPayload', () => {
       explanation: null,
       hasExplanation: false,
       explanationImageUrls: [],
+      source: null,
     });
+  });
+
+  it('marks OpenStax questions for attribution and never sends metadata to clients', () => {
+    const osx = toSessionQuestionPayload({
+      explanation: null,
+      imageUrls: [],
+      metadata: { sourceBankId: 'osx-biology-ru-01', contentLocale: 'ru' },
+    });
+    expect(osx.source).toBe('openstax');
+    expect(osx).not.toHaveProperty('metadata');
+    expect(toSessionQuestionPayload({ explanation: null, metadata: { sourceBankId: 'ent26-physics' } }).source).toBeNull();
+    expect(toSessionQuestionPayload({ explanation: null, metadata: null }).source).toBeNull();
   });
 
   it('indexes images the way clients do (blank entries skipped, out-of-range tokens ignored)', () => {

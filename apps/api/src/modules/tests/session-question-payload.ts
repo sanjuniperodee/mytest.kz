@@ -28,20 +28,35 @@ export const SESSION_QUESTION_SELECT = {
   imageUrls: true,
   subjectId: true,
   explanation: true,
+  // Read only to derive `source`; never sent to clients as is.
+  metadata: true,
   subject: { select: { id: true, name: true, slug: true } },
 } satisfies Prisma.QuestionSelect;
 
-export type SessionQuestionPayload<Q> = Omit<Q, 'explanation'> & {
+/**
+ * Where a question comes from, when its licence requires showing it (CC BY 4.0).
+ * `openstax` — adapted from OpenStax textbooks (bank ids `osx-*`); the web links to /istochniki.
+ */
+export type QuestionSource = 'openstax';
+
+export type SessionQuestionPayload<Q> = Omit<Q, 'explanation' | 'metadata'> & {
   explanation: string | null;
   hasExplanation: boolean;
   explanationImageUrls: string[];
+  source: QuestionSource | null;
 };
 
+export function questionSource(metadata: unknown): QuestionSource | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const bank = (metadata as { sourceBankId?: unknown }).sourceBankId;
+  return typeof bank === 'string' && bank.startsWith('osx-') ? 'openstax' : null;
+}
+
 /** Strips the explanation text from a question, keeping only what the clients need without it. */
-export function toSessionQuestionPayload<Q extends { explanation?: unknown; imageUrls?: unknown }>(
-  question: Q,
-): SessionQuestionPayload<Q> {
-  const { explanation, ...rest } = question;
+export function toSessionQuestionPayload<
+  Q extends { explanation?: unknown; imageUrls?: unknown; metadata?: unknown },
+>(question: Q): SessionQuestionPayload<Q> {
+  const { explanation, metadata, ...rest } = question;
   const hasExplanation = !isEmptyExplanation(explanation);
   const urls = attachedImageUrls(question.imageUrls);
   const usedIndexes = hasExplanation ? referencedImageIndexes(explanation, urls) : [];
@@ -50,6 +65,7 @@ export function toSessionQuestionPayload<Q extends { explanation?: unknown; imag
     explanation: hasExplanation ? usedIndexes.map((idx) => `[[img:${idx + 1}]]`).join('\n') : null,
     hasExplanation,
     explanationImageUrls: usedIndexes.map((idx) => urls[idx]),
+    source: questionSource(metadata),
   };
 }
 
