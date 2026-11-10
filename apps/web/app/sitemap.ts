@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 import { ENT_SUBJECT_SLUGS } from "@/lib/ent-subjects"
 import { loadGrantData } from "@/lib/seo/grant-cutoffs"
 import { GRANT_ROUTES } from "@/lib/seo/grant-routes"
-import { listPracticeTopics, PRACTICE_UPDATED_AT } from "@/lib/seo/practice-tests"
+import { listPracticeTopics, practiceUpdatedAt } from "@/lib/seo/practice-tests"
 
 // Список страниц с баллами берётся из прод API — обновляем вместе с ними.
 export const revalidate = 21600
@@ -51,13 +51,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/ubt-otu-baly`, changeFrequency: "weekly", priority: 0.95 },
   ]
 
-  // Open topic tests (questions with answers). lastModified = when the snapshot of
-  // the question banks was rebuilt. Landing pages above carry no lastModified: it
+  // Open topic tests (questions with answers). lastModified = when that subject's
+  // questions last changed in the snapshot. Landing pages above carry no lastModified: it
   // used to be the request time, which only teaches Google to ignore the field.
-  const practiceUpdated = new Date(PRACTICE_UPDATED_AT)
   const topicRoutes: MetadataRoute.Sitemap = listPracticeTopics().map(({ subject, topic }) => ({
     url: `${baseUrl}/ent/${subject}/${topic.slug}`,
-    lastModified: practiceUpdated,
+    lastModified: new Date(practiceUpdatedAt(subject)),
     changeFrequency: "monthly" as const,
     priority: 0.75,
   }))

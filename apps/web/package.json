@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --test lib/seo/qotd.test.mjs",
     "seo:grant-data": "node scripts/build-grant-seo-data.mjs",
     "seo:practice-data": "node scripts/build-practice-seo-data.mjs"
   },

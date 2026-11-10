@@ -1,0 +1,74 @@
+[
+ {
+  "source": "/ent/fizika/kinematika",
+  "destination": "/ent/fizika"
+ },
+ {
+  "source": "/ent/fizika/molekulyarnaya-fizika-i-termodinamika",
+  "destination": "/ent/fizika"
+ },
+ {
+  "source": "/ent/fizika/osnovy-sto-i-astrofizika",
+  "destination": "/ent/fizika"
+ },
+ {
+  "source": "/ent/fizika/statika-i-gidrostatika",
+  "destination": "/ent/fizika"
+ },
+ {
+  "source": "/ent/himiya/himicheskaya-svyaz-i-stroenie-veschestva",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/klassy-neorganicheskih-soedinenij",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/neorganicheskaya-himiya-metally",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/neorganicheskaya-himiya-nemetally",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/okislitelno-vosstanovitelnye-reakcii",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/organicheskaya-himiya-kislorodsoderzhaschie",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/organicheskaya-himiya-uglevodorody",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/himiya/skorost-reakcii-i-himicheskoe-ravnovesie",
+  "destination": "/ent/himiya"
+ },
+ {
+  "source": "/ent/matematika/neravenstva",
+  "destination": "/ent/matematika"
+ },
+ {
+  "source": "/ent/matematika/planimetriya",
+  "destination": "/ent/matematika"
+ },
+ {
+  "source": "/ent/matematika/proizvodnaya-i-integral",
+  "destination": "/ent/matematika"
+ },
+ {
+  "source": "/ent/matematika/stereometriya",
+  "destination": "/ent/matematika"
+ },
+ {
+  "source": "/ent/matematika/tekstovye-zadachi",
+  "destination": "/ent/matematika"
+ },
+ {
+  "source": "/ent/matematika/trigonometriya",
+  "destination": "/ent/matematika"
+ }
+]

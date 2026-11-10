@@ -13,7 +13,18 @@ type Qotd = {
   optionsHtml: string[];
   correct: number;
   explanationHtml: string;
+  /** `openstax` — вопрос адаптирован по учебникам OpenStax (CC BY 4.0). */
+  source?: 'openstax' | null;
 };
+
+/**
+ * Строка об источнике для поста в канал (Telegram HTML) или '' — если указывать нечего.
+ * CC BY 4.0 требует называть источник везде, где показан вопрос; текст тот же, что на сайте.
+ */
+export function qotdSourceHtml(source: Qotd['source'], siteUrl: string): string {
+  if (source !== 'openstax') return '';
+  return `Источник: <a href="${siteUrl}/istochniki#openstax">адаптировано по учебникам OpenStax, CC BY 4.0</a>`;
+}
 
 /** HTML вопроса → обычный текст для Telegram. Вопросы с формулами (KaTeX) пропускаем. */
 export function qotdPlainText(html: string): string | null {
@@ -93,15 +104,20 @@ export class QotdChannelService implements OnModuleInit, OnModuleDestroy {
       const question = qotdPlainText(q.stemHtml);
       const options = q.optionsHtml.map(qotdPlainText);
       const explanation = qotdPlainText(q.explanationHtml) ?? undefined;
+      const source = qotdSourceHtml(q.source, this.siteUrl);
       if (!question || options.some((o) => !o) || question.length > 300 || options.some((o) => (o as string).length > 100)) {
         this.logger.log(`QOTD ${date} has formulas or is too long for a Telegram quiz — posting a link only`);
         await this.telegram.notifyChannelText(
-          `🧠 <b>Вопрос дня · ${this.escape(q.subject.ru)}</b>\n\nРеши на сайте и проверь себя: ${this.siteUrl}${q.topic.href}`,
+          `🧠 <b>Вопрос дня · ${this.escape(q.subject.ru)}</b>\n\nРеши на сайте и проверь себя: ${this.siteUrl}${q.topic.href}` +
+            (source ? `\n\n${source}` : ''),
         );
         return 'posted';
       }
       const posted = await this.telegram.postQuizToChannel({
-        intro: `🧠 <b>Вопрос дня · ${this.escape(q.subject.ru)}</b>\nТема: ${this.escape(q.topic.name)}. Ещё 10 вопросов по теме — бесплатно: ${this.siteUrl}${q.topic.href}`,
+        // Без числа вопросов: в теме их от 5 до 10.
+        intro:
+          `🧠 <b>Вопрос дня · ${this.escape(q.subject.ru)}</b>\nТема: ${this.escape(q.topic.name)}. Ещё вопросы по теме с разбором — бесплатно: ${this.siteUrl}${q.topic.href}` +
+          (source ? `\n${source}` : ''),
         question,
         options: options as string[],
         correctIndex: q.correct,

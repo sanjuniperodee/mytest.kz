@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { listPracticeTopics, practiceHtml } from "@/lib/seo/practice-tests"
+import { buildQotdPool, pickQotd } from "@/lib/seo/qotd"
 import { ENT_SUBJECTS } from "@/lib/ent-subjects"
 
 export const dynamic = "force-dynamic"
@@ -11,33 +12,22 @@ function almatyToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Almaty" }).format(new Date())
 }
 
-function hash(value: string): number {
-  let h = 2166136261
-  for (let i = 0; i < value.length; i++) {
-    h ^= value.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-// Короткие вопросы без длинного текста для чтения — чтобы карточка помещалась в ленту.
-const POOL = listPracticeTopics().flatMap(({ subject, topic }) =>
-  topic.questions
-    .filter((q) => !q.passage && q.stem.length <= 400 && q.options.length >= 3)
-    .map((question) => ({ subject, topic, question })),
-)
+// Только вопросы OpenStax по математике, физике, химии и биологии — lib/seo/qotd.ts.
+const POOL = buildQotdPool(listPracticeTopics())
 
 /**
  * «Вопрос дня» для сообщества: один вопрос ЕНТ на всех в день (детерминированно
  * по дате), с ответом и разбором. Обсуждение — тред с темой qotd:<дата>.
+ * 404 — для дат до перехода на пул OpenStax (QOTD_SINCE) и при пустом пуле.
  */
 export function GET(request: NextRequest) {
   const requested = request.nextUrl.searchParams.get("date")
   const today = almatyToday()
   const date = requested && DATE_RE.test(requested) && requested <= today ? requested : today
-  if (!POOL.length) return NextResponse.json({ error: "empty" }, { status: 404 })
+  const picked = pickQotd(POOL, date)
+  if (!picked) return NextResponse.json({ error: "unavailable" }, { status: 404 })
 
-  const { subject, topic, question } = POOL[hash(`qotd:${date}`) % POOL.length]
+  const { subject, topic, question } = picked
   const meta = ENT_SUBJECTS[subject]
   return NextResponse.json(
     {
@@ -50,6 +40,8 @@ export function GET(request: NextRequest) {
       optionsHtml: question.options.map(practiceHtml),
       correct: question.correct,
       explanationHtml: practiceHtml(question.explanation),
+      // CC BY 4.0: тот, кто показывает вопрос (карточка, пост в канале), указывает источник.
+      source: question.source ?? null,
     },
     { headers: { "Cache-Control": "public, max-age=300, s-maxage=600" } },
   )

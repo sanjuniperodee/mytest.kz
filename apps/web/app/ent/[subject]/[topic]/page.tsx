@@ -16,6 +16,7 @@ import {
 } from "@/lib/seo/practice-tests"
 import { SeoShell } from "@/components/seo/seo-shell"
 import { PracticeQuiz } from "@/components/seo/practice-quiz"
+import { QuestionSource } from "@/components/exam/question-source"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { loginHref, START_ENT_PATH } from "@/lib/api/login-return"
 
@@ -71,12 +72,17 @@ export default async function EntTopicTestPage({ params }: Props) {
   const count = topic.questions.length
   const path = `/ent/${subject}/${topic.slug}`
 
+  // CC BY 4.0: вопросы по учебникам OpenStax показываем только с указанием источника.
+  // Вся тема оттуда — одна строка над тестом; тема смешанная — строка у каждого такого вопроса.
+  const allOpenStax = topic.questions.every((q) => q.source === "openstax")
+
   const questions = topic.questions.map((q) => ({
     passageHtml: q.passage ? practiceHtml(q.passage) : undefined,
     stemHtml: practiceHtml(q.stem),
     optionsHtml: q.options.map(practiceHtml),
     correct: q.correct,
     explanationHtml: practiceHtml(q.explanation),
+    source: allOpenStax ? undefined : q.source,
   }))
 
   // schema.org Quiz — разметка «учебных задач» с верным ответом и разбором.
@@ -151,6 +157,7 @@ export default async function EntTopicTestPage({ params }: Props) {
         </section>
 
         <section className="mx-auto max-w-3xl px-4 sm:px-6" aria-label="Вопросы теста">
+          {allOpenStax && <QuestionSource source="openstax" className="mb-4 text-sm text-muted-foreground" />}
           <PracticeQuiz questions={questions} ctaHref={CTA_HREF} />
         </section>
 
