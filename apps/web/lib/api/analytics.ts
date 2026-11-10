@@ -5,11 +5,15 @@ import { api } from "./client"
 const VID_KEY = "blm_vid_local"
 
 /**
- * Путь для аналитики без секретов: ссылка «отчёт для родителей» (/progress/<token>)
- * сама по себе открывает отчёт, поэтому токен не должен попадать в visit_events/funnel_steps.
+ * Путь для аналитики без секретов: ссылки «отчёт для родителей» (/progress/<token>) и
+ * «оплатить за ученика» (/pay/<token>) работают без входа, поэтому токен не должен
+ * попадать в visit_events/funnel_steps.
  */
+const TOKEN_PATH_RE = /\/(progress|pay)\/[^/?#]+/
+const TOKEN_PATH_START_RE = /^\/(progress|pay)\/[^/?#]+/
+
 export function analyticsPath(pathname: string): string {
-  return pathname.replace(/^\/progress\/[^/?#]+/, "/progress/:token")
+  return pathname.replace(TOKEN_PATH_START_RE, "/$1/:token")
 }
 
 function currentPath(): string {
@@ -38,7 +42,7 @@ export async function recordVisit() {
         source: params.get("utm_source") || undefined,
         medium: params.get("utm_medium") || undefined,
         campaign: params.get("utm_campaign") || undefined,
-        referrer: document.referrer.replace(/\/progress\/[^/?#]+/, "/progress/:token") || undefined,
+        referrer: document.referrer.replace(TOKEN_PATH_RE, "/$1/:token") || undefined,
         landingPath: currentPath(),
       },
     })

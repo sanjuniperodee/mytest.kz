@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { PaymentBrandStrip } from "@/components/legal/payment-brand-strip"
 import { FreeResetIn, formatResetMoment } from "@/components/billing/free-reset"
+import { ParentPayShare } from "@/components/billing/parent-pay-share"
 import { useAuth } from "@/lib/api/auth-context"
 import { api } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
@@ -165,6 +166,26 @@ function isPendingKaspiOrder(order: KaspiOrder) {
     }
     const normalized = String(order.status || "").trim().toLowerCase()
     return normalized === "" || normalized === "pending" || normalized === "created"
+}
+
+/** Счёт Kaspi живёт без срока: старше получаса не «продолжаем», а выставляем новый (сервер закроет старый). */
+const FRESH_INVOICE_MS = 30 * 60 * 1000
+/** QR, которому осталось меньше минуты, открывать бессмысленно — оплатить не успеть. */
+const FRESH_QR_MIN_LEFT_MS = 60 * 1000
+
+/**
+ * Платёж, к которому есть смысл вернуться по кнопке тарифа. Раньше сюда попадал любой
+ * незавершённый заказ — в том числе недельной давности, и кнопка вела на мёртвый счёт.
+ */
+function isFreshPendingKaspiOrder(order: KaspiOrder) {
+    if (!isPendingKaspiOrder(order) || !resolveOrderInvoiceId(order)) return false
+    const now = Date.now()
+    if (String(order.paymentType || "").toLowerCase() === "qr") {
+        const expiresMs = parseTimestamp(order.expiresAt)
+        return expiresMs != null && expiresMs - now > FRESH_QR_MIN_LEFT_MS
+    }
+    const createdMs = parseTimestamp(order.createdAt)
+    return createdMs != null && now - createdMs < FRESH_INVOICE_MS
 }
 
 function pickNumber(...values: unknown[]): number | null {
@@ -436,7 +457,7 @@ export default function BillingPage() {
                             current={currentTariff?.isActive === true && currentTariff.code === plan.code}
                             user={user}
                             locale={locale}
-                            pendingOrder={orders?.find((o) => o.planCode === plan.id)}
+                            pendingOrder={orders?.find((o) => o.planCode === plan.id && isFreshPendingKaspiOrder(o))}
                             sourceReason={reason}
                             sourceSessionId={sourceSessionId}
                             autoOpen={requestedPlan?.id === plan.id}
@@ -617,13 +638,11 @@ function PlanCard({
             reason: sourceReason,
             sessionId: sourceSessionId,
         })
-        if (pendingOrder) {
-            const invoiceId = resolveOrderInvoiceId(pendingOrder)
-            if (invoiceId) {
-                router.push(`/dashboard/billing/kaspi/${encodeURIComponent(invoiceId)}`)
-                return
-            }
-            setError("Не удалось открыть активный счёт. Обновите страницу и попробуйте ещё раз.")
+        // Возвращаем только к свежему платежу (проверяем в момент клика: страница могла быть открыта давно).
+        // Иначе открываем оформление заново — сервер сам закроет устаревший счёт.
+        const invoiceId = pendingOrder && isFreshPendingKaspiOrder(pendingOrder) ? resolveOrderInvoiceId(pendingOrder) : null
+        if (invoiceId) {
+            router.push(`/dashboard/billing/kaspi/${encodeURIComponent(invoiceId)}`)
             return
         }
         const userPhone = typeof user?.phone === "string" ? user.phone.trim() : ""
@@ -872,9 +891,10 @@ function PlanCard({
                 </CardContent>
             </Card>
 
+            {/* z-[60]: выше плавающей кнопки WhatsApp и нижнего меню (оба z-50), иначе кнопка перекрывает текст окна. */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <Card className="w-full max-w-sm mx-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+                    <Card className="mx-4 max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto overscroll-contain">
                         <CardContent className="flex flex-col gap-4 p-6">
                             <p className="text-lg font-semibold">Оформление оплаты</p>
                             <p className="text-sm text-muted-foreground">
@@ -1036,21 +1056,36 @@ function PlanCard({
                                                     </button>
                                                 ))}
                                             </div>
+                                            {payer === "parent" && (
+                                                <div className="mt-1 rounded-xl border border-border bg-secondary/40 p-3">
+                                                    <p className="text-sm font-medium">Проще всего — отправь родителю ссылку</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Он откроет её без входа и оплатит со своего Kaspi, доступ откроется в твоём аккаунте.
+                                                        Ссылка действует 30 дней.
+                                                    </p>
+                                                    <ParentPayShare
+                                                        planId={plan.id}
+                                                        planName={plan.name}
+                                                        amountLabel={formatPrice(plan)}
+                                                        placement="billing_modal"
+                                                        className="mt-3"
+                                                    />
+                                                </div>
+                                            )}
                                             <label className="mt-1 text-sm font-medium" htmlFor={`kaspi-phone-${plan.id}`}>
-                                                {payer === "parent" ? "Номер родителя в Kaspi" : "Номер телефона в Kaspi"}
+                                                {payer === "parent" ? "Или выставь счёт на номер родителя в Kaspi" : "Номер телефона в Kaspi"}
                                             </label>
                                             <Input
                                                 id={`kaspi-phone-${plan.id}`}
                                                 type="tel"
                                                 placeholder="+7 (700) 123-45-67"
                                                 value={phone}
-                                                autoFocus={payer === "parent"}
                                                 onChange={(e) => setPhone(e.target.value)}
                                                 className={cn(error && "border-red-500")}
                                             />
                                             <p className="text-xs text-muted-foreground">
                                                 {payer === "parent"
-                                                    ? "Счёт придёт родителю в приложение Kaspi: «Платежи» → «Счета на оплату». Доступ откроется в твоём аккаунте сразу после оплаты — на следующем экране можно отправить родителю сообщение с суммой."
+                                                    ? "Счёт придёт родителю в приложение Kaspi: «Платежи» → «Счета на оплату». На следующем экране можно отправить ему сообщение с суммой и ссылкой."
                                                     : "На этот номер мы выставим счёт и откроем отдельный экран оплаты. Нет своего Kaspi — выбери «Родитель»."}
                                             </p>
                                         </div>

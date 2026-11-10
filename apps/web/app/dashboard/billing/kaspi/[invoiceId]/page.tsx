@@ -16,8 +16,6 @@ import {
   Loader2,
   RefreshCw,
   XCircle,
-  MessageCircle,
-  Send,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -27,7 +25,7 @@ import { api, ApiError } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useAuth } from "@/lib/api/auth-context"
 import { cn } from "@/lib/utils"
-import { useUiI18n } from "@/lib/i18n/ui"
+import { ParentPayShare } from "@/components/billing/parent-pay-share"
 
 interface PaymentOrder {
   invoiceId: string
@@ -467,11 +465,10 @@ export default function KaspiPaymentPage() {
           {statusKind === "pending" && (
             <ParentShare
               amount={`${order.amount.toLocaleString(getFormatLocale())} ${order.currency === "KZT" ? "₸" : order.currency}`}
+              planCode={order.planCode}
               planName={order.planName}
               invoiceId={order.invoiceId}
               isQr={isQrPayment}
-              payUrl={openPayUrl}
-              expiresAt={order.expiresAt ? formatDateTime(order.expiresAt) : null}
             />
           )}
 
@@ -498,7 +495,7 @@ export default function KaspiPaymentPage() {
               <div className="rounded-md border border-current/10 bg-white/70 p-3 text-sm text-foreground dark:bg-background/60 sm:flex-1">
                 {isQrPayment
                   ? "Kaspi QR уже создан. Отсканируйте код в приложении Kaspi и затем обновите статус."
-                  : "Счёт выставлен в Kaspi, но ссылка на оплату пока не пришла. Откройте приложение Kaspi или проверьте статус через несколько секунд."}
+                  : "Счёт уже в приложении Kaspi: «Платежи» → «Счета на оплату». После оплаты доступ откроется сам — статус здесь обновится автоматически."}
               </div>
             )}
             {statusKind === "paid" ? (
@@ -535,24 +532,23 @@ export default function KaspiPaymentPage() {
 }
 
 /**
- * «Платит родитель»: у многих школьников нет своего Kaspi. Счёт уже ушёл на номер
- * родителя (или есть ссылка на оплату QR) — даём отправить ему понятное сообщение
- * с суммой и инструкцией, чтобы он не принял счёт за спам.
+ * «Платит родитель»: у многих школьников нет своего Kaspi. Родителю уходит не ссылка Kaspi
+ * с этого экрана (она живёт 5 минут — он не успевает её открыть), а постоянная ссылка
+ * /pay/<token>: по ней он сам получает свежий платёж. Если счёт уже выставлен на его номер,
+ * сообщение объясняет, где этот счёт найти, а ссылка остаётся запасным путём.
  */
 function ParentShare({
   amount,
+  planCode,
   planName,
   invoiceId,
   isQr,
-  payUrl,
-  expiresAt,
 }: {
   amount: string
+  planCode: string
   planName: string
   invoiceId: string | null | undefined
   isQr: boolean
-  payUrl: string | null
-  expiresAt: string | null
 }) {
   const [parentPays, setParentPays] = useState(false)
   useEffect(() => {
@@ -563,53 +559,27 @@ function ParentShare({
     }
   }, [invoiceId])
 
-  const { locale } = useUiI18n()
-  // Для QR без ссылки родителю нечего отправить — QR сканируют рядом.
-  if (isQr && !payUrl) return null
-
-  // Сообщение уходит родителю — на языке интерфейса ребёнка.
-  const text =
-    locale === "kk"
-      ? isQr
-        ? `Сәлем! my-test.kz сайтындағы ҰБТ-ға дайындықты төлеп жіберші — «${planName}» тарифі, ${amount}. Kaspi-дегі төлем сілтемесі${expiresAt ? ` (${expiresAt} дейін жарамды)` : ""}: ${payUrl}`
-        : `Сәлем! Саған Kaspi-ге ${amount} шот жібердім — бұл my-test.kz сайтындағы ҰБТ-ға дайындық, «${planName}» тарифі. Kaspi → «Төлемдер» → «Төлемге арналған шоттар» бөлімін ашып, төлеп жіберші.${payUrl ? ` Немесе сілтеме арқылы: ${payUrl}` : ""}`
-      : isQr
-        ? `Привет! Оплати, пожалуйста, подготовку к ЕНТ на my-test.kz — тариф «${planName}», ${amount}. Ссылка на оплату в Kaspi${expiresAt ? ` (действует до ${expiresAt})` : ""}: ${payUrl}`
-        : `Привет! Я отправил(а) тебе счёт в Kaspi на ${amount} — это подготовка к ЕНТ на my-test.kz, тариф «${planName}». Открой Kaspi → «Платежи» → «Счета на оплату» и оплати, пожалуйста.${payUrl ? ` Или по ссылке: ${payUrl}` : ""}`
-  const siteUrl = "https://my-test.kz"
+  if (!planCode) return null
 
   return (
     <div className="rounded-md border border-current/10 bg-white/75 p-4 text-sm text-foreground dark:bg-background/60">
-      <p className="font-medium">{parentPays ? "Напиши родителю, что счёт от тебя" : "Платит родитель?"}</p>
+      <p className="font-medium">
+        {isQr ? "Платит родитель, а он не рядом?" : parentPays ? "Напиши родителю, что счёт от тебя" : "Платит родитель?"}
+      </p>
       <p className="mt-1 text-muted-foreground">
         {isQr
-          ? "Родитель не рядом — отправь ему ссылку на оплату. Доступ откроется в твоём аккаунте автоматически."
-          : "Отправь сообщение с суммой и подсказкой, где найти счёт. Доступ откроется в твоём аккаунте автоматически."}
+          ? "QR на этом экране действует 5 минут. Родителю отправь ссылку: она действует 30 дней, он откроет её без входа и оплатит со своего Kaspi. Доступ откроется в твоём аккаунте автоматически."
+          : "Отправь сообщение с суммой и подсказкой, где найти счёт. В нём же ссылка на оплату — на случай, если счёт не пришёл. Доступ откроется в твоём аккаунте автоматически."}
       </p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <Button asChild variant="outline" className="h-10">
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(text)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => void recordFunnelEvent("payment_opened", { provider: "kaspi", action: "share_parent_whatsapp", invoiceId })}
-          >
-            <MessageCircle className="size-4" />
-            WhatsApp
-          </a>
-        </Button>
-        <Button asChild variant="outline" className="h-10">
-          <a
-            href={`https://t.me/share/url?url=${encodeURIComponent(payUrl ?? siteUrl)}&text=${encodeURIComponent(text)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => void recordFunnelEvent("payment_opened", { provider: "kaspi", action: "share_parent_telegram", invoiceId })}
-          >
-            <Send className="size-4" />
-            Telegram
-          </a>
-        </Button>
-      </div>
+      <ParentPayShare
+        planId={planCode}
+        planName={planName}
+        amountLabel={amount}
+        placement="kaspi_page"
+        invoiceId={invoiceId}
+        invoiceSent={!isQr}
+        className="mt-3"
+      />
     </div>
   )
 }

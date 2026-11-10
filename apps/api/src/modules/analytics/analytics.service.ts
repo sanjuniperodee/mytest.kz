@@ -22,6 +22,7 @@ const ALLOWED_FUNNEL_EVENTS = new Set([
   'payment_cancelled',
   'parent_report_shared',
   'parent_report_revoked',
+  'parent_pay_link_created',
 ]);
 
 const ALLOWED_PUBLIC_FUNNEL_EVENTS = new Set([
@@ -32,6 +33,8 @@ const ALLOWED_PUBLIC_FUNNEL_EVENTS = new Set([
   'lead_submitted',
   'parent_report_viewed',
   'parent_report_cta',
+  'parent_pay_opened',
+  'parent_pay_checkout',
 ]);
 
 function sanitizePublicMetadata(metadata?: Record<string, unknown>) {

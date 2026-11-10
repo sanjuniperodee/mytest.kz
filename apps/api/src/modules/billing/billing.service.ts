@@ -7,11 +7,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, type PaymentOrder } from '@prisma/client';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { Environment, SignedDataVerifier, type JWSTransactionDecodedPayload } from '@apple/app-store-server-library';
 import {
+  maskPhoneDigits,
   normalizeKzPhone,
   parsePlanSnapshot,
   toBillingPlanDto,
@@ -28,6 +29,22 @@ import type { VerifyStorePurchaseDto } from './dto/store-purchase.dto';
 type FreedomPayload = Record<string, string | number | boolean | null | undefined>;
 type KaspiOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 type KaspiPaymentType = 'invoice' | 'qr';
+/** Поля заказа, из которых собирается ответ клиенту (presentPaymentOrder). */
+type PresentableOrder = {
+  providerOrderId: string;
+  status: string;
+  amount: unknown;
+  currency: string;
+  planCode: string;
+  planSnapshot?: unknown;
+  checkoutUrl: string | null;
+  providerPayload: unknown;
+  paidAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+/** Кто создал платёж: сам аккаунт (кабинет ученика) или родитель по ссылке /pay/<token>. */
+export type KaspiPayer = 'account' | 'parent_link';
 type StoreProvider = 'apple_iap' | 'google_play';
 
 /**
@@ -36,6 +53,25 @@ type StoreProvider = 'apple_iap' | 'google_play';
  * В этот буфер мы ещё раз перепроверяем статус, прежде чем пометить failed.
  */
 const KASPI_EXPIRY_GRACE_MS = 3 * 60 * 1000;
+
+/**
+ * Повторный запрос «выставить счёт» продолжает прежний счёт, только пока тот свежий:
+ * через полчаса человек нажимает кнопку затем, чтобы счёт пришёл заново.
+ */
+const KASPI_INVOICE_REUSE_MS = 30 * 60 * 1000;
+/** QR продолжаем, только если до конца его окна осталось хотя бы столько. */
+const KASPI_QR_REUSE_MIN_LEFT_MS = 60 * 1000;
+/**
+ * Счёт (invoice) приходит от Kaspi без срока действия — раньше такие заказы висели
+ * pending месяцами и перехватывали новые попытки оплаты. Свой срок: через 48 ч снимаем
+ * счёт в Kaspi (оплаченные счета закрывались максимум за час), а если Kaspi отмену
+ * не подтверждает — через 7 дней закрываем заказ у себя.
+ */
+const KASPI_UNDATED_ORDER_TTL_MS = 48 * 60 * 60 * 1000;
+const KASPI_UNDATED_ORDER_HARD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const KASPI_AUTO_CANCEL_RETRY_MS = 6 * 60 * 60 * 1000;
+/** Сколько незакрытых заказов аккаунта разбираем перед созданием нового платежа. */
+const KASPI_LIVE_ORDER_SCAN_LIMIT = 4;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -67,9 +103,13 @@ function firstString(...values: unknown[]): string | null {
   return null;
 }
 
+/**
+ * Номер операции Kaspi — всегда число. Всё остальное («unknown», «unknown-{json}»,
+ * «undefined») — заказ, у которого номер не сохранился: сверить или оплатить его нельзя.
+ */
 function isInvalidKaspiOperationId(value: string | null | undefined): boolean {
-  const normalized = value?.trim().toLowerCase();
-  return !normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'unknown';
+  const normalized = value?.trim();
+  return !normalized || !/^\d{1,24}$/.test(normalized);
 }
 
 function parseTimestamp(value: string | null | undefined): Date | null {
@@ -202,31 +242,28 @@ export class BillingService {
     return { configured, sessionActive };
   }
 
-  async createKaspiCheckout(userId: string, planId: string, phoneNumber: string, method?: string) {
+  async createKaspiCheckout(
+    userId: string,
+    planId: string,
+    phoneNumber: string,
+    method?: string,
+    opts?: { payer?: KaspiPayer },
+  ) {
     const plan = await this.getPlanForCheckout(planId);
-    const preferredMethod = method?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
-
-    const pending = await this.prisma.paymentOrder.findFirst({
-      where: { userId, provider: 'kaspi', status: 'pending', planCode: plan.code },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (pending) {
-      if (isInvalidKaspiOperationId(pending.providerOrderId)) {
-        await this.cancelInvalidKaspiOrder(pending, 'invalid-provider-order-before-checkout');
-      } else {
-        const reconciled = (await this.reconcileKaspiOrder(pending.providerOrderId)) ?? pending;
-        const payload = asRecord(reconciled.providerPayload);
-        const checkoutUrl = reconciled.checkoutUrl ?? pending.checkoutUrl;
-        return {
-          invoiceId: reconciled.providerOrderId,
-          providerOrderId: reconciled.providerOrderId,
-          checkoutUrl,
-          receiptUrl: checkoutUrl,
-          orderNumber: getString(payload?.orderNumber),
-          reused: true,
-        };
-      }
+    const preferredMethod: KaspiPaymentType =
+      method?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
+    const payerPhone = preferredMethod === 'invoice' ? normalizeKzPhone(phoneNumber || '') : null;
+    if (preferredMethod === 'invoice' && !payerPhone) {
+      throw new BadRequestException('INVALID_PHONE');
     }
+    const payer: KaspiPayer = opts?.payer ?? 'account';
+
+    const live = await this.resolveLiveKaspiOrder(userId, {
+      planCode: plan.code,
+      method: preferredMethod,
+      phone: payerPhone,
+    });
+    if (live) return live;
 
     const comment = `MyTest ${plan.name} - ${userId.slice(0, 8)}`;
 
@@ -278,14 +315,9 @@ export class BillingService {
     if (preferredMethod === 'qr') {
       await createQrPayment();
     } else {
-      const normalized = normalizeKzPhone(phoneNumber || '');
-      if (!normalized) {
-        throw new BadRequestException('INVALID_PHONE');
-      }
-
       try {
         const invoice = await this.kaspiPosService.createInvoice(
-          normalized,
+          payerPhone as string,
           Number(plan.priceKzt),
           comment,
         );
@@ -348,6 +380,8 @@ export class BillingService {
           qrToken,
           expiresAt,
           clientMobile,
+          payer,
+          payerPhone: payerPhone ?? '',
           fallbackToQr,
           fallbackReason,
         },
@@ -364,6 +398,8 @@ export class BillingService {
           qrToken,
           expiresAt,
           clientMobile,
+          payer,
+          payerPhone: payerPhone ?? '',
           fallbackToQr,
           fallbackReason,
         },
@@ -375,6 +411,7 @@ export class BillingService {
       planCode: plan.code,
       amount: plan.priceKzt,
       paymentType,
+      payer,
       reused: false,
     });
 
@@ -388,8 +425,162 @@ export class BillingService {
       qrToken,
       expiresAt,
       fallbackToQr,
+      status: 'pending',
       reused: false,
     };
+  }
+
+  /**
+   * Один «живой» платёж на аккаунт. Прежние незакрытые заказы перед новым платежом:
+   *  - тот же тариф, способ и номер, и заказ ещё свежий — продолжаем его (второй счёт не шлём);
+   *  - иначе счёт снимаем в Kaspi, чтобы у плательщика не висело два счёта и нельзя было
+   *    заплатить дважды (QR отменить нельзя — он сам истекает за несколько минут);
+   *  - заказ успели оплатить — возвращаем его: доступ уже открыт, новый платёж не нужен.
+   * null — живого заказа нет, создаём новый.
+   */
+  private async resolveLiveKaspiOrder(
+    userId: string,
+    wanted: { planCode: string; method: KaspiPaymentType; phone: string | null },
+  ) {
+    const pendingOrders = await this.prisma.paymentOrder.findMany({
+      where: { userId, provider: 'kaspi', status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      take: KASPI_LIVE_ORDER_SCAN_LIMIT,
+    });
+
+    let reusable: (typeof pendingOrders)[number] | null = null;
+    for (const pending of pendingOrders) {
+      if (isInvalidKaspiOperationId(pending.providerOrderId)) {
+        await this.cancelInvalidKaspiOrder(pending, 'invalid-provider-order-before-checkout');
+        continue;
+      }
+
+      let current = (await this.reconcileKaspiOrder(pending.providerOrderId)) ?? pending;
+      if (current.status === 'pending') {
+        current = (await this.expireStaleKaspiOrder(current)) ?? current;
+      }
+      if (current.status === 'paid') return this.checkoutResultFromOrder(current);
+      if (current.status !== 'pending') continue;
+
+      if (!reusable && this.isReusableKaspiOrder(current, wanted)) {
+        reusable = current;
+        continue;
+      }
+      if (this.getKaspiPaymentType(current.providerPayload) === 'invoice') {
+        const cancelled = await this.tryCancelKaspiInvoice(current, 'superseded');
+        if (cancelled.outcome === 'paid') return this.checkoutResultFromOrder(cancelled.order);
+      }
+    }
+
+    return reusable ? this.checkoutResultFromOrder(reusable) : null;
+  }
+
+  private isReusableKaspiOrder(
+    order: { planCode: string; checkoutUrl: string | null; providerPayload: unknown; createdAt: Date },
+    wanted: { planCode: string; method: KaspiPaymentType; phone: string | null },
+  ): boolean {
+    if (order.planCode !== wanted.planCode) return false;
+    const paymentType = this.getKaspiPaymentType(order.providerPayload);
+    if (paymentType !== wanted.method) return false;
+    if (paymentType === 'qr') {
+      const expiresAt = this.getKaspiPaymentExpiry(order.providerPayload);
+      return Boolean(
+        order.checkoutUrl &&
+          expiresAt &&
+          expiresAt.getTime() - Date.now() > KASPI_QR_REUSE_MIN_LEFT_MS,
+      );
+    }
+    if (Date.now() - order.createdAt.getTime() > KASPI_INVOICE_REUSE_MS) return false;
+    return Boolean(wanted.phone) && this.getKaspiPayerPhone(order.providerPayload) === wanted.phone;
+  }
+
+  private checkoutResultFromOrder(order: PresentableOrder) {
+    const view = this.presentPaymentOrder(order);
+    return {
+      invoiceId: view.invoiceId,
+      providerOrderId: view.providerOrderId,
+      checkoutUrl: view.checkoutUrl ?? '',
+      receiptUrl: view.receiptUrl ?? view.checkoutUrl ?? '',
+      orderNumber: view.orderNumber ?? '',
+      paymentType: view.paymentType,
+      qrToken: view.qrToken ?? '',
+      expiresAt: view.expiresAt ?? '',
+      fallbackToQr: view.fallbackToQr,
+      status: view.status,
+      reused: true,
+    };
+  }
+
+  /**
+   * Снимает счёт в Kaspi без участия пользователя (счёт заменён новым или вышел срок).
+   * Ничего не бросает: 'unconfirmed' — Kaspi отмену не подтвердил, заказ остаётся pending.
+   * Если счёт успели оплатить — проводим оплату ('paid').
+   */
+  private async tryCancelKaspiInvoice<
+    T extends {
+      id: string;
+      userId: string;
+      planCode: string;
+      providerOrderId: string;
+      providerPayload: unknown;
+      status: string;
+    },
+  >(order: T, source: 'superseded' | 'auto-expired') {
+    type Outcome = 'cancelled' | 'paid' | 'unconfirmed';
+    const reread = async (outcome: Outcome) => {
+      const fresh = await this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
+      if (fresh?.status === 'paid') return { outcome: 'paid' as Outcome, order: fresh };
+      return { outcome, order: fresh ?? order };
+    };
+
+    let cancelPayload: Record<string, unknown> | null = null;
+    try {
+      cancelPayload = asRecord(await this.kaspiPosService.cancelInvoice(order.providerOrderId));
+    } catch {
+      return { outcome: 'unconfirmed' as Outcome, order };
+    }
+
+    const cancelData = asRecord(cancelPayload?.Data) ?? asRecord(cancelPayload?.data) ?? cancelPayload;
+    const cancelStatus = getString(cancelData?.Status ?? cancelData?.status);
+    const normalized = this.normalizeKaspiPaymentStatus(cancelStatus);
+    if (normalized.kind === 'paid') {
+      await this.finalizeKaspiPaymentPaid(order.providerOrderId, {
+        event: 'payment.success',
+        paymentId: order.providerOrderId,
+        type: 'invoice',
+        status: cancelStatus,
+        data: cancelPayload,
+        source: 'cancel-reconcile',
+        timestamp: new Date().toISOString(),
+      });
+      return reread('unconfirmed');
+    }
+    if (normalized.kind !== 'failed' && normalized.kind !== 'cancelled') {
+      return { outcome: 'unconfirmed' as Outcome, order };
+    }
+
+    const previousPayload = asRecord(order.providerPayload);
+    const updated = await this.prisma.paymentOrder.updateMany({
+      where: { id: order.id, status: 'pending' },
+      data: {
+        status: 'cancelled',
+        providerPayload: {
+          ...(previousPayload ?? {}),
+          cancelResponse: cancelPayload,
+          cancelledAt: new Date().toISOString(),
+          cancelSource: source,
+        } as Prisma.InputJsonObject,
+      },
+    });
+    if (updated.count > 0) {
+      await this.recordBillingEvent(order.userId, 'payment_cancelled', {
+        provider: 'kaspi',
+        planCode: order.planCode,
+        providerOrderId: order.providerOrderId,
+        reason: source,
+      });
+    }
+    return reread('cancelled');
   }
 
   /**
@@ -1012,26 +1203,19 @@ export class BillingService {
     );
   }
 
-  private async expireStaleKaspiOrder(order: {
-    id: string;
-    provider: string;
-    providerOrderId: string;
-    amount: unknown;
-    currency: string;
-    planCode: string;
-    checkoutUrl: string | null;
-    providerPayload: unknown;
-    status: string;
-    paidAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }) {
+  private async expireStaleKaspiOrder(order: PaymentOrder): Promise<PaymentOrder | null> {
     if (order.provider !== 'kaspi' || order.status !== 'pending') {
       return order;
     }
 
     const expiresAt = this.getKaspiPaymentExpiry(order.providerPayload);
-    if (!expiresAt || expiresAt.getTime() + KASPI_EXPIRY_GRACE_MS > Date.now()) {
+    const ageMs = Date.now() - order.createdAt.getTime();
+    // Срока в данных Kaspi нет (так приходят счета) — действует наш собственный срок.
+    const undated = !expiresAt;
+    const stillOpen = expiresAt
+      ? expiresAt.getTime() + KASPI_EXPIRY_GRACE_MS > Date.now()
+      : ageMs < KASPI_UNDATED_ORDER_TTL_MS;
+    if (stillOpen) {
       return order;
     }
 
@@ -1042,8 +1226,36 @@ export class BillingService {
       return reconciled;
     }
 
-    const previousPayload = asRecord(reconciled.providerPayload);
-    const updated = await this.prisma.paymentOrder.updateMany({
+    let previousPayload = asRecord(reconciled.providerPayload);
+    if (undated && this.getKaspiPaymentType(reconciled.providerPayload) === 'invoice') {
+      // Счёт остаётся оплачиваемым в приложении Kaspi, пока его не снять: сначала снимаем.
+      const hardExpired = ageMs >= KASPI_UNDATED_ORDER_HARD_TTL_MS;
+      const lastAttempt = parseTimestamp(getString(previousPayload?.autoCancelAttemptAt));
+      if (
+        !hardExpired &&
+        lastAttempt &&
+        Date.now() - lastAttempt.getTime() < KASPI_AUTO_CANCEL_RETRY_MS
+      ) {
+        return reconciled;
+      }
+      const cancelled = await this.tryCancelKaspiInvoice(reconciled, 'auto-expired');
+      if (cancelled.outcome !== 'unconfirmed') return cancelled.order;
+      if (!hardExpired) {
+        await this.prisma.paymentOrder.updateMany({
+          where: { id: order.id, status: 'pending' },
+          data: {
+            providerPayload: {
+              ...(previousPayload ?? {}),
+              autoCancelAttemptAt: new Date().toISOString(),
+            } as Prisma.InputJsonObject,
+          },
+        });
+        return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
+      }
+      previousPayload = asRecord(cancelled.order.providerPayload) ?? previousPayload;
+    }
+
+    await this.prisma.paymentOrder.updateMany({
       where: { id: order.id, status: 'pending' },
       data: {
         status: 'failed',
@@ -1058,10 +1270,6 @@ export class BillingService {
         } as Prisma.InputJsonObject,
       },
     });
-
-    if (updated.count === 0) {
-      return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
-    }
     return this.prisma.paymentOrder.findUnique({ where: { id: order.id } });
   }
 
@@ -1187,6 +1395,18 @@ export class BillingService {
     return raw?.trim().toLowerCase() === 'qr' ? 'qr' : 'invoice';
   }
 
+  /** Номер, на который выставлен счёт (11 цифр), или null — QR либо номер не сохранился. */
+  private getKaspiPayerPhone(payload: unknown): string | null {
+    const view = asRecord(payload);
+    const data = asRecord(view?.Data) ?? asRecord(view?.data);
+    for (const candidate of [view?.payerPhone, view?.clientMobile, data?.ClientMobile, data?.clientMobile]) {
+      const raw = getString(candidate);
+      const normalized = raw ? normalizeKzPhone(raw) : null;
+      if (normalized) return normalized;
+    }
+    return null;
+  }
+
   private getKaspiPaymentExpiry(payload: unknown): Date | null {
     const view = asRecord(payload);
     const data = asRecord(view?.Data) ?? asRecord(view?.data);
@@ -1283,19 +1503,7 @@ export class BillingService {
     return { ok: true };
   }
 
-  private presentPaymentOrder(order: {
-    providerOrderId: string;
-    status: string;
-    amount: unknown;
-    currency: string;
-    planCode: string;
-    planSnapshot?: unknown;
-    checkoutUrl: string | null;
-    providerPayload: unknown;
-    paidAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }) {
+  private presentPaymentOrder(order: PresentableOrder) {
     const payload = asRecord(order.providerPayload);
     const data = asRecord(payload?.Data) ?? asRecord(payload?.data);
     const paymentType = this.getKaspiPaymentType(payload);
@@ -1324,6 +1532,7 @@ export class BillingService {
         ? firstString(order.checkoutUrl, qrToken, receiptUrl)
         : firstString(order.checkoutUrl, receiptUrl);
     const plan = parsePlanSnapshot(order.planSnapshot) ?? this.monetization.planTerms({ planType: order.planCode });
+    const payerPhone = paymentType === 'invoice' ? this.getKaspiPayerPhone(payload) : null;
     return {
       invoiceId: order.providerOrderId,
       providerOrderId: order.providerOrderId,
@@ -1343,7 +1552,12 @@ export class BillingService {
         data?.ExpiresAt,
         data?.expiresAt,
       ),
+      /** Тот же срок в ISO (UTC): клиенту не нужно гадать про часовой пояс Kaspi. */
+      expiresAtIso: this.getKaspiPaymentExpiry(payload)?.toISOString() ?? null,
       fallbackToQr: Boolean(payload?.fallbackToQr),
+      /** Куда ушёл счёт — только маска, полный номер наружу не отдаём. */
+      phoneMask: payerPhone ? maskPhoneDigits(payerPhone) : null,
+      payer: getString(payload?.payer) === 'parent_link' ? 'parent_link' : 'account',
       orderNumber: firstString(payload?.orderNumber, data?.OrderNumber, data?.orderNumber),
       statusDesc: firstString(payload?.statusDesc, data?.StatusDesc, data?.statusDesc),
       paidAt: order.paidAt,

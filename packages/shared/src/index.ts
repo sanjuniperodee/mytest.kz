@@ -11,3 +11,4 @@ export * from './landingTypes';
 export * from './csv';
 export * from './monetization';
 export * from './parentReport';
+export * from './parentPay';

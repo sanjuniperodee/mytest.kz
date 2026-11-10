@@ -27,6 +27,7 @@ import {
 import { api } from "@/lib/api/client"
 import { recordFunnelEvent } from "@/lib/api/analytics"
 import { useUiI18n } from "@/lib/i18n/ui"
+import { openShareTarget as openTarget } from "@/lib/share-target"
 import { cn } from "@/lib/utils"
 
 /**
@@ -38,21 +39,6 @@ import { cn } from "@/lib/utils"
 const LINK_KEY = "/users/me/parent-report-link"
 type Channel = "whatsapp" | "telegram" | "copy"
 type Placement = "dashboard" | "review"
-
-/** Открывает мессенджер; окно, созданное синхронно в клике, переживает await (Safari блокирует поздний window.open). */
-function openTarget(target: string, popup: Window | null) {
-  if (popup && !popup.closed) {
-    popup.opener = null
-    popup.location.href = target
-    return
-  }
-  const opened = window.open(target, "_blank")
-  if (opened) {
-    opened.opener = null
-    return
-  }
-  window.location.assign(target)
-}
 
 function useParentReportLink(enabled: boolean) {
   const { locale } = useUiI18n()
