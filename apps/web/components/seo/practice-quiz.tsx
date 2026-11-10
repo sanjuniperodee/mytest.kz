@@ -5,6 +5,7 @@ import Link from "next/link"
 import { recordPublicFunnelEvent } from "@/lib/api/analytics"
 import { ArrowRight, CheckCircle2, Gift, RotateCcw, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { QuestionSource } from "@/components/exam/question-source"
 
 export type PracticeQuizQuestion = {
   passageHtml?: string
@@ -12,6 +13,8 @@ export type PracticeQuizQuestion = {
   optionsHtml: string[]
   correct: number
   explanationHtml: string
+  /** Задан, когда источник нужно указать у самого вопроса (тема из разных банков). */
+  source?: "openstax"
 }
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"]
@@ -125,6 +128,7 @@ export function PracticeQuiz({ questions, ctaHref }: { questions: PracticeQuizQu
                   <div className={cn(RICH, "mt-1 block text-muted-foreground")} dangerouslySetInnerHTML={{ __html: q.explanationHtml }} />
                 </div>
               </details>
+              <QuestionSource source={q.source} className="mt-3 text-xs text-muted-foreground" />
             </li>
           )
         })}

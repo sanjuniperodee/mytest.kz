@@ -8,6 +8,8 @@ import { CheckCircle2, Flame, MessageCircle, Sparkles, XCircle } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useUiI18n } from "@/lib/i18n/ui";
+import { QuestionSource } from "@/components/exam/question-source";
 import { useSocialText } from "./common";
 
 export type QuestionOfDay = {
@@ -20,6 +22,8 @@ export type QuestionOfDay = {
   optionsHtml: string[];
   correct: number;
   explanationHtml: string;
+  /** `openstax` — вопрос по учебникам OpenStax (CC BY 4.0), источник показываем всегда. */
+  source?: "openstax" | null;
 };
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -65,10 +69,12 @@ function rememberAnswer(date: string, choice: number) {
  */
 export function QuestionOfDayCard({ date, showDiscuss = true }: { date?: string; showDiscuss?: boolean }) {
   const t = useSocialText();
+  const { locale } = useUiI18n();
   const { data, error, isLoading } = useSWR<QuestionOfDay>(
     `/api/qotd${date ? `?date=${encodeURIComponent(date)}` : ""}`,
     fetchJson,
-    { revalidateOnFocus: false },
+    // 404 — вопроса на эту дату нет (старые обсуждения): повторять запрос незачем.
+    { revalidateOnFocus: false, shouldRetryOnError: (err: Error) => err.message !== "404" },
   );
   const [choice, setChoice] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
@@ -149,6 +155,7 @@ export function QuestionOfDayCard({ date, showDiscuss = true }: { date?: string;
             <div className={cn(RICH, "rounded-lg bg-secondary/50 p-3 text-sm leading-relaxed")} dangerouslySetInnerHTML={{ __html: data.explanationHtml }} />
           </div>
         )}
+        <QuestionSource source={data.source} locale={locale} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
           {showDiscuss && (
             <Button asChild size="sm" variant={answered ? "default" : "outline"}>

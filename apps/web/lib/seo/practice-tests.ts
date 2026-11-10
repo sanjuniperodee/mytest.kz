@@ -3,7 +3,7 @@ import snapshot from "./practice-tests.data.json"
 
 /**
  * Открытые тесты по темам /ent/<предмет>/<тема>: вопросы с ответами и разбором без
- * регистрации. Данные — снимок авторских банков (scripts/build-practice-seo-data.mjs),
+ * регистрации. Данные — снимок банков вопросов (scripts/build-practice-seo-data.mjs),
  * только для сервера: в клиент уходит один тест уже готовым HTML.
  */
 
@@ -14,15 +14,29 @@ export type PracticeQuestion = {
   correct: number
   explanation: string
   difficulty: number
+  /**
+   * `openstax` — вопрос адаптирован по учебникам OpenStax (CC BY 4.0). Лицензия требует
+   * показывать источник везде, где виден вопрос: components/exam/question-source.tsx.
+   */
+  source?: "openstax"
 }
 
 export type PracticeTopic = { slug: string; name: string; questions: PracticeQuestion[] }
 export type PracticeSubject = { slug: string; topics: PracticeTopic[] }
 
-const data = snapshot as { updatedAt: string; subjects: PracticeSubject[] }
+const data = snapshot as {
+  updatedAt: string
+  subjectUpdatedAt?: Record<string, string>
+  subjects: PracticeSubject[]
+}
 
-/** Дата последней пересборки снимка — lastmod в sitemap. */
-export const PRACTICE_UPDATED_AT = data.updatedAt
+/**
+ * Когда вопросы предмета менялись в последний раз — lastmod в sitemap. По предметам,
+ * чтобы пересборка одного не объявляла изменёнными страницы остальных.
+ */
+export function practiceUpdatedAt(subjectSlug: string): string {
+  return data.subjectUpdatedAt?.[subjectSlug] ?? data.updatedAt
+}
 
 /** «Тест ЕНТ по …» — предмет в дательном падеже. */
 const RU_DATIVE: Record<string, string> = {

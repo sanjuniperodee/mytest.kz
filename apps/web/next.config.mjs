@@ -1,8 +1,13 @@
-import { dirname } from "node:path"
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const appRoot = dirname(fileURLToPath(import.meta.url))
 const repoRoot = dirname(dirname(appRoot))
+
+// Topic tests /ent/<subject>/<topic> that no longer exist (the question bank has no such
+// topic any more). The list is written by scripts/build-practice-seo-data.mjs.
+const retiredPracticeTopics = JSON.parse(readFileSync(join(appRoot, "lib/seo/practice-redirects.json"), "utf8"))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -36,6 +41,8 @@ const nextConfig = {
         destination: "/ent-2027",
         permanent: true,
       },
+      // Indexed topic pages that are gone → the subject page, not a 404.
+      ...retiredPracticeTopics.map(({ source, destination }) => ({ source, destination, permanent: true })),
     ]
   },
   images: {
