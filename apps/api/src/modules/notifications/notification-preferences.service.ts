@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { hasUnprovenEmailAccess } from '../../common/email-ownership';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import {
@@ -27,10 +33,18 @@ export class NotificationPreferencesService {
   async createTelegramLink(userId: string, now = new Date()) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { telegramId: true },
+      select: { telegramId: true, email: true, emailVerified: true, passwordHash: true },
     });
     if (!user) throw new NotFoundException('User not found');
     if (user.telegramId != null) return { linked: true, url: null, expiresAt: null };
+    // A Telegram link is a way to sign in, and the link token cannot be revoked once issued — so an
+    // account whose email nobody has proven yet does not get one (it would outlive the take-back).
+    if (hasUnprovenEmailAccess(user)) {
+      throw new ForbiddenException({
+        code: 'GOOGLE_SIGN_IN_REQUIRED',
+        message: 'Войдите через Google, чтобы подключить Telegram',
+      });
+    }
 
     const secret = notificationTokenSecret(this.config);
     if (!secret || !this.telegramBot.canSendLifecycleNotifications()) {
