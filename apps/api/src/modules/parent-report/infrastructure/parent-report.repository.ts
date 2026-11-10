@@ -5,7 +5,9 @@ import { PrismaService } from '../../../database/prisma.service';
 import { REDIS_CLIENT } from '../../../database/redis.module';
 import type { ParentReportSession } from '../domain/parent-report';
 
-const LINK_KEY = (userId: string) => `parent-report:link:${userId}`;
+/** Deleting this key revokes the student's parent link (auth does it when an account is taken back). */
+export const parentReportLinkKey = (userId: string) => `parent-report:link:${userId}`;
+const LINK_KEY = parentReportLinkKey;
 const CACHE_KEY = (userId: string, version: number, lang: string) =>
   `parent-report:cache:${userId}:${version}:${lang}`;
 /** Защитный предел: полного ЕНТ у одного ученика столько не бывает. */

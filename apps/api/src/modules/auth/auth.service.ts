@@ -6,9 +6,11 @@ import {
   forwardRef,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import {
   createHash,
@@ -24,6 +26,8 @@ import { TelegramAuthService } from './telegram-auth.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
 import { isChannelGateExempt } from '../../common/channel-gate';
+import { hasUnprovenEmailAccess } from '../../common/email-ownership';
+import { parentReportLinkKey } from '../parent-report/infrastructure/parent-report.repository';
 import {
   getJwtExpiresIn,
   getRequiredConfig,
@@ -63,6 +67,7 @@ type RefreshJwtPayload = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private googleClient = new OAuth2Client();
 
   constructor(
@@ -174,30 +179,25 @@ export class AuthService {
           where: { email },
         });
 
-    if (emailUser) {
-      if (!emailUser.emailVerified || emailUser.passwordHash) {
-        throw new BadRequestException(
-          'Этот email уже зарегистрирован. Войдите по email и привяжите Google после подтверждения аккаунта.',
-        );
-      }
-      if (emailUser.googleId && emailUser.googleId !== payload.sub) {
-        throw new BadRequestException('Этот email уже привязан к другому Google аккаунту');
-      }
+    if (emailUser?.googleId && emailUser.googleId !== payload.sub) {
+      throw new BadRequestException('Этот email уже привязан к другому Google аккаунту');
     }
 
     const existingUser = googleUser ?? emailUser;
+    // Google has just proven who owns this email. Whatever was set up on the account before that
+    // proof may belong to someone who registered the address first (see hasUnprovenEmailAccess),
+    // so the owner keeps the account with its history and every other way in is closed.
+    const takeBack = existingUser ? hasUnprovenEmailAccess(existingUser) : false;
     const user = existingUser
-      ? await this.prisma.user.update({
-          where: { id: existingUser.id },
-          data: {
-            googleId: payload.sub,
-            email,
-            emailVerified: true,
-            firstName: existingUser.firstName || names.firstName,
-            lastName: existingUser.lastName || names.lastName,
-            avatarUrl: existingUser.avatarUrl || payload.picture || null,
-            isChannelMember: existingUser.telegramId ? existingUser.isChannelMember : true,
-          },
+      ? await this.signInExistingWithGoogle(existingUser.id, takeBack, {
+          googleId: payload.sub,
+          email,
+          emailVerified: true,
+          firstName: existingUser.firstName || names.firstName,
+          lastName: existingUser.lastName || names.lastName,
+          avatarUrl: existingUser.avatarUrl || payload.picture || null,
+          isChannelMember:
+            existingUser.telegramId && !takeBack ? existingUser.isChannelMember : true,
         })
       : await this.prisma.user.create({
           data: {
@@ -223,6 +223,48 @@ export class AuthService {
       telegramId: user.telegramId ? Number(user.telegramId) : null,
       isChannelMember: isChannelGateExempt(user) ? true : user.isChannelMember,
     });
+  }
+
+  /**
+   * Google sign-in into an existing account. With `takeBack` the account had access nobody proved
+   * a right to, so everything that could let a previous holder back in goes in one transaction:
+   * the password, all sessions (access tokens die with them — JwtStrategy checks the session),
+   * the Telegram link with its phone (both are logins: Mini App and the web code), push
+   * subscriptions and the parent-report link. Profile, results and purchases stay.
+   */
+  private async signInExistingWithGoogle(
+    userId: string,
+    takeBack: boolean,
+    data: Prisma.UserUpdateInput,
+  ) {
+    if (!takeBack) {
+      return this.prisma.user.update({ where: { id: userId }, data });
+    }
+
+    // Redis first: if it is down the sign-in fails as a whole and the next attempt redoes all of it.
+    await this.redis.del(parentReportLinkKey(userId));
+    const [sessions, , user] = await this.prisma.$transaction([
+      this.prisma.authSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.pushSubscription.deleteMany({ where: { userId } }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...data,
+          passwordHash: null,
+          telegramId: null,
+          telegramUsername: null,
+          telegramLinkedAt: null,
+          phone: null,
+        },
+      }),
+    ]);
+    this.logger.warn(
+      `Google sign-in took back account ${userId}: password and Telegram link cleared, ${sessions.count} session(s) revoked`,
+    );
+    return user;
   }
 
   /**
@@ -386,8 +428,13 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Неверный email или пароль');
     }
-    if (!user.emailVerified) {
-      throw new UnauthorizedException('Подтвердите email перед входом');
+    // Signup never verified the address, so a password alone does not prove who owns it; and an
+    // account that already has Google must not keep a door from before that proof. Asked only
+    // after the password check, so it does not tell strangers which emails are registered.
+    if (!user.emailVerified || user.googleId) {
+      throw new UnauthorizedException(
+        'Вход по паролю для этого аккаунта отключён. Войдите через Google с этим же email — аккаунт и результаты сохранятся.',
+      );
     }
 
     await this.accessService.ensureFreeEntitlementsForUser(user.id);
