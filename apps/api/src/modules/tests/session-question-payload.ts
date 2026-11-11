@@ -37,20 +37,68 @@ export type SessionQuestionPayload<Q> = Omit<Q, 'explanation'> & {
   explanationImageUrls: string[];
 };
 
-/** Strips the explanation text from a question, keeping only what the clients need without it. */
-export function toSessionQuestionPayload<Q extends { explanation?: unknown; imageUrls?: unknown }>(
-  question: Q,
-): SessionQuestionPayload<Q> {
+/**
+ * Strips the explanation text from a question, keeping only what the clients need without it.
+ *
+ * Images that only the explanation uses are removed from `imageUrls` too (their URLs would
+ * otherwise reach free users; the premium explanation endpoint returns the full list). The
+ * remaining images are re-indexed, so `[[img:N]]` tokens in the question content and answer
+ * options are rewritten to match.
+ */
+export function toSessionQuestionPayload<
+  Q extends { explanation?: unknown; imageUrls?: unknown; content?: unknown; answerOptions?: unknown },
+>(question: Q): SessionQuestionPayload<Q> {
   const { explanation, ...rest } = question;
   const hasExplanation = !isEmptyExplanation(explanation);
   const urls = attachedImageUrls(question.imageUrls);
-  const usedIndexes = hasExplanation ? referencedImageIndexes(explanation, urls) : [];
-  return {
+  const explanationIdx = hasExplanation ? referencedImageIndexes(explanation, urls) : [];
+
+  const bodyIdx = new Set(referencedImageIndexes([question.content, question.answerOptions], urls));
+  const hidden = new Set(explanationIdx.filter((idx) => !bodyIdx.has(idx)));
+
+  // old index -> new index among the kept images
+  const newIndex = new Map<number, number>();
+  urls.forEach((_, idx) => {
+    if (!hidden.has(idx)) newIndex.set(idx, newIndex.size);
+  });
+  const kept = explanationIdx.filter((idx) => newIndex.has(idx));
+
+  const payload: Record<string, unknown> = {
     ...rest,
-    explanation: hasExplanation ? usedIndexes.map((idx) => `[[img:${idx + 1}]]`).join('\n') : null,
+    explanation: hasExplanation ? kept.map((idx) => `[[img:${newIndex.get(idx)! + 1}]]`).join('\n') : null,
     hasExplanation,
-    explanationImageUrls: usedIndexes.map((idx) => urls[idx]),
+    explanationImageUrls: kept.map((idx) => urls[idx]),
   };
+  if (hidden.size > 0) {
+    payload.imageUrls = urls.filter((_, idx) => !hidden.has(idx));
+    const remap = (value: unknown) => remapImageTokens(value, newIndex);
+    if ('content' in payload) payload.content = remap(payload.content);
+    if (Array.isArray(payload.answerOptions)) {
+      payload.answerOptions = payload.answerOptions.map((option: unknown) =>
+        option && typeof option === 'object' && 'content' in option
+          ? { ...option, content: remap((option as { content: unknown }).content) }
+          : option,
+      );
+    }
+  }
+  return payload as SessionQuestionPayload<Q>;
+}
+
+/** Rewrites `[[img:N]]` tokens in every string of a JSON value to the re-indexed positions. */
+function remapImageTokens(value: unknown, newIndex: Map<number, number>): unknown {
+  if (typeof value === 'string') {
+    return value.replace(/\[\[img:(\d+)\]\]/gi, (match, n: string) => {
+      const next = newIndex.get(Number.parseInt(n, 10) - 1);
+      return next === undefined ? match : `[[img:${next + 1}]]`;
+    });
+  }
+  if (Array.isArray(value)) return value.map((item) => remapImageTokens(item, newIndex));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, remapImageTokens(v, newIndex)]),
+    );
+  }
+  return value;
 }
 
 /** Same filtering as the clients' `imageUrls()`: `[[img:N]]` indexes refer to this list. */
