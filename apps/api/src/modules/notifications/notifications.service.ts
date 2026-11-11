@@ -350,7 +350,7 @@ export class NotificationsService {
           push: { configured: this.webPush.isConfigured(), subscriptions: pushSubscriptions },
           email: {
             configured: this.mailer.isConfigured(),
-            dailyCap: this.mailer.getDailyCap(),
+            dailyCap: this.mailer.getCampaignDailyCap(),
             sentToday: mailSentToday,
           },
         },

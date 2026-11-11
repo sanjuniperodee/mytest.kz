@@ -1,8 +1,10 @@
 # Second proof of email ownership: a code sent to the address — proposal
 
-Written 2026-11-10. **Status: proposal, nothing implemented. Waiting for the owner to pick** (see
-"Decisions" at the end). Builds on `docs/auth-email-google-takeover.md` (commit `481b927`); this
-branch sits on top of that commit and cannot ship before it.
+Written 2026-11-10. **Status: built 2026-11-11 as recommended (scope A, typed code, no passwords,
+reserved mail budget), switched off by default** — see "As built" and "Turning it on" at the end.
+Open for the owner: the mail split (decision 3) and the two prod checks (decision 4). Builds on
+`docs/auth-email-google-takeover.md` (commit `481b927`); this branch sits on top of that commit and
+cannot ship before it.
 
 ## The gap
 
@@ -98,7 +100,8 @@ mailbox, and this way nobody can make the site mail codes to ordinary users.
 - Bound to the address and the user id. On use the account is read again and must still have that
   email and no Google link.
 - Single use: accepting a code deletes it first, and only the request that deleted it continues.
-- Five wrong tries kill the code. Revoked also by a Google take-back of the same account.
+- Five wrong tries kill the code. It is also refused once the account has a Google link (the
+  account is read again when the code is used).
 - One answer for wrong, used, expired and unknown: 401 «Неверный или истёкший код».
 
 **No way to learn which addresses have accounts** — `request-code` answers `{ ok: true }` for
@@ -181,8 +184,48 @@ Google-linked account gets no mail; a Google take-back kills a pending code; off
 
 ## Decisions for the owner
 
-1. **Scope:** 0, **A (recommended)** or B.
-2. **Code (recommended)** or link.
+1. **Scope:** 0, **A (recommended)** or B. — *Chosen: A.*
+2. **Code (recommended)** or link. — *Chosen: code.*
 3. Campaign mail drops to 70 a day to reserve 20 for sign-in — acceptable, or other numbers?
+   — *Built as proposed (20, `MAIL_AUTH_DAILY_CAP`); change the env value if you want other numbers.*
 4. Run the count SQL above on prod (I cannot), and check what address the API sees for a request
-   that came through the website — needed before B, useful for A.
+   that came through the website — needed before B, useful for A. — *Still open.*
+
+## As built (2026-11-11)
+
+Matches the design above, with these differences and details:
+
+- **The login page asks the API whether to show the door.** `GET /auth/email/status` returns
+  `{ enabled }`; the web shows the «Регистрировались по email?» line only when it is true. This
+  replaces a build-time web flag, so there is one switch (`AUTH_EMAIL_CODE_ENABLED`) and no change
+  to the web build or `deploy.yml`.
+- **The mail reserve exists only while the feature is on.** With it off, campaigns keep the whole
+  `MAIL_DAILY_CAP`. With it on, campaigns get `MAIL_DAILY_CAP − MAIL_AUTH_DAILY_CAP`; the admin
+  mailing screen shows that reduced figure.
+- **One `MailerService` for both senders** through a new `MailModule`, with a separate Redis counter
+  (`notifications:mail:auth:<Almaty day>`). A refused or failed send does not give the slot back.
+- **One take-back, two proofs.** `signInExistingWithGoogle` became `signInExistingAccount(userId,
+  takeBack, proof, data)`; Google and the code both call it, so they cannot drift apart.
+- **Disabled means 503 `EMAIL_CODE_UNAVAILABLE`** on both endpoints, the same answer as an
+  exhausted sign-in budget or missing SMTP. Malformed input is 400 for `request-code` and the usual
+  401 for `verify-code`.
+- **Messages.** The password refusal and the Telegram-connect refusal name the mailed code only
+  while the feature is on. The 403 code stays `GOOGLE_SIGN_IN_REQUIRED`.
+- **Client IP.** The API's own per-IP counter uses `req.ip`; the open question about what that is
+  behind the Next proxy still stands.
+- **Mobile.** The Email tab is now address → code. Old app builds keep the password form, which
+  answers with the refusal message; they only get the new form with a store release.
+- **Tests.** `apps/api/test/auth-email-code.http.spec.ts` (shared fakes in
+  `apps/api/test/support/auth-fakes.ts`): the code signs the owner in and takes the account back; a
+  used, expired, wrong, replayed or other-address code is refused; five wrong tries kill a code;
+  unknown, Google-linked and known addresses get the same answers and only the known one gets mail;
+  every limit and the mail budget hold; off by default.
+
+## Turning it on
+
+1. Merge `481b927` (Google take-back) and this branch, deploy. Nothing changes yet.
+2. Check prod mail works (`SMTP_HOST`, `MAIL_FROM`, `MAIL_DAILY_CAP`) and that the sending domain
+   delivers to mail.ru / yandex / icloud inboxes, not only Gmail.
+3. Set `AUTH_EMAIL_CODE_ENABLED=1` (and `MAIL_AUTH_DAILY_CAP` if 20 is not right) and restart the API.
+   The door appears on `/login` and in the app's Email tab at once; to switch off, unset it.
+4. Watch `notifications:mail:auth:<day>` against the cap for the first weeks.

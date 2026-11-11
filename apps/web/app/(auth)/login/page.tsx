@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneForm } from "@/components/auth/phone-form"
 import { GoogleButton } from "@/components/auth/google-button"
+import { EmailCodeLogin } from "@/components/auth/email-code-form"
 import { useAuth } from "@/lib/api/auth-context"
 import { getTelegramBotLink, getTelegramBotUsername } from "@/lib/telegram"
 
@@ -154,6 +155,8 @@ function LoginContent() {
               </p>
             </TabsContent>
           </Tabs>
+
+          <EmailCodeLogin />
 
           <p className="mt-6 flex items-center justify-center gap-1.5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
             После входа сразу откроем выбор профильных предметов

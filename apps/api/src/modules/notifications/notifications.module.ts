@@ -4,7 +4,7 @@ import { PrismaModule } from '../../database/prisma.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { TestScorerService } from '../tests/test-scorer.service';
 import { AdminNotificationsController } from './admin-notifications.controller';
-import { MailerService } from './channels/mailer.service';
+import { MailModule } from './channels/mail.module';
 import { WebPushService } from './channels/web-push.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { NotificationsController } from './notifications.controller';
@@ -12,13 +12,12 @@ import { NotificationsSchedulerService } from './notifications-scheduler.service
 import { NotificationsService } from './notifications.service';
 
 @Module({
-  imports: [PrismaModule, TelegramModule],
+  imports: [PrismaModule, TelegramModule, MailModule],
   controllers: [AdminNotificationsController, NotificationsController],
   providers: [
     NotificationsService,
     NotificationsSchedulerService,
     NotificationPreferencesService,
-    MailerService,
     WebPushService,
     TestScorerService,
     AdminGuard,

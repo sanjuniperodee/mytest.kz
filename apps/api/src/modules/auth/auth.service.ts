@@ -26,6 +26,7 @@ import { TelegramAuthService } from './telegram-auth.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
 import { isChannelGateExempt } from '../../common/channel-gate';
+import { isEmailCodeLoginEnabled } from '../../common/config/email-code-login';
 import { hasUnprovenEmailAccess } from '../../common/email-ownership';
 import { parentReportLinkKey } from '../parent-report/infrastructure/parent-report.repository';
 import {
@@ -38,6 +39,7 @@ import {
   normalizeKzPhone,
 } from '@bilimland/shared';
 import { AccessService } from '../subscriptions/access.service';
+import { EmailCodeService, normalizeLoginEmail } from './email-code.service';
 
 
 const WEB_AUTH_MAX_VERIFY_ATTEMPTS = 5;
@@ -78,6 +80,7 @@ export class AuthService {
     @Inject(forwardRef(() => TelegramBotService))
     private telegramBot: TelegramBotService,
     private accessService: AccessService,
+    private emailCodes: EmailCodeService,
     @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
 
@@ -189,7 +192,7 @@ export class AuthService {
     // so the owner keeps the account with its history and every other way in is closed.
     const takeBack = existingUser ? hasUnprovenEmailAccess(existingUser) : false;
     const user = existingUser
-      ? await this.signInExistingWithGoogle(existingUser.id, takeBack, {
+      ? await this.signInExistingAccount(existingUser.id, takeBack, 'Google sign-in', {
           googleId: payload.sub,
           email,
           emailVerified: true,
@@ -226,15 +229,18 @@ export class AuthService {
   }
 
   /**
-   * Google sign-in into an existing account. With `takeBack` the account had access nobody proved
-   * a right to, so everything that could let a previous holder back in goes in one transaction:
-   * the password, all sessions (access tokens die with them — JwtStrategy checks the session),
-   * the Telegram link with its phone (both are logins: Mini App and the web code), push
-   * subscriptions and the parent-report link. Profile, results and purchases stay.
+   * Sign-in into an existing account right after its email was proven (Google, or a code mailed to
+   * the address). With `takeBack` the account had access nobody proved a right to, so everything
+   * that could let a previous holder back in goes in one transaction: the password, all sessions
+   * (access tokens die with them — JwtStrategy checks the session), the Telegram link with its
+   * phone (both are logins: Mini App and the web code), push subscriptions and the parent-report
+   * link. Profile, results and purchases stay. Every proof of email ownership must come through
+   * here, so that they all clear exactly the same things.
    */
-  private async signInExistingWithGoogle(
+  private async signInExistingAccount(
     userId: string,
     takeBack: boolean,
+    proof: string,
     data: Prisma.UserUpdateInput,
   ) {
     if (!takeBack) {
@@ -262,9 +268,56 @@ export class AuthService {
       }),
     ]);
     this.logger.warn(
-      `Google sign-in took back account ${userId}: password and Telegram link cleared, ${sessions.count} session(s) revoked`,
+      `${proof} took back account ${userId}: password and Telegram link cleared, ${sessions.count} session(s) revoked`,
     );
     return user;
+  }
+
+  isEmailCodeLoginEnabled() {
+    return this.emailCodes.isEnabled();
+  }
+
+  /** Asks for a code to be mailed. Answers the same for every well-formed address. */
+  requestEmailCode(email: unknown, ip?: string) {
+    return this.emailCodes.request(email, ip);
+  }
+
+  /**
+   * Sign-in with the code mailed to the account's address. A correct code proves who owns the
+   * address, so for an account with unproven access it runs the same take-back as Google sign-in.
+   * The code is the login: the password of such an account is dropped, never restored.
+   */
+  async verifyEmailCode(email: unknown, code: unknown, visitorId?: string) {
+    const claim = await this.emailCodes.consume(email, code);
+
+    // The account may have changed since the code was mailed (Google sign-in, a new address).
+    const account = await this.prisma.user.findUnique({ where: { id: claim.userId } });
+    if (
+      !account ||
+      account.googleId ||
+      normalizeLoginEmail(account.email) !== claim.email
+    ) {
+      throw new UnauthorizedException('Неверный или истёкший код');
+    }
+
+    const user = hasUnprovenEmailAccess(account)
+      ? await this.signInExistingAccount(account.id, true, 'Mailed code', {
+          emailVerified: true,
+          isChannelMember: true,
+        })
+      : account;
+
+    if (visitorId) {
+      await this.attributeVisit(visitorId, user.id);
+    }
+
+    await this.accessService.ensureFreeEntitlementsForUser(user.id);
+
+    return this.generateTokens({
+      ...user,
+      telegramId: user.telegramId ? Number(user.telegramId) : null,
+      isChannelMember: isChannelGateExempt(user) ? true : user.isChannelMember,
+    });
   }
 
   /**
@@ -433,7 +486,9 @@ export class AuthService {
     // after the password check, so it does not tell strangers which emails are registered.
     if (!user.emailVerified || user.googleId) {
       throw new UnauthorizedException(
-        'Вход по паролю для этого аккаунта отключён. Войдите через Google с этим же email — аккаунт и результаты сохранятся.',
+        isEmailCodeLoginEnabled(this.config)
+          ? 'Вход по паролю для этого аккаунта отключён. Войдите через Google с этим же email или по коду из письма на сайте my-test.kz — аккаунт и результаты сохранятся.'
+          : 'Вход по паролю для этого аккаунта отключён. Войдите через Google с этим же email — аккаунт и результаты сохранятся.',
       );
     }
 

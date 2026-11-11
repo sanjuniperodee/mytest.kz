@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { TelegramAuthService } from './telegram-auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { TelegramModule } from '../telegram/telegram.module';
+import { MailModule } from '../notifications/channels/mail.module';
+import { EmailCodeService } from './email-code.service';
 import {
   getJwtExpiresIn,
   getRequiredConfig,
@@ -29,9 +31,10 @@ import {
       inject: [ConfigService],
     }),
     forwardRef(() => TelegramModule),
+    MailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, TelegramAuthService, JwtStrategy],
+  providers: [AuthService, EmailCodeService, TelegramAuthService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

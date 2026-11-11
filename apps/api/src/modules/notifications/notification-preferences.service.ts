@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isEmailCodeLoginEnabled } from '../../common/config/email-code-login';
 import { hasUnprovenEmailAccess } from '../../common/email-ownership';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
@@ -42,7 +43,9 @@ export class NotificationPreferencesService {
     if (hasUnprovenEmailAccess(user)) {
       throw new ForbiddenException({
         code: 'GOOGLE_SIGN_IN_REQUIRED',
-        message: 'Войдите через Google, чтобы подключить Telegram',
+        message: isEmailCodeLoginEnabled(this.config)
+          ? 'Войдите через Google или по коду из письма, чтобы подключить Telegram'
+          : 'Войдите через Google, чтобы подключить Telegram',
       });
     }
 

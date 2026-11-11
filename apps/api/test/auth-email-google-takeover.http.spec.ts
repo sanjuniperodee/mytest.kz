@@ -12,6 +12,7 @@ import { PrismaService } from '../src/database/prisma.service';
 import { REDIS_CLIENT } from '../src/database/redis.module';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { EmailCodeService } from '../src/modules/auth/email-code.service';
 import { JwtStrategy } from '../src/modules/auth/jwt.strategy';
 import { TelegramAuthService } from '../src/modules/auth/telegram-auth.service';
 import { NotificationPreferencesService } from '../src/modules/notifications/notification-preferences.service';
@@ -207,6 +208,8 @@ describe('email + Google account takeover', () => {
         AuthService,
         JwtStrategy,
         { provide: PrismaService, useValue: db.prisma },
+        // The mailed-code flow has its own spec (auth-email-code.http.spec.ts); Google sign-in never calls it.
+        { provide: EmailCodeService, useValue: {} },
         { provide: TelegramAuthService, useValue: {} },
         { provide: TelegramBotService, useValue: {} },
         { provide: AccessService, useValue: { ensureFreeEntitlementsForUser: async () => undefined } },
