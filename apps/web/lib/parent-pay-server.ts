@@ -5,7 +5,8 @@ import type { ParentPayInfoDto } from "@bilimland/shared"
  * как есть (подпись проверяет API); кэша нет — на странице живой статус платежа.
  */
 
-const UPSTREAM = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.my-test.kz"
+import { apiInternalOrigin } from "@/lib/api-origin"
+
 const TOKEN_RE = /^[A-Za-z0-9_-]{50}$/
 
 export type ParentPayResult =
@@ -19,7 +20,7 @@ export async function fetchParentPayInfo(token: string, clientIp: string | null)
   // Лимит запросов в API считается по IP родителя, а не по IP сервера Next.
   if (clientIp) headers["X-Forwarded-For"] = clientIp
   try {
-    const res = await fetch(`${UPSTREAM}/api/v1/public/parent-pay/${encodeURIComponent(token)}`, {
+    const res = await fetch(`${apiInternalOrigin()}/api/v1/public/parent-pay/${encodeURIComponent(token)}`, {
       cache: "no-store",
       headers,
       signal: AbortSignal.timeout(8000),

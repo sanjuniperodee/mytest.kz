@@ -5,7 +5,8 @@ import type { BillingPlanDto, ParentReportDto, ParentReportLang } from "@bilimla
  * как есть (подпись проверяет API); кэша нет — отчёт приватный и всегда свежий.
  */
 
-const UPSTREAM = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.my-test.kz"
+import { apiInternalOrigin } from "@/lib/api-origin"
+
 const TOKEN_RE = /^[A-Za-z0-9_-]{50}$/
 
 export type ParentReportResult =
@@ -24,7 +25,7 @@ export async function fetchParentReport(
   if (clientIp) headers["X-Forwarded-For"] = clientIp
   try {
     const res = await fetch(
-      `${UPSTREAM}/api/v1/public/parent-report/${encodeURIComponent(token)}?lang=${lang}`,
+      `${apiInternalOrigin()}/api/v1/public/parent-report/${encodeURIComponent(token)}?lang=${lang}`,
       { cache: "no-store", headers, signal: AbortSignal.timeout(6000) },
     )
     if (res.status === 404 || res.status === 400) return { status: "not_found" }
@@ -38,7 +39,7 @@ export async function fetchParentReport(
 /** Тарифы в продаже на языке отчёта; пустой список, если API недоступен. */
 export async function fetchPlansForParents(lang: ParentReportLang): Promise<BillingPlanDto[]> {
   try {
-    const res = await fetch(`${UPSTREAM}/api/v1/public/monetization?lang=${lang}`, {
+    const res = await fetch(`${apiInternalOrigin()}/api/v1/public/monetization?lang=${lang}`, {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(2500),
     })

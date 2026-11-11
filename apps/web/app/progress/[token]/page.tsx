@@ -6,6 +6,7 @@ import { ArrowRight, CalendarCheck, Lock, Target, TrendingUp } from "lucide-reac
 import type { BillingPlanDto, ParentReportDto, ParentReportLang } from "@bilimland/shared"
 import { Logo } from "@/components/landing/logo"
 import { ParentReportCtaLink, ParentReportViewBeacon } from "@/components/parent-report/report-tracking"
+import { clientIpFromNginx } from "@/lib/client-ip"
 import { fetchParentReport, fetchPlansForParents } from "@/lib/parent-report-server"
 import { cn } from "@/lib/utils"
 
@@ -82,11 +83,8 @@ export default async function ParentReportPage({
   // Ученик смотрит свой отчёт из кабинета — это не открытие родителем.
   const preview = query.preview === "1"
   const t: Copy = (ru, kk) => (lang === "kk" ? kk : ru)
-  // IP родителя для лимита запросов в API: x-real-ip / последний адрес, добавленный nginx (первый подделывается).
-  const clientIp =
-    requestHeaders.get("x-real-ip")?.trim() ||
-    requestHeaders.get("x-forwarded-for")?.split(",").pop()?.trim() ||
-    null
+  // IP родителя для лимита запросов в API: только то, что записал nginx (lib/client-ip.ts).
+  const clientIp = clientIpFromNginx(requestHeaders)
 
   const [result, plans] = await Promise.all([
     fetchParentReport(token, lang, clientIp),

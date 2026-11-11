@@ -8,13 +8,14 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { I18nInterceptor } from './common/interceptors/i18n.interceptor';
+import { configureTrustProxy } from './common/http/trust-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
   app.enableShutdownHooks();
-  app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
+  configureTrustProxy(app);
   const logger = new Logger('HTTP');
   const slowRequestMs = Math.max(
     0,

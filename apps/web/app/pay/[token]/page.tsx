@@ -5,6 +5,7 @@ import { Lock, ShieldCheck } from "lucide-react"
 import type { ParentPayLang } from "@bilimland/shared"
 import { Logo } from "@/components/landing/logo"
 import { ParentPayFlow } from "@/components/parent-pay/parent-pay-flow"
+import { clientIpFromNginx } from "@/lib/client-ip"
 import { fetchParentPayInfo } from "@/lib/parent-pay-server"
 import { fetchPlansForParents } from "@/lib/parent-report-server"
 import { cn } from "@/lib/utils"
@@ -44,11 +45,8 @@ export default async function ParentPayPage({
   const lang: ParentPayLang = query.lang === "kk" ? "kk" : "ru"
   const t = (ru: string, kk: string) => (lang === "kk" ? kk : ru)
   const requestedPlan = typeof query.plan === "string" && PLAN_RE.test(query.plan) ? query.plan : null
-  // IP родителя для лимита запросов в API: x-real-ip / последний адрес, добавленный nginx (первый подделывается).
-  const clientIp =
-    requestHeaders.get("x-real-ip")?.trim() ||
-    requestHeaders.get("x-forwarded-for")?.split(",").pop()?.trim() ||
-    null
+  // IP родителя для лимита запросов в API: только то, что записал nginx (lib/client-ip.ts).
+  const clientIp = clientIpFromNginx(requestHeaders)
 
   const [result, plans] = await Promise.all([fetchParentPayInfo(token, clientIp), fetchPlansForParents(lang)])
   // Без списка тарифов платить нечем — но уже начатый или оплаченный платёж показать можем.
