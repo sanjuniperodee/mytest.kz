@@ -106,11 +106,13 @@ function expectNoExplanationText(payload: unknown) {
 function expectExplanationFlags(answers: any[]) {
   const byId = new Map(answers.map((a) => [a.questionId, a.question]));
 
+  // Images used only by the explanation (2.png, 3.png) are not sent to free users at all.
   expect(byId.get('q-with-images')).toMatchObject({
     hasExplanation: true,
-    explanationImageUrls: ['/uploads/q/2.png', '/uploads/q/3.png'],
+    imageUrls: ['/uploads/q/1.png'],
+    explanationImageUrls: [],
     // Compat for mobile builds ≤ 1.2.0: non-null, only image tokens.
-    explanation: '[[img:2]]\n[[img:3]]',
+    explanation: '',
   });
   expect(byId.get('q-text-only')).toMatchObject({
     hasExplanation: true,
@@ -206,7 +208,39 @@ describe('toSessionQuestionPayload', () => {
       explanation: { ru: 'см. [[img:2]] и [[img:9]]' },
       imageUrls: ['', '/uploads/a.png', '  ', '/uploads/b.png'],
     });
-    expect(result.explanationImageUrls).toEqual(['/uploads/b.png']);
+    // b.png is explanation-only → hidden; a.png stays.
+    expect(result.imageUrls).toEqual(['/uploads/a.png']);
+    expect(result.explanationImageUrls).toEqual([]);
+    expect(result.explanation).toBe('');
+  });
+
+  it('hides explanation-only images and re-indexes tokens in content and options', () => {
+    const result = toSessionQuestionPayload({
+      explanation: { ru: 'шаг [[img:1]], итог [[img:3]]' },
+      imageUrls: ['/uploads/a.png', '/uploads/b.png', '/uploads/c.png', '/uploads/d.png'],
+      content: { ru: { text: 'вопрос [[img:3]]', passage: 'текст [[img:2]] и [[img:4]]' } },
+      answerOptions: [{ id: 'o1', content: { ru: 'вариант [[img:4]]' }, sortOrder: 1 }],
+    });
+
+    // a.png is explanation-only → hidden; b, c, d shift down by one.
+    expect(result.imageUrls).toEqual(['/uploads/b.png', '/uploads/c.png', '/uploads/d.png']);
+    expect(result.content).toEqual({ ru: { text: 'вопрос [[img:2]]', passage: 'текст [[img:1]] и [[img:3]]' } });
+    expect(result.answerOptions[0].content).toEqual({ ru: 'вариант [[img:3]]' });
+    // c.png is used by both the question and the explanation → kept.
+    expect(result.explanationImageUrls).toEqual(['/uploads/c.png']);
     expect(result.explanation).toBe('[[img:2]]');
+    expect(JSON.stringify(result)).not.toContain('шаг');
+  });
+
+  it('leaves content and imageUrls untouched when the explanation hides nothing', () => {
+    const question = {
+      explanation: null,
+      imageUrls: ['/uploads/a.png'],
+      content: { ru: { text: 'вопрос [[img:1]]' } },
+      answerOptions: [],
+    };
+    const result = toSessionQuestionPayload(question);
+    expect(result.imageUrls).toEqual(['/uploads/a.png']);
+    expect(result.content).toEqual(question.content);
   });
 });
