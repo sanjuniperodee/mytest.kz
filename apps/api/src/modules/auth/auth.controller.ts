@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
@@ -41,6 +41,33 @@ export class AuthController {
   ) {
     const visitorId = req.cookies?.['blm_vid'];
     const data = await this.authService.verifyWebCode(phone, code, visitorId);
+    this.setRefreshCookie(res, data.refreshToken);
+    return data;
+  }
+
+  /** Lets the login page show the "code from your mail" door only while it is switched on. */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('email/status')
+  emailCodeStatus() {
+    return { enabled: this.authService.isEmailCodeLoginEnabled() };
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('email/request-code')
+  async requestEmailCode(@Body('email') email: string, @Req() req: Request) {
+    return this.authService.requestEmailCode(email, req.ip);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('email/verify-code')
+  async verifyEmailCode(
+    @Body('email') email: string,
+    @Body('code') code: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const visitorId = req.cookies?.['blm_vid'];
+    const data = await this.authService.verifyEmailCode(email, code, visitorId);
     this.setRefreshCookie(res, data.refreshToken);
     return data;
   }
