@@ -269,3 +269,35 @@ describe('free daily ENT attempt — V2 engine', () => {
     });
   });
 });
+
+describe('free ENT once a week (freeTier.periodDays = 7)', () => {
+  const weekly = () =>
+    new AccessService({} as any, engine('V2'), staticMonetization({ freeTier: { enabled: true, dailyEntAttempts: 1, periodDays: 7 } }));
+  const daily = () => new AccessService({} as any, engine('V2'), staticMonetization());
+  const key = (s: AccessService, source: EntitlementSourceType, iso: string) =>
+    (s as any).usagePeriodKey(source, new Date(iso), 'Asia/Almaty') as string;
+  const reset = (s: AccessService, source: EntitlementSourceType, iso: string) =>
+    ((s as any).usagePeriodResetAt(source, new Date(iso), 'Asia/Almaty') as Date).toISOString();
+
+  it('counts the free attempt per calendar week (Monday) in the user timezone', () => {
+    const s = weekly();
+    // Wed 2026-11-18 10:00 Almaty, Sun 2026-11-22 23:30 Almaty → same week starting Mon 2026-11-16.
+    expect(key(s, EntitlementSourceType.free_daily, '2026-11-18T05:00:00Z')).toBe('2026-11-16');
+    expect(key(s, EntitlementSourceType.free_daily, '2026-11-22T18:30:00Z')).toBe('2026-11-16');
+    // Mon 2026-11-23 00:30 Almaty (still Sunday in UTC) → next week.
+    expect(key(s, EntitlementSourceType.free_daily, '2026-11-22T19:30:00Z')).toBe('2026-11-23');
+  });
+
+  it('resets at Monday midnight Almaty', () => {
+    const s = weekly();
+    expect(reset(s, EntitlementSourceType.free_daily, '2026-11-18T05:00:00Z')).toBe('2026-11-22T19:00:00.000Z');
+    // On Monday itself the next reset is a week later.
+    expect(reset(s, EntitlementSourceType.free_daily, '2026-11-23T03:00:00Z')).toBe('2026-11-29T19:00:00.000Z');
+  });
+
+  it('keeps paid entitlements and the default config on daily periods', () => {
+    expect(key(weekly(), EntitlementSourceType.subscription, '2026-11-18T05:00:00Z')).toBe('2026-11-18');
+    expect(reset(weekly(), EntitlementSourceType.subscription, '2026-11-18T05:00:00Z')).toBe('2026-11-18T19:00:00.000Z');
+    expect(key(daily(), EntitlementSourceType.free_daily, '2026-11-18T05:00:00Z')).toBe('2026-11-18');
+  });
+});

@@ -25,6 +25,12 @@ const pad = (n: number) => String(n).padStart(2, "0")
  */
 export function formatWait(totalSeconds: number, locale: string) {
   const [h, m, s] = locale === "kk" ? ["сағ", "мин", "сек"] : ["ч", "мин", "с"]
+  if (totalSeconds >= 86_400) {
+    // Неделя ожидания: «3 д 05 ч», а не «77 ч 12 мин».
+    const hours = Math.ceil(totalSeconds / 3600)
+    const [d] = locale === "kk" ? ["күн"] : ["д"]
+    return `${Math.floor(hours / 24)} ${d} ${pad(hours % 24)} ${h}`
+  }
   if (totalSeconds >= 3600) {
     const minutes = Math.ceil(totalSeconds / 60)
     return `${Math.floor(minutes / 60)} ${h} ${pad(minutes % 60)} ${m}`

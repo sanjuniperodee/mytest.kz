@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteUrl}/ent-2027` },
   openGraph: {
     title: "Пробный ЕНТ 2027 — онлайн бесплатно",
-    description: "Пробный ЕНТ 2027 бесплатно каждый день, без карты. Реальный формат, балл и шанс на грант.",
+    description: "Пробный ЕНТ 2027 бесплатно, без карты. Реальный формат, балл и шанс на грант.",
     url: `${siteUrl}/ent-2027`,
     siteName: "mytest",
     images: OG_IMAGES,
@@ -74,7 +74,7 @@ const jsonLd = {
       name: "Можно ли пройти пробный ЕНТ 2027 бесплатно?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Да. На my-test.kz полный пробный ЕНТ в реальном формате можно сдавать бесплатно каждый день — без карты. Войди через Google или по телефону и сразу начинай.",
+        text: "Да. На my-test.kz полный пробный ЕНТ в реальном формате можно сдавать бесплатно — без карты. Войди через Google или по телефону и сразу начинай.",
       },
     },
   ],
@@ -97,7 +97,7 @@ export default function Ent2027Page() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
               Начни подготовку к ЕНТ 2027 уже сейчас. Полный пробный тест —
-              бесплатно каждый день и без карты. 120 заданий, реальный формат, таймер и разбор
+              бесплатно и без карты. 120 заданий, реальный формат, таймер и разбор
               ошибок после сдачи.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -122,7 +122,7 @@ export default function Ent2027Page() {
                 "120 заданий · реальный формат",
                 "Разбор ошибок после сдачи",
                 "Русский и қазақ тілі",
-                "Без карты — пробный бесплатно каждый день",
+                "Без карты — пробный ЕНТ бесплатно",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" />

@@ -19,7 +19,7 @@ export interface FreeDailyStatus {
   dailyLimit: number;
   usedToday: number;
   remainingToday: number;
-  /** Когда квота обновится — ближайшая полночь по часовому поясу пользователя. */
+  /** Когда квота обновится — ближайшая полночь (или полночь на понедельник при недельном периоде) по поясу пользователя. */
   nextResetAt: string;
 }
 
@@ -87,6 +87,7 @@ type SubscriptionEngineMode = 'LEGACY' | 'DUAL' | 'V2';
 
 const ENT_SLUG = 'ent';
 const DEFAULT_TIMEZONE = 'Asia/Almaty';
+const FREE_DAILY_SOURCE = EntitlementSourceType.free_daily;
 
 /**
  * Отказ в попытке. В теле — код (как раньше в `message`, на него завязаны клиенты)
@@ -215,7 +216,8 @@ export class AccessService {
         chosen.localDay,
         chosen.entitlement.timezone,
         chosen.entitlement.dailyAttemptsLimit!,
-        chosen.nextResetAt ?? this.getNextLocalMidnightUtc(now, chosen.entitlement.timezone),
+        chosen.nextResetAt ??
+          this.usagePeriodResetAt(chosen.entitlement.sourceType, now, chosen.entitlement.timezone),
       );
     }
 
@@ -609,7 +611,7 @@ export class AccessService {
           where: {
             entitlementId_localDay: {
               entitlementId: entitlement.id,
-              localDay: this.getLocalDayKey(now, timezone),
+              localDay: this.usagePeriodKey(FREE_DAILY_SOURCE, now, timezone),
             },
           },
           select: { attemptsUsed: true },
@@ -628,7 +630,7 @@ export class AccessService {
       dailyLimit: limit,
       usedToday,
       remainingToday: Math.max(0, limit - usedToday),
-      nextResetAt: this.getNextLocalMidnightUtc(now, timezone).toISOString(),
+      nextResetAt: this.usagePeriodResetAt(FREE_DAILY_SOURCE, now, timezone).toISOString(),
     };
   }
 
@@ -658,7 +660,7 @@ export class AccessService {
     ) {
       return false;
     }
-    const localDay = this.getLocalDayKey(now, entitlement.timezone);
+    const localDay = this.usagePeriodKey(FREE_DAILY_SOURCE, now, entitlement.timezone);
     const consumed = await this.tryIncrementDailyUsageTx(
       tx,
       userId,
@@ -1239,7 +1241,7 @@ export class AccessService {
       tx,
       entitlements
         .filter((ent) => this.entitlementDailyLimit(ent) != null)
-        .map((ent) => ({ entitlementId: ent.id, localDay: this.getLocalDayKey(now, ent.timezone) })),
+        .map((ent) => ({ entitlementId: ent.id, localDay: this.usagePeriodKey(ent.sourceType, now, ent.timezone) })),
     );
 
     let usedTotal = 0;
@@ -1280,7 +1282,7 @@ export class AccessService {
         continue;
       }
 
-      const localDay = this.getLocalDayKey(now, ent.timezone);
+      const localDay = this.usagePeriodKey(ent.sourceType, now, ent.timezone);
       const dailyUsed = dailyUsageByEntitlementDay.get(`${ent.id}:${localDay}`) ?? 0;
       const remDaily = Math.max(0, entDailyLimit - dailyUsed);
       usedDaily += dailyUsed;
@@ -1288,7 +1290,7 @@ export class AccessService {
       if (isFreeDaily) free = this.toFreeDailyStatus(entDailyLimit, dailyUsed, ent.timezone, now);
       if (remDaily === 0) {
         anyDailyBlocked = true;
-        const next = this.getNextLocalMidnightUtc(now, ent.timezone);
+        const next = this.usagePeriodResetAt(ent.sourceType, now, ent.timezone);
         if (!nearestReset || next < nearestReset) nearestReset = next;
       }
       if ((remTotal == null || remTotal > 0) && remDaily > 0) {
@@ -1386,7 +1388,7 @@ export class AccessService {
       tx,
       sorted
         .filter((ent) => this.entitlementDailyLimit(ent) != null)
-        .map((ent) => ({ entitlementId: ent.id, localDay: this.getLocalDayKey(now, ent.timezone) })),
+        .map((ent) => ({ entitlementId: ent.id, localDay: this.usagePeriodKey(ent.sourceType, now, ent.timezone) })),
     );
 
     let hasDailyBlocked = false;
@@ -1401,14 +1403,14 @@ export class AccessService {
         hasTotalExhausted = true;
         continue;
       }
-      const localDay = this.getLocalDayKey(now, ent.timezone);
+      const localDay = this.usagePeriodKey(ent.sourceType, now, ent.timezone);
       let remToday: number | null = null;
       let nextResetAt: Date | null = null;
       const dailyAttemptsLimit = this.entitlementDailyLimit(ent);
       if (dailyAttemptsLimit != null) {
         const used = dailyUsageByEntitlementDay.get(`${ent.id}:${localDay}`) ?? 0;
         remToday = Math.max(0, dailyAttemptsLimit - used);
-        nextResetAt = this.getNextLocalMidnightUtc(now, ent.timezone);
+        nextResetAt = this.usagePeriodResetAt(ent.sourceType, now, ent.timezone);
         if (remToday <= 0) {
           hasDailyBlocked = true;
           if (!nearestReset || nextResetAt < nearestReset) nearestReset = nextResetAt;
@@ -1507,6 +1509,32 @@ export class AccessService {
     }
   }
 
+  /** Бесплатная квота считается за неделю, если так настроено в админке; остальное — по дням. */
+  private isWeeklyPeriod(sourceType: EntitlementSourceType): boolean {
+    return sourceType === FREE_DAILY_SOURCE && this.monetization.freeTierPeriodDays() === 7;
+  }
+
+  /**
+   * Ключ строки учёта (`user_exam_daily_usage.local_day`): дата дня, а при недельном периоде —
+   * дата понедельника этой недели по часовому поясу пользователя.
+   */
+  private usagePeriodKey(sourceType: EntitlementSourceType, date: Date, timezone: string): string {
+    const day = this.getLocalDayKey(date, timezone);
+    if (!this.isWeeklyPeriod(sourceType)) return day;
+    const [y, m, d] = day.split('-').map(Number);
+    const local = new Date(Date.UTC(y, m - 1, d));
+    local.setUTCDate(d - ((local.getUTCDay() + 6) % 7));
+    return local.toISOString().slice(0, 10);
+  }
+
+  /** Когда квота обновится: следующая полночь, при недельном периоде — полночь на понедельник. */
+  private usagePeriodResetAt(sourceType: EntitlementSourceType, date: Date, timezone: string): Date {
+    if (!this.isWeeklyPeriod(sourceType)) return this.getNextLocalMidnightUtc(date, timezone);
+    const [y, m, d] = this.getLocalDayKey(date, timezone).split('-').map(Number);
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    return this.getNextLocalMidnightUtc(date, timezone, 7 - ((dow + 6) % 7));
+  }
+
   private getLocalDayKey(date: Date, timezone: string): string {
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone: timezone,
@@ -1518,7 +1546,8 @@ export class AccessService {
     return `${get('year')}-${get('month')}-${get('day')}`;
   }
 
-  private getNextLocalMidnightUtc(date: Date, timezone: string): Date {
+  /** Полночь через `daysAhead` дней после сегодняшнего (по умолчанию — ближайшая). */
+  private getNextLocalMidnightUtc(date: Date, timezone: string, daysAhead = 1): Date {
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone: timezone,
       year: 'numeric',
@@ -1529,7 +1558,7 @@ export class AccessService {
     const m = Number(parts.find((p) => p.type === 'month')?.value);
     const d = Number(parts.find((p) => p.type === 'day')?.value);
 
-    const nextDayUtcGuess = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0));
+    const nextDayUtcGuess = new Date(Date.UTC(y, m - 1, d + daysAhead, 0, 0, 0));
     const offset1 = this.getOffsetMs(nextDayUtcGuess, timezone);
     const firstPass = new Date(nextDayUtcGuess.getTime() - offset1);
     const offset2 = this.getOffsetMs(firstPass, timezone);

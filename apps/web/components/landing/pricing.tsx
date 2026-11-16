@@ -84,7 +84,7 @@ export function Pricing() {
             <span className="font-serif italic font-normal">поднимает балл.</span>
           </h2>
           <p className="mt-5 text-pretty text-base leading-relaxed text-muted-foreground">
-            Полный пробный ЕНТ можно сдавать бесплатно каждый день. Тариф открывает разбор каждой
+            Полный пробный ЕНТ можно сдавать бесплатно, без карты. Тариф открывает разбор каждой
             ошибки, тренировку слабых тем и AI-план — всё, чтобы добрать баллы до гранта.
           </p>
         </Reveal>
@@ -97,7 +97,7 @@ export function Pricing() {
                 <Gift className="h-5 w-5 text-accent" aria-hidden="true" />
               </div>
               <div>
-                <p className="font-semibold text-foreground">Пробный ЕНТ бесплатно — каждый день</p>
+                <p className="font-semibold text-foreground">Пробный ЕНТ бесплатно — без карты</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Полный тест в реальном формате · 120 заданий · таймер · балл по предметам и шанс на грант. Без карты и оплаты.
                 </p>

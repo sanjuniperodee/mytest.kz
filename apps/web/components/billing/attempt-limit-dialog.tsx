@@ -18,6 +18,7 @@ import type { AccessReasonCode } from "@/lib/api/types"
 import { useUiI18n } from "@/lib/i18n/ui"
 import { cn } from "@/lib/utils"
 import { formatResetMoment, formatWait, useCountdown } from "./free-reset"
+import { ParentPayShare } from "./parent-pay-share"
 
 export interface AttemptDenial {
   reason: Exclude<AccessReasonCode, null>
@@ -65,6 +66,13 @@ export function AttemptLimitDialog({
   const freeAgain = isDaily && secondsLeft === 0
   const freeDaily = config?.freeTier.enabled ? config.freeTier.dailyEntAttempts : 0
   const price = cheapestPlanPrice(config)
+  const weekly = config?.freeTier.periodDays === 7
+  // Самый дешёвый тариф — его и предлагаем оплатить родителю; на странице оплаты он может выбрать другой.
+  const parentPlan =
+    config?.plans
+      .filter((plan) => plan.priceKzt > 0)
+      .reduce<(typeof config.plans)[number] | null>((min, plan) => (!min || plan.priceKzt < min.priceKzt ? plan : min), null) ??
+    null
   const loggedFor = useRef<string | null>(null)
 
   useEffect(() => {
@@ -101,17 +109,24 @@ export function AttemptLimitDialog({
             {freeAgain
               ? t("Бесплатная попытка снова доступна", "Тегін әрекет қайта қолжетімді")
               : isDaily
-                ? t("Бесплатный ЕНТ на сегодня пройден", "Бүгінгі тегін ҰБТ тапсырылды")
+                ? weekly
+                  ? t("Бесплатный ЕНТ на этой неделе пройден", "Осы аптадағы тегін ҰБТ тапсырылды")
+                  : t("Бесплатный ЕНТ на сегодня пройден", "Бүгінгі тегін ҰБТ тапсырылды")
                 : t("Попытки закончились", "Әрекеттер таусылды")}
           </DialogTitle>
           <DialogDescription className="max-w-md">
             {freeAgain
               ? t("Можно начинать новый пробный прямо сейчас.", "Жаңа сынақты қазір бастауға болады.")
               : isDaily
-                ? t(
-                    `Каждый день — ${freeDaily || 1} бесплатный пробный ЕНТ. Подождите до следующего или продолжайте без ожидания с подпиской.`,
-                    `Күн сайын — ${freeDaily || 1} тегін ҰБТ сынағы. Келесісін күтіңіз немесе жазылыммен күтпей жалғастырыңыз.`,
-                  )
+                ? weekly
+                  ? t(
+                      `Бесплатно — ${freeDaily || 1} пробный ЕНТ в неделю. Подождите до следующего или продолжайте без ожидания с подпиской.`,
+                      `Тегін — аптасына ${freeDaily || 1} ҰБТ сынағы. Келесісін күтіңіз немесе жазылыммен күтпей жалғастырыңыз.`,
+                    )
+                  : t(
+                      `Каждый день — ${freeDaily || 1} бесплатный пробный ЕНТ. Подождите до следующего или продолжайте без ожидания с подпиской.`,
+                      `Күн сайын — ${freeDaily || 1} тегін ҰБТ сынағы. Келесісін күтіңіз немесе жазылыммен күтпей жалғастырыңыз.`,
+                    )
                 : t(
                     "Чтобы пройти пробный ЕНТ, оформите подписку.",
                     "ҰБТ сынағын тапсыру үшін жазылым рәсімдеңіз.",
@@ -150,7 +165,9 @@ export function AttemptLimitDialog({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {resetAt
                     ? t(`Откроется ${resetAt}`, `Ашылады: ${resetAt}`)
-                    : t("Откроется завтра", "Ертең ашылады")}
+                    : weekly
+                      ? t("Откроется в понедельник", "Дүйсенбіде ашылады")
+                      : t("Откроется завтра", "Ертең ашылады")}
                 </p>
                 <div className="mt-auto pt-4">
                   <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
@@ -187,6 +204,23 @@ export function AttemptLimitDialog({
                   </Link>
                 </Button>
               </div>
+              {parentPlan && (
+                <div className="mt-4 border-t border-primary/20 pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "Нет Kaspi? Отправь родителю ссылку — он оплатит со своего телефона без регистрации.",
+                      "Kaspi жоқ па? Ата-анаңа сілтеме жібер — ол тіркелмей-ақ өз телефонынан төлейді.",
+                    )}
+                  </p>
+                  <ParentPayShare
+                    planId={parentPlan.id}
+                    planName={parentPlan.name}
+                    amountLabel={`${parentPlan.priceKzt.toLocaleString("ru-RU")} ₸`}
+                    placement="attempt_limit"
+                    className="mt-2"
+                  />
+                </div>
+              )}
             </section>
           </div>
         )}

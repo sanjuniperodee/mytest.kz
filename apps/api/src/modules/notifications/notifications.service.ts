@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { EntitlementStatus, EntitlementTier, Prisma } from '@prisma/client';
 import Redis from 'ioredis';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { freeDailyEntAttempts } from '@bilimland/shared';
+import { freeDailyEntAttempts, freeTierPeriodDays } from '@bilimland/shared';
 import { PrismaService } from '../../database/prisma.service';
 import { REDIS_CLIENT } from '../../database/redis.module';
 import { TelegramBotService } from '../telegram/telegram-bot.service';
@@ -1084,7 +1084,10 @@ export class NotificationsService {
       }));
   }
 
-  /** Took an ENT in the last 14 days, not today, free tier on: «today's free ENT is available». */
+  /**
+   * Took an ENT in the last 14 days, none in the current free period (today, or this week when the
+   * free tier is weekly), free tier on: «the free ENT is available again».
+   */
   private async getFreeEntAvailableCandidates(
     definition: NotificationCampaignDefinition,
     now: Date,
@@ -1093,7 +1096,11 @@ export class NotificationsService {
     const config = await this.monetization.getConfig();
     if (freeDailyEntAttempts(config) <= 0) return [];
     const dayStart = this.zonedDayStart(now, ALMATY);
-    const day = new Intl.DateTimeFormat('en-CA', { timeZone: ALMATY }).format(now);
+    const weekly = freeTierPeriodDays(config) === 7;
+    // Almaty has no DST, so the week starts a whole number of days before today's midnight.
+    const weekday = (new Date(Date.UTC(...this.almatyYmd(now))).getUTCDay() + 6) % 7;
+    const periodStart = weekly ? this.addHours(dayStart, -24 * weekday) : dayStart;
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: ALMATY }).format(periodStart);
     const users = await this.prisma.user.findMany({
       where: {
         AND: [
@@ -1105,10 +1112,10 @@ export class NotificationsService {
               some: { examType: { slug: 'ent' }, startedAt: { gte: this.addHours(now, -14 * 24) } },
             },
           },
-          { testSessions: { none: { startedAt: { gte: dayStart } } } },
+          { testSessions: { none: { startedAt: { gte: periodStart } } } },
           {
             notificationDeliveries: {
-              none: { campaignKey: 'free_ent_available', attemptedAt: { gte: dayStart } },
+              none: { campaignKey: 'free_ent_available', attemptedAt: { gte: periodStart } },
             },
           },
         ],
@@ -1122,6 +1129,12 @@ export class NotificationsService {
       user,
       dedupeKey: `free_ent_available:${user.id}:${day}`,
     }));
+  }
+
+  /** Calendar date in Almaty as [year, monthIndex, day]. */
+  private almatyYmd(now: Date): [number, number, number] {
+    const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: ALMATY }).format(now).split('-').map(Number);
+    return [y, m - 1, d];
   }
 
   private async getChannelGateCandidates(

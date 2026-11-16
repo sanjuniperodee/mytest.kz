@@ -89,9 +89,17 @@ export interface MonetizationPlan {
 
 export interface MonetizationFreeTier {
   enabled: boolean;
-  /** Бесплатных полных пробных ЕНТ в день на пользователя (сброс в полночь по его часовому поясу). */
+  /**
+   * Бесплатных полных пробных ЕНТ за период на пользователя (название поля историческое).
+   * Период — `periodDays`: 1 — сутки (сброс в полночь по часовому поясу пользователя),
+   * 7 — календарная неделя (сброс в полночь на понедельник).
+   */
   dailyEntAttempts: number;
+  periodDays: FreeTierPeriodDays;
 }
+
+export const FREE_TIER_PERIOD_DAYS = [1, 7] as const;
+export type FreeTierPeriodDays = (typeof FREE_TIER_PERIOD_DAYS)[number];
 
 export interface MonetizationAds {
   enabled: boolean;
@@ -239,7 +247,7 @@ export const DEFAULT_MONETIZATION_PLANS: MonetizationPlan[] = [
 export const SEASON_PLAN_CODE = 'season';
 
 export const DEFAULT_MONETIZATION_CONFIG: MonetizationConfig = {
-  freeTier: { enabled: true, dailyEntAttempts: 1 },
+  freeTier: { enabled: true, dailyEntAttempts: 1, periodDays: 1 },
   premiumFeatures: {
     aiCoach: true,
     explanations: true,
@@ -366,6 +374,7 @@ export function normalizeMonetizationConfig(raw: unknown): MonetizationConfig {
     freeTier: {
       enabled: bool(free.enabled, d.freeTier.enabled),
       dailyEntAttempts: int(free.dailyEntAttempts, d.freeTier.dailyEntAttempts),
+      periodDays: free.periodDays === 7 ? 7 : free.periodDays === 1 ? 1 : d.freeTier.periodDays,
     },
     premiumFeatures: Object.fromEntries(
       PREMIUM_FEATURE_KEYS.map((key) => [key, bool(features[key], d.premiumFeatures[key])]),
@@ -429,7 +438,10 @@ export function validateMonetizationConfig(
 
   const daily = config.freeTier.dailyEntAttempts;
   if (!Number.isInteger(daily) || daily < 0 || daily > FREE_DAILY_ATTEMPTS_MAX) {
-    add('freeTier.dailyEntAttempts', `От 0 до ${FREE_DAILY_ATTEMPTS_MAX} попыток в день`);
+    add('freeTier.dailyEntAttempts', `От 0 до ${FREE_DAILY_ATTEMPTS_MAX} попыток за период`);
+  }
+  if (!(FREE_TIER_PERIOD_DAYS as readonly number[]).includes(config.freeTier.periodDays)) {
+    add('freeTier.periodDays', 'Период: день или неделя');
   }
 
   if (config.plans.length > 12) add('plans', 'Не больше 12 тарифов');
@@ -463,9 +475,14 @@ export function isFreeTierActive(config: Pick<MonetizationConfig, 'freeTier'>): 
   return config.freeTier.enabled && config.freeTier.dailyEntAttempts > 0;
 }
 
-/** Бесплатных ЕНТ в день с учётом выключателя (0 — бесплатного доступа нет). */
+/** Бесплатных ЕНТ за период с учётом выключателя (0 — бесплатного доступа нет). */
 export function freeDailyEntAttempts(config: Pick<MonetizationConfig, 'freeTier'>): number {
   return isFreeTierActive(config) ? config.freeTier.dailyEntAttempts : 0;
+}
+
+/** Длина периода бесплатной квоты в днях: 1 — сутки, 7 — неделя. */
+export function freeTierPeriodDays(config: Pick<MonetizationConfig, 'freeTier'>): FreeTierPeriodDays {
+  return config.freeTier.periodDays === 7 ? 7 : 1;
 }
 
 export function pickText(value: LocalizedText | null | undefined, lang: string): string {
@@ -495,7 +512,7 @@ export function toPublicMonetizationConfig(
 ): PublicMonetizationConfig {
   const daily = freeDailyEntAttempts(config);
   return {
-    freeTier: { enabled: daily > 0, dailyEntAttempts: daily },
+    freeTier: { enabled: daily > 0, dailyEntAttempts: daily, periodDays: freeTierPeriodDays(config) },
     premiumFeatures: { ...config.premiumFeatures },
     plans: config.plans.filter((plan) => plan.isActive).map((plan) => toBillingPlanDto(plan, lang)),
     ads: {

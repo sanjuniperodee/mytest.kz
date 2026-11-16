@@ -32,7 +32,7 @@ export function ParentPayShare({
   planName: string
   /** Сумма с валютой, как её видит ученик: «2 990 ₸». */
   amountLabel: string
-  placement: "billing_modal" | "kaspi_page"
+  placement: "billing_modal" | "kaspi_page" | "attempt_limit"
   invoiceId?: string | null
   /** Счёт уже ушёл на номер родителя — в сообщении говорим и про счёт, и про ссылку. */
   invoiceSent?: boolean

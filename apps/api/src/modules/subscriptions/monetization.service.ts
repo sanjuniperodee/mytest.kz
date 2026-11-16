@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import {
   freeDailyEntAttempts,
+  freeTierPeriodDays,
   normalizeMonetizationConfig,
   parsePlanSnapshot,
   toPlanSnapshot,
@@ -86,6 +87,11 @@ export class MonetizationService implements OnModuleInit {
   /** Сколько бесплатных ЕНТ в день сейчас положено (0 — бесплатный доступ выключен). */
   freeDailyEntAttempts(): number {
     return freeDailyEntAttempts(this.cached);
+  }
+
+  /** Период бесплатной квоты в днях: 1 — сутки, 7 — календарная неделя. */
+  freeTierPeriodDays(): 1 | 7 {
+    return freeTierPeriodDays(this.cached);
   }
 
   /** true — функция открыта только по подписке. */

@@ -68,10 +68,10 @@ export default function DashboardHomePage() {
     text: t(`В работе ${openMistakes} ошибок. Начните с одной темы и закрепите её тренировкой.`, `Қателер саны: ${openMistakes}. Бір тақырыптан бастап, жаттығумен бекітіңіз.`),
     label: t("Работать над ошибками", "Қателермен жұмыс істеу"), href: "/dashboard/mistakes",
   } : dailyLimit ? {
-    kind: "daily-limit", title: t("Бесплатный ЕНТ на сегодня пройден", "Бүгінгі тегін ҰБТ тапсырылды"),
+    kind: "daily-limit", title: t("Бесплатный ЕНТ пройден", "Тегін ҰБТ тапсырылды"),
     text: nextFreeAt
-      ? t(`Следующий бесплатный пробный откроется ${nextFreeAt}. Не хотите ждать — с подпиской можно продолжить уже сегодня.`, `Келесі тегін сынақ ашылады: ${nextFreeAt}. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз.`)
-      : t("Новый бесплатный пробный откроется завтра. Не хотите ждать — с подпиской можно продолжить уже сегодня.", "Жаңа тегін сынақ ертең ашылады. Күткіңіз келмесе — жазылыммен бүгін-ақ жалғастыра аласыз."),
+      ? t(`Следующий бесплатный пробный откроется ${nextFreeAt}. Не хотите ждать — с подпиской можно продолжить прямо сейчас.`, `Келесі тегін сынақ ашылады: ${nextFreeAt}. Күткіңіз келмесе — жазылыммен дәл қазір жалғастыра аласыз.`)
+      : t("Новый бесплатный пробный откроется позже. Не хотите ждать — с подпиской можно продолжить прямо сейчас.", "Жаңа тегін сынақ кейінірек ашылады. Күткіңіз келмесе — жазылыммен дәл қазір жалғастыра аласыз."),
     label: t("Продолжить без ожидания", "Күтпей жалғастыру"), href: "/dashboard/billing?reason=daily_limit",
   } : needsAccess ? {
     kind: "access", title: t("Выберите доступ к следующему пробному", "Келесі сынаққа қолжетімділікті таңдаңыз"),
@@ -117,7 +117,7 @@ export default function DashboardHomePage() {
           <p className="mt-1 break-words font-semibold">{tariff}</p>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("Попыток осталось", "Қалған әрекеттер")}</dt><dd className="text-right font-medium tabular-nums">{remaining}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("Можно сегодня", "Бүгін қолжетімді")}</dt><dd className="text-right font-medium tabular-nums">{today}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("Можно сейчас", "Қазір қолжетімді")}</dt><dd className="text-right font-medium tabular-nums">{today}</dd></div>
           </dl>
           <Link href="/dashboard/billing" className="mt-4 inline-flex min-h-9 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline">{t("Управлять доступом", "Қолжетімділікті басқару")}<ArrowRight className="size-3" /></Link>
         </div>

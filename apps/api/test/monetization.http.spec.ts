@@ -31,7 +31,7 @@ describe('monetization config contract', () => {
     });
     // В продаже только три срока; пакеты попыток сняты, но остаются для купивших.
     expect(defaults.plans.filter((p) => p.isActive).map((p) => p.code)).toEqual(['starter', 'premium', 'season']);
-    expect(defaults.freeTier).toEqual({ enabled: true, dailyEntAttempts: 1 });
+    expect(defaults.freeTier).toEqual({ enabled: true, dailyEntAttempts: 1, periodDays: 1 });
     expect(defaults.premiumFeatures.aiCoach).toBe(true);
     expect(validateMonetizationConfig(defaults)).toEqual([]);
   });

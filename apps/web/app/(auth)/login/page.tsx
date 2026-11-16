@@ -54,7 +54,7 @@ function LoginContent() {
       <div className="stagger flex flex-col gap-4 md:pr-4">
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold text-accent">
           <Gift className="size-3.5" />
-          Пробный ЕНТ бесплатно каждый день · без карты
+          Пробный ЕНТ бесплатно · без карты
         </span>
         <h1 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl">
           {fromDiagnostic ? (

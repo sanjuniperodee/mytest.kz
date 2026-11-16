@@ -12,7 +12,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-test.kz"
 export const metadata: Metadata = {
   title: "Тегін ҰБТ онлайн 2027 — ҰБТ-ға дайындық",
   description:
-    "Тегін ҰБТ сынақ тапсыру. 120 тапсырма, 240 минут, нақты ҰБТ 2027 форматы. Сынақ күн сайын тегін. Қателерді талдау, статистика my-test.kz-де.",
+    "Тегін ҰБТ сынақ тапсыру. 120 тапсырма, 240 минут, нақты ҰБТ 2027 форматы. Сынақ картасыз тегін. Қателерді талдау, статистика my-test.kz-де.",
   keywords: [
     "тегін ҰБТ",
     "ҰБТ дайындық",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Тегін ҰБТ онлайн — my-test.kz",
-    description: "ҰБТ сынағы күн сайын тегін. 120 тапсырма, нақты формат, қателерді талдау.",
+    description: "ҰБТ сынағы тегін — картасыз. 120 тапсырма, нақты формат, қателерді талдау.",
     url: `${siteUrl}/uat`,
     locale: "kk_KZ",
     siteName: "mytest",

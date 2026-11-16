@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteUrl}/podgotovka-k-ent` },
   openGraph: {
     title: "Подготовка к ЕНТ 2027 онлайн — my-test.kz",
-    description: "Пробные ЕНТ, разбор ошибок, проходные баллы. Пробный ЕНТ бесплатно каждый день.",
+    description: "Пробные ЕНТ, разбор ошибок, проходные баллы. Пробный ЕНТ бесплатно — без карты.",
     url: `${siteUrl}/podgotovka-k-ent`,
     siteName: "mytest",
     images: OG_IMAGES,

@@ -11,7 +11,7 @@ export function PromoBar() {
 
   if (campaign && !campaign.enabled) return null
 
-  const title = campaign?.title || "Пробный ЕНТ бесплатно каждый день"
+  const title = campaign?.title || "Пробный ЕНТ бесплатно — без карты"
   const eyebrow = campaign?.eyebrow || "Подготовка к ЕНТ 2027"
   const href = campaign?.ctaHref || loginHref(START_ENT_PATH, "campaign")
   const ctaLabel = campaign?.ctaLabel || "Начать"

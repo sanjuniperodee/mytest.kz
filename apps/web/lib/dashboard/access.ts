@@ -22,8 +22,8 @@ export function examAccessStatus(
   )
   if (access?.free && !paidAvailable) {
     return access.free.remainingToday > 0
-      ? { label: `Бесплатно сегодня ${access.free.remainingToday}/${access.free.dailyLimit}`, tone: "ok" }
-      : { label: "Бесплатный — завтра", tone: "limit" }
+      ? { label: `Бесплатно ${access.free.remainingToday}/${access.free.dailyLimit}`, tone: "ok" }
+      : { label: "Бесплатный пройден", tone: "limit" }
   }
 
   if (access?.hasAccess) {

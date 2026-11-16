@@ -10,6 +10,7 @@ import {
   Input,
   InputNumber,
   Popconfirm,
+  Segmented,
   Skeleton,
   Space,
   Switch,
@@ -597,7 +598,7 @@ export function MonetizationPage() {
               <h2>
                 <GiftOutlined /> Бесплатный доступ
               </h2>
-              <p>Сколько полных пробных ЕНТ в день ученик проходит без оплаты.</p>
+              <p>Сколько полных пробных ЕНТ ученик проходит без оплаты — в день или в неделю.</p>
             </header>
             <div className="pg-money__row">
               <div>
@@ -613,9 +614,13 @@ export function MonetizationPage() {
             </div>
             <div className="pg-money__row">
               <div>
-                <div className="pg-money__row-title">ЕНТ в день</div>
+                <div className="pg-money__row-title">
+                  ЕНТ {draft.freeTier.periodDays === 7 ? 'в неделю' : 'в день'}
+                </div>
                 <div className="pg-money__row-desc">
-                  Обновляется в 00:00 по часовому поясу ученика (по умолчанию Алматы).
+                  {draft.freeTier.periodDays === 7
+                    ? 'Обновляется в 00:00 в понедельник по часовому поясу ученика (по умолчанию Алматы).'
+                    : 'Обновляется в 00:00 по часовому поясу ученика (по умолчанию Алматы).'}
                 </div>
                 <FieldError text={errorAt('freeTier.dailyEntAttempts')} />
               </div>
@@ -628,6 +633,29 @@ export function MonetizationPage() {
                   update((cfg) => ({
                     ...cfg,
                     freeTier: { ...cfg.freeTier, dailyEntAttempts: Number(v ?? 0) },
+                  }))
+                }
+              />
+            </div>
+            <div className="pg-money__row">
+              <div>
+                <div className="pg-money__row-title">Период</div>
+                <div className="pg-money__row-desc">
+                  Неделя — меньше бесплатного, больше поводов купить. Тексты на сайте подстраиваются сами.
+                </div>
+                <FieldError text={errorAt('freeTier.periodDays')} />
+              </div>
+              <Segmented
+                disabled={!draft.freeTier.enabled}
+                value={draft.freeTier.periodDays}
+                options={[
+                  { label: 'День', value: 1 },
+                  { label: 'Неделя', value: 7 },
+                ]}
+                onChange={(v) =>
+                  update((cfg) => ({
+                    ...cfg,
+                    freeTier: { ...cfg.freeTier, periodDays: v === 7 ? 7 : 1 },
                   }))
                 }
               />
