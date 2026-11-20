@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SSH_KEY=${SSH_KEY:-$HOME/.ssh/bilimland-prod/ssh-key-1778196525864}
-PROD_HOST=${PROD_HOST:-sanjuniperodee@94.131.93.92}
+PROD_HOST=${PROD_HOST:-srv@185.102.75.191}
 
 read -rsp "Resend API key (re_...): " K
 echo

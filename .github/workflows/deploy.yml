@@ -30,19 +30,19 @@ jobs:
       # пути, что на сервере, чтобы пути внутри .next совпадали.
       - name: Папка как на сервере
         run: |
-          sudo mkdir -p /home/sanjuniperodee
-          sudo chown "$USER" /home/sanjuniperodee
-          cp -a "$GITHUB_WORKSPACE" /home/sanjuniperodee/bilimland
+          sudo mkdir -p /home/srv
+          sudo chown "$USER" /home/srv
+          cp -a "$GITHUB_WORKSPACE" /home/srv/bilimland
 
       - name: Зависимости
-        working-directory: /home/sanjuniperodee/bilimland
+        working-directory: /home/srv/bilimland
         run: npm ci --no-audit --no-fund
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
       # Публичные настройки сайта: Next вшивает NEXT_PUBLIC_* в код при сборке (на сервере — apps/web/.env.production).
       - name: Сборка сайта и API
-        working-directory: /home/sanjuniperodee/bilimland
+        working-directory: /home/srv/bilimland
         run: |
           cat > apps/web/.env.production <<'ENV'
           NEXT_PUBLIC_SITE_URL=https://my-test.kz
@@ -55,7 +55,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
 
       - name: Архив
-        working-directory: /home/sanjuniperodee/bilimland
+        working-directory: /home/srv/bilimland
         run: |
           mkdir -p out
           cp -a apps/web/.next out/web-next
@@ -70,7 +70,7 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
-          echo "94.131.93.92 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBvZzOPdHhSf2YhAKy29oLAp8C1uWReP6NovOUcB5+ye" >> ~/.ssh/known_hosts
+          echo "185.102.75.191 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ4SUaV/VVBBJ7DtvZ5lJKL2UWNlQGcivWEa3hNEiZk9" >> ~/.ssh/known_hosts
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 
