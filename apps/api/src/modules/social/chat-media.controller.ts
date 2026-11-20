@@ -49,8 +49,6 @@ export class ChatMediaController {
       "Content-Disposition",
       `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
     );
-    res.sendFile(file.path, (err) => {
-      if (err && !res.headersSent) res.status(404).end();
-    });
+    res.end(file.data);
   }
 }

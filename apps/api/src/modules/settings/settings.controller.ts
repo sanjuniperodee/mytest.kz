@@ -1,3 +1,4 @@
+import { moveToS3 } from '../../common/files/object-storage';
 import {
   BadRequestException,
   Body,
@@ -89,6 +90,7 @@ export class SettingsController {
       }
       throw new BadRequestException('Файл не похож на допустимое изображение');
     }
+    await moveToS3(`uploads/${LANDING_IMAGE_SUBDIR}/${file.filename}`, fullPath);
     const url = `/uploads/${LANDING_IMAGE_SUBDIR}/${file.filename}`;
     return { url };
   }

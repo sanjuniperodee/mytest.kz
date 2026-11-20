@@ -1,3 +1,4 @@
+import { removeFromS3 } from "../../common/files/object-storage";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import {
   EntitlementSourceType,
@@ -540,6 +541,7 @@ export class UsersService {
     const uploadRoot = join(process.cwd(), "uploads");
     const fullPath = normalize(join(uploadRoot, relative));
     if (!fullPath.startsWith(`${normalize(uploadRoot)}${sep}`)) return;
+    void removeFromS3(`uploads/${relative}`);
     try {
       if (existsSync(fullPath)) unlinkSync(fullPath);
     } catch {
