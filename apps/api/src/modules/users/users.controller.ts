@@ -1,3 +1,4 @@
+import { moveToS3 } from "../../common/files/object-storage";
 import {
   BadRequestException,
   Body,
@@ -111,6 +112,7 @@ export class UsersController {
       }
       throw new BadRequestException("Файл не похож на допустимое изображение");
     }
+    await moveToS3(`uploads/${AVATAR_IMAGE_SUBDIR}/${file.filename}`, fullPath);
     const avatarUrl = `/uploads/${AVATAR_IMAGE_SUBDIR}/${file.filename}`;
     return this.usersService.updateProfile(userId, { avatarUrl });
   }

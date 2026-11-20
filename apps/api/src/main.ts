@@ -9,6 +9,8 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { I18nInterceptor } from './common/interceptors/i18n.interceptor';
 import { configureTrustProxy } from './common/http/trust-proxy';
+import { mimeOf, objectStorage } from './common/files/object-storage';
+import { readFile, unlink } from 'fs/promises';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -43,6 +45,37 @@ async function bootstrap() {
       crossOriginResourcePolicy: false,
     }),
   );
+  // С S3 файлы /uploads/… хранятся только в бакете и отдаются оттуда. Старый файл, оставшийся на диске с переезда,
+  // при первом запросе уезжает в бакет и удаляется с диска. Без S3 — статика с диска, как раньше.
+  app.use('/uploads/', (req: Request, res: Response, next: NextFunction) => {
+    const s3 = objectStorage();
+    if (!s3 || (req.method !== 'GET' && req.method !== 'HEAD')) return next();
+    let rel: string;
+    try {
+      rel = decodeURIComponent(req.path).replace(/^\/+/, '');
+    } catch {
+      return next();
+    }
+    const full = join(uploadRoot, rel);
+    if (!rel || rel.includes('..') || !full.startsWith(uploadRoot + '/')) return next();
+    const key = `uploads/${rel}`;
+    void (async () => {
+      let data = await s3.get(key);
+      if (!data && existsSync(full)) {
+        data = await readFile(full);
+        await s3.put(key, data);
+        await unlink(full).catch(() => {});
+      }
+      if (!data) return next();
+      res.setHeader('Content-Type', mimeOf(rel));
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Content-Length', String(data.length));
+      res.end(req.method === 'HEAD' ? undefined : data);
+    })().catch((err: Error) => {
+      logger.warn(`S3: ${key}: ${err.message}`);
+      next();
+    });
+  });
   app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
   app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/pub/' });

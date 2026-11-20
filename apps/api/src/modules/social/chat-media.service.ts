@@ -93,6 +93,8 @@ export class ChatMediaService {
         throw new NotFoundException();
     }
 
-    return { ...file, path: this.files.path(id) };
+    const data = await this.files.read(id);
+    if (!data) throw new NotFoundException();
+    return { ...file, data };
   }
 }
